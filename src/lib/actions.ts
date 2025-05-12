@@ -23,6 +23,7 @@ export async function getGameDetails(gameId: string): Promise<BoardGame | null> 
 }
 
 const reviewSchema = z.object({
+  author: z.string().min(2, "Name must be at least 2 characters.").max(50, "Name cannot exceed 50 characters."),
   feeling: z.coerce.number().min(1, "Rating is required").max(5),
   gameDesign: z.coerce.number().min(1, "Rating is required").max(5),
   presentation: z.coerce.number().min(1, "Rating is required").max(5),
@@ -37,6 +38,7 @@ export async function submitNewReviewAction(
 ): Promise<{ message: string; errors?: Record<string, string[]>; success: boolean }> {
   
   const rawData = {
+    author: formData.get('author'),
     feeling: formData.get('feeling'),
     gameDesign: formData.get('gameDesign'),
     presentation: formData.get('presentation'),
@@ -54,11 +56,11 @@ export async function submitNewReviewAction(
     };
   }
 
-  const { feeling, gameDesign, presentation, management, comment } = validatedFields.data;
+  const { author, feeling, gameDesign, presentation, management, comment } = validatedFields.data;
 
   const rating: Rating = { feeling, gameDesign, presentation, management };
   
-  const newReviewData = { rating, comment };
+  const newReviewData = { rating, comment, author }; // Add author here
   const addedReview = addReviewToMockGame(gameId, newReviewData);
 
   if (addedReview) {

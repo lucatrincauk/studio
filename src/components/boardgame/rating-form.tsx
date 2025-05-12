@@ -1,3 +1,4 @@
+// src/components/boardgame/rating-form.tsx
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -13,6 +14,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { StarRating } from './star-rating';
 import type { RatingCategory } from '@/lib/types';
@@ -23,6 +25,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 
 const formSchema = z.object({
+  author: z.string().min(2, "Name must be at least 2 characters.").max(50, "Name cannot exceed 50 characters."),
   feeling: z.number().min(1, "Rating is required").max(5),
   gameDesign: z.number().min(1, "Rating is required").max(5),
   presentation: z.number().min(1, "Rating is required").max(5),
@@ -50,6 +53,7 @@ export function RatingForm({ gameId }: RatingFormProps) {
   const form = useForm<RatingFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      author: '',
       feeling: 0,
       gameDesign: 0,
       presentation: 0,
@@ -68,6 +72,7 @@ export function RatingForm({ gameId }: RatingFormProps) {
           description: state.message,
         });
         form.reset({ // Reset with default values
+          author: '',
           feeling: 0,
           gameDesign: 0,
           presentation: 0,
@@ -107,6 +112,25 @@ export function RatingForm({ gameId }: RatingFormProps) {
         className="space-y-6 p-6 border border-border rounded-lg shadow-md bg-card"
       >
         <h3 className="text-xl font-semibold text-foreground">Rate this Game</h3>
+        
+        <FormField
+          control={form.control}
+          name="author"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-base font-medium">Your Name</FormLabel>
+              <FormControl>
+                <Input 
+                  placeholder="Enter your name" 
+                  {...field} 
+                  className="bg-background focus:ring-primary"
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
         {ratingCategories.map((category) => (
           <FormField
             key={category}

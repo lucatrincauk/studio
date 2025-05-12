@@ -1,4 +1,4 @@
-import type { BoardGame, Review } from '@/lib/types';
+import type { BoardGame, Review, Rating } from '@/lib/types';
 
 const today = new Date().toISOString();
 
@@ -56,14 +56,13 @@ export let mockGames: BoardGame[] = [
 ];
 
 // Function to add a review (simulates DB update)
-export const addReviewToMockGame = (gameId: string, review: Omit<Review, 'id' | 'date' | 'author'>): Review | null => {
+export const addReviewToMockGame = (gameId: string, reviewData: { rating: Rating; comment: string; author: string }): Review | null => {
   const gameIndex = mockGames.findIndex(g => g.id === gameId);
   if (gameIndex !== -1) {
     const newReview: Review = {
-      ...review,
+      ...reviewData,
       id: `review${Date.now()}-${gameId}`,
       date: new Date().toISOString(),
-      author: 'Current User', // Placeholder for actual user
     };
     // Ensure the reviews array exists
     if (!mockGames[gameIndex].reviews) {
