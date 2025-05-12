@@ -1,10 +1,174 @@
+
 'use server';
 
 import { revalidatePath } from 'next/cache';
 import { summarizeReviews } from '@/ai/flows/summarize-reviews';
 import { mockGames, addReviewToMockGame, mockReviews as allMockReviews } from '@/data/mock-games';
-import type { BoardGame, Review, Rating, AiSummary, SummarizeReviewsInput } from './types';
+import type { BoardGame, Review, Rating, AiSummary, SummarizeReviewsInput, BggSearchResult } from './types';
 import { z } from 'zod';
+
+// Helper to decode HTML entities commonly found in BGG data
+function decodeHtmlEntities(text: string): string {
+  if (!text) return "";
+  // First, replace common named entities
+  let decoded = text
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&nbsp;/g, ' ');
+
+  // Then, replace numerical entities (decimal and hex)
+  decoded = decoded.replace(/&#(\d+);/g, (match, dec) => String.fromCharCode(dec));
+  decoded = decoded.replace(/&#x([0-9A-Fa-f]+);/g, (match, hex) => String.fromCharCode(parseInt(hex, 16)));
+  
+  // Remove any remaining <br /> tags or similar, then trim
+  decoded = decoded.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]*>/g, '').trim();
+  return decoded;
+}
+
+
+// Helper to parse BGG search XML (very basic)
+function parseBggSearchXml(xml: string): BggSearchResult[] {
+  const results: BggSearchResult[] = [];
+  const itemRegex = /<item type="boardgame" id="(\d+)">([\s\S]*?)<\/item>/g;
+  let match;
+
+  while ((match = itemRegex.exec(xml)) !== null) {
+    const bggId = match[1];
+    const itemContent = match[2];
+
+    const nameRegex = /<name type="primary" value="([^"]+)"\s*\/>/;
+    const nameMatch = itemContent.match(nameRegex);
+    // Decode HTML entities in name
+    const name = nameMatch ? decodeHtmlEntities(nameMatch[1]) : 'Unknown Game';
+
+    const yearRegex = /<yearpublished value="(\d+)"\s*\/>/;
+    const yearMatch = itemContent.match(yearRegex);
+    const yearPublished = yearMatch ? parseInt(yearMatch[1], 10) : undefined;
+
+    results.push({ bggId, name, yearPublished });
+  }
+  return results;
+}
+
+// Helper to parse BGG thing XML (very basic)
+function parseBggThingXml(xml: string): Partial<BoardGame> {
+  const result: Partial<BoardGame> = {};
+  
+  const nameRegex = /<name type="primary" value="([^"]+)"\s*\/>/;
+  const nameMatch = xml.match(nameRegex);
+  if (nameMatch) result.name = decodeHtmlEntities(nameMatch[1]);
+
+  const descriptionRegex = /<description>([\s\S]*?)<\/description>/;
+  const descriptionMatch = xml.match(descriptionRegex);
+  if (descriptionMatch) result.description = decodeHtmlEntities(descriptionMatch[1]);
+  
+  const imageRegex = /<image>([\s\S]*?)<\/image>/;
+  const imageMatch = xml.match(imageRegex);
+  if (imageMatch) result.coverArtUrl = imageMatch[1];
+  else {
+    const thumbnailRegex = /<thumbnail>([\s\S]*?)<\/thumbnail>/;
+    const thumbnailMatch = xml.match(thumbnailRegex);
+    if (thumbnailMatch) result.coverArtUrl = thumbnailMatch[1];
+  }
+
+  const yearRegex = /<yearpublished value="(\d+)"\s*\/>/;
+  const yearMatch = xml.match(yearRegex);
+  if (yearMatch) result.yearPublished = parseInt(yearMatch[1], 10);
+
+  const minPlayersRegex = /<minplayers value="(\d+)"\s*\/>/;
+  const minPlayersMatch = xml.match(minPlayersRegex);
+  if (minPlayersMatch) result.minPlayers = parseInt(minPlayersMatch[1], 10);
+  
+  const maxPlayersRegex = /<maxplayers value="(\d+)"\s*\/>/;
+  const maxPlayersMatch = xml.match(maxPlayersRegex);
+  if (maxPlayersMatch) result.maxPlayers = parseInt(maxPlayersMatch[1], 10);
+
+  const playingTimeRegex = /<playingtime value="(\d+)"\s*\/>/;
+  const playingTimeMatch = xml.match(playingTimeRegex);
+  if (playingTimeMatch) result.playingTime = parseInt(playingTimeMatch[1], 10);
+  
+  return result;
+}
+
+
+export async function searchBggGamesAction(searchTerm: string): Promise<BggSearchResult[] | { error: string }> {
+  if (!searchTerm.trim()) {
+    return { error: 'Search term cannot be empty.' };
+  }
+  try {
+    const response = await fetch(`https://boardgamegeek.com/xmlapi2/search?type=boardgame&query=${encodeURIComponent(searchTerm)}`);
+    if (!response.ok) {
+      throw new Error(`BGG API request failed with status ${response.status}`);
+    }
+    const xmlData = await response.text();
+    // Check if the API returned an error message like "Error reading parameter type"
+    if (xmlData.includes("<error>")) { // A simple check for BGG's error XML structure
+        const messageMatch = xmlData.match(/<message>([^<]+)<\/message>/);
+        const errorMessage = messageMatch ? messageMatch[1] : "Unknown BGG API error";
+        return { error: `BoardGameGeek API Error: ${errorMessage}` };
+    }
+    const results = parseBggSearchXml(xmlData);
+    return results;
+  } catch (error) {
+    console.error('BGG Search Error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred during BGG search.';
+    return { error: errorMessage };
+  }
+}
+
+export async function importAndRateBggGameAction(bggId: string): Promise<{ gameId: string } | { error: string }> {
+  const existingGameId = `bgg-${bggId}`;
+  const existingGame = mockGames.find(game => game.id === existingGameId);
+  if (existingGame) {
+    return { gameId: existingGame.id }; // Game already exists, return its ID
+  }
+
+  try {
+    const response = await fetch(`https://boardgamegeek.com/xmlapi2/thing?id=${bggId}`);
+    if (!response.ok) {
+      throw new Error(`BGG Thing API request failed with status ${response.status}`);
+    }
+    const xmlData = await response.text();
+    const gameDetails = parseBggThingXml(xmlData);
+
+    if (!gameDetails.name) {
+      return { error: 'Could not retrieve essential game details from BGG.' };
+    }
+
+    const newGame: BoardGame = {
+      id: existingGameId,
+      name: gameDetails.name,
+      coverArtUrl: gameDetails.coverArtUrl || 'https://picsum.photos/seed/placeholder/400/600', // Default placeholder
+      description: gameDetails.description || 'No description available.',
+      reviews: [],
+      yearPublished: gameDetails.yearPublished,
+      minPlayers: gameDetails.minPlayers,
+      maxPlayers: gameDetails.maxPlayers,
+      playingTime: gameDetails.playingTime,
+      bggId: parseInt(bggId, 10),
+    };
+
+    mockGames.push(newGame); // Add to our "database"
+    if (!allMockReviews[existingGameId]) {
+        allMockReviews[existingGameId] = [];
+    }
+
+
+    revalidatePath('/');
+    revalidatePath(`/games/${existingGameId}`); // For the new game page
+    
+    return { gameId: newGame.id };
+
+  } catch (error) {
+    console.error('BGG Import Error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred during BGG import.';
+    return { error: errorMessage };
+  }
+}
+
 
 // Helper to find a game (simulates DB query)
 async function findGameById(gameId: string): Promise<BoardGame | undefined> {

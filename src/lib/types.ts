@@ -39,3 +39,9 @@ export interface BoardGame {
 export interface AiSummary {
   summary: string;
 }
+
+export interface BggSearchResult {
+  bggId: string;
+  name: string;
+  yearPublished?: number;
+}

@@ -1,3 +1,4 @@
+
 import type { BoardGame, Review, Rating } from '@/lib/types';
 
 const today = new Date().toISOString();
@@ -58,25 +59,66 @@ export let mockGames: BoardGame[] = [
 // Function to add a review (simulates DB update)
 export const addReviewToMockGame = (gameId: string, reviewData: { rating: Rating; comment: string; author: string }): Review | null => {
   const gameIndex = mockGames.findIndex(g => g.id === gameId);
-  if (gameIndex !== -1) {
+  
+  const targetGameId = gameId; // This could be 'wingspan' or 'bgg-12345'
+
+  if (gameIndex !== -1) { // If game exists in mockGames array
     const newReview: Review = {
       ...reviewData,
-      id: `review${Date.now()}-${gameId}`,
+      id: `review${Date.now()}-${targetGameId}`,
       date: new Date().toISOString(),
     };
-    // Ensure the reviews array exists
+    
+    // Update mockGames array
     if (!mockGames[gameIndex].reviews) {
       mockGames[gameIndex].reviews = [];
     }
     mockGames[gameIndex].reviews.push(newReview);
     
-    // Also update mockReviews if it's used separately
-    if (mockReviews[gameId]) {
-      mockReviews[gameId].push(newReview);
+    // Also update mockReviews object (which acts as the central store for reviews)
+    if (mockReviews[targetGameId]) {
+      mockReviews[targetGameId].push(newReview);
     } else {
-      mockReviews[gameId] = [newReview];
+      mockReviews[targetGameId] = [newReview];
     }
     return newReview;
+
+  } else { // Game might not be in initial mockGames but was added via BGG
+     const bggGame = mockGames.find(g => g.id === targetGameId);
+     if (bggGame) { // This case should ideally be covered by gameIndex !== -1
+        // This block is somewhat redundant if findIndex works correctly for bgg- prefixed IDs
+     }
+     // If game truly not found anywhere (should not happen if import worked)
+     // For a newly imported BGG game not in the original mockGames list, but added to mockGames by import action:
+     // The addReviewToMockGame might be called for a gameId like 'bgg-12345'
+     // Ensure allMockReviews is updated for this new ID.
+      const newReview: Review = {
+        ...reviewData,
+        id: `review${Date.now()}-${targetGameId}`,
+        date: new Date().toISOString(),
+      };
+
+      if (mockReviews[targetGameId]) {
+        mockReviews[targetGameId].push(newReview);
+      } else {
+        mockReviews[targetGameId] = [newReview];
+      }
+      // If the game was dynamically added and not in the initial list,
+      // we need to ensure its reviews array is also updated if it exists in `mockGames`
+      const dynamicGameIndex = mockGames.findIndex(g => g.id === targetGameId);
+      if (dynamicGameIndex !== -1) {
+        if (!mockGames[dynamicGameIndex].reviews) {
+          mockGames[dynamicGameIndex].reviews = [];
+         }
+        mockGames[dynamicGameIndex].reviews.push(newReview);
+      } else {
+         // This would be an error: trying to add a review to a game not in mockGames at all.
+         // However, importAndRateBggGameAction adds it to mockGames first.
+         console.warn(`Game with id ${targetGameId} not found in mockGames array when trying to add review.`);
+         // Still add to mockReviews as it's the source of truth for getGameDetails
+      }
+      return newReview;
   }
-  return null;
+  // Fallback, though theoretically unreachable if logic is correct
+  // return null; 
 };
