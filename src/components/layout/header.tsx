@@ -8,16 +8,15 @@ export function Header() {
           <svg
             aria-hidden="true"
             xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+            viewBox="0 0 20 20"
+            fill="currentColor"
             className="h-8 w-8"
           >
-            <path d="M18 6L4 20" /> {/* Main shaft of the needle, pointing bottom-left */}
-            <circle cx="18.5" cy="5.5" r="1.2" stroke="currentColor" fill="none" /> {/* Eye of the needle, top-right */}
+            <path 
+              fillRule="evenodd" 
+              d="M10 2a2 2 0 100 4 2 2 0 000-4zM3.478 6.129A.75.75 0 003 6.75v5.5a.75.75 0 00.75.75h12.5a.75.75 0 00.75-.75v-5.5a.75.75 0 00-.478-.68l-2.577-1.196a.75.75 0 00-.944.24l-1.722 3.208a.75.75 0 01-1.362 0L7.72 5.203a.75.75 0 00-.944-.24L3.478 6.13zM3 13.5v2A1.5 1.5 0 004.5 17h2A1.5 1.5 0 008 15.5v-2h4v2A1.5 1.5 0 0013.5 17h2a1.5 1.5 0 001.5-1.5v-2H3z" 
+              clipRule="evenodd" 
+            />
           </svg>
           <h1 className="text-xl font-bold tracking-tight sm:text-2xl">BoardGame Ranker</h1>
         </Link>
