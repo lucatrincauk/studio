@@ -10,8 +10,9 @@ import { db } from '@/lib/firebase';
 import { collection, getDocs, doc, setDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 
 const BGG_API_BASE_URL = 'https://boardgamegeek.com/xmlapi2';
+const FIRESTORE_COLLECTION_NAME = 'boardgames_collection';
 
-// Helper to decode HTML entities commonly found in BGG XML
+// --- Top-level Helper Functions ---
 function decodeHtmlEntities(text: string): string {
     if (typeof text !== 'string') return '';
     return text.replace(/&quot;/g, '"')
@@ -25,32 +26,6 @@ function decodeHtmlEntities(text: string): string {
                .replace(/&rsquo;/g, "’");
 }
 
-// Helper to parse the main name from <name> tags (used for /thing responses)
-function getPrimaryNameValue(nameElements: { type?: string | null; value?: string | null }[]): string {
-    if (!nameElements || nameElements.length === 0) {
-        return "Name Not Found in Details";
-    }
-    let primaryName = '';
-    // Find primary name
-    const primary = nameElements.find(n => n.type === 'primary');
-    if (primary && primary.value) {
-        primaryName = decodeHtmlEntities(primary.value.trim());
-    }
-    // Fallback to first alternate name if primary is not found or empty
-    if (!primaryName) {
-        const alternate = nameElements.find(n => n.type === 'alternate');
-        if (alternate && alternate.value) {
-            primaryName = decodeHtmlEntities(alternate.value.trim());
-        }
-    }
-    // Fallback to the first name value if still no specific primary/alternate
-    if (!primaryName && nameElements[0] && nameElements[0].value) {
-        primaryName = decodeHtmlEntities(nameElements[0].value.trim());
-    }
-    return primaryName || "Name Not Found in Details";
-}
-
-
 async function parseBggSearchXml(xmlText: string): Promise<Omit<BggSearchResult, 'rank'>[]> {
     const results: Omit<BggSearchResult, 'rank'>[] = [];
     const itemMatches = xmlText.matchAll(/<item type="boardgame" id="(\d+?)">([\s\S]*?)<\/item>/g);
@@ -60,13 +35,11 @@ async function parseBggSearchXml(xmlText: string): Promise<Omit<BggSearchResult,
         const itemContent = itemMatch[2];
 
         let name = 'Unknown Name';
-        // Try to get primary name first
         const primaryNameMatch = /<name type="primary" sortindex="\d+" value="([^"]+?)"\s*\/>/.exec(itemContent);
         if (primaryNameMatch && primaryNameMatch[1]) {
             name = decodeHtmlEntities(primaryNameMatch[1]);
         } else {
-            // Fallback to any name if primary is not found
-            const anyNameMatch = /<name value="([^"]+?)"\s*\/>/.exec(itemContent); // More general name match
+            const anyNameMatch = /<name value="([^"]+?)"\s*\/>/.exec(itemContent);
             if (anyNameMatch && anyNameMatch[1]) {
                 name = decodeHtmlEntities(anyNameMatch[1]);
             }
@@ -81,6 +54,29 @@ async function parseBggSearchXml(xmlText: string): Promise<Omit<BggSearchResult,
         results.push({ bggId: id, name, yearPublished });
     }
     return results;
+}
+
+function getPrimaryNameValue(nameElements: { type?: string | null; value?: string | null }[]): string {
+    if (!nameElements || nameElements.length === 0) {
+        return "Name Not Found in Details";
+    }
+    let primaryName = '';
+    const primary = nameElements.find(n => n.type === 'primary');
+    if (primary && primary.value && primary.value.trim()) {
+        primaryName = decodeHtmlEntities(primary.value.trim());
+    }
+    
+    if (!primaryName) {
+        const alternate = nameElements.find(n => n.type === 'alternate');
+        if (alternate && alternate.value && alternate.value.trim()) {
+            primaryName = decodeHtmlEntities(alternate.value.trim());
+        }
+    }
+    
+    if (!primaryName && nameElements[0] && nameElements[0].value && nameElements[0].value.trim()) {
+        primaryName = decodeHtmlEntities(nameElements[0].value.trim());
+    }
+    return primaryName || "Name Not Found in Details";
 }
 
 async function parseRankFromThingXml(xmlText: string): Promise<number> {
@@ -104,9 +100,9 @@ async function parseBggThingXmlToBoardGame(xmlText: string, bggIdInput: number):
         type: match[1],
         value: match[2],
     }));
+
     gameData.name = getPrimaryNameValue(nameElementsForParsing);
     if (gameData.name === "Name Not Found in Details") gameData.name = `BGG ID ${bggIdInput}`;
-
 
     const descriptionMatch = /<description>([\s\S]*?)<\/description>/.exec(xmlText);
     if (descriptionMatch && descriptionMatch[1]) {
@@ -156,6 +152,72 @@ async function parseBggThingXmlToBoardGame(xmlText: string, bggIdInput: number):
     return gameData;
 }
 
+async function parseBggCollectionXml(xmlText: string): Promise<BoardGame[]> {
+    const games: BoardGame[] = [];
+    const itemMatches = xmlText.matchAll(/<item[^>]*subtype="boardgame"[^>]*objectid="(\d+)"[^>]*>([\s\S]*?)<\/item>/gi);
+
+    for (const itemMatch of itemMatches) {
+        const bggId = parseInt(itemMatch[1], 10);
+        const itemContent = itemMatch[2];
+
+        let name = '';
+        const primaryNameMatch = /<name sortindex="1"[^>]*>([\s\S]*?)<\/name>/.exec(itemContent);
+        if (primaryNameMatch && primaryNameMatch[1] && primaryNameMatch[1].trim()) {
+            name = decodeHtmlEntities(primaryNameMatch[1].trim());
+        } else {
+            const anyNameMatch = /<name[^>]*>([\s\S]*?)<\/name>/.exec(itemContent);
+            if (anyNameMatch && anyNameMatch[1] && anyNameMatch[1].trim()) {
+                name = decodeHtmlEntities(anyNameMatch[1].trim());
+            }
+        }
+        if (!name) {
+            name = `BGG ID ${bggId}`; 
+        }
+
+        let yearPublished: number | undefined;
+        const yearMatch = /<yearpublished>(\d+)<\/yearpublished>/.exec(itemContent);
+        if (yearMatch && yearMatch[1]) {
+            yearPublished = parseInt(yearMatch[1], 10);
+        }
+
+        let thumbnail = '';
+        const thumbnailMatch = /<thumbnail>([\s\S]*?)<\/thumbnail>/.exec(itemContent);
+        if (thumbnailMatch && thumbnailMatch[1]) {
+            thumbnail = decodeHtmlEntities(thumbnailMatch[1].trim());
+            if (thumbnail.startsWith('//')) {
+                thumbnail = `https:${thumbnail}`;
+            }
+        }
+        
+        const coverArtUrl = thumbnail || `https://placehold.co/100x150.png?text=${encodeURIComponent(name.substring(0,10))}`;
+
+        let minPlayers: number | undefined, maxPlayers: number | undefined, playingTime: number | undefined;
+        const statsMatch = /<stats minplayers="(\d+)" maxplayers="(\d+)"(?:[^>]*)playingtime="(\d+)"/.exec(itemContent);
+        if (statsMatch) {
+            minPlayers = parseInt(statsMatch[1], 10);
+            maxPlayers = parseInt(statsMatch[2], 10);
+            playingTime = parseInt(statsMatch[3], 10); 
+        }
+        
+        games.push({
+            id: `bgg-${bggId}`, 
+            bggId,
+            name,
+            yearPublished,
+            coverArtUrl,
+            minPlayers,
+            maxPlayers,
+            playingTime,
+            reviews: [], 
+            description: 'Description not available from BGG collection sync.', 
+        });
+    }
+    return games;
+}
+
+
+// --- Server Actions ---
+
 export async function searchBggGamesAction(searchTerm: string): Promise<BggSearchResult[] | { error: string }> {
     if (!searchTerm.trim()) {
         return { error: 'Search term cannot be empty.' };
@@ -182,10 +244,10 @@ export async function searchBggGamesAction(searchTerm: string): Promise<BggSearc
                 
                 let finalName = detailedGameData.name;
                 if (!finalName || finalName === "Name Not Found in Details" || finalName.startsWith("BGG ID")) {
-                    finalName = item.name; // Fallback to name from search result
+                    finalName = item.name; 
                 }
                 if (!finalName) {
-                    finalName = "Unknown Name"; // Final fallback
+                    finalName = "Unknown Name";
                 }
                 
                 return { bggId: item.bggId, name: finalName, yearPublished: detailedGameData.yearPublished || item.yearPublished, rank };
@@ -275,8 +337,6 @@ export async function importAndRateBggGameAction(bggId: string): Promise<{ gameI
     }
 }
 
-
-// --- Mock Data Interaction ---
 async function findGameById(gameId: string): Promise<BoardGame | undefined> {
   const gameFromMocks = mockGames.find(g => g.id === gameId);
   if (gameFromMocks) {
@@ -366,137 +426,71 @@ export async function getAllGamesAction(): Promise<BoardGame[]> {
   );
 }
 
-
-// --- Collection Actions ---
-
-async function parseBggCollectionXml(xmlText: string): Promise<BoardGame[]> {
-    const games: BoardGame[] = [];
-    const itemMatches = xmlText.matchAll(/<item[^>]*subtype="boardgame"[^>]*objectid="(\d+)"[^>]*>([\s\S]*?)<\/item>/gi);
-
-    for (const itemMatch of itemMatches) {
-        const bggId = parseInt(itemMatch[1], 10);
-        const itemContent = itemMatch[2];
-
-        let name = 'Unknown Game';
-        const primaryNameMatch = /<name sortindex="1"[^>]*>([\s\S]*?)<\/name>/.exec(itemContent);
-        if (primaryNameMatch && primaryNameMatch[1] && primaryNameMatch[1].trim()) {
-            name = decodeHtmlEntities(primaryNameMatch[1].trim());
-        } else {
-            const anyNameMatch = /<name[^>]*>([\s\S]*?)<\/name>/.exec(itemContent);
-            if (anyNameMatch && anyNameMatch[1] && anyNameMatch[1].trim()) {
-                name = decodeHtmlEntities(anyNameMatch[1].trim());
-            }
-        }
-        if (name === 'Unknown Game' || name.trim() === '') {
-             name = `BGG ID ${bggId}`; 
-        }
-
-        let yearPublished: number | undefined;
-        const yearMatch = /<yearpublished>(\d+)<\/yearpublished>/.exec(itemContent);
-        if (yearMatch && yearMatch[1]) {
-            yearPublished = parseInt(yearMatch[1], 10);
-        }
-
-        let thumbnail = '';
-        const thumbnailMatch = /<thumbnail>([\s\S]*?)<\/thumbnail>/.exec(itemContent);
-        if (thumbnailMatch && thumbnailMatch[1]) {
-            thumbnail = decodeHtmlEntities(thumbnailMatch[1].trim());
-            if (thumbnail.startsWith('//')) {
-                thumbnail = `https:${thumbnail}`;
-            }
-        }
-        
-        const coverArtUrl = thumbnail || `https://placehold.co/100x150.png?text=${encodeURIComponent(name.substring(0,10))}`;
-
-        let minPlayers: number | undefined, maxPlayers: number | undefined, playingTime: number | undefined;
-        const statsMatch = /<stats minplayers="(\d+)" maxplayers="(\d+)"(?:[^>]*)playingtime="(\d+)"/.exec(itemContent);
-        if (statsMatch) {
-            minPlayers = parseInt(statsMatch[1], 10);
-            maxPlayers = parseInt(statsMatch[2], 10);
-            playingTime = parseInt(statsMatch[3], 10); 
-        }
-        
-        games.push({
-            id: `bgg-${bggId}`, 
-            bggId,
-            name,
-            yearPublished,
-            coverArtUrl,
-            minPlayers,
-            maxPlayers,
-            playingTime,
-            reviews: [], 
-            description: 'Description not available from BGG collection sync.', 
-        });
-    }
-    return games;
-}
-
 export async function fetchBggUserCollectionAction(username: string): Promise<BoardGame[] | { error: string }> {
-    console.log(`[SERVER ACTION] fetchBggUserCollectionAction called for username: ${username}`);
-    if (!username.trim()) {
-        console.error("[SERVER ACTION] BGG Username cannot be empty.");
-        return { error: 'BGG Username cannot be empty.' };
-    }
-
-    const fetchWithRetry = async (url: string, retries = 5, initialDelay = 2000): Promise<string> => {
-        let delay = initialDelay;
-        for (let i = 0; i < retries; i++) {
-            console.log(`[SERVER ACTION] Attempt ${i + 1}/${retries} to fetch URL: ${url}`);
-            const response = await fetch(url, { cache: 'no-store' }); 
-            console.log(`[SERVER ACTION] Attempt ${i + 1} - Response status: ${response.status}`);
-
-            if (response.status === 200) {
-                const text = await response.text();
-                console.log("[SERVER ACTION] Attempt " + (i+1) + " - BGG Collection XML Response (first 500 chars):", text.substring(0, 500) + (text.length > 500 ? "..." : ""));
-
-                if (text.includes("<items")) { 
-                    return text;
-                }
-                console.warn(`[SERVER ACTION] BGG Collection for ${username} (Attempt ${i+1}/${retries}): 200 OK but no <items> tag. XML content (first 200): ${text.substring(0,200)}...`);
-                if (i === retries - 1) throw new Error(`BGG Collection for ${username} returned 200 OK but content was malformed after ${retries} retries (no "<items>" tag found).`);
-            } else if (response.status === 202) {
-                console.log(`[SERVER ACTION] BGG Collection for ${username} (Attempt ${i+1}/${retries}): Not ready (202). Retrying in ${delay / 1000}s...`);
-                if (i === retries - 1) throw new Error(`BGG Collection for ${username} still processing (202) after ${retries} attempts.`);
-            } else {
-                const errorText = await response.text().catch(() => "Could not read error response body.");
-                console.error(`[SERVER ACTION] BGG API Error (Collection) for ${username}: ${response.status} ${response.statusText}. Body (first 500): ${errorText.substring(0, 500)}`);
-                throw new Error(`BGG API Error (Collection): ${response.status} ${response.statusText}. User: ${username}.`);
-            }
-
-            await new Promise(resolve => setTimeout(resolve, delay));
-            delay = Math.min(delay * 2, 30000); 
-        }
-        throw new Error(`[SERVER ACTION] BGG Collection for ${username} could not be retrieved after ${retries} attempts (exhausted retries).`);
-    };
-
     try {
+        console.log(`[SERVER ACTION ENTRY] fetchBggUserCollectionAction called for username: ${username}`);
+        
+        if (!username || !username.trim()) {
+            console.error("[SERVER ACTION VALIDATION] BGG Username cannot be empty.");
+            return { error: 'BGG Username cannot be empty.' };
+        }
+
+        const fetchWithRetry = async (url: string, retries = 5, initialDelay = 2000): Promise<string> => {
+            let delay = initialDelay;
+            for (let i = 0; i < retries; i++) {
+                console.log(`[SERVER ACTION] fetchWithRetry: Attempt ${i + 1}/${retries} to fetch URL: ${url}`);
+                const response = await fetch(url, { cache: 'no-store' });
+                const responseStatus = response.status;
+                console.log(`[SERVER ACTION] fetchWithRetry: Attempt ${i + 1} - Response status: ${responseStatus}`);
+
+                if (responseStatus === 200) {
+                    const text = await response.text();
+                    console.log("[SERVER ACTION] fetchWithRetry: BGG Collection XML Response (first 2000 chars):", text.substring(0, 2000) + (text.length > 2000 ? "..." : ""));
+
+                    if (text.includes("<items")) {
+                        return text;
+                    }
+                    console.warn(`[SERVER ACTION] fetchWithRetry: BGG Collection for ${username} (Attempt ${i+1}/${retries}): 200 OK but no <items> tag. XML content (first 200): ${text.substring(0,200)}...`);
+                    if (i === retries - 1) throw new Error(`BGG Collection for ${username} returned 200 OK but content was malformed after ${retries} retries (no "<items>" tag found).`);
+                } else if (responseStatus === 202) {
+                    console.log(`[SERVER ACTION] fetchWithRetry: BGG Collection for ${username} (Attempt ${i+1}/${retries}): Not ready (202). Retrying in ${delay / 1000}s...`);
+                    if (i === retries - 1) throw new Error(`BGG Collection for ${username} still processing (202) after ${retries} attempts.`);
+                } else {
+                    const errorText = await response.text().catch(() => "Could not read error response body.");
+                    console.error(`[SERVER ACTION] fetchWithRetry: BGG API Error (Collection) for ${username}: ${responseStatus} ${response.statusText}. Body (first 500): ${errorText.substring(0, 500)}`);
+                    throw new Error(`BGG API Error (Collection): ${responseStatus} ${response.statusText}. User: ${username}.`);
+                }
+
+                await new Promise(resolve => setTimeout(resolve, delay));
+                delay = Math.min(delay * 2, 30000);
+            }
+            throw new Error(`[SERVER ACTION] fetchWithRetry: BGG Collection for ${username} could not be retrieved after ${retries} attempts (exhausted retries).`);
+        };
+
         const collectionUrl = `${BGG_API_BASE_URL}/collection?username=${encodeURIComponent(username)}&own=1&excludesubtype=boardgameexpansion`;
-        console.log(`[SERVER ACTION] Constructed BGG Collection URL: ${collectionUrl}`);
+        console.log(`[SERVER ACTION] fetchBggUserCollectionAction: Constructed BGG Collection URL: ${collectionUrl}`);
         const collectionXml = await fetchWithRetry(collectionUrl);
         
-        if (collectionXml.includes("<error>")) { 
+        if (collectionXml.includes("<error>")) {
              const messageMatch = /<message>([\s\S]*?)<\/message>/.exec(collectionXml);
-             const errorMessage = messageMatch ? decodeHtmlEntities(messageMatch[1]) : "Unknown BGG error message.";
-             console.error(`[SERVER ACTION] BGG API returned an error message: ${errorMessage}`);
-             if (errorMessage.toLowerCase().includes("invalid username") || errorMessage.toLowerCase().includes("user not found")) {
+             const errorMessageText = messageMatch ? decodeHtmlEntities(messageMatch[1]) : "Unknown BGG error message.";
+             console.error(`[SERVER ACTION] fetchBggUserCollectionAction: BGG API returned an error message: ${errorMessageText}`);
+             if (errorMessageText.toLowerCase().includes("invalid username") || errorMessageText.toLowerCase().includes("user not found")) {
                 return { error: `BGG User "${username}" not found or collection is private.`};
              }
-             return { error: `BGG API Error: ${errorMessage}` };
+             return { error: `BGG API Error: ${errorMessageText}` };
         }
 
         const games = await parseBggCollectionXml(collectionXml);
-        console.log(`[SERVER ACTION] Parsed ${games.length} games from BGG collection for ${username}.`);
+        console.log(`[SERVER ACTION] fetchBggUserCollectionAction: Parsed ${games.length} games from BGG collection for ${username}.`);
         return games;
 
     } catch (error) {
-        console.error(`[SERVER ACTION] BGG Collection Fetch Error for ${username}:`, error);
+        console.error(`[SERVER ACTION CATCH BLOCK] Uncaught error in fetchBggUserCollectionAction for ${username}:`, error);
         const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred during BGG collection fetch.';
-        return { error: errorMessage };
+        return { error: `Server Action Error: ${errorMessage}` };
     }
 }
-
-const FIRESTORE_COLLECTION_NAME = 'boardgames_collection';
 
 export async function getBoardGamesFromFirestoreAction(): Promise<BoardGame[] | { error: string }> {
     try {
