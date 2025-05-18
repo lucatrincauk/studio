@@ -14,8 +14,14 @@ import { AlertCircle, Loader2, Wand2, Info, Edit } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { summarizeReviews } from '@/ai/flows/summarize-reviews';
-import { calculateCategoryAverages } from '@/lib/utils';
+import { calculateGroupedCategoryAverages, type GroupedCategoryAverages } from '@/lib/utils';
 import { RATING_CATEGORIES } from '@/lib/types';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
 
 interface GameDetailPageProps {
   params: Promise<{
@@ -36,7 +42,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
   const [summaryError, setSummaryError] = useState<string | null>(null);
 
   const [userReview, setUserReview] = useState<Review | undefined>(undefined);
-  const [categoryAverages, setCategoryAverages] = useState<Rating | null>(null);
+  const [groupedCategoryAverages, setGroupedCategoryAverages] = useState<GroupedCategoryAverages | null>(null);
 
   const fetchGameData = useCallback(async () => {
     setIsLoadingGame(true);
@@ -50,10 +56,10 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
       } else if (!currentUser && !authLoading) {
         setUserReview(undefined);
       }
-      setCategoryAverages(calculateCategoryAverages(gameData.reviews));
+      setGroupedCategoryAverages(calculateGroupedCategoryAverages(gameData.reviews));
     } else {
       setUserReview(undefined);
-      setCategoryAverages(null);
+      setGroupedCategoryAverages(null);
     }
     setIsLoadingGame(false);
   }, [gameId, currentUser, authLoading]);
@@ -121,23 +127,37 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
           <div className="flex-1 p-6 space-y-4">
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">{game.name}</h1>
 
-            {categoryAverages && (
-              <div className="mt-4 space-y-3 border-t border-border pt-4">
-                <h3 className="text-lg font-semibold text-foreground">Average Player Ratings:</h3>
-                {(Object.keys(categoryAverages) as Array<keyof Rating>).map((categoryKey) => (
-                  <div key={categoryKey} className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">{RATING_CATEGORIES[categoryKey as RatingCategory]}:</span>
-                    <div className="flex items-center gap-2">
-                       <span className="font-medium text-foreground">{categoryAverages[categoryKey].toFixed(1)} / 5</span>
-                    </div>
-                  </div>
-                ))}
+            {groupedCategoryAverages && groupedCategoryAverages.length > 0 && (
+              <div className="mt-4 space-y-1 border-t border-border pt-4">
+                <h3 className="text-lg font-semibold text-foreground mb-3">Average Player Ratings:</h3>
+                <Accordion type="multiple" className="w-full">
+                  {groupedCategoryAverages.map((section, index) => (
+                    <AccordionItem value={`section-${index}`} key={section.sectionTitle}>
+                      <AccordionTrigger className="hover:no-underline">
+                        <div className="flex justify-between w-full items-center pr-2">
+                           <span className="font-medium text-md text-foreground">{section.sectionTitle}</span>
+                           <span className="text-md font-bold text-primary">{section.sectionAverage.toFixed(1)} / 5</span>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <ul className="space-y-1.5 pl-2 pt-2">
+                          {section.subRatings.map(sub => (
+                            <li key={sub.name} className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">{sub.name}:</span>
+                              <span className="font-medium text-foreground">{sub.average.toFixed(1)} / 5</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
               </div>
             )}
-            {!categoryAverages && game.reviews.length > 0 && (
+            {!groupedCategoryAverages && game.reviews.length > 0 && (
                  <p className="text-sm text-muted-foreground italic">Calculating average ratings...</p>
             )}
-            {!categoryAverages && game.reviews.length === 0 && (
+            {(!groupedCategoryAverages || groupedCategoryAverages.length === 0) && game.reviews.length === 0 && (
                 <p className="text-sm text-muted-foreground italic">No ratings yet to calculate averages.</p>
             )}
           </div>
@@ -245,4 +265,3 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
 }
 
 export const dynamic = 'force-dynamic';
-

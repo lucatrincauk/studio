@@ -60,17 +60,9 @@ export function calculateCategoryAverages(reviews: Review[]): Rating | null {
   };
 
   reviews.forEach(review => {
-    sumOfRatings.excitedToReplay += review.rating.excitedToReplay;
-    sumOfRatings.mentallyStimulating += review.rating.mentallyStimulating;
-    sumOfRatings.fun += review.rating.fun;
-    sumOfRatings.decisionDepth += review.rating.decisionDepth;
-    sumOfRatings.replayability += review.rating.replayability;
-    sumOfRatings.luck += review.rating.luck;
-    sumOfRatings.lengthDowntime += review.rating.lengthDowntime;
-    sumOfRatings.graphicDesign += review.rating.graphicDesign;
-    sumOfRatings.componentsThemeLore += review.rating.componentsThemeLore;
-    sumOfRatings.effortToLearn += review.rating.effortToLearn;
-    sumOfRatings.setupTeardown += review.rating.setupTeardown;
+    (Object.keys(sumOfRatings) as Array<keyof Rating>).forEach(key => {
+      sumOfRatings[key] += review.rating[key] || 0;
+    });
   });
 
   const averageRatings: Rating = {
@@ -90,6 +82,52 @@ export function calculateCategoryAverages(reviews: Review[]): Rating | null {
   return averageRatings;
 }
 
+export interface SubRatingAverage {
+  name: string;
+  average: number;
+}
+export interface SectionAverage {
+  sectionTitle: string;
+  sectionAverage: number;
+  subRatings: SubRatingAverage[];
+}
+export type GroupedCategoryAverages = SectionAverage[];
+
+
+export function calculateGroupedCategoryAverages(reviews: Review[]): GroupedCategoryAverages | null {
+  const individualAverages = calculateCategoryAverages(reviews);
+
+  if (!individualAverages) {
+    return null;
+  }
+
+  const sectionsMeta: Array<{ title: string; keys: RatingCategory[] }> = [
+    { title: "Sentiments", keys: ['excitedToReplay', 'mentallyStimulating', 'fun'] },
+    { title: "Game Design", keys: ['decisionDepth', 'replayability', 'luck', 'lengthDowntime'] },
+    { title: "Aesthetics & Immersion", keys: ['graphicDesign', 'componentsThemeLore'] },
+    { title: "Learning & Logistics", keys: ['effortToLearn', 'setupTeardown'] },
+  ];
+
+  const groupedAverages: GroupedCategoryAverages = sectionsMeta.map(section => {
+    let sectionSum = 0;
+    let sectionCount = 0;
+    const subRatings: SubRatingAverage[] = section.keys.map(key => {
+      const average = individualAverages[key];
+      sectionSum += average;
+      sectionCount++;
+      return { name: RATING_CATEGORIES[key], average };
+    });
+
+    return {
+      sectionTitle: section.title,
+      sectionAverage: sectionCount > 0 ? Math.round((sectionSum / sectionCount) * 10) / 10 : 0,
+      subRatings,
+    };
+  });
+
+  return groupedAverages;
+}
+
 
 export function formatReviewDate(dateString: string): string {
   return new Date(dateString).toLocaleDateString('en-US', {
@@ -98,4 +136,3 @@ export function formatReviewDate(dateString: string): string {
     day: 'numeric',
   });
 }
-
