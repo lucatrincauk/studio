@@ -25,12 +25,13 @@ export default function GameRatePage() {
   const [game, setGame] = useState<BoardGame | null | undefined>(undefined); // undefined: not loaded, null: not found
   const [userReview, setUserReview] = useState<Review | undefined>(undefined);
   const [isLoadingGame, setIsLoadingGame] = useState(true);
+  const [currentRatingFormStep, setCurrentRatingFormStep] = useState(1);
 
   useEffect(() => {
     async function fetchGameData() {
       if (!gameId) {
         setIsLoadingGame(false);
-        setGame(null); // or handle as an error
+        setGame(null); 
         return;
       }
       setIsLoadingGame(true);
@@ -42,16 +43,16 @@ export default function GameRatePage() {
   }, [gameId]);
 
   useEffect(() => {
-    if (game === undefined) return; // Still loading or gameId was invalid
+    if (game === undefined) return; 
 
-    if (game) { // game is BoardGame object
+    if (game) { 
       if (currentUser && game.reviews) {
         const foundReview = game.reviews.find(r => r.userId === currentUser.uid);
         setUserReview(foundReview);
       } else {
         setUserReview(undefined);
       }
-    } else { // game is null (not found)
+    } else { 
       setUserReview(undefined);
     }
   }, [game, currentUser]);
@@ -66,7 +67,7 @@ export default function GameRatePage() {
     );
   }
 
-  if (!game) { // game is null (not found)
+  if (!game) { 
     return (
       <div className="flex flex-col items-center justify-center text-center py-10">
         <AlertCircle className="h-12 w-12 text-destructive mb-4" />
@@ -107,20 +108,24 @@ export default function GameRatePage() {
         <ArrowLeft className="mr-2 h-4 w-4" /> Back to Game
       </Button>
       <Card className="shadow-xl border border-border rounded-lg">
-        <CardHeader>
-          <CardTitle className="text-2xl md:text-3xl">
-            {userReview ? 'Edit Your Review for:' : 'Rate:'} <span className="text-primary">{game.name}</span>
-          </CardTitle>
-          <CardDescription>
-            Follow the steps below to submit your rating.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+        {currentRatingFormStep !== 5 && (
+            <CardHeader>
+                <CardTitle className="text-2xl md:text-3xl">
+                    {userReview ? 'Edit Your Review for:' : 'Rate:'} <span className="text-primary">{game.name}</span>
+                </CardTitle>
+                <CardDescription>
+                    Follow the steps below to submit your rating.
+                </CardDescription>
+            </CardHeader>
+        )}
+        <CardContent className={currentRatingFormStep === 5 ? 'pt-6' : ''}>
           <MultiStepRatingForm
             gameId={game.id}
             currentUser={currentUser}
             existingReview={userReview}
-            onReviewSubmitted={() => router.push(`/games/${gameId}`)} // Redirect after submit
+            onReviewSubmitted={() => router.push(`/games/${gameId}`)}
+            currentStep={currentRatingFormStep}
+            onStepChange={setCurrentRatingFormStep}
           />
         </CardContent>
       </Card>
