@@ -365,19 +365,15 @@ export function MultiStepRatingForm({
           {currentStep === 5 && (
             <Card className="animate-fadeIn border-border shadow-md">
               <CardHeader>
-                <CardTitle className="text-lg">Your Ratings Summary</CardTitle>
+                <div className="flex justify-between items-center">
+                  <CardTitle className="text-lg">Your Ratings Summary</CardTitle>
+                  {yourOverallAverage > 0 && (
+                    <span className="text-xl font-bold text-primary">{formatRatingNumber(yourOverallAverage * 2)}</span>
+                  )}
+                </div>
                 <CardDescription>Confirm your choices before submitting.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="mb-6">
-                  <h4 className="text-md font-semibold mb-2 text-primary">Your Overall Average Rating:</h4>
-                  <div className="flex items-center gap-3">
-                    <Progress value={(yourOverallAverage / 5) * 100} className="w-full h-3" />
-                    <span className="text-lg font-bold text-primary">{formatRatingNumber(yourOverallAverage * 2)}</span>
-                  </div>
-                </div>
-                <Separator />
-
                 {stepCategories.slice(0, 4).map((categoryGroup, index) => (
                   categoryGroup.length > 0 && (
                     <div key={sectionTitles[index]}>
