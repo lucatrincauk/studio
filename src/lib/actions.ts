@@ -29,7 +29,7 @@ function getPrimaryNameValue(names: Names | Name | string | undefined): string {
 
 
 export async function searchBggGamesAction(searchTerm: string): Promise<BggSearchResult[] | { error: string }> {
-  if (!bggClient) { // Should not happen if 'bgg' import works
+  if (!bggClient) {
     return { error: 'BGG SDK client not available.' };
   }
   if (!searchTerm.trim()) {
@@ -39,8 +39,8 @@ export async function searchBggGamesAction(searchTerm: string): Promise<BggSearc
   try {
     const searchResponse: BggSdkSearchResponseItem[] = await bggClient.search({ query: searchTerm, type: ['boardgame'] });
 
-    if (!searchResponse || searchResponse.length === 0) {
-      return [];
+    if (!searchResponse || !Array.isArray(searchResponse) || searchResponse.length === 0) {
+      return []; // Return empty array if not a valid array response or empty
     }
     
     const limitedResults = searchResponse.slice(0, 10); 
@@ -117,7 +117,7 @@ export async function searchBggGamesAction(searchTerm: string): Promise<BggSearc
 }
 
 export async function importAndRateBggGameAction(bggId: string): Promise<{ gameId: string } | { error: string }> {
-  if (!bggClient) { // Should not happen
+  if (!bggClient) { 
     return { error: 'BGG SDK client not available.' };
   }
   const numericBggId = parseInt(bggId, 10);
