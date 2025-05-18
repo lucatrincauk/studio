@@ -14,6 +14,8 @@ import type { User as FirebaseUser } from 'firebase/auth';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Progress } from '@/components/ui/progress';
 import { Slider } from '@/components/ui/slider';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 
 import { db } from '@/lib/firebase';
 import { collection, addDoc, doc, updateDoc, query, where, getDocs, limit, getDoc } from 'firebase/firestore';
@@ -25,13 +27,22 @@ interface MultiStepRatingFormProps {
   existingReview?: Review | null;
 }
 
-const totalSteps = 4;
+const totalSteps = 5; // Increased from 4 to 5
 const stepCategories: (keyof RatingFormValues)[][] = [
   ['excitedToReplay', 'mentallyStimulating', 'fun'], // Step 1: Sentiments
   ['decisionDepth', 'replayability', 'luck', 'lengthDowntime'], // Step 2: Game Design
   ['graphicDesign', 'componentsThemeLore'], // Step 3: Aesthetics & Immersion
   ['effortToLearn', 'setupTeardown'], // Step 4: Learning & Logistics
+  [], // Step 5: Summary (no new inputs)
 ];
+
+const sectionTitles: string[] = [
+  "Sentiments",
+  "Game Design",
+  "Aesthetics & Immersion",
+  "Learning & Logistics",
+];
+
 
 export function MultiStepRatingForm({
   gameId,
@@ -61,7 +72,7 @@ export function MultiStepRatingForm({
   const form = useForm<RatingFormValues>({
     resolver: zodResolver(reviewFormSchema),
     defaultValues: defaultFormValues,
-    mode: 'onChange', // Validate on change to update formState.isValid more readily
+    mode: 'onChange', 
   });
 
   useEffect(() => {
@@ -87,7 +98,7 @@ export function MultiStepRatingForm({
 
   const handleNext = async () => {
     let fieldsToValidate: (keyof RatingFormValues)[] = [];
-    if (currentStep >= 1 && currentStep <= totalSteps) {
+    if (currentStep >= 1 && currentStep < totalSteps) { // Changed to < totalSteps
         fieldsToValidate = stepCategories[currentStep-1];
     }
 
@@ -200,6 +211,7 @@ export function MultiStepRatingForm({
     if (currentStep === 2) return "Game Design";
     if (currentStep === 3) return "Aesthetics & Immersion";
     if (currentStep === 4) return "Learning & Logistics";
+    if (currentStep === 5) return "Review Your Ratings";
     return "Review Step";
   };
   
@@ -208,15 +220,16 @@ export function MultiStepRatingForm({
     if (currentStep === 2) return "How would you rate the core mechanics and structure?";
     if (currentStep === 3) return "Rate the game's visual appeal and thematic elements.";
     if (currentStep === 4) return "How easy is the game to learn, set up, and tear down?";
+    if (currentStep === 5) return "Please check your ratings below before submitting.";
     return "";
   }
 
 
   return (
     <Form {...form}>
-      <form className="space-y-8"> {/* Removed onSubmit from here */}
+      <form className="space-y-8"> 
         <Progress value={progressPercentage} className="w-full mb-2" />
-        <div className="min-h-[350px]"> {/* Increased min-height for better spacing */}
+        <div className="min-h-[350px]"> 
           <h3 className="text-xl font-semibold mb-1">{getCurrentStepTitle()}</h3>
           <p className="text-sm text-muted-foreground mb-6">{getCurrentStepDescription()}</p>
 
@@ -327,6 +340,33 @@ export function MultiStepRatingForm({
               ))}
             </div>
           )}
+
+          {currentStep === 5 && (
+            <Card className="animate-fadeIn border-border shadow-md">
+              <CardHeader>
+                <CardTitle className="text-lg">Your Ratings Summary</CardTitle>
+                <CardDescription>Confirm your choices before submitting.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {stepCategories.slice(0, 4).map((categoryGroup, index) => (
+                  categoryGroup.length > 0 && (
+                    <div key={sectionTitles[index]}>
+                      <h4 className="text-md font-semibold mb-2 text-primary">{sectionTitles[index]}</h4>
+                      <ul className="space-y-1 pl-2">
+                        {(categoryGroup as RatingCategory[]).map((fieldName) => (
+                          <li key={fieldName} className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">{RATING_CATEGORIES[fieldName]}:</span>
+                            <span className="font-medium">{form.getValues(fieldName)} / 5</span>
+                          </li>
+                        ))}
+                      </ul>
+                      {index < 3 && <Separator className="my-3"/>}
+                    </div>
+                  )
+                ))}
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {formError && (
@@ -350,8 +390,8 @@ export function MultiStepRatingForm({
             </Button>
           ) : (
             <Button 
-              type="button" // Changed from "submit"
-              onClick={form.handleSubmit(processSubmit)} // Moved handleSubmit here
+              type="button" 
+              onClick={form.handleSubmit(processSubmit)} 
               disabled={isSubmitting || !form.formState.isValid} 
               className="bg-accent hover:bg-accent/90 text-accent-foreground"
             >
