@@ -389,7 +389,7 @@ export async function getGameDetails(gameId: string): Promise<BoardGame | null> 
           return {
             id: reviewDoc.id,
             author: reviewData.author || 'Unknown Author',
-            userId: reviewData.userId || 'unknown_user_id', // Add userId
+            userId: reviewData.userId || 'unknown_user_id', 
             rating: reviewData.rating as Rating || { feeling: 0, gameDesign: 0, presentation: 0, management: 0 },
             comment: reviewData.comment || '',
             date: reviewData.date || new Date().toISOString(),
@@ -406,10 +406,10 @@ export async function getGameDetails(gameId: string): Promise<BoardGame | null> 
         coverArtUrl: data.coverArtUrl || `https://placehold.co/400x600.png?text=${encodeURIComponent(data.name || 'N/A')}`,
         bggId: typeof data.bggId === 'number' ? data.bggId : 0,
         description: data.description || "No description available.",
-        yearPublished: data.yearPublished,
-        minPlayers: data.minPlayers,
-        maxPlayers: data.maxPlayers,
-        playingTime: data.playingTime,
+        yearPublished: data.yearPublished === undefined ? null : data.yearPublished,
+        minPlayers: data.minPlayers === undefined ? null : data.minPlayers,
+        maxPlayers: data.maxPlayers === undefined ? null : data.maxPlayers,
+        playingTime: data.playingTime === undefined ? null : data.playingTime,
         reviews: reviews,
       };
       console.log(`[GETGAMEDETAILS] Successfully constructed game object for "${gameId}":`, JSON.stringify(game).substring(0,200));
@@ -428,9 +428,11 @@ export async function getGameDetails(gameId: string): Promise<BoardGame | null> 
 export async function submitNewReviewAction(
   gameId: string,
   prevState: any,
-  data: RatingFormValues & { userId?: string } // userId is now optional in payload
+  data: RatingFormValues & { userId?: string } 
 ): Promise<{ message: string; errors?: Record<string, string[]>; success: boolean }> {
   const { userId, ...reviewData } = data;
+
+  console.log('[SERVER ACTION] submitNewReviewAction: Attempting to submit review for gameId:', gameId, 'by userId:', userId);
 
   if (!userId) {
     return { message: 'User not authenticated. Please log in to submit a review.', success: false };
@@ -454,7 +456,6 @@ export async function submitNewReviewAction(
 
     const reviewsCollectionRef = collection(db, FIRESTORE_COLLECTION_NAME, gameId, 'reviews');
     
-    // Check if user already submitted a review for this game
     const existingReviewQuery = query(reviewsCollectionRef, where("userId", "==", userId), limit(1));
     const existingReviewSnapshot = await getDocs(existingReviewQuery);
     if (!existingReviewSnapshot.empty) {
@@ -463,7 +464,7 @@ export async function submitNewReviewAction(
 
     const newReviewData = {
       author,
-      userId, // Store the authenticated user's ID
+      userId, 
       rating,
       comment,
       date: new Date().toISOString(),
@@ -558,16 +559,16 @@ export async function getAllGamesAction(): Promise<BoardGame[]> {
 async function fetchWithRetry(url: string, retries = 3, delay = 1500, attempt = 1): Promise<string> {
     try {
         const response = await fetch(url, { cache: 'no-store' });
-        // console.log(`[BGG Fetch Attempt ${attempt}/${retries}] URL: ${url.substring(0,100)}..., Status: ${response.status}`);
+        console.log(`[BGG Fetch Attempt ${attempt}/${retries}] URL: ${url.substring(0,100)}..., Status: ${response.status}`);
 
         if (response.status === 200) {
             const xmlText = await response.text();
+             console.log(`[BGG Fetch Success] XML received (first 2000 chars): ${xmlText.substring(0,2000)}`);
             if (!xmlText.includes('<items') && !xmlText.includes("<item ") && attempt < retries) { 
-                 // console.warn(`BGG API (200 OK) but potentially incomplete XML (no <items> or <item> tag). Retrying in ${delay / 1000}s... Content (first 200 chars): ${xmlText.substring(0,200)}`);
+                 console.warn(`BGG API (200 OK) but potentially incomplete XML (no <items> or <item> tag). Retrying in ${delay / 1000}s...`);
                  await new Promise(resolve => setTimeout(resolve, delay));
                  return fetchWithRetry(url, retries, Math.min(delay * 2, 30000), attempt + 1);
             }
-            // console.log(`[BGG Fetch Success] XML received (first 2000 chars): ${xmlText.substring(0,2000)}`);
             return xmlText;
         } else if (response.status === 202 && attempt < retries) {
             console.warn(`BGG API (202 Accepted). Retrying in ${delay / 1000}s... (Attempt ${attempt}/${retries})`);
@@ -584,7 +585,6 @@ async function fetchWithRetry(url: string, retries = 3, delay = 1500, attempt = 
     } catch (error) {
         console.error(`Error on BGG fetch attempt ${attempt}: ${error instanceof Error ? error.message : String(error)}`);
         if (attempt < retries) {
-            // console.warn(`Retrying BGG fetch in ${delay / 1000}s... (Attempt ${attempt}/${retries})`);
             await new Promise(resolve => setTimeout(resolve, delay));
             return fetchWithRetry(url, retries, Math.min(delay * 2, 30000), attempt + 1);
         }
@@ -689,4 +689,3 @@ export async function syncBoardGamesToFirestoreAction(
         return { success: false, message: 'Database sync failed.', error: errorMessage };
     }
 }
-
