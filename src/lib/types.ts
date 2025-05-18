@@ -44,4 +44,6 @@ export interface BggSearchResult {
   bggId: string;
   name: string;
   yearPublished?: number;
+  rank: number; // Rank will be a number; unranked games get a high number.
 }
+

@@ -29,9 +29,15 @@ function decodeHtmlEntities(text: string): string {
 }
 
 
-// Helper to parse BGG search XML (very basic)
-function parseBggSearchXml(xml: string): BggSearchResult[] {
-  const results: BggSearchResult[] = [];
+// Helper to parse BGG search XML (very basic) - returns initial results without rank
+interface InitialBggSearchResult {
+  bggId: string;
+  name: string;
+  yearPublished?: number;
+}
+
+function parseBggSearchXml(xml: string): InitialBggSearchResult[] {
+  const results: InitialBggSearchResult[] = [];
   const itemRegex = /<item type="boardgame" id="(\d+)">([\s\S]*?)<\/item>/g;
   let match;
 
@@ -41,7 +47,6 @@ function parseBggSearchXml(xml: string): BggSearchResult[] {
 
     const nameRegex = /<name type="primary" value="([^"]+)"\s*\/>/;
     const nameMatch = itemContent.match(nameRegex);
-    // Decode HTML entities in name
     const name = nameMatch ? decodeHtmlEntities(nameMatch[1]) : 'Unknown Game';
 
     const yearRegex = /<yearpublished value="(\d+)"\s*\/>/;
@@ -53,7 +58,24 @@ function parseBggSearchXml(xml: string): BggSearchResult[] {
   return results;
 }
 
-// Helper to parse BGG thing XML (very basic)
+// Helper to parse rank from BGG thing XML
+function parseRankFromThingXml(xml: string): number {
+  const rankRegex = /<rank type="subtype" name="boardgame" friendlyname="Board Game Rank" value="(\d+|Not Ranked)"/;
+  const rankMatch = xml.match(rankRegex);
+  if (rankMatch) {
+    if (rankMatch[1] === 'Not Ranked') {
+      return Number.MAX_SAFE_INTEGER; // Not ranked games get a high number to sort last
+    }
+    const rankValue = parseInt(rankMatch[1], 10);
+    if (!isNaN(rankValue)) {
+      return rankValue;
+    }
+  }
+  return Number.MAX_SAFE_INTEGER; // Default to high number if rank is not found or invalid
+}
+
+
+// Helper to parse BGG thing XML (very basic) for full import
 function parseBggThingXml(xml: string): Partial<BoardGame> {
   const result: Partial<BoardGame> = {};
   
@@ -99,21 +121,51 @@ export async function searchBggGamesAction(searchTerm: string): Promise<BggSearc
     return { error: 'Search term cannot be empty.' };
   }
   try {
-    const response = await fetch(`https://boardgamegeek.com/xmlapi2/search?type=boardgame&query=${encodeURIComponent(searchTerm)}`);
-    if (!response.ok) {
-      throw new Error(`BGG API request failed with status ${response.status}`);
+    // Step 1: Initial search for game IDs, names, and years
+    const searchResponse = await fetch(`https://boardgamegeek.com/xmlapi2/search?type=boardgame&query=${encodeURIComponent(searchTerm)}`);
+    if (!searchResponse.ok) {
+      throw new Error(`BGG Search API request failed with status ${searchResponse.status}`);
     }
-    const xmlData = await response.text();
-    // Check if the API returned an error message like "Error reading parameter type"
-    if (xmlData.includes("<error>")) { // A simple check for BGG's error XML structure
-        const messageMatch = xmlData.match(/<message>([^<]+)<\/message>/);
-        const errorMessage = messageMatch ? messageMatch[1] : "Unknown BGG API error";
+    const searchXmlData = await searchResponse.text();
+    if (searchXmlData.includes("<error>")) {
+        const messageMatch = searchXmlData.match(/<message>([^<]+)<\/message>/);
+        const errorMessage = messageMatch ? messageMatch[1] : "Unknown BGG API error during search";
         return { error: `BoardGameGeek API Error: ${errorMessage}` };
     }
-    const results = parseBggSearchXml(xmlData);
-    return results;
+    const initialResults = parseBggSearchXml(searchXmlData);
+
+    if (initialResults.length === 0) {
+        return [];
+    }
+
+    // Step 2: Fetch detailed stats (including rank) for each game
+    // BGG API can be slow; consider limiting the number of detail fetches if necessary.
+    // For now, fetching all.
+    const detailedResultsPromises = initialResults.map(async (game) => {
+      try {
+        const thingResponse = await fetch(`https://boardgamegeek.com/xmlapi2/thing?id=${game.bggId}&stats=1`);
+        if (!thingResponse.ok) {
+          console.warn(`BGG Thing API request for ID ${game.bggId} failed with status ${thingResponse.status}. Assigning max rank.`);
+          return { ...game, rank: Number.MAX_SAFE_INTEGER };
+        }
+        const thingXmlData = await thingResponse.text();
+        const rank = parseRankFromThingXml(thingXmlData);
+        return { ...game, rank };
+      } catch (e) {
+        console.warn(`Error fetching details for BGG ID ${game.bggId}:`, e);
+        return { ...game, rank: Number.MAX_SAFE_INTEGER }; // Assign max rank on error
+      }
+    });
+
+    const resultsWithRank = await Promise.all(detailedResultsPromises);
+
+    // Step 3: Sort results by rank (ascending, unranked/error ones last)
+    resultsWithRank.sort((a, b) => a.rank - b.rank);
+    
+    return resultsWithRank;
+
   } catch (error) {
-    console.error('BGG Search Error:', error);
+    console.error('BGG Search Action Error:', error);
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred during BGG search.';
     return { error: errorMessage };
   }
@@ -127,12 +179,12 @@ export async function importAndRateBggGameAction(bggId: string): Promise<{ gameI
   }
 
   try {
-    const response = await fetch(`https://boardgamegeek.com/xmlapi2/thing?id=${bggId}`);
+    const response = await fetch(`https://boardgamegeek.com/xmlapi2/thing?id=${bggId}&stats=1`); // Add stats=1 here too if needed for full import
     if (!response.ok) {
       throw new Error(`BGG Thing API request failed with status ${response.status}`);
     }
     const xmlData = await response.text();
-    const gameDetails = parseBggThingXml(xmlData);
+    const gameDetails = parseBggThingXml(xmlData); // This parser doesn't get rank, but it's not stored on BoardGame type yet
 
     if (!gameDetails.name) {
       return { error: 'Could not retrieve essential game details from BGG.' };
@@ -141,7 +193,7 @@ export async function importAndRateBggGameAction(bggId: string): Promise<{ gameI
     const newGame: BoardGame = {
       id: existingGameId,
       name: gameDetails.name,
-      coverArtUrl: gameDetails.coverArtUrl || 'https://picsum.photos/seed/placeholder/400/600', // Default placeholder
+      coverArtUrl: gameDetails.coverArtUrl || `https://placehold.co/400x600.png?text=${encodeURIComponent(gameDetails.name)}`, 
       description: gameDetails.description || 'No description available.',
       reviews: [],
       yearPublished: gameDetails.yearPublished,
@@ -151,14 +203,13 @@ export async function importAndRateBggGameAction(bggId: string): Promise<{ gameI
       bggId: parseInt(bggId, 10),
     };
 
-    mockGames.push(newGame); // Add to our "database"
+    mockGames.push(newGame); 
     if (!allMockReviews[existingGameId]) {
         allMockReviews[existingGameId] = [];
     }
 
-
     revalidatePath('/');
-    revalidatePath(`/games/${existingGameId}`); // For the new game page
+    revalidatePath(`/games/${existingGameId}`); 
     
     return { gameId: newGame.id };
 
@@ -172,7 +223,6 @@ export async function importAndRateBggGameAction(bggId: string): Promise<{ gameI
 
 // Helper to find a game (simulates DB query)
 async function findGameById(gameId: string): Promise<BoardGame | undefined> {
-  // Make sure to get the latest reviews from allMockReviews
   const game = mockGames.find(game => game.id === gameId);
   if (game) {
     return { ...game, reviews: allMockReviews[gameId] || game.reviews || [] };
@@ -224,12 +274,12 @@ export async function submitNewReviewAction(
 
   const rating: Rating = { feeling, gameDesign, presentation, management };
   
-  const newReviewData = { rating, comment, author }; // Add author here
+  const newReviewData = { rating, comment, author }; 
   const addedReview = addReviewToMockGame(gameId, newReviewData);
 
   if (addedReview) {
     revalidatePath(`/games/${gameId}`);
-    revalidatePath('/'); // Revalidate home page if average ratings are shown
+    revalidatePath('/'); 
     return { message: 'Review submitted successfully!', success: true, errors: undefined };
   } else {
     return { message: 'Failed to submit review: Game not found.', success: false, errors: undefined };
@@ -272,9 +322,9 @@ export async function generateAiSummaryAction(gameId: string): Promise<AiSummary
 
 // Action to get all games for the home page
 export async function getAllGamesAction(): Promise<BoardGame[]> {
-  // Ensure each game has its latest reviews from allMockReviews
   return Promise.resolve(mockGames.map(game => ({
     ...game,
     reviews: allMockReviews[game.id] || game.reviews || []
   })));
 }
+
