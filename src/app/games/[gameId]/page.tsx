@@ -17,6 +17,7 @@ import { summarizeReviews } from '@/ai/flows/summarize-reviews';
 import { calculateGroupedCategoryAverages, calculateCategoryAverages, calculateOverallCategoryAverage, formatRatingNumber } from '@/lib/utils';
 import { RATING_CATEGORIES } from '@/lib/types';
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
+import { Progress } from '@/components/ui/progress';
 
 
 interface GameDetailPageProps {
@@ -141,8 +142,8 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
             </div>
             
             {/* Mobile Image Block - Shown only on mobile, below title/score */}
-            <div className="md:hidden my-4">
-              <div className="relative aspect-[3/4] w-full rounded-md overflow-hidden shadow-md">
+            <div className="md:hidden my-4 max-w-[240px] mx-auto">
+              <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
                 <Image
                   src={game.coverArtUrl || `https://placehold.co/400x600.png`}
                   alt={`${game.name} cover art`}
@@ -150,7 +151,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
                   priority
                   className="object-cover"
                   data-ai-hint={`board game ${game.name.split(' ')[0]?.toLowerCase() || 'detailed'}`}
-                  sizes="(max-width: 767px) 100vw"
+                  sizes="(max-width: 767px) 240px"
                   onError={(e) => { e.currentTarget.src = `https://placehold.co/400x600.png`; }}
                 />
               </div>
@@ -167,8 +168,8 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
           </div>
 
           {/* Desktop Image Block - Shown only on desktop, to the right */}
-          <div className="hidden md:block md:w-1/3 p-6 flex-shrink-0 self-start order-2">
-            <div className="relative aspect-[3/4] w-full rounded-md overflow-hidden shadow-md">
+          <div className="hidden md:block md:w-1/4 p-6 flex-shrink-0 self-start order-2">
+            <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
               <Image
                 src={game.coverArtUrl || `https://placehold.co/400x600.png`}
                 alt={`${game.name} cover art`}
@@ -176,7 +177,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
                 priority
                 className="object-cover"
                 data-ai-hint={`board game ${game.name.split(' ')[0]?.toLowerCase() || 'detailed'}`}
-                sizes="33vw"
+                sizes="25vw"
                 onError={(e) => { e.currentTarget.src = `https://placehold.co/400x600.png`; }}
               />
             </div>
