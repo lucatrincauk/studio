@@ -20,6 +20,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, Loader2 } from "lucide-react";
 import Link from 'next/link';
 import { Separator } from '@/components/ui/separator';
+import { useState } from 'react'; // Added useState import
 
 const formSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
@@ -58,7 +59,7 @@ export function SigninForm() {
     clearError();
     const user = await signIn(values.email, values.password);
     if (user) {
-      router.push('/'); 
+      router.push('/');
     }
   }
 
