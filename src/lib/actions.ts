@@ -28,9 +28,9 @@ function decodeHtmlEntities(text: string): string {
   return decoded;
 }
 
-// Updated helper to parse BGG search XML and attempt to extract rank
-function parseBggSearchXmlWithRank(xml: string): BggSearchResult[] {
-  const results: BggSearchResult[] = [];
+// Helper to parse BGG search XML for basic info (ID, name, year)
+function parseBggSearchXml(xml: string): Omit<BggSearchResult, 'rank'>[] {
+  const results: Omit<BggSearchResult, 'rank'>[] = [];
   const itemRegex = /<item type="boardgame" id="(\d+)">([\s\S]*?)<\/item>/g;
   let match;
 
@@ -45,38 +45,34 @@ function parseBggSearchXmlWithRank(xml: string): BggSearchResult[] {
     const yearRegex = /<yearpublished value="(\d+)"\s*\/>/;
     const yearMatch = itemContent.match(yearRegex);
     const yearPublished = yearMatch ? parseInt(yearMatch[1], 10) : undefined;
-
-    // Attempt to parse rank if present in the item's XML structure.
-    // This is speculative for the /search endpoint.
-    // A more robust way is to get rank from /thing?id=<ID>&stats=1,
-    // but per user request, we are simplifying to one call.
-    let rank = Number.MAX_SAFE_INTEGER; // Default to high number (last in sort)
-    const rankRegex = /<rank type="subtype" name="boardgame" friendlyname="Board Game Rank" value="(\d+|Not Ranked)"/;
-    const statsBlockRegex = /<statistics>([\s\S]*?)<\/statistics>/; // Check if there's a stats block
-    const statsMatch = itemContent.match(statsBlockRegex);
-
-    if (statsMatch) { // If a stats block exists for the item
-        const rankMatch = statsMatch[0].match(rankRegex); // Search for rank within the stats block
-         if (rankMatch) {
-            if (rankMatch[1] === 'Not Ranked') {
-                rank = Number.MAX_SAFE_INTEGER;
-            } else {
-                const parsedRank = parseInt(rankMatch[1], 10);
-                if (!isNaN(parsedRank)) {
-                    rank = parsedRank;
-                }
-            }
-        }
-    }
-    // Fallback if no rank found in a per-item stats block (which is unlikely for /search)
-    // The user might be thinking of a global stats block in the response, but that wouldn't be per-item.
-    // For now, if not found within an item's own potential stats, it remains MAX_SAFE_INTEGER.
-
-    results.push({ bggId, name, yearPublished, rank });
+    
+    results.push({ bggId, name, yearPublished });
   }
   return results;
 }
 
+// Helper to parse rank from BGG thing XML response
+function parseRankFromThingXml(xml: string): number {
+    const rankRegex = /<rank type="subtype" name="boardgame" friendlyname="Board Game Rank" value="(\d+|Not Ranked)"/;
+    // Rank is usually within <statistics><ratings><ranks>...</ranks></ratings></statistics>
+    const statsBlockRegex = /<statistics>[\s\S]*?<ranks>([\s\S]*?)<\/ranks>[\s\S]*?<\/statistics>/; 
+    const statsMatch = xml.match(statsBlockRegex);
+
+    if (statsMatch) {
+        const ranksBlock = statsMatch[1]; // Content within <ranks>...</ranks>
+        const rankMatch = ranksBlock.match(rankRegex);
+        if (rankMatch) {
+            if (rankMatch[1] === 'Not Ranked') {
+                return Number.MAX_SAFE_INTEGER;
+            }
+            const parsedRank = parseInt(rankMatch[1], 10);
+            if (!isNaN(parsedRank)) {
+                return parsedRank;
+            }
+        }
+    }
+    return Number.MAX_SAFE_INTEGER; // Default if not found or not ranked
+}
 
 // Helper to parse BGG thing XML (very basic) for full import
 function parseBggThingXml(xml: string): Partial<BoardGame> {
@@ -124,8 +120,8 @@ export async function searchBggGamesAction(searchTerm: string): Promise<BggSearc
     return { error: 'Search term cannot be empty.' };
   }
   try {
-    // Single API call to BGG search with stats=1 parameter
-    const searchResponse = await fetch(`https://boardgamegeek.com/xmlapi2/search?type=boardgame&stats=1&query=${encodeURIComponent(searchTerm)}`);
+    // Step 1: Initial search to get basic game list (IDs, names, years)
+    const searchResponse = await fetch(`https://boardgamegeek.com/xmlapi2/search?type=boardgame&query=${encodeURIComponent(searchTerm)}`);
     if (!searchResponse.ok) {
       throw new Error(`BGG Search API request failed with status ${searchResponse.status}`);
     }
@@ -137,16 +133,36 @@ export async function searchBggGamesAction(searchTerm: string): Promise<BggSearc
         return { error: `BoardGameGeek API Error: ${errorMessage}` };
     }
 
-    const results = parseBggSearchXmlWithRank(searchXmlData);
+    const basicResults = parseBggSearchXml(searchXmlData);
 
-    if (results.length === 0) {
+    if (basicResults.length === 0) {
         return [];
     }
 
-    // Sort results by rank (ascending, unranked/error ones last)
-    results.sort((a, b) => a.rank - b.rank);
+    // Step 2: Fetch rank for each game by calling the /thing API
+    // Limiting to first 10 results to avoid excessive API calls & improve performance
+    const enrichedResultsPromises = basicResults.slice(0, 10).map(async (basicResult) => {
+        try {
+            const thingResponse = await fetch(`https://boardgamegeek.com/xmlapi2/thing?id=${basicResult.bggId}&stats=1`);
+            if (!thingResponse.ok) {
+                console.warn(`Failed to fetch details for BGG ID ${basicResult.bggId}: Status ${thingResponse.status}`);
+                return { ...basicResult, rank: Number.MAX_SAFE_INTEGER }; // Add with default rank on error
+            }
+            const thingXmlData = await thingResponse.text();
+            const rank = parseRankFromThingXml(thingXmlData);
+            return { ...basicResult, rank };
+        } catch (e) {
+            console.warn(`Error fetching details for BGG ID ${basicResult.bggId}:`, e);
+            return { ...basicResult, rank: Number.MAX_SAFE_INTEGER }; // Add with default rank on error
+        }
+    });
     
-    return results;
+    const enrichedResults = await Promise.all(enrichedResultsPromises);
+    
+    // Sort results by rank (ascending, unranked/error ones last)
+    enrichedResults.sort((a, b) => a.rank - b.rank);
+    
+    return enrichedResults;
 
   } catch (error) {
     console.error('BGG Search Action Error:', error);
