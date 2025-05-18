@@ -10,7 +10,8 @@ import { Loader2, AlertCircle, Info } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { CollectionConfirmationDialog } from '@/components/collection/confirmation-dialog';
-import Image from 'next/image';
+// import Image from 'next/image'; // No longer directly used, SafeImage will import it
+import { SafeImage } from '@/components/common/SafeImage'; // Import SafeImage
 import { Users, Clock, CalendarDays } from 'lucide-react';
 
 
@@ -83,6 +84,11 @@ export default function CollectionPage() {
     setError(null);
     setBggFetchedCollection(null); // Clear previous BGG fetch
     startBggFetchTransition(async () => {
+      // console.log('[CLIENT] Attempting to call testServerAction...');
+      // const testResult = await testServerAction('Hello from CollectionPage!');
+      // console.log('[CLIENT] testServerAction result:', testResult);
+
+      // console.log('[CLIENT] Attempting to call fetchBggUserCollectionAction for username:', BGG_USERNAME);
       const result = await fetchBggUserCollectionAction(BGG_USERNAME);
       if ('error' in result) {
         setError(result.error);
@@ -212,14 +218,14 @@ export default function CollectionPage() {
           <Card key={game.id} className="flex flex-col overflow-hidden shadow-md transition-all duration-300 ease-in-out hover:shadow-lg h-full rounded-lg border border-border">
             <CardHeader className="p-0">
               <div className="relative w-full h-48">
-                <Image
-                  src={game.coverArtUrl || `https://placehold.co/200x300.png?text=${encodeURIComponent(game.name?.substring(0,10) || 'N/A')}`}
+                <SafeImage
+                  src={game.coverArtUrl}
+                  fallbackSrc={`https://placehold.co/200x300.png?text=${encodeURIComponent(game.name?.substring(0,10) || 'N/A')}`}
                   alt={`${game.name || 'Game'} cover art`}
                   fill
                   sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
                   className="object-cover rounded-t-lg"
                   data-ai-hint={`board game ${game.name?.split(' ')[0]?.toLowerCase() || 'generic'}`}
-                  onError={(e) => { e.currentTarget.src = `https://placehold.co/200x300.png?text=${encodeURIComponent(game.name?.substring(0,10) || 'N/A')}`; }}
                 />
               </div>
             </CardHeader>
@@ -255,3 +261,4 @@ export default function CollectionPage() {
     </div>
   );
 }
+
