@@ -88,52 +88,8 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
           <div className="flex-1 p-3 space-y-3"> {/* Adjusted padding and spacing */}
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">{game.name}</h1> {/* Responsive font size */}
             
-            {/* StarRating and average rating display removed */}
-            {/* 
-            <div className="flex items-center gap-2">
-              <StarRating rating={averageRating} readOnly size={24} iconClassName="text-accent" />
-              {averageRating > 0 && <span className="text-lg font-semibold">{averageRating.toFixed(1)} ({game.reviews.length} ratings)</span>}
-              {averageRating === 0 && <span className="text-lg font-semibold">Not yet rated</span>}
-            </div> 
-            */}
+            {/* Game Details section removed */}
             
-            <div className="mt-4 pt-4 border-t border-border/50 space-y-2">
-              <h3 className="text-lg font-semibold text-foreground mb-2">Game Details</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
-                {game.yearPublished && (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <CalendarDays size={16} className="text-primary" />
-                    <strong>Year:</strong> <span className="text-foreground">{game.yearPublished}</span>
-                  </div>
-                )}
-                {(game.minPlayers || game.maxPlayers) && (
-                   <div className="flex items-center gap-2 text-muted-foreground">
-                    <Users size={16} className="text-primary" />
-                    <strong>Players:</strong> <span className="text-foreground">{game.minPlayers}{game.maxPlayers && game.minPlayers !== game.maxPlayers ? `-${game.maxPlayers}` : ''}</span>
-                  </div>
-                )}
-                {game.playingTime && (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Clock size={16} className="text-primary" />
-                    <strong>Time:</strong> <span className="text-foreground">{game.playingTime} min</span>
-                  </div>
-                )}
-                {game.bggId && (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Tags size={16} className="text-primary" />
-                    <strong>BGG ID:</strong> 
-                    <a 
-                        href={`https://boardgamegeek.com/boardgame/${game.bggId}`} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-primary hover:underline"
-                    >
-                        {game.bggId}
-                    </a>
-                  </div>
-                )}
-              </div>
-            </div>
           </div>
 
           {/* Image Section (Now on the right) */}
