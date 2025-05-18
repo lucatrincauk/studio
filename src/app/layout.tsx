@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'BoardGame Ranker',
+  title: 'Punteggiometro', // Changed title
   description: 'Rate and review your favorite board games.',
 };
 
@@ -36,7 +36,7 @@ export default function RootLayout({
           </main>
           <Toaster />
           <footer className="py-6 text-center text-sm text-muted-foreground">
-            © {new Date().getFullYear()} BoardGame Ranker. All rights reserved.
+            © {new Date().getFullYear()} Punteggiometro. All rights reserved. {/* Changed name */}
           </footer>
         </AuthProvider>
       </body>
