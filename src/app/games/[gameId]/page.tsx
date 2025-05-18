@@ -5,19 +5,31 @@ import { useEffect, useState, useTransition, useCallback, use } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { getGameDetails } from '@/lib/actions';
-import type { BoardGame, AiSummary, Review, Rating, RatingCategory, GroupedCategoryAverages } from '@/lib/types';
+import type { BoardGame, AiSummary, Review, Rating, GroupedCategoryAverages } from '@/lib/types';
 import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Wand2, Info, Edit } from 'lucide-react';
+import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { summarizeReviews } from '@/ai/flows/summarize-reviews';
 import { calculateGroupedCategoryAverages, calculateCategoryAverages, calculateOverallCategoryAverage, formatRatingNumber } from '@/lib/utils';
-import { RATING_CATEGORIES } from '@/lib/types';
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
-import { Progress } from '@/components/ui/progress';
+import { useToast } from '@/hooks/use-toast';
+import { db } from '@/lib/firebase';
+import { doc, deleteDoc } from 'firebase/firestore';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 
 interface GameDetailPageProps {
@@ -31,6 +43,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
   const { gameId } = params;
 
   const { user: currentUser, loading: authLoading } = useAuth();
+  const { toast } = useToast();
 
   const [game, setGame] = useState<BoardGame | null>(null);
   const [aiSummary, setAiSummary] = useState<AiSummary | null>(null);
@@ -41,6 +54,10 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
   const [userReview, setUserReview] = useState<Review | undefined>(undefined);
   const [groupedCategoryAverages, setGroupedCategoryAverages] = useState<GroupedCategoryAverages | null>(null);
   const [globalGameAverage, setGlobalGameAverage] = useState<number | null>(null);
+
+  const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false);
+  const [isDeletingReview, startDeleteReviewTransition] = useTransition();
+
 
   const fetchGameData = useCallback(async () => {
     setIsLoadingGame(true);
@@ -77,7 +94,10 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
         if (foundReview) setUserReview(foundReview);
     }
     if (game && !currentUser && !authLoading && userReview) {
-        setUserReview(undefined);
+        setUserReview(undefined); // Clear userReview if user logs out
+    }
+     if (!currentUser && !authLoading) { // Ensure userReview is cleared if no user
+      setUserReview(undefined);
     }
   }, [currentUser, authLoading, game, userReview]);
 
@@ -101,6 +121,33 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
       }
     });
   };
+
+  const handleDeleteUserReview = async () => {
+    setShowDeleteConfirmDialog(true);
+  };
+
+  const confirmDeleteUserReview = async () => {
+    setShowDeleteConfirmDialog(false);
+    if (!currentUser || !userReview?.id) {
+      toast({ title: "Error", description: "Could not delete review. User or review not found.", variant: "destructive" });
+      return;
+    }
+
+    startDeleteReviewTransition(async () => {
+      try {
+        const reviewDocRef = doc(db, "boardgames_collection", gameId, 'reviews', userReview.id);
+        await deleteDoc(reviewDocRef);
+        toast({ title: "Review Deleted", description: "Your review has been successfully deleted." });
+        setUserReview(undefined); // Clear local userReview state
+        await fetchGameData(); // Refresh all game data
+      } catch (error) {
+        console.error("Error deleting review from Firestore:", error);
+        const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+        toast({ title: "Error", description: `Failed to delete review: ${errorMessage}`, variant: "destructive" });
+      }
+    });
+  };
+
 
   if (isLoadingGame || authLoading) {
     return (
@@ -126,12 +173,8 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
   return (
     <div className="space-y-10">
       <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
-        <div className="flex flex-col md:flex-row"> {/* Main layout container */}
-          
-          {/* Content Column (Title, Score, Mobile Image, Grouped Ratings) */}
+        <div className="flex flex-col md:flex-row">
           <div className="flex-1 p-6 space-y-4 order-1">
-            
-            {/* Title & Score Block */}
             <div className="flex justify-between items-start mb-4">
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">{game.name}</h1>
               {globalGameAverage !== null && (
@@ -141,7 +184,6 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
               )}
             </div>
             
-            {/* Mobile Image Block - Shown only on mobile, below title/score */}
             <div className="md:hidden my-4 max-w-[240px] mx-auto">
               <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
                 <Image
@@ -157,7 +199,6 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
               </div>
             </div>
             
-            {/* Grouped Ratings Display */}
             <div className="mt-4 space-y-1 md:border-t-0 border-t border-border pt-4 md:pt-0">
               <h3 className="text-lg font-semibold text-foreground mb-3">Average Player Ratings:</h3>
               <GroupedRatingsDisplay 
@@ -167,7 +208,6 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
             </div>
           </div>
 
-          {/* Desktop Image Block - Shown only on desktop, to the right */}
           <div className="hidden md:block md:w-1/4 p-6 flex-shrink-0 self-start order-2">
             <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
               <Image
@@ -195,15 +235,41 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
             </h3>
             <p className="text-muted-foreground mb-4">
               {userReview
-                ? "You've already rated this game. You can edit your ratings below."
+                ? "You've already rated this game. You can edit or delete your ratings below."
                 : "Help others by sharing your experience with this game."}
             </p>
-            <Button asChild className="w-full sm:w-auto bg-accent text-accent-foreground hover:bg-accent/90">
-              <Link href={`/games/${gameId}/rate`}>
-                <Edit className="mr-2 h-4 w-4" />
-                {userReview ? "Edit Your Review" : "Rate this Game"}
-              </Link>
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button asChild className="w-full sm:w-auto bg-accent text-accent-foreground hover:bg-accent/90">
+                <Link href={`/games/${gameId}/rate`}>
+                  <Edit className="mr-2 h-4 w-4" />
+                  {userReview ? "Edit Your Review" : "Rate this Game"}
+                </Link>
+              </Button>
+              {userReview && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" className="w-full sm:w-auto" disabled={isDeletingReview}>
+                      {isDeletingReview ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                      Delete My Review
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This action cannot be undone. This will permanently delete your review for {game.name}.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={confirmDeleteUserReview} className="bg-destructive hover:bg-destructive/90">
+                        Confirm Delete
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+            </div>
              {!currentUser && !authLoading && (
                  <Alert variant="default" className="mt-4 bg-secondary/30 border-secondary">
                     <Info className="h-4 w-4 text-secondary-foreground" />
@@ -271,4 +337,3 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
 }
 
 export const dynamic = 'force-dynamic';
-

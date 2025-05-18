@@ -1,75 +1,33 @@
 
 'use client';
 
-import type { Review, RatingCategory, Rating, GroupedCategoryAverages } from '@/lib/types';
+import type { Review } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { RATING_CATEGORIES } from '@/lib/types';
 import { formatReviewDate, calculateOverallCategoryAverage, formatRatingNumber, calculateGroupedCategoryAverages } from '@/lib/utils';
-import { UserCircle2, Trash2, Edit3, Loader2 } from 'lucide-react';
-import type { User as FirebaseUser } from 'firebase/auth';
-import { Button } from '@/components/ui/button';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { UserCircle2 } from 'lucide-react';
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
-import { useState, useTransition, useMemo } from 'react';
-// import { deleteReviewAction } from '@/lib/actions'; // Removed server action
-import { db } from '@/lib/firebase'; // Import db for client-side delete
-import { doc, deleteDoc } from 'firebase/firestore'; // Import Firestore deleteDoc
-import { useToast } from '@/hooks/use-toast';
-import Link from 'next/link';
+import { useMemo } from 'react';
 
 interface ReviewItemProps {
   review: Review;
-  currentUser: FirebaseUser | null;
-  gameId: string;
-  onReviewDeleted?: () => void;
+  // currentUser prop is no longer needed here as edit/delete are removed
+  // gameId prop is no longer needed here
+  // onReviewDeleted prop is no longer needed here
 }
 
-export function ReviewItem({ review, currentUser, gameId, onReviewDeleted }: ReviewItemProps) {
+export function ReviewItem({ review }: ReviewItemProps) {
   const overallReviewRating = calculateOverallCategoryAverage(review.rating);
-  const isOwnReview = currentUser && review.userId === currentUser.uid;
-
-  const [isDeleting, startDeleteTransition] = useTransition();
-  const { toast } = useToast();
 
   const groupedAveragesForReview = useMemo(() => {
     return calculateGroupedCategoryAverages([review]);
   }, [review]);
 
-  const handleDeleteReview = async () => {
-    if (!currentUser || !review.id || review.userId !== currentUser.uid) {
-        toast({ title: "Error", description: "Cannot delete this review.", variant: "destructive" });
-        return;
-    }
-    startDeleteTransition(async () => {
-      try {
-        const reviewDocRef = doc(db, "boardgames_collection", gameId, 'reviews', review.id);
-        await deleteDoc(reviewDocRef);
-        toast({ title: "Review Deleted", description: "Your review has been successfully deleted." });
-        onReviewDeleted?.();
-      } catch (error) {
-        console.error("Error deleting review from Firestore:", error);
-        const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
-        toast({ title: "Error", description: `Failed to delete review: ${errorMessage}`, variant: "destructive" });
-      }
-    });
-  };
-
   const getAuthorInitial = () => {
     if (review.author && review.author.trim().length > 0) {
       return review.author.substring(0, 1).toUpperCase();
     }
-    return ''; // Return empty if no author or empty author
+    return ''; 
   };
 
   return (
@@ -92,37 +50,7 @@ export function ReviewItem({ review, currentUser, gameId, onReviewDeleted }: Rev
             <div className="flex items-center gap-1 text-lg font-semibold text-primary mb-1">
               {formatRatingNumber(overallReviewRating * 2)}
             </div>
-            {isOwnReview && (
-              <div className="flex gap-2 mt-1">
-                <Button variant="outline" size="sm" asChild className="h-7 px-2 py-1 text-xs">
-                  <Link href={`/games/${gameId}/rate`}>
-                    <Edit3 size={14} className="mr-1" /> Edit
-                  </Link>
-                </Button>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="destructive" size="sm" disabled={isDeleting} className="h-7 px-2 py-1 text-xs">
-                      {isDeleting ? <Loader2 size={14} className="mr-1 animate-spin"/> : <Trash2 size={14} className="mr-1" />}
-                      Delete
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete your review.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleDeleteReview} className="bg-destructive hover:bg-destructive/90">
-                        Confirm Delete
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
-            )}
+            {/* Edit and Delete buttons are removed from here */}
           </div>
         </div>
       </CardHeader>
