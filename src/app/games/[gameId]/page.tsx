@@ -14,7 +14,7 @@ import { AlertCircle, Loader2, Wand2, Info, Edit } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { summarizeReviews } from '@/ai/flows/summarize-reviews';
-import { calculateGroupedCategoryAverages, calculateCategoryAverages, calculateOverallCategoryAverage, type GroupedCategoryAverages } from '@/lib/utils'; // Added calculateCategoryAverages and calculateOverallCategoryAverage
+import { calculateGroupedCategoryAverages, calculateCategoryAverages, calculateOverallCategoryAverage, type GroupedCategoryAverages } from '@/lib/utils';
 import { RATING_CATEGORIES } from '@/lib/types';
 import {
   Accordion,
@@ -22,6 +22,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
+import { Progress } from '@/components/ui/progress'; // Added Progress import
 
 interface GameDetailPageProps {
   params: Promise<{
@@ -43,7 +44,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
 
   const [userReview, setUserReview] = useState<Review | undefined>(undefined);
   const [groupedCategoryAverages, setGroupedCategoryAverages] = useState<GroupedCategoryAverages | null>(null);
-  const [globalGameAverage, setGlobalGameAverage] = useState<number | null>(null); // New state for global average
+  const [globalGameAverage, setGlobalGameAverage] = useState<number | null>(null);
 
   const fetchGameData = useCallback(async () => {
     setIsLoadingGame(true);
@@ -59,14 +60,13 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
       }
       setGroupedCategoryAverages(calculateGroupedCategoryAverages(gameData.reviews));
       
-      // Calculate and set global average rating
       const flatCategoryAverages = calculateCategoryAverages(gameData.reviews);
       setGlobalGameAverage(flatCategoryAverages ? calculateOverallCategoryAverage(flatCategoryAverages) : null);
 
     } else {
       setUserReview(undefined);
       setGroupedCategoryAverages(null);
-      setGlobalGameAverage(null); // Reset global average if no game data
+      setGlobalGameAverage(null);
     }
     setIsLoadingGame(false);
   }, [gameId, currentUser, authLoading]);
@@ -148,18 +148,24 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
                 <Accordion type="multiple" className="w-full">
                   {groupedCategoryAverages.map((section, index) => (
                     <AccordionItem value={`section-${index}`} key={section.sectionTitle}>
-                      <AccordionTrigger className="hover:no-underline">
-                        <div className="flex justify-between w-full items-center pr-2">
-                           <span className="font-medium text-md text-foreground">{section.sectionTitle}</span>
-                           <span className="text-md font-bold text-primary">{section.sectionAverage.toFixed(1)} / 5</span>
+                      <AccordionTrigger className="hover:no-underline text-left">
+                        <div className="flex justify-between w-full items-center pr-2 gap-4">
+                           <span className="font-medium text-md text-foreground flex-grow">{section.sectionTitle}</span>
+                           <div className="flex items-center gap-2 flex-shrink-0">
+                             <span className="text-md font-bold text-primary whitespace-nowrap">{section.sectionAverage.toFixed(1)} / 5</span>
+                             <Progress value={(section.sectionAverage / 5) * 100} className="w-24 h-2.5" />
+                           </div>
                         </div>
                       </AccordionTrigger>
                       <AccordionContent>
-                        <ul className="space-y-1.5 pl-2 pt-2">
+                        <ul className="space-y-2.5 pl-2 pt-2">
                           {section.subRatings.map(sub => (
-                            <li key={sub.name} className="flex justify-between text-sm">
+                            <li key={sub.name} className="flex justify-between items-center text-sm">
                               <span className="text-muted-foreground">{sub.name}:</span>
-                              <span className="font-medium text-foreground">{sub.average.toFixed(1)} / 5</span>
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-foreground whitespace-nowrap">{sub.average.toFixed(1)} / 5</span>
+                                <Progress value={(sub.average / 5) * 100} className="w-20 h-2" />
+                              </div>
                             </li>
                           ))}
                         </ul>
