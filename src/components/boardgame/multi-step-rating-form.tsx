@@ -5,7 +5,6 @@ import { useState, useEffect, useTransition } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
-// Input and Textarea are no longer needed here
 import { StarRating } from './star-rating';
 import type { RatingCategory, Review, Rating } from '@/lib/types';
 import { RATING_CATEGORIES } from '@/lib/types';
@@ -23,12 +22,13 @@ import { collection, addDoc, doc, updateDoc, query, where, getDocs, limit, getDo
 interface MultiStepRatingFormProps {
   gameId: string;
   onReviewSubmitted: () => void;
-  currentUser: FirebaseUser; // Assume currentUser is always present as page level handles null
+  currentUser: FirebaseUser; 
   existingReview?: Review | null;
 }
 
 const totalSteps = 4;
-const stepCategories: RatingCategory[] = ['feeling', 'gameDesign', 'presentation', 'management'];
+// These categories correspond to steps 2, 3, and 4. Step 1 is handled separately.
+const stepCategories: RatingCategory[] = ['gameDesign', 'presentation', 'management'];
 
 export function MultiStepRatingForm({
   gameId,
@@ -44,7 +44,9 @@ export function MultiStepRatingForm({
   const form = useForm<RatingFormValues>({
     resolver: zodResolver(reviewFormSchema),
     defaultValues: {
-      feeling: existingReview?.rating.feeling || 1,
+      excitedToReplay: existingReview?.rating.excitedToReplay || 1,
+      mentallyStimulating: existingReview?.rating.mentallyStimulating || 1,
+      fun: existingReview?.rating.fun || 1,
       gameDesign: existingReview?.rating.gameDesign || 1,
       presentation: existingReview?.rating.presentation || 1,
       management: existingReview?.rating.management || 1,
@@ -54,14 +56,18 @@ export function MultiStepRatingForm({
   useEffect(() => {
     if (existingReview) {
       form.reset({
-        feeling: existingReview.rating.feeling,
+        excitedToReplay: existingReview.rating.excitedToReplay,
+        mentallyStimulating: existingReview.rating.mentallyStimulating,
+        fun: existingReview.rating.fun,
         gameDesign: existingReview.rating.gameDesign,
         presentation: existingReview.rating.presentation,
         management: existingReview.rating.management,
       });
     } else {
-      form.reset({ // Reset to default values if no existing review or user changes
-        feeling: 1,
+      form.reset({ 
+        excitedToReplay: 1,
+        mentallyStimulating: 1,
+        fun: 1,
         gameDesign: 1,
         presentation: 1,
         management: 1,
@@ -73,9 +79,11 @@ export function MultiStepRatingForm({
   const handleNext = async () => {
     let fieldsToValidate: (keyof RatingFormValues)[] = [];
     if (currentStep === 1) {
-        fieldsToValidate = ['feeling']; // Only feeling in step 1 now
+        fieldsToValidate = ['excitedToReplay', 'mentallyStimulating', 'fun']; 
     } else if (currentStep > 1 && currentStep <= totalSteps) {
-        const categoryIndex = currentStep -1;
+        // For steps 2, 3, 4, `stepCategories` index is `currentStep - 2`
+        // e.g., currentStep 2 -> index 0 (gameDesign)
+        const categoryIndex = currentStep - 2; 
         if (categoryIndex < stepCategories.length) {
             fieldsToValidate = [stepCategories[categoryIndex]];
         }
@@ -86,10 +94,15 @@ export function MultiStepRatingForm({
       setCurrentStep((prev) => Math.min(prev + 1, totalSteps));
       setFormError(null);
     } else {
-       setFormError(`Please correct errors in ${RATING_CATEGORIES[stepCategories[currentStep-1] as RatingCategory] || "the current step"} before proceeding.`);
+       let stepName = "current step";
+       if (currentStep === 1) stepName = "Sentiments";
+       else if (currentStep > 1 && currentStep -2 < stepCategories.length) {
+           stepName = RATING_CATEGORIES[stepCategories[currentStep-2]];
+       }
+       setFormError(`Please correct errors in ${stepName} before proceeding.`);
        toast({
         title: "Validation Error",
-        description: `Please ensure all fields in the current step are correctly filled.`,
+        description: `Please ensure all fields in ${stepName} are correctly filled.`,
         variant: "destructive",
       });
     }
@@ -114,14 +127,16 @@ export function MultiStepRatingForm({
 
         const reviewsCollectionRef = collection(db, "boardgames_collection", gameId, 'reviews');
         const rating: Rating = {
-          feeling: data.feeling,
+          excitedToReplay: data.excitedToReplay,
+          mentallyStimulating: data.mentallyStimulating,
+          fun: data.fun,
           gameDesign: data.gameDesign,
           presentation: data.presentation,
           management: data.management,
         };
 
         const reviewAuthor = currentUser.displayName || 'Anonymous';
-        const reviewComment = ""; // Comment is now empty
+        const reviewComment = ""; 
 
         if (existingReview?.id) {
           const reviewDocRef = doc(reviewsCollectionRef, existingReview.id);
@@ -143,7 +158,7 @@ export function MultiStepRatingForm({
           const existingReviewSnapshot = await getDocs(existingReviewQuery);
 
           if (!existingReviewSnapshot.empty) {
-            toast({ title: "Already Reviewed", description: "You have already submitted a review for this game. Edit your existing review by re-opening this form.", variant: "default" });
+            toast({ title: "Already Reviewed", description: "You have already submitted a review for this game. Your existing review has been loaded.", variant: "default" });
             setFormError("You have already submitted a review for this game.");
             onReviewSubmitted(); 
             return;
@@ -170,22 +185,29 @@ export function MultiStepRatingForm({
   };
   
   const progressPercentage = (currentStep / totalSteps) * 100;
+  
+  const getCurrentStepTitle = () => {
+    if (currentStep === 1) return "Sentiments";
+    if (currentStep > 1 && currentStep - 2 < stepCategories.length) {
+      return RATING_CATEGORIES[stepCategories[currentStep - 2]];
+    }
+    return "Review Step";
+  }
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(processSubmit)} className="space-y-8">
         <Progress value={progressPercentage} className="w-full mb-6" />
-        <div className="min-h-[250px]"> 
+        <div className="min-h-[300px]"> 
+          <h3 className="text-xl font-semibold mb-6">{getCurrentStepTitle()}</h3>
           {currentStep === 1 && (
             <div className="space-y-6 animate-fadeIn">
-              <h3 className="text-lg font-semibold">{RATING_CATEGORIES.feeling}</h3>
-              {/* Author field removed */}
               <FormField
                 control={form.control}
-                name="feeling"
+                name="excitedToReplay"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{RATING_CATEGORIES.feeling}</FormLabel>
+                    <FormLabel>{RATING_CATEGORIES.excitedToReplay}</FormLabel>
                     <FormControl>
                       <StarRating rating={field.value} setRating={field.onChange} size={28} />
                     </FormControl>
@@ -193,16 +215,37 @@ export function MultiStepRatingForm({
                   </FormItem>
                 )}
               />
-              {/* Comment field removed */}
-               <p className="text-sm text-muted-foreground">
-                How enjoyable and engaging was the game overall?
-              </p>
+              <FormField
+                control={form.control}
+                name="mentallyStimulating"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{RATING_CATEGORIES.mentallyStimulating}</FormLabel>
+                    <FormControl>
+                      <StarRating rating={field.value} setRating={field.onChange} size={28} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="fun"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{RATING_CATEGORIES.fun}</FormLabel>
+                    <FormControl>
+                      <StarRating rating={field.value} setRating={field.onChange} size={28} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
           )}
 
           {currentStep === 2 && (
             <div className="space-y-6 animate-fadeIn">
-              <h3 className="text-lg font-semibold">{RATING_CATEGORIES.gameDesign}</h3>
               <FormField
                 control={form.control}
                 name="gameDesign"
@@ -224,7 +267,6 @@ export function MultiStepRatingForm({
 
           {currentStep === 3 && (
             <div className="space-y-6 animate-fadeIn">
-              <h3 className="text-lg font-semibold">{RATING_CATEGORIES.presentation}</h3>
               <FormField
                 control={form.control}
                 name="presentation"
@@ -246,7 +288,6 @@ export function MultiStepRatingForm({
 
           {currentStep === 4 && (
             <div className="space-y-6 animate-fadeIn">
-              <h3 className="text-lg font-semibold">{RATING_CATEGORIES.management}</h3>
               <FormField
                 control={form.control}
                 name="management"

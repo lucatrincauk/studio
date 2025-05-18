@@ -1,3 +1,4 @@
+
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import type { BoardGame, Review, Rating, RatingCategory } from "./types";
@@ -7,6 +8,8 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+// This function may need re-evaluation based on how an "overall average" is desired now.
+// For now, it sums all 6 categories.
 export function calculateAverageRating(game: BoardGame): number {
   if (!game.reviews || game.reviews.length === 0) {
     return 0;
@@ -16,8 +19,13 @@ export function calculateAverageRating(game: BoardGame): number {
   let numberOfRatings = 0;
 
   game.reviews.forEach(review => {
-    totalStars += review.rating.feeling + review.rating.gameDesign + review.rating.presentation + review.rating.management;
-    numberOfRatings += 4; // Each review has 4 rating categories
+    totalStars += review.rating.excitedToReplay + 
+                  review.rating.mentallyStimulating + 
+                  review.rating.fun + 
+                  review.rating.gameDesign + 
+                  review.rating.presentation + 
+                  review.rating.management;
+    numberOfRatings += 6; // Each review now has 6 rating categories
   });
 
   if (numberOfRatings === 0) return 0;
@@ -27,8 +35,8 @@ export function calculateAverageRating(game: BoardGame): number {
 }
 
 export function calculateOverallCategoryAverage(rating: Rating): number {
-  const { feeling, gameDesign, presentation, management } = rating;
-  const average = (feeling + gameDesign + presentation + management) / 4;
+  const { excitedToReplay, mentallyStimulating, fun, gameDesign, presentation, management } = rating;
+  const average = (excitedToReplay + mentallyStimulating + fun + gameDesign + presentation + management) / 6;
   return Math.round(average * 10) / 10;
 }
 
@@ -39,21 +47,27 @@ export function calculateCategoryAverages(reviews: Review[]): Rating | null {
 
   const numReviews = reviews.length;
   const sumOfRatings: Rating = {
-    feeling: 0,
+    excitedToReplay: 0,
+    mentallyStimulating: 0,
+    fun: 0,
     gameDesign: 0,
     presentation: 0,
     management: 0,
   };
 
   reviews.forEach(review => {
-    sumOfRatings.feeling += review.rating.feeling;
+    sumOfRatings.excitedToReplay += review.rating.excitedToReplay;
+    sumOfRatings.mentallyStimulating += review.rating.mentallyStimulating;
+    sumOfRatings.fun += review.rating.fun;
     sumOfRatings.gameDesign += review.rating.gameDesign;
     sumOfRatings.presentation += review.rating.presentation;
     sumOfRatings.management += review.rating.management;
   });
 
   const averageRatings: Rating = {
-    feeling: Math.round((sumOfRatings.feeling / numReviews) * 10) / 10,
+    excitedToReplay: Math.round((sumOfRatings.excitedToReplay / numReviews) * 10) / 10,
+    mentallyStimulating: Math.round((sumOfRatings.mentallyStimulating / numReviews) * 10) / 10,
+    fun: Math.round((sumOfRatings.fun / numReviews) * 10) / 10,
     gameDesign: Math.round((sumOfRatings.gameDesign / numReviews) * 10) / 10,
     presentation: Math.round((sumOfRatings.presentation / numReviews) * 10) / 10,
     management: Math.round((sumOfRatings.management / numReviews) * 10) / 10,

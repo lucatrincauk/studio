@@ -1,13 +1,13 @@
 
 'use client';
 
-import type { Review, RatingCategory } from '@/lib/types';
+import type { Review, RatingCategory, Rating } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { StarRating } from './star-rating';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { RATING_CATEGORIES } from '@/lib/types';
 import { formatReviewDate, calculateOverallCategoryAverage } from '@/lib/utils';
-import { UserCircle2, Trash2, Edit3, Loader2 } from 'lucide-react'; // Added Edit3, Loader2
+import { UserCircle2, Trash2, Edit3, Loader2 } from 'lucide-react'; 
 import type { User as FirebaseUser } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
 import {
@@ -24,6 +24,7 @@ import {
 import { useState, useTransition } from 'react';
 import { deleteReviewAction } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
+import Link from 'next/link'; // For Edit button
 
 interface ReviewItemProps {
   review: Review;
@@ -52,14 +53,6 @@ export function ReviewItem({ review, currentUser, gameId, onReviewDeleted }: Rev
     });
   };
 
-  const handleEditReview = () => {
-    // TODO: Implement edit functionality. 
-    // This could involve scrolling to the RatingForm (if on the same page and it supports edit mode)
-    // or navigating to an edit page.
-    toast({ title: "Edit Clicked", description: "Edit functionality is not yet implemented."});
-  };
-
-
   return (
     <Card className="shadow-md bg-card border border-border rounded-lg">
       <CardHeader className="pb-3">
@@ -82,9 +75,11 @@ export function ReviewItem({ review, currentUser, gameId, onReviewDeleted }: Rev
             </div>
             {isOwnReview && (
               <div className="flex gap-2 mt-1">
-                {/* <Button variant="outline" size="sm" onClick={handleEditReview} disabled={isDeleting} className="h-7 px-2 py-1 text-xs">
-                  <Edit3 size={14} className="mr-1" /> Edit
-                </Button> */}
+                <Button variant="outline" size="sm" asChild className="h-7 px-2 py-1 text-xs">
+                  <Link href={`/games/${gameId}/rate`}>
+                    <Edit3 size={14} className="mr-1" /> Edit
+                  </Link>
+                </Button>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button variant="destructive" size="sm" disabled={isDeleting} className="h-7 px-2 py-1 text-xs">
@@ -113,12 +108,14 @@ export function ReviewItem({ review, currentUser, gameId, onReviewDeleted }: Rev
         </div>
       </CardHeader>
       <CardContent>
-        <p className="text-sm text-foreground/90 mb-4 leading-relaxed">{review.comment}</p>
+        {review.comment && review.comment.trim() !== "" && (
+         <p className="text-sm text-foreground/90 mb-4 leading-relaxed">{review.comment}</p>
+        )}
         <div className="space-y-1.5 border-t border-border pt-3 mt-3">
-          {Object.entries(review.rating).map(([category, score]) => (
-            <div key={category} className="flex justify-between items-center text-xs">
-              <span className="text-muted-foreground">{RATING_CATEGORIES[category as RatingCategory]}:</span>
-              <StarRating rating={score} readOnly size={14} />
+          {(Object.keys(review.rating) as Array<keyof Rating>).map((categoryKey) => (
+            <div key={categoryKey} className="flex justify-between items-center text-xs">
+              <span className="text-muted-foreground">{RATING_CATEGORIES[categoryKey as RatingCategory]}:</span>
+              <StarRating rating={review.rating[categoryKey]} readOnly size={14} />
             </div>
           ))}
         </div>

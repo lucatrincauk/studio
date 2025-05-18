@@ -1,15 +1,25 @@
 
-export type RatingCategory = 'feeling' | 'gameDesign' | 'presentation' | 'management';
+export type RatingCategory = 
+  | 'excitedToReplay' 
+  | 'mentallyStimulating' 
+  | 'fun' 
+  | 'gameDesign' 
+  | 'presentation' 
+  | 'management';
 
 export const RATING_CATEGORIES: Record<RatingCategory, string> = {
-  feeling: 'Overall Feeling',
+  excitedToReplay: 'Excited to Replay',
+  mentallyStimulating: 'Mentally Stimulating',
+  fun: 'Fun Factor',
   gameDesign: 'Game Design',
   presentation: 'Presentation & Components',
   management: 'Setup & Game Management',
 };
 
 export interface Rating {
-  feeling: number; // 1-5 stars
+  excitedToReplay: number; // 1-5 stars
+  mentallyStimulating: number; // 1-5 stars
+  fun: number; // 1-5 stars
   gameDesign: number; // 1-5 stars
   presentation: number; // 1-5 stars
   management: number; // 1-5 stars
@@ -47,4 +57,3 @@ export interface BggSearchResult {
   yearPublished?: number;
   rank: number;
 }
-

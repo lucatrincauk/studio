@@ -3,15 +3,14 @@
 
 import { useEffect, useState, useTransition, useCallback, use } from 'react';
 import Image from 'next/image';
-import Link from 'next/link'; // Added for the rate button
+import Link from 'next/link'; 
 import { getGameDetails } from '@/lib/actions';
 import type { BoardGame, AiSummary, Review, Rating, RatingCategory } from '@/lib/types';
 import { ReviewList } from '@/components/boardgame/review-list';
-// RatingForm is removed
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Wand2, Info, Star, Edit } from 'lucide-react'; // Added Edit
+import { AlertCircle, Loader2, Wand2, Info, Star, Edit } from 'lucide-react'; 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { summarizeReviews } from '@/ai/flows/summarize-reviews'; 
@@ -46,13 +45,12 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
     const gameData = await getGameDetails(gameId);
     setGame(gameData);
     if (gameData) {
-      if (currentUser && !authLoading) { // Ensure auth state is resolved
+      if (currentUser && !authLoading) { 
         const foundReview = gameData.reviews.find(r => r.userId === currentUser.uid);
         setUserReview(foundReview);
       } else if (!currentUser && !authLoading) {
         setUserReview(undefined);
       }
-      // else if authLoading, userReview might be stale, will update once auth resolves
       setCategoryAverages(calculateCategoryAverages(gameData.reviews));
     } else {
       setUserReview(undefined);
@@ -65,14 +63,13 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
     fetchGameData();
   }, [fetchGameData]);
 
-  // Re-check for user review if auth state changes after game data is loaded
   useEffect(() => {
     if (game && currentUser && !authLoading && !userReview) {
         const foundReview = game.reviews.find(r => r.userId === currentUser.uid);
         if (foundReview) setUserReview(foundReview);
     }
     if (game && !currentUser && !authLoading && userReview) {
-        setUserReview(undefined); // Clear user review if user logs out
+        setUserReview(undefined); 
     }
   }, [currentUser, authLoading, game, userReview]);
 
@@ -128,12 +125,12 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
             {categoryAverages && (
               <div className="mt-4 space-y-3 border-t border-border pt-4">
                 <h3 className="text-lg font-semibold text-foreground">Average Player Ratings:</h3>
-                {Object.entries(categoryAverages).map(([categoryKey, averageScore]) => (
+                {(Object.keys(categoryAverages) as Array<keyof Rating>).map((categoryKey) => (
                   <div key={categoryKey} className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">{RATING_CATEGORIES[categoryKey as RatingCategory]}:</span>
                     <div className="flex items-center gap-2">
-                      <StarRating rating={averageScore} readOnly size={16} />
-                      <span className="font-medium text-foreground">({averageScore.toFixed(1)})</span>
+                      <StarRating rating={categoryAverages[categoryKey]} readOnly size={16} />
+                      <span className="font-medium text-foreground">({categoryAverages[categoryKey].toFixed(1)})</span>
                     </div>
                   </div>
                 ))}
@@ -168,7 +165,6 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
 
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
         <div className="lg:col-span-2 space-y-8">
-          {/* Button to navigate to the new rating page */}
           <div className="p-6 border border-border rounded-lg shadow-md bg-card">
             <h3 className="text-xl font-semibold text-foreground mb-3">
               {userReview ? "Manage Your Review" : "Share Your Thoughts"}
