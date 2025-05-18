@@ -14,7 +14,7 @@ import { AlertCircle, Loader2, Wand2, Info, Edit } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { summarizeReviews } from '@/ai/flows/summarize-reviews';
-import { calculateGroupedCategoryAverages, calculateCategoryAverages, calculateOverallCategoryAverage, type GroupedCategoryAverages } from '@/lib/utils';
+import { calculateGroupedCategoryAverages, calculateCategoryAverages, calculateOverallCategoryAverage, type GroupedCategoryAverages, formatRatingNumber } from '@/lib/utils';
 import { RATING_CATEGORIES } from '@/lib/types';
 import {
   Accordion,
@@ -136,7 +136,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">{game.name}</h1>
               {globalGameAverage !== null && (
                 <span className="text-xl sm:text-2xl font-semibold text-primary whitespace-nowrap">
-                  ({globalGameAverage.toFixed(1)} / 5)
+                  ({formatRatingNumber(globalGameAverage)} / 5)
                 </span>
               )}
             </div>
@@ -161,7 +161,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
                           {section.subRatings.map(sub => (
                             <li key={sub.name} className="flex justify-between items-center text-sm">
                               <span className="text-muted-foreground">{sub.name}:</span>
-                              <span className="font-medium text-foreground">{sub.average.toFixed(1)} / 5</span>
+                              <span className="font-medium text-foreground">{formatRatingNumber(sub.average)} / 5</span>
                             </li>
                           ))}
                         </ul>

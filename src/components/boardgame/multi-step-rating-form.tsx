@@ -16,7 +16,7 @@ import { Progress } from '@/components/ui/progress';
 import { Slider } from '@/components/ui/slider';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { calculateOverallCategoryAverage } from '@/lib/utils'; // Import the utility
+import { calculateOverallCategoryAverage, formatRatingNumber } from '@/lib/utils';
 
 import { db } from '@/lib/firebase';
 import { collection, addDoc, doc, updateDoc, query, where, getDocs, limit, getDoc } from 'firebase/firestore';
@@ -373,7 +373,7 @@ export function MultiStepRatingForm({
                   <h4 className="text-md font-semibold mb-2 text-primary">Your Overall Average Rating:</h4>
                   <div className="flex items-center gap-3">
                     <Progress value={(yourOverallAverage / 5) * 100} className="w-full h-3" />
-                    <span className="text-lg font-bold text-primary">{yourOverallAverage.toFixed(1)} / 5</span>
+                    <span className="text-lg font-bold text-primary">{formatRatingNumber(yourOverallAverage)} / 5</span>
                   </div>
                 </div>
                 <Separator />

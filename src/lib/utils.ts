@@ -8,6 +8,13 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+export function formatRatingNumber(num: number): string {
+  if (num % 1 === 0) {
+    return num.toFixed(0);
+  }
+  return num.toFixed(1);
+}
+
 export function calculateOverallCategoryAverage(rating: Rating): number {
   const {
     excitedToReplay,
