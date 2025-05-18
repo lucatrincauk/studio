@@ -4,7 +4,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, useFormContext } from 'react-hook-form';
-import { useActionState, useEffect, useTransition, useState } from 'react'; // Added useState
+import { useActionState, useEffect, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -17,26 +17,24 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { StarRating } from './star-rating';
-import type { RatingCategory, Review } from '@/lib/types'; // Added Review
+import type { RatingCategory, Review } from '@/lib/types';
 import { RATING_CATEGORIES } from '@/lib/types';
 import { submitNewReviewAction } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, LogIn } from 'lucide-react';
-import { reviewFormSchema, type RatingFormValues } from '@/lib/validators'; 
-import type { User as FirebaseUser } from 'firebase/auth'; // Import FirebaseUser
+import { reviewFormSchema, type RatingFormValues } from '@/lib/validators';
+import type { User as FirebaseUser } from 'firebase/auth';
 import Link from 'next/link';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 interface RatingFormProps {
   gameId: string;
   onReviewSubmitted?: () => void;
-  currentUser: FirebaseUser | null; // Add currentUser prop
-  existingReview?: Review | null; // For future edit functionality
+  currentUser: FirebaseUser | null;
+  existingReview?: Review | null;
 }
 
-// Type for the payload passed to the server action via useActionState
 type ReviewActionPayload = RatingFormValues & { userId?: string };
-
 
 const initialState = {
   message: "",
@@ -75,14 +73,19 @@ export function RatingForm({ gameId, onReviewSubmitted, currentUser, existingRev
         management: existingReview.rating.management,
         comment: existingReview.comment,
       });
-    } else if (currentUser && !existingReview) { // Pre-fill author if logged in and no existing review
+    } else if (currentUser && !existingReview) {
         form.reset({
-            ...form.getValues(), // keep other values
+            ...form.getValues(),
             author: currentUser.displayName || '',
+            feeling: 1,
+            gameDesign: 1,
+            presentation: 1,
+            management: 1,
+            comment: '',
         });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [existingReview, currentUser, form.reset]); // form.reset added to dependencies
+  }, [existingReview, currentUser, form.reset]);
 
 
   useEffect(() => {
@@ -92,7 +95,7 @@ export function RatingForm({ gameId, onReviewSubmitted, currentUser, existingRev
           title: "Success!",
           description: serverActionState.message,
         });
-        form.reset({ // Reset to initial defaults or pre-filled author if logged in
+        form.reset({
           author: currentUser?.displayName || '',
           feeling: 1,
           gameDesign: 1,
@@ -100,7 +103,7 @@ export function RatingForm({ gameId, onReviewSubmitted, currentUser, existingRev
           management: 1,
           comment: '',
         });
-        onReviewSubmitted?.(); 
+        onReviewSubmitted?.();
       } else {
         if (serverActionState.errors) {
           Object.entries(serverActionState.errors).forEach(([fieldName, errors]) => {
@@ -118,7 +121,7 @@ export function RatingForm({ gameId, onReviewSubmitted, currentUser, existingRev
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [serverActionState, toast, onReviewSubmitted, currentUser]); 
+  }, [serverActionState, toast, onReviewSubmitted, currentUser]);
 
 
   const ratingCategories: RatingCategory[] = ['feeling', 'gameDesign', 'presentation', 'management'];
@@ -128,6 +131,7 @@ export function RatingForm({ gameId, onReviewSubmitted, currentUser, existingRev
       toast({ title: "Authentication Required", description: "Please log in to submit a review.", variant: "destructive" });
       return;
     }
+    console.log('[CLIENT RATING FORM] Attempting to submit review. Data:', data, 'UserID:', currentUser.uid); // Added log
     startTransition(() => {
       formActionDispatcher({ ...data, userId: currentUser.uid });
     });
@@ -147,14 +151,11 @@ export function RatingForm({ gameId, onReviewSubmitted, currentUser, existingRev
       </Alert>
     );
   }
-  
-  // TODO: Add logic here to disable form or show "You've already reviewed" if existingReview for this user exists and we are not in edit mode.
-  // For now, the server action handles this.
 
   return (
     <Form {...form}>
       <form
-        onSubmit={form.handleSubmit(handleFormSubmit)} 
+        onSubmit={form.handleSubmit(handleFormSubmit)}
         className="space-y-6 p-6 border border-border rounded-lg shadow-md bg-card"
       >
         <h3 className="text-xl font-semibold text-foreground">
