@@ -9,8 +9,11 @@ export const reviewFormSchema = z.object({
   replayability: z.coerce.number().min(1, "Rating is required").max(5),
   luck: z.coerce.number().min(1, "Rating is required").max(5),
   lengthDowntime: z.coerce.number().min(1, "Rating is required").max(5),
-  presentation: z.coerce.number().min(1, "Rating is required").max(5),
-  management: z.coerce.number().min(1, "Rating is required").max(5),
+  graphicDesign: z.coerce.number().min(1, "Rating is required").max(5),      // New
+  componentsThemeLore: z.coerce.number().min(1, "Rating is required").max(5),// New
+  effortToLearn: z.coerce.number().min(1, "Rating is required").max(5),      // New
+  setupTeardown: z.coerce.number().min(1, "Rating is required").max(5),      // New
 });
 
 export type RatingFormValues = z.infer<typeof reviewFormSchema>;
+

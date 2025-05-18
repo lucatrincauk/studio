@@ -7,8 +7,10 @@ export type RatingCategory =
   | 'replayability'
   | 'luck'
   | 'lengthDowntime'
-  | 'presentation'
-  | 'management';
+  | 'graphicDesign'         // New
+  | 'componentsThemeLore'   // New
+  | 'effortToLearn'         // New
+  | 'setupTeardown';        // New
 
 export const RATING_CATEGORIES: Record<RatingCategory, string> = {
   excitedToReplay: 'Excited to Replay',
@@ -18,8 +20,10 @@ export const RATING_CATEGORIES: Record<RatingCategory, string> = {
   replayability: 'Replayability',
   luck: 'Luck Factor',
   lengthDowntime: 'Game Length & Downtime',
-  presentation: 'Presentation & Components',
-  management: 'Setup & Game Management',
+  graphicDesign: 'Graphic Design',             // New
+  componentsThemeLore: 'Components, Theme & Lore', // New
+  effortToLearn: 'Effort to Learn',           // New
+  setupTeardown: 'Setup & Teardown',         // New
 };
 
 export interface Rating {
@@ -30,8 +34,10 @@ export interface Rating {
   replayability: number; // 1-5
   luck: number; // 1-5
   lengthDowntime: number; // 1-5
-  presentation: number; // 1-5
-  management: number; // 1-5
+  graphicDesign: number; // 1-5  // New
+  componentsThemeLore: number; // 1-5 // New
+  effortToLearn: number; // 1-5 // New
+  setupTeardown: number; // 1-5 // New
 }
 
 export interface Review {
@@ -66,3 +72,4 @@ export interface BggSearchResult {
   yearPublished?: number;
   rank: number;
 }
+

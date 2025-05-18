@@ -17,8 +17,10 @@ export function calculateOverallCategoryAverage(rating: Rating): number {
     replayability,
     luck,
     lengthDowntime,
-    presentation,
-    management
+    graphicDesign,
+    componentsThemeLore,
+    effortToLearn,
+    setupTeardown
   } = rating;
   const sum = excitedToReplay +
               mentallyStimulating +
@@ -27,8 +29,10 @@ export function calculateOverallCategoryAverage(rating: Rating): number {
               replayability +
               luck +
               lengthDowntime +
-              presentation +
-              management;
+              graphicDesign +
+              componentsThemeLore +
+              effortToLearn +
+              setupTeardown;
   const count = Object.keys(rating).length;
   if (count === 0) return 0;
   const average = sum / count;
@@ -49,8 +53,10 @@ export function calculateCategoryAverages(reviews: Review[]): Rating | null {
     replayability: 0,
     luck: 0,
     lengthDowntime: 0,
-    presentation: 0,
-    management: 0,
+    graphicDesign: 0,
+    componentsThemeLore: 0,
+    effortToLearn: 0,
+    setupTeardown: 0,
   };
 
   reviews.forEach(review => {
@@ -61,8 +67,10 @@ export function calculateCategoryAverages(reviews: Review[]): Rating | null {
     sumOfRatings.replayability += review.rating.replayability;
     sumOfRatings.luck += review.rating.luck;
     sumOfRatings.lengthDowntime += review.rating.lengthDowntime;
-    sumOfRatings.presentation += review.rating.presentation;
-    sumOfRatings.management += review.rating.management;
+    sumOfRatings.graphicDesign += review.rating.graphicDesign;
+    sumOfRatings.componentsThemeLore += review.rating.componentsThemeLore;
+    sumOfRatings.effortToLearn += review.rating.effortToLearn;
+    sumOfRatings.setupTeardown += review.rating.setupTeardown;
   });
 
   const averageRatings: Rating = {
@@ -73,8 +81,10 @@ export function calculateCategoryAverages(reviews: Review[]): Rating | null {
     replayability: Math.round((sumOfRatings.replayability / numReviews) * 10) / 10,
     luck: Math.round((sumOfRatings.luck / numReviews) * 10) / 10,
     lengthDowntime: Math.round((sumOfRatings.lengthDowntime / numReviews) * 10) / 10,
-    presentation: Math.round((sumOfRatings.presentation / numReviews) * 10) / 10,
-    management: Math.round((sumOfRatings.management / numReviews) * 10) / 10,
+    graphicDesign: Math.round((sumOfRatings.graphicDesign / numReviews) * 10) / 10,
+    componentsThemeLore: Math.round((sumOfRatings.componentsThemeLore / numReviews) * 10) / 10,
+    effortToLearn: Math.round((sumOfRatings.effortToLearn / numReviews) * 10) / 10,
+    setupTeardown: Math.round((sumOfRatings.setupTeardown / numReviews) * 10) / 10,
   };
 
   return averageRatings;
@@ -88,3 +98,4 @@ export function formatReviewDate(dateString: string): string {
     day: 'numeric',
   });
 }
+

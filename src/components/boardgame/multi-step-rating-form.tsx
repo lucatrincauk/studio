@@ -25,12 +25,12 @@ interface MultiStepRatingFormProps {
   existingReview?: Review | null;
 }
 
-const totalSteps = 4; // Sentiments, Game Design, Presentation, Management
-const stepCategories: RatingCategory[][] = [
-  ['excitedToReplay', 'mentallyStimulating', 'fun'], // Step 1
-  ['decisionDepth', 'replayability', 'luck', 'lengthDowntime'], // Step 2 (Game Design)
-  ['presentation'], // Step 3
-  ['management'], // Step 4
+const totalSteps = 4;
+const stepCategories: (keyof RatingFormValues)[][] = [
+  ['excitedToReplay', 'mentallyStimulating', 'fun'], // Step 1: Sentiments
+  ['decisionDepth', 'replayability', 'luck', 'lengthDowntime'], // Step 2: Game Design
+  ['graphicDesign', 'componentsThemeLore'], // Step 3: Aesthetics & Immersion
+  ['effortToLearn', 'setupTeardown'], // Step 4: Learning & Logistics
 ];
 
 export function MultiStepRatingForm({
@@ -52,8 +52,10 @@ export function MultiStepRatingForm({
     replayability: existingReview?.rating.replayability || 1,
     luck: existingReview?.rating.luck || 1,
     lengthDowntime: existingReview?.rating.lengthDowntime || 1,
-    presentation: existingReview?.rating.presentation || 1,
-    management: existingReview?.rating.management || 1,
+    graphicDesign: existingReview?.rating.graphicDesign || 1,
+    componentsThemeLore: existingReview?.rating.componentsThemeLore || 1,
+    effortToLearn: existingReview?.rating.effortToLearn || 1,
+    setupTeardown: existingReview?.rating.setupTeardown || 1,
   };
 
   const form = useForm<RatingFormValues>({
@@ -71,8 +73,10 @@ export function MultiStepRatingForm({
         replayability: existingReview.rating.replayability,
         luck: existingReview.rating.luck,
         lengthDowntime: existingReview.rating.lengthDowntime,
-        presentation: existingReview.rating.presentation,
-        management: existingReview.rating.management,
+        graphicDesign: existingReview.rating.graphicDesign,
+        componentsThemeLore: existingReview.rating.componentsThemeLore,
+        effortToLearn: existingReview.rating.effortToLearn,
+        setupTeardown: existingReview.rating.setupTeardown,
       });
     } else {
       form.reset(defaultFormValues);
@@ -83,7 +87,7 @@ export function MultiStepRatingForm({
   const handleNext = async () => {
     let fieldsToValidate: (keyof RatingFormValues)[] = [];
     if (currentStep >= 1 && currentStep <= totalSteps) {
-        fieldsToValidate = stepCategories[currentStep-1] as (keyof RatingFormValues)[];
+        fieldsToValidate = stepCategories[currentStep-1];
     }
 
     const isValid = await form.trigger(fieldsToValidate);
@@ -127,12 +131,14 @@ export function MultiStepRatingForm({
           replayability: data.replayability,
           luck: data.luck,
           lengthDowntime: data.lengthDowntime,
-          presentation: data.presentation,
-          management: data.management,
+          graphicDesign: data.graphicDesign,
+          componentsThemeLore: data.componentsThemeLore,
+          effortToLearn: data.effortToLearn,
+          setupTeardown: data.setupTeardown,
         };
 
         const reviewAuthor = currentUser.displayName || 'Anonymous';
-        const reviewComment = "";
+        const reviewComment = ""; // Comments are no longer part of the form
 
         if (existingReview?.id) {
           const reviewDocRef = doc(reviewsCollectionRef, existingReview.id);
@@ -147,7 +153,7 @@ export function MultiStepRatingForm({
             rating,
             comment: reviewComment,
             date: new Date().toISOString(),
-            userId: currentUser.uid, // Ensure userId is also updated/present
+            userId: currentUser.uid,
           });
           toast({ title: "Success!", description: "Review updated successfully!", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
         } else {
@@ -161,22 +167,20 @@ export function MultiStepRatingForm({
                 rating,
                 comment: reviewComment,
                 date: new Date().toISOString(),
-                userId: currentUser.uid, // Ensure userId is also updated/present
+                userId: currentUser.uid,
              });
             toast({ title: "Review Updated", description: "Your existing review for this game has been updated.", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
-            onReviewSubmitted();
-            return;
+          } else {
+            const newReviewData = {
+              author: reviewAuthor,
+              userId: currentUser.uid,
+              rating,
+              comment: reviewComment,
+              date: new Date().toISOString(),
+            };
+            await addDoc(reviewsCollectionRef, newReviewData);
+            toast({ title: "Success!", description: "Review submitted successfully!", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
           }
-
-          const newReviewData = {
-            author: reviewAuthor,
-            userId: currentUser.uid,
-            rating,
-            comment: reviewComment,
-            date: new Date().toISOString(),
-          };
-          await addDoc(reviewsCollectionRef, newReviewData);
-          toast({ title: "Success!", description: "Review submitted successfully!", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
         }
         onReviewSubmitted();
       } catch (error) {
@@ -193,16 +197,16 @@ export function MultiStepRatingForm({
   const getCurrentStepTitle = () => {
     if (currentStep === 1) return "Sentiments";
     if (currentStep === 2) return "Game Design";
-    if (currentStep === 3) return RATING_CATEGORIES.presentation;
-    if (currentStep === 4) return RATING_CATEGORIES.management;
+    if (currentStep === 3) return "Aesthetics & Immersion";
+    if (currentStep === 4) return "Learning & Logistics";
     return "Review Step";
   };
   
   const getCurrentStepDescription = () => {
     if (currentStep === 1) return "How did the game make you feel?";
     if (currentStep === 2) return "How would you rate the core mechanics and structure?";
-    if (currentStep === 3) return "Consider the quality of artwork, components, board, and overall aesthetic appeal.";
-    if (currentStep === 4) return "How easy is the game to set up, tear down, and manage during play (e.g., upkeep, downtime)?";
+    if (currentStep === 3) return "Rate the game's visual appeal and thematic elements.";
+    if (currentStep === 4) return "How easy is the game to learn, set up, and tear down?";
     return "";
   }
 
@@ -217,7 +221,7 @@ export function MultiStepRatingForm({
 
           {currentStep === 1 && ( // Sentiments
             <div className="space-y-6 animate-fadeIn">
-              {(['excitedToReplay', 'mentallyStimulating', 'fun'] as const).map((fieldName) => (
+              {(stepCategories[0] as RatingCategory[]).map((fieldName) => (
                 <FormField
                   key={fieldName}
                   control={form.control}
@@ -244,7 +248,7 @@ export function MultiStepRatingForm({
 
           {currentStep === 2 && ( // Game Design
             <div className="space-y-6 animate-fadeIn">
-              {(['decisionDepth', 'replayability', 'luck', 'lengthDowntime'] as const).map((fieldName) => (
+              {(stepCategories[1] as RatingCategory[]).map((fieldName) => (
                  <FormField
                   key={fieldName}
                   control={form.control}
@@ -269,51 +273,57 @@ export function MultiStepRatingForm({
             </div>
           )}
 
-          {currentStep === 3 && ( // Presentation
+          {currentStep === 3 && ( // Aesthetics & Immersion
             <div className="space-y-6 animate-fadeIn">
-              <FormField
-                control={form.control}
-                name="presentation"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{RATING_CATEGORIES.presentation}</FormLabel>
-                     <div className="flex items-center gap-4">
-                      <Slider
-                        value={[field.value]}
-                        onValueChange={(value) => field.onChange(value[0])}
-                        min={1} max={5} step={1}
-                        className="w-full"
-                      />
-                      <span className="text-lg font-semibold w-8 text-center">{field.value}</span>
-                    </div>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {(stepCategories[2] as RatingCategory[]).map((fieldName) => (
+                 <FormField
+                  key={fieldName}
+                  control={form.control}
+                  name={fieldName}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{RATING_CATEGORIES[fieldName]}</FormLabel>
+                      <div className="flex items-center gap-4">
+                        <Slider
+                          value={[field.value]}
+                          onValueChange={(value) => field.onChange(value[0])}
+                          min={1} max={5} step={1}
+                          className="w-full"
+                        />
+                        <span className="text-lg font-semibold w-8 text-center">{field.value}</span>
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              ))}
             </div>
           )}
 
-          {currentStep === 4 && ( // Management
+          {currentStep === 4 && ( // Learning & Logistics
             <div className="space-y-6 animate-fadeIn">
-              <FormField
-                control={form.control}
-                name="management"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{RATING_CATEGORIES.management}</FormLabel>
-                     <div className="flex items-center gap-4">
-                      <Slider
-                        value={[field.value]}
-                        onValueChange={(value) => field.onChange(value[0])}
-                        min={1} max={5} step={1}
-                        className="w-full"
-                      />
-                      <span className="text-lg font-semibold w-8 text-center">{field.value}</span>
-                    </div>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+             {(stepCategories[3] as RatingCategory[]).map((fieldName) => (
+                 <FormField
+                  key={fieldName}
+                  control={form.control}
+                  name={fieldName}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{RATING_CATEGORIES[fieldName]}</FormLabel>
+                      <div className="flex items-center gap-4">
+                        <Slider
+                          value={[field.value]}
+                          onValueChange={(value) => field.onChange(value[0])}
+                          min={1} max={5} step={1}
+                          className="w-full"
+                        />
+                        <span className="text-lg font-semibold w-8 text-center">{field.value}</span>
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              ))}
             </div>
           )}
         </div>
@@ -353,3 +363,4 @@ export function MultiStepRatingForm({
     </Form>
   );
 }
+

@@ -245,3 +245,4 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
 }
 
 export const dynamic = 'force-dynamic';
+

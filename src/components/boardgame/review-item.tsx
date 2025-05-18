@@ -40,7 +40,7 @@ export function ReviewItem({ review, currentUser, gameId, onReviewDeleted }: Rev
   const { toast } = useToast();
 
   const handleDeleteReview = async () => {
-    if (!currentUser || !review.id) return; // Added null check for review.id
+    if (!currentUser || !review.id) return;
     startDeleteTransition(async () => {
       const result = await deleteReviewAction(gameId, review.id, currentUser.uid);
       if (result.success) {
@@ -121,3 +121,4 @@ export function ReviewItem({ review, currentUser, gameId, onReviewDeleted }: Rev
     </Card>
   );
 }
+
