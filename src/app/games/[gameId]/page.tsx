@@ -125,8 +125,12 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
   return (
     <div className="space-y-10">
       <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
-        <div className="flex flex-row">
-          <div className="flex-1 p-6 space-y-4">
+        <div className="flex flex-col md:flex-row"> {/* Main layout container */}
+          
+          {/* Content Column (Title, Score, Mobile Image, Grouped Ratings) */}
+          <div className="flex-1 p-6 space-y-4 order-1">
+            
+            {/* Title & Score Block */}
             <div className="flex justify-between items-center flex-wrap gap-x-3 gap-y-2 mb-4">
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">{game.name}</h1>
               {globalGameAverage !== null && (
@@ -136,7 +140,24 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
               )}
             </div>
             
-            <div className="mt-4 space-y-1 border-t border-border pt-4">
+            {/* Mobile Image Block - Shown only on mobile, below title/score */}
+            <div className="md:hidden my-4">
+              <div className="relative aspect-[3/4] w-full rounded-md overflow-hidden shadow-md">
+                <Image
+                  src={game.coverArtUrl || `https://placehold.co/400x600.png`}
+                  alt={`${game.name} cover art`}
+                  fill
+                  priority
+                  className="object-cover"
+                  data-ai-hint={`board game ${game.name.split(' ')[0]?.toLowerCase() || 'detailed'}`}
+                  sizes="(max-width: 767px) 100vw"
+                  onError={(e) => { e.currentTarget.src = `https://placehold.co/400x600.png`; }}
+                />
+              </div>
+            </div>
+            
+            {/* Grouped Ratings Display */}
+            <div className="mt-4 space-y-1 md:border-t-0 border-t border-border pt-4 md:pt-0">
               <h3 className="text-lg font-semibold text-foreground mb-3">Average Player Ratings:</h3>
               <GroupedRatingsDisplay 
                 groupedAverages={groupedCategoryAverages} 
@@ -145,7 +166,8 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
             </div>
           </div>
 
-          <div className="w-1/3 p-2 flex-shrink-0 self-center">
+          {/* Desktop Image Block - Shown only on desktop, to the right */}
+          <div className="hidden md:block md:w-1/3 p-6 flex-shrink-0 self-start order-2">
             <div className="relative aspect-[3/4] w-full rounded-md overflow-hidden shadow-md">
               <Image
                 src={game.coverArtUrl || `https://placehold.co/400x600.png`}
@@ -154,7 +176,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
                 priority
                 className="object-cover"
                 data-ai-hint={`board game ${game.name.split(' ')[0]?.toLowerCase() || 'detailed'}`}
-                sizes="(max-width: 767px) 33vw, (min-width: 768px) 33vw, (min-width: 1024px) 40vw, (min-width: 1280px) 33vw"
+                sizes="33vw"
                 onError={(e) => { e.currentTarget.src = `https://placehold.co/400x600.png`; }}
               />
             </div>
@@ -248,4 +270,3 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
 }
 
 export const dynamic = 'force-dynamic';
-
