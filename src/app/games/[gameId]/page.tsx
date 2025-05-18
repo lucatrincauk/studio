@@ -22,7 +22,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
-import { Progress } from '@/components/ui/progress'; // Added Progress import
+import { Progress } from '@/components/ui/progress';
 
 interface GameDetailPageProps {
   params: Promise<{
@@ -151,9 +151,8 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
                       <AccordionTrigger className="hover:no-underline text-left">
                         <div className="flex justify-between w-full items-center pr-2 gap-4">
                            <span className="font-medium text-md text-foreground flex-grow">{section.sectionTitle}</span>
-                           <div className="flex items-center gap-2 flex-shrink-0">
-                             <span className="text-md font-bold text-primary whitespace-nowrap">{section.sectionAverage.toFixed(1)} / 5</span>
-                             <Progress value={(section.sectionAverage / 5) * 100} className="w-24 h-2.5" />
+                           <div className="flex items-center gap-2 flex-shrink-0 w-24">
+                             <Progress value={(section.sectionAverage / 5) * 100} className="w-full h-2.5" />
                            </div>
                         </div>
                       </AccordionTrigger>
@@ -162,9 +161,8 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
                           {section.subRatings.map(sub => (
                             <li key={sub.name} className="flex justify-between items-center text-sm">
                               <span className="text-muted-foreground">{sub.name}:</span>
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium text-foreground whitespace-nowrap">{sub.average.toFixed(1)} / 5</span>
-                                <Progress value={(sub.average / 5) * 100} className="w-20 h-2" />
+                              <div className="flex items-center gap-2 w-20">
+                                <Progress value={(sub.average / 5) * 100} className="w-full h-2" />
                               </div>
                             </li>
                           ))}
@@ -186,14 +184,14 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
           <div className="w-1/3 p-2 flex-shrink-0 self-center">
             <div className="relative aspect-[3/4] w-full rounded-md overflow-hidden shadow-md">
               <Image
-                src={game.coverArtUrl || `https://placehold.co/400x600.png?text=${encodeURIComponent(game.name?.substring(0,15) || 'N/A')}`}
+                src={game.coverArtUrl || `https://placehold.co/400x600.png`}
                 alt={`${game.name} cover art`}
                 fill
                 priority
                 className="object-cover"
                 data-ai-hint={`board game ${game.name.split(' ')[0]?.toLowerCase() || 'detailed'}`}
                 sizes="(max-width: 767px) 33vw, (min-width: 768px) 33vw, (min-width: 1024px) 40vw, (min-width: 1280px) 33vw"
-                onError={(e) => { e.currentTarget.src = `https://placehold.co/400x600.png?text=${encodeURIComponent(game.name?.substring(0,15) || 'N/A')}`; }}
+                onError={(e) => { e.currentTarget.src = `https://placehold.co/400x600.png`; }}
               />
             </div>
           </div>

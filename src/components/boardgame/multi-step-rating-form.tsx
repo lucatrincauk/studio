@@ -16,6 +16,7 @@ import { Progress } from '@/components/ui/progress';
 import { Slider } from '@/components/ui/slider';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { calculateOverallCategoryAverage } from '@/lib/utils'; // Import the utility
 
 import { db } from '@/lib/firebase';
 import { collection, addDoc, doc, updateDoc, query, where, getDocs, limit, getDoc } from 'firebase/firestore';
@@ -27,7 +28,7 @@ interface MultiStepRatingFormProps {
   existingReview?: Review | null;
 }
 
-const totalSteps = 5; // Increased from 4 to 5
+const totalSteps = 5;
 const stepCategories: (keyof RatingFormValues)[][] = [
   ['excitedToReplay', 'mentallyStimulating', 'fun'], // Step 1: Sentiments
   ['decisionDepth', 'replayability', 'luck', 'lengthDowntime'], // Step 2: Game Design
@@ -98,7 +99,7 @@ export function MultiStepRatingForm({
 
   const handleNext = async () => {
     let fieldsToValidate: (keyof RatingFormValues)[] = [];
-    if (currentStep >= 1 && currentStep < totalSteps) { // Changed to < totalSteps
+    if (currentStep >= 1 && currentStep < totalSteps) {
         fieldsToValidate = stepCategories[currentStep-1];
     }
 
@@ -224,6 +225,26 @@ export function MultiStepRatingForm({
     return "";
   }
 
+  const calculateYourOverallAverage = () => {
+    const currentValues = form.getValues();
+    const ratingData: Rating = {
+      excitedToReplay: currentValues.excitedToReplay,
+      mentallyStimulating: currentValues.mentallyStimulating,
+      fun: currentValues.fun,
+      decisionDepth: currentValues.decisionDepth,
+      replayability: currentValues.replayability,
+      luck: currentValues.luck,
+      lengthDowntime: currentValues.lengthDowntime,
+      graphicDesign: currentValues.graphicDesign,
+      componentsThemeLore: currentValues.componentsThemeLore,
+      effortToLearn: currentValues.effortToLearn,
+      setupTeardown: currentValues.setupTeardown,
+    };
+    return calculateOverallCategoryAverage(ratingData);
+  };
+  
+  const yourOverallAverage = currentStep === 5 ? calculateYourOverallAverage() : 0;
+
 
   return (
     <Form {...form}>
@@ -348,15 +369,26 @@ export function MultiStepRatingForm({
                 <CardDescription>Confirm your choices before submitting.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                <div className="mb-6">
+                  <h4 className="text-md font-semibold mb-2 text-primary">Your Overall Average Rating:</h4>
+                  <div className="flex items-center gap-3">
+                    <Progress value={(yourOverallAverage / 5) * 100} className="w-full h-3" />
+                    <span className="text-lg font-bold text-primary">{yourOverallAverage.toFixed(1)} / 5</span>
+                  </div>
+                </div>
+                <Separator />
+
                 {stepCategories.slice(0, 4).map((categoryGroup, index) => (
                   categoryGroup.length > 0 && (
                     <div key={sectionTitles[index]}>
                       <h4 className="text-md font-semibold mb-2 text-primary">{sectionTitles[index]}</h4>
-                      <ul className="space-y-1 pl-2">
+                      <ul className="space-y-2.5 pl-2">
                         {(categoryGroup as RatingCategory[]).map((fieldName) => (
-                          <li key={fieldName} className="flex justify-between text-sm">
+                          <li key={fieldName} className="flex justify-between items-center text-sm">
                             <span className="text-muted-foreground">{RATING_CATEGORIES[fieldName]}:</span>
-                            <span className="font-medium">{form.getValues(fieldName)} / 5</span>
+                             <div className="w-24">
+                                <Progress value={(form.getValues(fieldName) / 5) * 100} className="h-2" />
+                             </div>
                           </li>
                         ))}
                       </ul>
