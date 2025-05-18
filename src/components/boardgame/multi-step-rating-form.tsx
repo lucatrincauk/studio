@@ -5,7 +5,7 @@ import { useState, useEffect, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
-import type { RatingCategory, Review, Rating as RatingType } from '@/lib/types';
+import type { RatingCategory, Review, Rating as RatingType, GroupedCategoryAverages } from '@/lib/types';
 import { RATING_CATEGORIES } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, AlertCircle, CheckCircle } from 'lucide-react';
@@ -260,8 +260,9 @@ export function MultiStepRatingForm({
   return (
     <Form {...form}>
       <form className="space-y-8">
-        {currentStep <= totalInputSteps && ( // Only show this header for input steps
-          <div className="mb-6">
+        {/* Generic Step Header (for steps 1-4) */}
+        {currentStep <= totalInputSteps && (
+          <div className="mb-4"> {/* Reduced margin-bottom here */}
             <div className="flex justify-between items-center">
               <h3 className="text-xl font-semibold">{getCurrentStepTitle()} - Step {currentStep} / {totalInputSteps}</h3>
             </div>
@@ -271,9 +272,9 @@ export function MultiStepRatingForm({
           </div>
         )}
 
-        {/* Content for Step 5 (Summary) - Header is rendered here */}
+        {/* Specific Header for Step 5 (Summary) */}
         {currentStep === 5 && (
-            <CardHeader className="px-0 pt-0 pb-4 text-center"> {/* Adjusted padding */}
+            <CardHeader className="px-0 pt-0 pb-4 text-center">
                 <div className="flex justify-between items-center mb-1">
                     <CardTitle className="text-2xl md:text-3xl text-left">Your Ratings Summary</CardTitle>
                     {yourOverallAverage !== null && (
@@ -466,3 +467,4 @@ export function MultiStepRatingForm({
     </Form>
   );
 }
+
