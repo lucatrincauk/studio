@@ -66,9 +66,11 @@ export default function CollectionPage() {
   }, [bggFetchedCollection, dbCollection]);
 
   const handleFetchBggCollection = () => {
+    console.log('[CLIENT] handleFetchBggCollection called');
     setError(null);
     setBggFetchedCollection(null); // Clear previous BGG fetch
     startBggFetchTransition(async () => {
+      console.log('[CLIENT] Attempting to call fetchBggUserCollectionAction with username:', BGG_USERNAME);
       const result = await fetchBggUserCollectionAction(BGG_USERNAME);
       if ('error' in result) {
         setError(result.error);
@@ -203,7 +205,7 @@ export default function CollectionPage() {
               <div className="relative w-full h-48">
                 <Image
                   src={game.coverArtUrl || `https://placehold.co/200x300.png?text=${encodeURIComponent(game.name?.substring(0,10) || 'N/A')}`}
-                  alt={`${game.name} cover art`}
+                  alt={`${game.name || 'Game'} cover art`}
                   fill
                   sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
                   className="object-cover rounded-t-lg"
@@ -213,7 +215,7 @@ export default function CollectionPage() {
               </div>
             </CardHeader>
             <CardContent className="p-3 flex-grow">
-              <CardTitle className="text-md font-semibold leading-tight mb-1">{game.name}</CardTitle>
+              <CardTitle className="text-md font-semibold leading-tight mb-1">{game.name || "Unnamed Game"}</CardTitle>
               <div className="text-xs text-muted-foreground space-y-0.5">
                 {game.yearPublished && <div className="flex items-center gap-1"><CalendarDays size={12}/> {game.yearPublished}</div>}
                 {(game.minPlayers || game.maxPlayers) && (
@@ -244,6 +246,3 @@ export default function CollectionPage() {
     </div>
   );
 }
-
-
-    
