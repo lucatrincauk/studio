@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { List, LogOut, UserPlus, LogIn, BarChart3 } from 'lucide-react'; // Changed GaugeCircle to BarChart3
+import { List, LogOut, UserPlus, LogIn, BarChart3 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import {
   DropdownMenu,
@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"; // Removed AvatarImage
 
 
 export function Header() {
@@ -51,7 +51,7 @@ export function Header() {
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="relative h-9 w-9 rounded-full p-0 hover:bg-primary-foreground/10 focus-visible:ring-accent">
                       <Avatar className="h-9 w-9">
-                        <AvatarImage src={user.photoURL || undefined} alt={user.displayName || user.email || 'User'} />
+                        {/* AvatarImage removed to always show fallback */}
                         <AvatarFallback className="bg-accent text-accent-foreground">
                           {user.email ? user.email.substring(0, 1).toUpperCase() : 'U'}
                         </AvatarFallback>
