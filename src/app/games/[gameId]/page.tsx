@@ -3,14 +3,15 @@
 
 import { useEffect, useState, useTransition, useCallback, use } from 'react';
 import Image from 'next/image';
+import Link from 'next/link'; // Added for the rate button
 import { getGameDetails } from '@/lib/actions';
 import type { BoardGame, AiSummary, Review, Rating, RatingCategory } from '@/lib/types';
 import { ReviewList } from '@/components/boardgame/review-list';
-import { RatingForm } from '@/components/boardgame/rating-form';
+// RatingForm is removed
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Wand2, Info, Star } from 'lucide-react';
+import { AlertCircle, Loader2, Wand2, Info, Star, Edit } from 'lucide-react'; // Added Edit
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { summarizeReviews } from '@/ai/flows/summarize-reviews'; 
@@ -28,7 +29,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
   const params = use(paramsPromise); 
   const { gameId } = params; 
 
-  const { user: currentUser } = useAuth(); 
+  const { user: currentUser, loading: authLoading } = useAuth(); 
 
   const [game, setGame] = useState<BoardGame | null>(null);
   const [aiSummary, setAiSummary] = useState<AiSummary | null>(null);
@@ -45,23 +46,35 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
     const gameData = await getGameDetails(gameId);
     setGame(gameData);
     if (gameData) {
-      if (currentUser) {
+      if (currentUser && !authLoading) { // Ensure auth state is resolved
         const foundReview = gameData.reviews.find(r => r.userId === currentUser.uid);
         setUserReview(foundReview);
-      } else {
+      } else if (!currentUser && !authLoading) {
         setUserReview(undefined);
       }
+      // else if authLoading, userReview might be stale, will update once auth resolves
       setCategoryAverages(calculateCategoryAverages(gameData.reviews));
     } else {
       setUserReview(undefined);
       setCategoryAverages(null);
     }
     setIsLoadingGame(false);
-  }, [gameId, currentUser]); 
+  }, [gameId, currentUser, authLoading]); 
 
   useEffect(() => {
     fetchGameData();
   }, [fetchGameData]);
+
+  // Re-check for user review if auth state changes after game data is loaded
+  useEffect(() => {
+    if (game && currentUser && !authLoading && !userReview) {
+        const foundReview = game.reviews.find(r => r.userId === currentUser.uid);
+        if (foundReview) setUserReview(foundReview);
+    }
+    if (game && !currentUser && !authLoading && userReview) {
+        setUserReview(undefined); // Clear user review if user logs out
+    }
+  }, [currentUser, authLoading, game, userReview]);
 
 
   const handleGenerateSummary = async () => {
@@ -84,7 +97,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
     });
   };
 
-  if (isLoadingGame) {
+  if (isLoadingGame || authLoading) {
     return (
       <div className="flex flex-col justify-center items-center min-h-[calc(100vh-200px)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -104,7 +117,6 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
       </Alert>
     );
   }
-
 
   return (
     <div className="space-y-10">
@@ -156,12 +168,31 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
 
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
         <div className="lg:col-span-2 space-y-8">
-          <RatingForm 
-            gameId={game.id} 
-            onReviewSubmitted={fetchGameData}
-            currentUser={currentUser}
-            existingReview={userReview} 
-          />
+          {/* Button to navigate to the new rating page */}
+          <div className="p-6 border border-border rounded-lg shadow-md bg-card">
+            <h3 className="text-xl font-semibold text-foreground mb-3">
+              {userReview ? "Manage Your Review" : "Share Your Thoughts"}
+            </h3>
+            <p className="text-muted-foreground mb-4">
+              {userReview
+                ? "You've already rated this game. You can edit your ratings and comments."
+                : "Help others by sharing your experience with this game."}
+            </p>
+            <Button asChild className="w-full sm:w-auto bg-accent text-accent-foreground hover:bg-accent/90">
+              <Link href={`/games/${gameId}/rate`}>
+                <Edit className="mr-2 h-4 w-4" />
+                {userReview ? "Edit Your Review" : "Rate this Game"}
+              </Link>
+            </Button>
+             {!currentUser && !authLoading && (
+                 <Alert variant="default" className="mt-4 bg-secondary/30 border-secondary">
+                    <Info className="h-4 w-4 text-secondary-foreground" />
+                    <AlertDescription className="text-secondary-foreground">
+                      <Link href={`/signin?redirect=/games/${gameId}/rate`} className="font-semibold underline">Sign in</Link> to add or edit a review.
+                    </AlertDescription>
+                  </Alert>
+            )}
+          </div>
           
           <Separator className="my-4" /> 
 
