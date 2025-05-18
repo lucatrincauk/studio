@@ -3,7 +3,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { summarizeReviews } from '@/ai/flows/summarize-reviews';
-import type { BoardGame, Review, Rating, AiSummary, SummarizeReviewsInput, BggSearchResult, AugmentedReview } from './types';
+import type { BoardGame, Review, Rating, AiSummary, SummarizeReviewsInput, BggSearchResult, AugmentedReview, UserProfile } from './types';
 // reviewFormSchema is no longer used here, RatingFormValues might be needed if we create an updateReviewAction
 // import { reviewFormSchema, type RatingFormValues } from '@/lib/validators';
 import { db } from '@/lib/firebase';
@@ -88,7 +88,7 @@ function getPrimaryNameValueFromDetails(nameElements: { type?: string | null; va
             primaryName = decodeHtmlEntities(alternate.value.trim());
         }
     }
-    
+
     if (!primaryName && nameElements[0] && nameElements[0].value && nameElements[0].value.trim()) {
          primaryName = decodeHtmlEntities(nameElements[0].value.trim());
     }
@@ -189,7 +189,7 @@ async function parseBggCollectionXml(xmlText: string): Promise<BoardGame[]> {
         const itemContent = itemMatch[2];
         const subtypeMatch = /<subtype\s+value="boardgame"\s*\/>/i.exec(itemContent) || /subtype="boardgame"/i.exec(itemMatch[0]);
         if (!subtypeMatch) {
-            continue; 
+            continue;
         }
         processedBggIds.add(bggId);
 
@@ -285,7 +285,7 @@ export async function searchBggGamesAction(searchTerm: string): Promise<BggSearc
 
                 let finalName = detailedGameData.name;
                 if (!finalName || finalName === "Name Not Found in Details" || finalName.startsWith("BGG ID")) {
-                    finalName = item.name; 
+                    finalName = item.name;
                 }
                  if (!finalName || finalName === "Name Not Found in Details" ) {
                     finalName = "Unknown Name";
@@ -319,7 +319,7 @@ export async function importAndRateBggGameAction(bggId: string): Promise<{ gameI
             return { gameId: existingGameId };
         }
     } catch (dbError) {
-        console.warn(`Error checking Firestore for existing game ${existingGameId}:`, dbError);
+        //
     }
 
     try {
@@ -349,7 +349,6 @@ export async function importAndRateBggGameAction(bggId: string): Promise<{ gameI
             const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, existingGameId);
             await setDoc(gameRef, newGameForFirestore);
         } catch (dbError) {
-            console.error(`Failed to add game ${existingGameId} to Firestore during import:`, dbError);
             return { error: `Failed to save game to database: ${dbError instanceof Error ? dbError.message : String(dbError)}` };
         }
 
@@ -388,8 +387,8 @@ export async function getGameDetails(gameId: string): Promise<BoardGame | null> 
             author: reviewData.author || 'Unknown Author',
             userId: reviewData.userId || 'unknown_user_id',
             authorPhotoURL: reviewData.authorPhotoURL || null,
-            rating: reviewData.rating as Rating || { 
-                excitedToReplay: 0, mentallyStimulating: 0, fun: 0, 
+            rating: reviewData.rating as Rating || {
+                excitedToReplay: 0, mentallyStimulating: 0, fun: 0,
                 decisionDepth: 0, replayability: 0, luck: 0, lengthDowntime: 0,
                 graphicDesign: 0, componentsThemeLore: 0,
                 effortToLearn: 0, setupTeardown: 0
@@ -399,7 +398,7 @@ export async function getGameDetails(gameId: string): Promise<BoardGame | null> 
           };
         });
       } catch (reviewError) {
-        console.error(`[GETGAMEDETAILS] Error fetching reviews for "${gameId}":`, reviewError);
+        //
       }
 
       const game: BoardGame = {
@@ -419,7 +418,6 @@ export async function getGameDetails(gameId: string): Promise<BoardGame | null> 
       return null;
     }
   } catch (error) {
-    console.error(`[GETGAMEDETAILS] Error fetching game details for ID "${gameId}":`, error);
     return null;
   }
 }
@@ -440,7 +438,7 @@ async function fetchWithRetry(url: string, retries = 3, delay = 1500, attempt = 
 
         if (response.status === 200) {
             const xmlText = await response.text();
-            if (!xmlText.includes('<items') && !xmlText.includes("<item ") && attempt < retries) { 
+            if (!xmlText.includes('<items') && !xmlText.includes("<item ") && attempt < retries) {
                  await new Promise(resolve => setTimeout(resolve, delay));
                  return fetchWithRetry(url, retries, Math.min(delay * 2, 30000), attempt + 1);
             }
@@ -513,7 +511,6 @@ export async function syncBoardGamesToFirestoreAction(
     try {
         gamesToAdd.forEach(game => {
             if (!game.id) {
-                console.error(`Game "${game.name}" is missing an ID and cannot be added.`);
                 throw new Error(`Game "${game.name}" is missing an ID.`);
             }
             const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
@@ -533,7 +530,6 @@ export async function syncBoardGamesToFirestoreAction(
 
         gamesToRemove.forEach(game => {
              if (!game.id) {
-                console.error(`Game "${game.name}" is missing an ID and cannot be removed.`);
                 throw new Error(`Game "${game.name}" is missing an ID for removal.`);
             }
             const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
@@ -561,7 +557,7 @@ export async function getAllReviewsAction(): Promise<AugmentedReview[]> {
   const allAugmentedReviews: AugmentedReview[] = [];
   try {
     const gamesSnapshot = await getDocs(collection(db, FIRESTORE_COLLECTION_NAME));
-    
+
     for (const gameDoc of gamesSnapshot.docs) {
       const gameData = gameDoc.data() as Omit<BoardGame, 'id' | 'reviews'>; // Cast to avoid issues with 'id'
       const gameId = gameDoc.id;
@@ -591,7 +587,42 @@ export async function getAllReviewsAction(): Promise<AugmentedReview[]> {
     allAugmentedReviews.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     return allAugmentedReviews;
   } catch (error) {
-    console.error("Error fetching all reviews:", error);
     return []; // Return empty array on error
   }
+}
+
+export async function getAllUsersAction(): Promise<UserProfile[]> {
+  const allReviews = await getAllReviewsAction();
+  const usersMap = new Map<string, UserProfile>();
+
+  allReviews.forEach(review => {
+    if (review.userId && !usersMap.has(review.userId)) {
+      usersMap.set(review.userId, {
+        id: review.userId,
+        name: review.author || 'Unknown User',
+        photoURL: review.authorPhotoURL,
+      });
+    }
+  });
+  const users = Array.from(usersMap.values());
+  users.sort((a,b) => a.name.localeCompare(b.name)); // Sort users alphabetically
+  return users;
+}
+
+export async function getUserDetailsAndReviewsAction(
+  userId: string
+): Promise<{ user: UserProfile | null; reviews: AugmentedReview[] }> {
+  const allReviews = await getAllReviewsAction();
+  const userReviews = allReviews.filter(review => review.userId === userId);
+
+  let user: UserProfile | null = null;
+  if (userReviews.length > 0) {
+    user = {
+      id: userId,
+      name: userReviews[0].author || 'Unknown User',
+      photoURL: userReviews[0].authorPhotoURL,
+    };
+  }
+
+  return { user, reviews: userReviews };
 }

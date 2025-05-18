@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { List, LogOut, UserPlus, LogIn, BarChart3, MessagesSquare } from 'lucide-react'; // Added MessagesSquare
+import { List, LogOut, UserPlus, LogIn, BarChart3, MessagesSquare, Users2 } from 'lucide-react'; // Added MessagesSquare, Users2
 import { useAuth } from '@/contexts/auth-context';
 import {
   DropdownMenu,
@@ -31,12 +31,21 @@ export function Header() {
           <BarChart3 className="h-8 w-8" />
           <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Punteggiometro</h1>
         </Link>
-        
+
         <nav>
           <ul className="flex items-center gap-2 sm:gap-4">
+             <li>
+              <Link
+                href="/users"
+                className="flex items-center gap-1.5 text-sm font-medium transition-opacity hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-accent rounded-md px-2 py-1"
+              >
+                <Users2 size={18} />
+                Users
+              </Link>
+            </li>
             <li>
-              <Link 
-                href="/reviews" 
+              <Link
+                href="/reviews"
                 className="flex items-center gap-1.5 text-sm font-medium transition-opacity hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-accent rounded-md px-2 py-1"
               >
                 <MessagesSquare size={18} />
@@ -44,8 +53,8 @@ export function Header() {
               </Link>
             </li>
             <li>
-              <Link 
-                href="/collection" 
+              <Link
+                href="/collection"
                 className="flex items-center gap-1.5 text-sm font-medium transition-opacity hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-accent rounded-md px-2 py-1"
               >
                 <List size={18} />

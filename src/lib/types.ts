@@ -7,10 +7,10 @@ export type RatingCategory =
   | 'replayability'
   | 'luck'
   | 'lengthDowntime'
-  | 'graphicDesign'         
-  | 'componentsThemeLore'   
-  | 'effortToLearn'         
-  | 'setupTeardown';        
+  | 'graphicDesign'
+  | 'componentsThemeLore'
+  | 'effortToLearn'
+  | 'setupTeardown';
 
 export const RATING_CATEGORIES: Record<RatingCategory, string> = {
   excitedToReplay: 'Excited to Replay',
@@ -20,24 +20,24 @@ export const RATING_CATEGORIES: Record<RatingCategory, string> = {
   replayability: 'Replayability',
   luck: 'Luck Factor',
   lengthDowntime: 'Game Length & Downtime',
-  graphicDesign: 'Graphic Design',            
-  componentsThemeLore: 'Components, Theme & Lore', 
-  effortToLearn: 'Effort to Learn',           
-  setupTeardown: 'Setup & Teardown',         
+  graphicDesign: 'Graphic Design',
+  componentsThemeLore: 'Components, Theme & Lore',
+  effortToLearn: 'Effort to Learn',
+  setupTeardown: 'Setup & Teardown',
 };
 
 export interface Rating {
-  excitedToReplay: number; 
-  mentallyStimulating: number; 
-  fun: number; 
-  decisionDepth: number; 
-  replayability: number; 
-  luck: number; 
-  lengthDowntime: number; 
-  graphicDesign: number;  
-  componentsThemeLore: number; 
-  effortToLearn: number; 
-  setupTeardown: number; 
+  excitedToReplay: number;
+  mentallyStimulating: number;
+  fun: number;
+  decisionDepth: number;
+  replayability: number;
+  luck: number;
+  lengthDowntime: number;
+  graphicDesign: number;
+  componentsThemeLore: number;
+  effortToLearn: number;
+  setupTeardown: number;
 }
 
 export interface Review {
@@ -92,3 +92,8 @@ export interface SectionAverage {
 }
 export type GroupedCategoryAverages = SectionAverage[];
 
+export interface UserProfile {
+  id: string; // This will be the userId
+  name: string;
+  photoURL?: string | null;
+}
