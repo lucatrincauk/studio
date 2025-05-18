@@ -61,6 +61,7 @@ export function MultiStepRatingForm({
   const form = useForm<RatingFormValues>({
     resolver: zodResolver(reviewFormSchema),
     defaultValues: defaultFormValues,
+    mode: 'onChange', // Validate on change to update formState.isValid more readily
   });
 
   useEffect(() => {
@@ -138,7 +139,7 @@ export function MultiStepRatingForm({
         };
 
         const reviewAuthor = currentUser.displayName || 'Anonymous';
-        const reviewComment = ""; // Comments are no longer part of the form
+        const reviewComment = ""; 
 
         if (existingReview?.id) {
           const reviewDocRef = doc(reviewsCollectionRef, existingReview.id);
@@ -213,13 +214,13 @@ export function MultiStepRatingForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(processSubmit)} className="space-y-8">
+      <form className="space-y-8"> {/* Removed onSubmit from here */}
         <Progress value={progressPercentage} className="w-full mb-2" />
-        <div className="min-h-[350px]">
+        <div className="min-h-[350px]"> {/* Increased min-height for better spacing */}
           <h3 className="text-xl font-semibold mb-1">{getCurrentStepTitle()}</h3>
           <p className="text-sm text-muted-foreground mb-6">{getCurrentStepDescription()}</p>
 
-          {currentStep === 1 && ( // Sentiments
+          {currentStep === 1 && ( 
             <div className="space-y-6 animate-fadeIn">
               {(stepCategories[0] as RatingCategory[]).map((fieldName) => (
                 <FormField
@@ -246,7 +247,7 @@ export function MultiStepRatingForm({
             </div>
           )}
 
-          {currentStep === 2 && ( // Game Design
+          {currentStep === 2 && ( 
             <div className="space-y-6 animate-fadeIn">
               {(stepCategories[1] as RatingCategory[]).map((fieldName) => (
                  <FormField
@@ -273,7 +274,7 @@ export function MultiStepRatingForm({
             </div>
           )}
 
-          {currentStep === 3 && ( // Aesthetics & Immersion
+          {currentStep === 3 && ( 
             <div className="space-y-6 animate-fadeIn">
               {(stepCategories[2] as RatingCategory[]).map((fieldName) => (
                  <FormField
@@ -300,7 +301,7 @@ export function MultiStepRatingForm({
             </div>
           )}
 
-          {currentStep === 4 && ( // Learning & Logistics
+          {currentStep === 4 && ( 
             <div className="space-y-6 animate-fadeIn">
              {(stepCategories[3] as RatingCategory[]).map((fieldName) => (
                  <FormField
@@ -348,7 +349,12 @@ export function MultiStepRatingForm({
               Next
             </Button>
           ) : (
-            <Button type="submit" disabled={isSubmitting || !form.formState.isValid} className="bg-accent hover:bg-accent/90 text-accent-foreground">
+            <Button 
+              type="button" // Changed from "submit"
+              onClick={form.handleSubmit(processSubmit)} // Moved handleSubmit here
+              disabled={isSubmitting || !form.formState.isValid} 
+              className="bg-accent hover:bg-accent/90 text-accent-foreground"
+            >
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting...
