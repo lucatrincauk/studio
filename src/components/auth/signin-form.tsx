@@ -19,6 +19,7 @@ import { useRouter } from 'next/navigation';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, Loader2 } from "lucide-react";
 import Link from 'next/link';
+import { Separator } from '@/components/ui/separator';
 
 const formSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
@@ -27,9 +28,23 @@ const formSchema = z.object({
 
 type SigninFormValues = z.infer<typeof formSchema>;
 
+// Simple SVG for Google icon
+const GoogleIcon = () => (
+  <svg viewBox="0 0 24 24" className="h-5 w-5 mr-2">
+    <path
+      fillRule="evenodd"
+      clipRule="evenodd"
+      d="M12.24 10.27v3.45h5.84c-.27 1.67-1.75 3.29-4.14 3.29-2.5 0-4.53-2.04-4.53-4.53s2.03-4.53 4.53-4.53c1.42 0 2.25.57 2.76 1.04l2.1-2.1c-1.26-1.16-2.92-1.88-4.86-1.88-4.09 0-7.44 3.35-7.44 7.44s3.35 7.44 7.44 7.44c4.25 0 7.06-2.89 7.06-7.22 0-.48-.04-.95-.12-1.41H12.24z"
+      fill="currentColor"
+    />
+  </svg>
+);
+
+
 export function SigninForm() {
-  const { signIn, loading, error, clearError } = useAuth();
+  const { signIn, signInWithGoogle, loading, error, clearError } = useAuth();
   const router = useRouter();
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   const form = useForm<SigninFormValues>({
     resolver: zodResolver(formSchema),
@@ -43,8 +58,18 @@ export function SigninForm() {
     clearError();
     const user = await signIn(values.email, values.password);
     if (user) {
-      router.push('/'); // Redirect to home page after successful sign in
+      router.push('/'); 
     }
+  }
+
+  async function handleGoogleSignIn() {
+    clearError();
+    setIsGoogleLoading(true);
+    const user = await signInWithGoogle();
+    if (user) {
+      router.push('/');
+    }
+    setIsGoogleLoading(false);
   }
 
   return (
@@ -83,23 +108,36 @@ export function SigninForm() {
             </FormItem>
           )}
         />
-        <Button type="submit" disabled={loading} className="w-full">
-          {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-          Sign In
+        <Button type="submit" disabled={loading || isGoogleLoading} className="w-full">
+          {(loading && !isGoogleLoading) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          Sign In with Email
         </Button>
-        <div className="text-sm text-center space-y-2">
+
+        <div className="relative my-4">
+          <Separator />
+          <div className="absolute inset-0 flex items-center">
+            <span className="mx-auto bg-card px-2 text-xs text-muted-foreground">OR</span>
+          </div>
+        </div>
+
+        <Button
+          type="button"
+          variant="outline"
+          onClick={handleGoogleSignIn}
+          disabled={loading || isGoogleLoading}
+          className="w-full flex items-center justify-center"
+        >
+          {isGoogleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <GoogleIcon />}
+          Sign In with Google
+        </Button>
+
+        <div className="text-sm text-center space-y-2 mt-6">
             <p className="text-muted-foreground">
             Don't have an account?{' '}
             <Link href="/signup" className="font-medium text-primary hover:underline">
                 Sign Up
             </Link>
             </p>
-            {/* <p>
-            <Link href="/reset-password" // Future: Add password reset page
-                className="text-xs text-muted-foreground hover:underline">
-                Forgot password?
-            </Link>
-            </p> */}
         </div>
       </form>
     </Form>

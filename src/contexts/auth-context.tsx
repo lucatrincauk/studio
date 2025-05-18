@@ -8,6 +8,8 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
+  GoogleAuthProvider, // Added
+  signInWithPopup, // Added
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase'; // Ensure your firebase.ts exports auth
 
@@ -17,6 +19,7 @@ interface AuthContextType {
   error: AuthError | null;
   signUp: (email: string, pass: string) => Promise<FirebaseUser | null>;
   signIn: (email: string, pass: string) => Promise<FirebaseUser | null>;
+  signInWithGoogle: () => Promise<FirebaseUser | null>; // Added
   signOut: () => Promise<void>;
   clearError: () => void;
 }
@@ -68,6 +71,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const signInWithGoogle = async (): Promise<FirebaseUser | null> => {
+    setLoading(true);
+    setError(null);
+    const provider = new GoogleAuthProvider();
+    try {
+      const result = await signInWithPopup(auth, provider);
+      setUser(result.user);
+      return result.user;
+    } catch (e) {
+      setError(e as AuthError);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const signOut = async (): Promise<void> => {
     setLoading(true);
     setError(null);
@@ -87,6 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     error,
     signUp,
     signIn,
+    signInWithGoogle, // Added
     signOut,
     clearError,
   };
