@@ -1,6 +1,7 @@
+
 'use client'; 
 
-import { useEffect, useState, useTransition, useCallback } from 'react';
+import { useEffect, useState, useTransition, useCallback, use } from 'react';
 import Image from 'next/image';
 import { getGameDetails, generateAiSummaryAction } from '@/lib/actions';
 import type { BoardGame, AiSummary } from '@/lib/types';
@@ -15,13 +16,15 @@ import { AlertCircle, Loader2, Wand2, Info } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 interface GameDetailPageProps {
-  params: {
+  params: Promise<{ // Updated: params is a Promise
     gameId: string;
-  };
+  }>;
 }
 
-export default function GameDetailPage({ params }: GameDetailPageProps) {
-  const { gameId } = params;
+export default function GameDetailPage({ params: paramsPromise }: GameDetailPageProps) {
+  const params = use(paramsPromise); // Unwrap the Promise
+  const { gameId } = params; // Access gameId from resolved params
+
   const [game, setGame] = useState<BoardGame | null>(null);
   const [aiSummary, setAiSummary] = useState<AiSummary | null>(null);
   const [isLoadingGame, setIsLoadingGame] = useState(true);
@@ -175,3 +178,4 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
 // Force dynamic rendering to ensure data is fresh, especially after review submissions
 export const dynamic = 'force-dynamic';
+
