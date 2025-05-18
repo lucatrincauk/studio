@@ -5,7 +5,7 @@ import { useEffect, useState, useTransition, useCallback, use } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { getGameDetails } from '@/lib/actions';
-import type { BoardGame, AiSummary, Review, Rating, RatingCategory } from '@/lib/types';
+import type { BoardGame, AiSummary, Review, Rating, RatingCategory, GroupedCategoryAverages } from '@/lib/types';
 import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,15 +14,10 @@ import { AlertCircle, Loader2, Wand2, Info, Edit } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { summarizeReviews } from '@/ai/flows/summarize-reviews';
-import { calculateGroupedCategoryAverages, calculateCategoryAverages, calculateOverallCategoryAverage, type GroupedCategoryAverages, formatRatingNumber } from '@/lib/utils';
+import { calculateGroupedCategoryAverages, calculateCategoryAverages, calculateOverallCategoryAverage, formatRatingNumber } from '@/lib/utils';
 import { RATING_CATEGORIES } from '@/lib/types';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion"
-import { Progress } from '@/components/ui/progress';
+import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
+
 
 interface GameDetailPageProps {
   params: Promise<{
@@ -141,42 +136,13 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
               )}
             </div>
             
-
-            {groupedCategoryAverages && groupedCategoryAverages.length > 0 && (
-              <div className="mt-4 space-y-1 border-t border-border pt-4">
-                <h3 className="text-lg font-semibold text-foreground mb-3">Average Player Ratings:</h3>
-                <Accordion type="multiple" className="w-full">
-                  {groupedCategoryAverages.map((section, index) => (
-                    <AccordionItem value={`section-${index}`} key={section.sectionTitle}>
-                      <AccordionTrigger className="hover:no-underline text-left">
-                        <div className="flex justify-between w-full items-center pr-2 gap-4">
-                           <span className="font-medium text-md text-foreground flex-grow">{section.sectionTitle}</span>
-                           <div className="flex items-center gap-2 flex-shrink-0 w-24">
-                             <Progress value={(section.sectionAverage / 5) * 100} className="w-full h-2.5" />
-                           </div>
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <ul className="space-y-2.5 pl-2 pt-2">
-                          {section.subRatings.map(sub => (
-                            <li key={sub.name} className="flex justify-between items-center text-sm">
-                              <span className="text-muted-foreground">{sub.name}:</span>
-                              <span className="font-medium text-foreground">{formatRatingNumber(sub.average)} / 5</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
-                </Accordion>
-              </div>
-            )}
-            {!groupedCategoryAverages && game.reviews.length > 0 && (
-                 <p className="text-sm text-muted-foreground italic">Calculating average ratings...</p>
-            )}
-            {(!groupedCategoryAverages || groupedCategoryAverages.length === 0) && game.reviews.length === 0 && (
-                <p className="text-sm text-muted-foreground italic">No ratings yet to calculate averages.</p>
-            )}
+            <div className="mt-4 space-y-1 border-t border-border pt-4">
+              <h3 className="text-lg font-semibold text-foreground mb-3">Average Player Ratings:</h3>
+              <GroupedRatingsDisplay 
+                groupedAverages={groupedCategoryAverages} 
+                noRatingsMessage="No ratings yet to calculate averages."
+              />
+            </div>
           </div>
 
           <div className="w-1/3 p-2 flex-shrink-0 self-center">

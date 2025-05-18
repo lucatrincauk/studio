@@ -7,10 +7,10 @@ export type RatingCategory =
   | 'replayability'
   | 'luck'
   | 'lengthDowntime'
-  | 'graphicDesign'         // New
-  | 'componentsThemeLore'   // New
-  | 'effortToLearn'         // New
-  | 'setupTeardown';        // New
+  | 'graphicDesign'         
+  | 'componentsThemeLore'   
+  | 'effortToLearn'         
+  | 'setupTeardown';        
 
 export const RATING_CATEGORIES: Record<RatingCategory, string> = {
   excitedToReplay: 'Excited to Replay',
@@ -20,24 +20,24 @@ export const RATING_CATEGORIES: Record<RatingCategory, string> = {
   replayability: 'Replayability',
   luck: 'Luck Factor',
   lengthDowntime: 'Game Length & Downtime',
-  graphicDesign: 'Graphic Design',             // New
-  componentsThemeLore: 'Components, Theme & Lore', // New
-  effortToLearn: 'Effort to Learn',           // New
-  setupTeardown: 'Setup & Teardown',         // New
+  graphicDesign: 'Graphic Design',            
+  componentsThemeLore: 'Components, Theme & Lore', 
+  effortToLearn: 'Effort to Learn',           
+  setupTeardown: 'Setup & Teardown',         
 };
 
 export interface Rating {
-  excitedToReplay: number; // 1-5
-  mentallyStimulating: number; // 1-5
-  fun: number; // 1-5
-  decisionDepth: number; // 1-5
-  replayability: number; // 1-5
-  luck: number; // 1-5
-  lengthDowntime: number; // 1-5
-  graphicDesign: number; // 1-5  // New
-  componentsThemeLore: number; // 1-5 // New
-  effortToLearn: number; // 1-5 // New
-  setupTeardown: number; // 1-5 // New
+  excitedToReplay: number; 
+  mentallyStimulating: number; 
+  fun: number; 
+  decisionDepth: number; 
+  replayability: number; 
+  luck: number; 
+  lengthDowntime: number; 
+  graphicDesign: number;  
+  componentsThemeLore: number; 
+  effortToLearn: number; 
+  setupTeardown: number; 
 }
 
 export interface Review {
@@ -73,3 +73,14 @@ export interface BggSearchResult {
   rank: number;
 }
 
+// Types for grouped ratings display
+export interface SubRatingAverage {
+  name: string;
+  average: number;
+}
+export interface SectionAverage {
+  sectionTitle: string;
+  sectionAverage: number;
+  subRatings: SubRatingAverage[];
+}
+export type GroupedCategoryAverages = SectionAverage[];

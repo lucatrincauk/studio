@@ -1,11 +1,11 @@
 
 'use client';
 
-import type { Review, RatingCategory, Rating } from '@/lib/types';
+import type { Review, RatingCategory, Rating, GroupedCategoryAverages } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { RATING_CATEGORIES } from '@/lib/types';
-import { formatReviewDate, calculateOverallCategoryAverage, formatRatingNumber, calculateGroupedCategoryAverages, type GroupedCategoryAverages } from '@/lib/utils';
+import { formatReviewDate, calculateOverallCategoryAverage, formatRatingNumber, calculateGroupedCategoryAverages } from '@/lib/utils';
 import { UserCircle2, Trash2, Edit3, Loader2 } from 'lucide-react';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
@@ -20,13 +20,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import { Progress } from '@/components/ui/progress';
+import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 import { useState, useTransition, useMemo } from 'react';
 import { deleteReviewAction } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
@@ -120,32 +114,11 @@ export function ReviewItem({ review, currentUser, gameId, onReviewDeleted }: Rev
         {review.comment && review.comment.trim() !== "" && (
          <p className="text-sm text-foreground/90 mb-4 leading-relaxed">{review.comment}</p>
         )}
-        {groupedAveragesForReview && groupedAveragesForReview.length > 0 && (
-            <Accordion type="multiple" className="w-full -mx-1">
-                {groupedAveragesForReview.map((section, index) => (
-                <AccordionItem value={`review-section-${review.id}-${index}`} key={section.sectionTitle} className="border-b-0">
-                    <AccordionTrigger className="hover:no-underline text-left py-2.5 px-1 rounded hover:bg-muted/50">
-                    <div className="flex justify-between w-full items-center pr-2 gap-4">
-                        <span className="font-medium text-sm text-foreground flex-grow">{section.sectionTitle}</span>
-                        <div className="flex items-center gap-2 flex-shrink-0 w-20">
-                        <Progress value={(section.sectionAverage / 5) * 100} className="w-full h-2" />
-                        </div>
-                    </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="pb-1">
-                    <ul className="space-y-1.5 pl-3 pt-1.5">
-                        {section.subRatings.map(sub => (
-                        <li key={sub.name} className="flex justify-between items-center text-xs">
-                            <span className="text-muted-foreground">{sub.name}:</span>
-                            <span className="font-medium text-foreground">{formatRatingNumber(sub.average)} / 5</span>
-                        </li>
-                        ))}
-                    </ul>
-                    </AccordionContent>
-                </AccordionItem>
-                ))}
-            </Accordion>
-        )}
+        <GroupedRatingsDisplay 
+            groupedAverages={groupedAveragesForReview}
+            noRatingsMessage="No detailed ratings provided for this review."
+            defaultOpenSections={['section-0']} // Optionally open the first section by default
+        />
       </CardContent>
     </Card>
   );

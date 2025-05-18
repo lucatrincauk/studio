@@ -5,7 +5,7 @@ import { useState, useEffect, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
-import type { RatingCategory, Review, Rating } from '@/lib/types';
+import type { RatingCategory, Review, Rating, GroupedCategoryAverages } from '@/lib/types';
 import { RATING_CATEGORIES } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, AlertCircle, CheckCircle } from 'lucide-react';
@@ -14,15 +14,8 @@ import type { User as FirebaseUser } from 'firebase/auth';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Slider } from '@/components/ui/slider';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-import { calculateOverallCategoryAverage, formatRatingNumber, calculateGroupedCategoryAverages, type GroupedCategoryAverages } from '@/lib/utils';
-import { Progress } from '@/components/ui/progress';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+import { calculateOverallCategoryAverage, formatRatingNumber, calculateGroupedCategoryAverages } from '@/lib/utils';
+import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 
 import { db } from '@/lib/firebase';
 import { collection, addDoc, doc, updateDoc, query, where, getDocs, limit, getDoc } from 'firebase/firestore';
@@ -34,20 +27,13 @@ interface MultiStepRatingFormProps {
   existingReview?: Review | null;
 }
 
-const totalSteps = 5;
+const totalSteps = 5; 
 const stepCategories: (keyof RatingFormValues)[][] = [
   ['excitedToReplay', 'mentallyStimulating', 'fun'],
   ['decisionDepth', 'replayability', 'luck', 'lengthDowntime'],
   ['graphicDesign', 'componentsThemeLore'],
   ['effortToLearn', 'setupTeardown'],
   [], // Step 5: Summary (no new inputs, displays saved data)
-];
-
-const sectionTitles: string[] = [
-  "Sentiments",
-  "Game Design",
-  "Aesthetics & Immersion",
-  "Learning & Logistics",
 ];
 
 
@@ -106,24 +92,13 @@ export function MultiStepRatingForm({
 
   const handleNext = async () => {
     let fieldsToValidate: (keyof RatingFormValues)[] = [];
-    if (currentStep >= 1 && currentStep <= 4) {
+     // Steps 1 through 4 have fields
+    if (currentStep >= 1 && currentStep < totalSteps -1) { // currentStep from 1 to 3
         fieldsToValidate = stepCategories[currentStep-1];
     }
 
     const isValid = await form.trigger(fieldsToValidate);
     if (isValid) {
-      if (currentStep === 4) { // Moving from step 4 to step 5 (summary)
-        const currentRatings = form.getValues();
-        const tempReviewForSummary: Review = {
-          id: 'summary',
-          author: '', // Not needed for this calculation
-          userId: '', // Not needed for this calculation
-          rating: currentRatings,
-          comment: '', // Not needed for this calculation
-          date: new Date().toISOString(),
-        };
-        setGroupedAveragesForSummary(calculateGroupedCategoryAverages([tempReviewForSummary]));
-      }
       setCurrentStep((prev) => Math.min(prev + 1, totalSteps));
       setFormError(null);
     } else {
@@ -146,11 +121,9 @@ export function MultiStepRatingForm({
     setFormError(null);
     let submissionSuccess = false;
 
-    // Construct the rating object from the form data
     const rating: Rating = { ...data };
-
     const reviewAuthor = currentUser.displayName || 'Anonymous';
-    const reviewComment = ""; // No comment field anymore
+    const reviewComment = ""; 
 
     const newReviewData = {
       author: reviewAuthor,
@@ -173,7 +146,6 @@ export function MultiStepRatingForm({
       const reviewsCollectionRef = collection(db, "boardgames_collection", gameId, 'reviews');
 
       if (existingReview?.id) {
-        // Update existing review
         const reviewDocRef = doc(reviewsCollectionRef, existingReview.id);
         const reviewSnapshot = await getDoc(reviewDocRef);
         if (!reviewSnapshot.exists() || reviewSnapshot.data()?.userId !== currentUser.uid) {
@@ -184,17 +156,21 @@ export function MultiStepRatingForm({
         await updateDoc(reviewDocRef, newReviewData);
         toast({ title: "Success!", description: "Review updated successfully!", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
       } else {
-        // Check if user already submitted a review for this game
         const existingReviewQuery = query(reviewsCollectionRef, where("userId", "==", currentUser.uid), limit(1));
         const existingReviewSnapshot = await getDocs(existingReviewQuery);
 
-        if (!existingReviewSnapshot.empty) {
-          // User already reviewed, update it (this logic path might be redundant if existingReview prop is always correctly set)
-          const existingReviewDoc = existingReviewSnapshot.docs[0];
-          await updateDoc(existingReviewDoc.ref, newReviewData);
-          toast({ title: "Review Updated", description: "Your existing review for this game has been updated.", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
-        } else {
-          // Add new review
+        if (!existingReviewSnapshot.empty && !existingReview) { // Check !existingReview too
+          toast({ title: "Already Reviewed", description: "You have already submitted a review for this game. Edit your existing review instead.", variant: "destructive" });
+          setFormError("You have already submitted a review for this game. Please edit your existing one.");
+          return false;
+        } else if (!existingReviewSnapshot.empty && existingReview?.id !== existingReviewSnapshot.docs[0].id){
+           // This case should ideally not happen if existingReview is correctly passed.
+           // It means there's another review by this user that wasn't loaded as existingReview.
+           const reviewToUpdateRef = existingReviewSnapshot.docs[0].ref;
+           await updateDoc(reviewToUpdateRef, newReviewData);
+           toast({ title: "Review Updated", description: "Your existing review for this game has been updated.", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
+        }
+         else {
           await addDoc(reviewsCollectionRef, newReviewData);
           toast({ title: "Success!", description: "Review submitted successfully!", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
         }
@@ -221,13 +197,12 @@ export function MultiStepRatingForm({
       startSubmitTransition(async () => {
         const submissionSuccessful = await processSubmitFirestore(data);
         if (submissionSuccessful) {
-          // Prepare data for summary step
           const currentRatings = form.getValues();
           const tempReviewForSummary: Review = {
             id: 'summary', author: '', userId: '', rating: currentRatings, comment: '', date: new Date().toISOString(),
           };
           setGroupedAveragesForSummary(calculateGroupedCategoryAverages([tempReviewForSummary]));
-          setCurrentStep(5); // Move to summary step
+          setCurrentStep(5); 
         }
       });
     } else {
@@ -274,12 +249,12 @@ export function MultiStepRatingForm({
           <div className="flex justify-between items-center">
             <h3 className="text-xl font-semibold">{getCurrentStepTitle()} - Step {currentStep} / {totalSteps}</h3>
           </div>
-          {getCurrentStepDescription() && (
+          {getCurrentStepDescription() && currentStep !== 5 && ( // Don't show description for summary step if using card
             <p className="text-sm text-muted-foreground mt-1">{getCurrentStepDescription()}</p>
           )}
         </div>
 
-        <div className="min-h-[350px]">
+        <div className="min-h-[300px] sm:min-h-[350px]">
           {currentStep === 1 && (
             <div className="space-y-6 animate-fadeIn">
               {(stepCategories[0] as RatingCategory[]).map((fieldName) => (
@@ -388,7 +363,7 @@ export function MultiStepRatingForm({
             </div>
           )}
 
-          {currentStep === 5 && groupedAveragesForSummary && (
+          {currentStep === 5 && (
             <Card className="animate-fadeIn border-border shadow-md">
               <CardHeader>
                  <div className="flex justify-between items-center">
@@ -397,36 +372,17 @@ export function MultiStepRatingForm({
                         <span className="text-2xl font-bold text-primary">{formatRatingNumber(yourOverallAverage * 2)}</span>
                     )}
                  </div>
+                 <CardDescription>{getCurrentStepDescription()}</CardDescription>
               </CardHeader>
               <CardContent>
-                <Accordion type="multiple" className="w-full">
-                  {groupedAveragesForSummary.map((section, index) => (
-                    <AccordionItem value={`section-summary-${index}`} key={section.sectionTitle}>
-                      <AccordionTrigger className="hover:no-underline text-left">
-                        <div className="flex justify-between w-full items-center pr-2 gap-4">
-                           <span className="font-medium text-md text-foreground flex-grow">{section.sectionTitle}</span>
-                           <div className="flex items-center gap-2 flex-shrink-0 w-24">
-                             <Progress value={(section.sectionAverage / 5) * 100} className="w-full h-2.5" />
-                           </div>
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <ul className="space-y-2.5 pl-2 pt-2">
-                          {section.subRatings.map(sub => (
-                            <li key={sub.name} className="flex justify-between items-center text-sm">
-                              <span className="text-muted-foreground">{sub.name}:</span>
-                              <span className="font-medium text-foreground">{formatRatingNumber(sub.average)} / 5</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
-                </Accordion>
+                <GroupedRatingsDisplay 
+                    groupedAverages={groupedAveragesForSummary}
+                    noRatingsMessage="Could not load summary. Please try submitting again."
+                 />
               </CardContent>
             </Card>
           )}
-          {currentStep === 5 && !groupedAveragesForSummary && (
+          {currentStep === 5 && isSubmitting && !groupedAveragesForSummary && ( // Show loader if submitting to step 5
             <div className="flex justify-center items-center h-full">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
               <span className="ml-2">Loading summary...</span>
@@ -457,7 +413,7 @@ export function MultiStepRatingForm({
           ) : currentStep === 4 ? (
             <Button
               type="button"
-              onClick={handleStep4Submit}
+              onClick={handleStep4Submit} // Changed from processSubmit
               disabled={isSubmitting}
               className="bg-accent hover:bg-accent/90 text-accent-foreground"
             >
@@ -469,7 +425,7 @@ export function MultiStepRatingForm({
                 existingReview ? 'Update Review' : 'Submit Review'
               )}
             </Button>
-          ) : ( // Step 5 (Summary of saved data) shows "Finish & Back to Game"
+          ) : ( 
              <Button
                 type="button"
                 onClick={() => {
@@ -486,4 +442,3 @@ export function MultiStepRatingForm({
     </Form>
   );
 }
-
