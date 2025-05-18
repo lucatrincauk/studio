@@ -6,7 +6,7 @@ import { useState, useEffect, useTransition } from 'react';
 import { fetchBggUserCollectionAction, getBoardGamesFromFirestoreAction, syncBoardGamesToFirestoreAction } from '@/lib/actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { GameCard } from '@/components/boardgame/game-card'; // Re-using for display
+// import { GameCard } from '@/components/boardgame/game-card'; // Re-using for display
 import { Loader2, AlertCircle, CheckCircle, Users, Clock, CalendarDays, Info } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
@@ -38,6 +38,7 @@ export default function CollectionPage() {
     if ('error' in result) {
       setError(result.error);
       setDbCollection([]);
+      toast({ title: 'DB Load Error', description: result.error, variant: 'destructive'});
     } else {
       setDbCollection(result);
     }
@@ -104,7 +105,11 @@ export default function CollectionPage() {
     });
   };
   
+  // Determine which collection to display: BGG fetched (if available) or DB (otherwise)
+  // This ensures that after fetching from BGG, the user sees the BGG list to confirm changes against.
+  // Once synced, bggFetchedCollection is cleared, and it reverts to showing DB.
   const displayedCollection = bggFetchedCollection || dbCollection;
+  const displaySource = bggFetchedCollection ? "Fetched BGG Collection" : "Current DB Collection";
 
   return (
     <div className="space-y-8">
@@ -171,7 +176,7 @@ export default function CollectionPage() {
       )}
       
       <h2 className="text-2xl font-semibold mt-8 mb-4">
-        {bggFetchedCollection ? "Fetched BGG Collection" : "Current DB Collection"} ({displayedCollection.length} games)
+        {displaySource} ({displayedCollection.length} games)
       </h2>
       {isLoadingDb && !bggFetchedCollection && <div className="flex justify-center py-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /> <span className="ml-2">Loading DB collection...</span></div>}
       
@@ -202,8 +207,8 @@ export default function CollectionPage() {
                   fill
                   sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
                   className="object-cover rounded-t-lg"
-                  data-ai-hint={`board game ${game.name.split(' ')[0]?.toLowerCase() || 'generic'}`}
-                  onError={(e) => { e.currentTarget.src = `https://placehold.co/200x300.png?text=${encodeURIComponent(game.name.substring(0,10))}`; }} // Fallback for broken images
+                  data-ai-hint={`board game ${game.name?.split(' ')[0]?.toLowerCase() || 'generic'}`}
+                  onError={(e) => { e.currentTarget.src = `https://placehold.co/200x300.png?text=${encodeURIComponent(game.name?.substring(0,10) || 'N/A')}`; }}
                 />
               </div>
             </CardHeader>
@@ -239,3 +244,6 @@ export default function CollectionPage() {
     </div>
   );
 }
+
+
+    
