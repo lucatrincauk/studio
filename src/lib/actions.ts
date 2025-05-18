@@ -438,43 +438,6 @@ export async function getGameDetails(gameId: string): Promise<BoardGame | null> 
   }
 }
 
-
-export async function deleteReviewAction(
-  gameId: string,
-  reviewId: string,
-  requestingUserId: string
-): Promise<{ success: boolean; message: string }> {
-  if (!requestingUserId) {
-    return { success: false, message: 'User not authenticated.' };
-  }
-
-  try {
-    const reviewDocRef = doc(db, FIRESTORE_COLLECTION_NAME, gameId, 'reviews', reviewId);
-    const reviewDocSnap = await getDoc(reviewDocRef);
-
-    if (!reviewDocSnap.exists()) {
-      return { success: false, message: 'Review not found.' };
-    }
-
-    const reviewData = reviewDocSnap.data();
-    if (reviewData.userId !== requestingUserId) {
-      return { success: false, message: 'You are not authorized to delete this review.' };
-    }
-
-    await deleteDoc(reviewDocRef);
-
-    revalidatePath(`/games/${gameId}`);
-    revalidatePath('/');
-    revalidatePath('/collection');
-    return { success: true, message: 'Review deleted successfully.' };
-
-  } catch (error) {
-    // console.error("Error deleting review from Firestore:", error);
-    const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
-    return { success: false, message: `Failed to delete review: ${errorMessage}` };
-  }
-}
-
 // generateAiSummaryAction removed as direct flow call is now used in component.
 
 
@@ -619,5 +582,3 @@ export async function syncBoardGamesToFirestoreAction(
         return { success: false, message: 'Database sync failed.', error: errorMessage };
     }
 }
-
-

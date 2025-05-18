@@ -22,7 +22,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 import { useState, useTransition, useMemo } from 'react';
-import { deleteReviewAction } from '@/lib/actions';
+// import { deleteReviewAction } from '@/lib/actions'; // Removed server action
+import { db } from '@/lib/firebase'; // Import db for client-side delete
+import { doc, deleteDoc } from 'firebase/firestore'; // Import Firestore deleteDoc
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 
@@ -45,14 +47,20 @@ export function ReviewItem({ review, currentUser, gameId, onReviewDeleted }: Rev
   }, [review]);
 
   const handleDeleteReview = async () => {
-    if (!currentUser || !review.id) return;
+    if (!currentUser || !review.id || review.userId !== currentUser.uid) {
+        toast({ title: "Error", description: "Cannot delete this review.", variant: "destructive" });
+        return;
+    }
     startDeleteTransition(async () => {
-      const result = await deleteReviewAction(gameId, review.id, currentUser.uid);
-      if (result.success) {
-        toast({ title: "Review Deleted", description: result.message });
+      try {
+        const reviewDocRef = doc(db, "boardgames_collection", gameId, 'reviews', review.id);
+        await deleteDoc(reviewDocRef);
+        toast({ title: "Review Deleted", description: "Your review has been successfully deleted." });
         onReviewDeleted?.();
-      } else {
-        toast({ title: "Error", description: result.message, variant: "destructive" });
+      } catch (error) {
+        console.error("Error deleting review from Firestore:", error);
+        const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+        toast({ title: "Error", description: `Failed to delete review: ${errorMessage}`, variant: "destructive" });
       }
     });
   };
@@ -131,4 +139,3 @@ export function ReviewItem({ review, currentUser, gameId, onReviewDeleted }: Rev
     </Card>
   );
 }
-
