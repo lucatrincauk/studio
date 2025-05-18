@@ -1,8 +1,7 @@
 
 'use client';
 
-import { use } from 'react';
-import { useParams, useRouter } from 'next/navigation'; // useParams for client component
+import { useParams, useRouter } from 'next/navigation';
 import { getGameDetails } from '@/lib/actions';
 import type { BoardGame, Review } from '@/lib/types';
 import { useAuth } from '@/contexts/auth-context';
@@ -11,43 +10,54 @@ import { Loader2, AlertCircle, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { useState, useEffect } from 'react';
 
 interface GameRatePageParams {
   gameId: string;
 }
 
 export default function GameRatePage() {
-  const params = useParams() as GameRatePageParams; // Use useParams for client component
+  const params = useParams() as GameRatePageParams;
   const router = useRouter();
   const { gameId } = params;
   const { user: currentUser, loading: authLoading } = useAuth();
 
-  // Fetch game data (including existing review if any)
-  // This is a simplified version. In a real app, you might want to use SWR or React Query
-  // For now, we'll use a promise directly like in GameDetailPage
-  const gameDataPromise = getGameDetails(gameId);
-  const game = use(gameDataPromise); // Use React.use to unwrap the promise
-
+  const [game, setGame] = useState<BoardGame | null | undefined>(undefined); // undefined: not loaded, null: not found
   const [userReview, setUserReview] = useState<Review | undefined>(undefined);
-  const [isLoadingGame, setIsLoadingGame] = useState(true); // Separate loading for game data
+  const [isLoadingGame, setIsLoadingGame] = useState(true);
 
   useEffect(() => {
-    if (game) {
+    async function fetchGameData() {
+      if (!gameId) {
+        setIsLoadingGame(false);
+        setGame(null); // or handle as an error
+        return;
+      }
+      setIsLoadingGame(true);
+      const gameData = await getGameDetails(gameId);
+      setGame(gameData);
+      setIsLoadingGame(false);
+    }
+    fetchGameData();
+  }, [gameId]);
+
+  useEffect(() => {
+    if (game === undefined) return; // Still loading or gameId was invalid
+
+    if (game) { // game is BoardGame object
       if (currentUser && game.reviews) {
         const foundReview = game.reviews.find(r => r.userId === currentUser.uid);
         setUserReview(foundReview);
       } else {
         setUserReview(undefined);
       }
-      setIsLoadingGame(false);
-    } else if (game === null) { // Explicitly null means not found
-        setIsLoadingGame(false);
+    } else { // game is null (not found)
+      setUserReview(undefined);
     }
-    // Effect depends on game data being resolved and currentUser
   }, [game, currentUser]);
 
 
-  if (authLoading || isLoadingGame) {
+  if (authLoading || isLoadingGame || game === undefined) {
     return (
       <div className="flex flex-col justify-center items-center min-h-[calc(100vh-200px)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -56,7 +66,7 @@ export default function GameRatePage() {
     );
   }
 
-  if (!game) {
+  if (!game) { // game is null (not found)
     return (
       <div className="flex flex-col items-center justify-center text-center py-10">
         <AlertCircle className="h-12 w-12 text-destructive mb-4" />
@@ -118,6 +128,4 @@ export default function GameRatePage() {
   );
 }
 
-// Need to import useState and useEffect
-import { useState, useEffect } from 'react';
 export const dynamic = 'force-dynamic';
