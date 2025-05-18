@@ -1,3 +1,4 @@
+
 // src/components/boardgame/rating-form.tsx
 'use client';
 
@@ -54,10 +55,10 @@ export function RatingForm({ gameId }: RatingFormProps) {
     resolver: zodResolver(formSchema),
     defaultValues: {
       author: '',
-      feeling: 0,
-      gameDesign: 0,
-      presentation: 0,
-      management: 0,
+      feeling: 1, // Default to 1 star
+      gameDesign: 1, // Default to 1 star
+      presentation: 1, // Default to 1 star
+      management: 1, // Default to 1 star
       comment: '',
     },
     // The 'errors' prop was removed here to prevent potential re-render loops.
@@ -73,10 +74,10 @@ export function RatingForm({ gameId }: RatingFormProps) {
         });
         form.reset({ 
           author: '',
-          feeling: 0,
-          gameDesign: 0,
-          presentation: 0,
-          management: 0,
+          feeling: 1, // Reset to 1 star
+          gameDesign: 1, // Reset to 1 star
+          presentation: 1, // Reset to 1 star
+          management: 1, // Reset to 1 star
           comment: '',
         });
       } else {
@@ -196,3 +197,4 @@ function SubmitButton() {
     </Button>
   );
 }
+
