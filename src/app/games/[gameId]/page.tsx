@@ -132,11 +132,11 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
       <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
         <div className="flex flex-row">
           <div className="flex-1 p-6 space-y-4">
-            <div className="flex items-center gap-x-3 gap-y-1 flex-wrap mb-4">
+            <div className="flex justify-between items-center flex-wrap gap-x-3 gap-y-2 mb-4">
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">{game.name}</h1>
               {globalGameAverage !== null && (
-                <span className="text-xl sm:text-2xl font-semibold text-primary whitespace-nowrap">
-                  ({formatRatingNumber(globalGameAverage * 2)})
+                <span className="text-3xl sm:text-4xl font-bold text-primary whitespace-nowrap">
+                  {formatRatingNumber(globalGameAverage * 2)}
                 </span>
               )}
             </div>
