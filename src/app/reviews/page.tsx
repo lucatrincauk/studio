@@ -24,6 +24,7 @@ interface UserFilterOption {
 }
 
 interface GameFilterOption {
+  id: string; // Add gameId for unique key
   name: string;
   coverArtUrl?: string | null;
 }
@@ -68,12 +69,12 @@ export default function AllReviewsPage() {
   const uniqueGames: GameFilterOption[] = useMemo(() => {
     const gamesMap = new Map<string, GameFilterOption>();
     allReviews.forEach(review => {
-      if (review.gameName && !gamesMap.has(review.gameName)) {
-        gamesMap.set(review.gameName, { name: review.gameName, coverArtUrl: review.gameCoverArtUrl });
+      if (review.gameName && !gamesMap.has(review.gameId)) { // Use gameId as key
+        gamesMap.set(review.gameId, { id: review.gameId, name: review.gameName, coverArtUrl: review.gameCoverArtUrl });
       }
     });
     const sortedGames = Array.from(gamesMap.values()).sort((a, b) => a.name.localeCompare(b.name));
-    return [{ name: 'all', coverArtUrl: null }, ...sortedGames];
+    return [{ id: 'all', name: 'all', coverArtUrl: null }, ...sortedGames];
   }, [allReviews]);
 
   const filteredAndSortedReviews = useMemo(() => {
@@ -86,7 +87,7 @@ export default function AllReviewsPage() {
 
     // Filter by game
     if (selectedGame !== 'all') {
-      reviewsToDisplay = reviewsToDisplay.filter(review => review.gameName === selectedGame);
+      reviewsToDisplay = reviewsToDisplay.filter(review => review.gameId === selectedGame); // Filter by gameId
     }
 
     // Sort
@@ -165,7 +166,7 @@ export default function AllReviewsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   {uniqueGames.map(game => (
-                    <SelectItem key={game.name} value={game.name}>
+                    <SelectItem key={game.id} value={game.id}> {/* Use game.id as value */}
                       <div className="flex items-center gap-2">
                         {game.name === 'all' ? (
                           <span>All Games</span>
@@ -265,11 +266,25 @@ export default function AllReviewsPage() {
         <div className="space-y-6">
           {filteredAndSortedReviews.map((review) => (
             <Card key={`${review.gameId}-${review.id}`} className="overflow-hidden shadow-md border border-border rounded-lg">
-              <CardHeader className="bg-muted/30 p-4">
-                <Link href={`/games/${review.gameId}`} className="hover:underline">
-                  <h3 className="text-lg font-semibold text-primary">
-                    Review for: {review.gameName}
-                  </h3>
+              <CardHeader className="bg-muted/30 p-3 flex flex-row items-center gap-3">
+                <Link href={`/games/${review.gameId}`} className="flex items-center gap-3 hover:opacity-80 transition-opacity w-full">
+                  <div className="relative h-16 w-12 flex-shrink-0 rounded-sm overflow-hidden shadow-sm">
+                    <Image
+                      src={review.gameCoverArtUrl || `https://placehold.co/80x120.png?text=${review.gameName?.substring(0,3) || 'N/A'}`}
+                      alt={`${review.gameName || 'Game'} cover art`}
+                      fill
+                      sizes="48px"
+                      className="object-cover"
+                      data-ai-hint={`board game ${review.gameName?.split(' ')[0]?.toLowerCase() || 'mini'}`}
+                      onError={(e) => { e.currentTarget.src = `https://placehold.co/80x120.png?text=${review.gameName?.substring(0,3) || 'N/A'}`; }}
+                    />
+                  </div>
+                  <div className="flex-grow">
+                    <h3 className="text-md font-semibold text-primary leading-tight">
+                      {review.gameName}
+                    </h3>
+                    <p className="text-xs text-muted-foreground">View Game Details</p>
+                  </div>
                 </Link>
               </CardHeader>
               <CardContent className="p-4">
