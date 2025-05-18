@@ -133,7 +133,7 @@ export function ReviewItem({ review, currentUser, gameId, onReviewDeleted }: Rev
         <GroupedRatingsDisplay 
             groupedAverages={groupedAveragesForReview}
             noRatingsMessage="No detailed ratings provided for this review."
-            defaultOpenSections={['section-0']} // Optionally open the first section by default
+            defaultOpenSections={[]} 
         />
       </CardContent>
     </Card>
