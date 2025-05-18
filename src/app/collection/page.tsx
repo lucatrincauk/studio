@@ -16,6 +16,14 @@ import { Users, Clock, CalendarDays } from 'lucide-react';
 
 const BGG_USERNAME = 'lctr01'; // Hardcoded for now
 
+// Helper function to compare game arrays based on their IDs
+function areGameArraysEqual(arr1: BoardGame[], arr2: BoardGame[]): boolean {
+  if (arr1.length !== arr2.length) return false;
+  const ids1 = arr1.map(g => g.id).sort();
+  const ids2 = arr2.map(g => g.id).sort();
+  return ids1.every((id, index) => id === ids2[index]);
+}
+
 export default function CollectionPage() {
   const [dbCollection, setDbCollection] = useState<BoardGame[]>([]);
   const [bggFetchedCollection, setBggFetchedCollection] = useState<BoardGame[] | null>(null);
@@ -51,20 +59,25 @@ export default function CollectionPage() {
   }, []);
 
   useEffect(() => {
+    let newGamesToAdd: BoardGame[] = [];
+    let newGamesToRemove: BoardGame[] = [];
+
     if (bggFetchedCollection) {
       const bggGameIds = new Set(bggFetchedCollection.map(g => g.id));
       const dbGameIds = new Set(dbCollection.map(g => g.id));
 
-      const toAdd = bggFetchedCollection.filter(g => !dbGameIds.has(g.id));
-      const toRemove = dbCollection.filter(g => !bggGameIds.has(g.id));
-      
-      setGamesToAdd(toAdd);
-      setGamesToRemove(toRemove);
-    } else {
-      setGamesToAdd([]);
-      setGamesToRemove([]);
+      newGamesToAdd = bggFetchedCollection.filter(g => !dbGameIds.has(g.id));
+      newGamesToRemove = dbCollection.filter(g => !bggGameIds.has(g.id));
     }
-  }, [bggFetchedCollection, dbCollection]);
+
+    if (!areGameArraysEqual(newGamesToAdd, gamesToAdd)) {
+      setGamesToAdd(newGamesToAdd);
+    }
+    if (!areGameArraysEqual(newGamesToRemove, gamesToRemove)) {
+      setGamesToRemove(newGamesToRemove);
+    }
+  }, [bggFetchedCollection, dbCollection, gamesToAdd, gamesToRemove]);
+
 
   const handleFetchBggCollection = () => {
     setError(null);
@@ -242,8 +255,3 @@ export default function CollectionPage() {
     </div>
   );
 }
-
-
-    
-
-    
