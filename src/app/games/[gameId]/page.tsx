@@ -132,7 +132,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
           <div className="flex-1 p-6 space-y-4 order-1">
             
             {/* Title & Score Block */}
-            <div className="flex justify-between items-center flex-wrap gap-x-3 gap-y-2 mb-4">
+            <div className="flex justify-between items-start mb-4">
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">{game.name}</h1>
               {globalGameAverage !== null && (
                 <span className="text-3xl sm:text-4xl font-bold text-primary whitespace-nowrap">
