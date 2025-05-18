@@ -108,7 +108,7 @@ export default function GameRatePage() {
         <ArrowLeft className="mr-2 h-4 w-4" /> Back to Game
       </Button>
       <Card className="shadow-xl border border-border rounded-lg">
-        {currentRatingFormStep !== 5 && (
+        {currentRatingFormStep !== 5 && ( // Conditionally render the main card header
             <CardHeader>
                 <CardTitle className="text-2xl md:text-3xl">
                     {userReview ? 'Edit Your Review for:' : 'Rate:'} <span className="text-primary">{game.name}</span>
@@ -118,7 +118,7 @@ export default function GameRatePage() {
                 </CardDescription>
             </CardHeader>
         )}
-        <CardContent className={currentRatingFormStep === 5 ? 'pt-6' : ''}>
+        <CardContent className={currentRatingFormStep === 5 ? 'pt-6' : ''}> {/* Adjust padding if header is hidden */}
           <MultiStepRatingForm
             gameId={game.id}
             currentUser={currentUser}
