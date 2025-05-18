@@ -1,51 +1,51 @@
 
-'use client'; 
+'use client';
 
 import { useEffect, useState, useTransition, useCallback, use } from 'react';
 import Image from 'next/image';
-import Link from 'next/link'; 
+import Link from 'next/link';
 import { getGameDetails } from '@/lib/actions';
 import type { BoardGame, AiSummary, Review, Rating, RatingCategory } from '@/lib/types';
 import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Wand2, Info, Star, Edit } from 'lucide-react'; 
+import { AlertCircle, Loader2, Wand2, Info, Star, Edit } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
-import { summarizeReviews } from '@/ai/flows/summarize-reviews'; 
+import { summarizeReviews } from '@/ai/flows/summarize-reviews';
 import { calculateCategoryAverages } from '@/lib/utils';
 import { RATING_CATEGORIES } from '@/lib/types';
-import { StarRating } from '@/components/boardgame/star-rating';
+// StarRating import removed
 
 interface GameDetailPageProps {
-  params: Promise<{ 
+  params: Promise<{
     gameId: string;
   }>;
 }
 
 export default function GameDetailPage({ params: paramsPromise }: GameDetailPageProps) {
-  const params = use(paramsPromise); 
-  const { gameId } = params; 
+  const params = use(paramsPromise);
+  const { gameId } = params;
 
-  const { user: currentUser, loading: authLoading } = useAuth(); 
+  const { user: currentUser, loading: authLoading } = useAuth();
 
   const [game, setGame] = useState<BoardGame | null>(null);
   const [aiSummary, setAiSummary] = useState<AiSummary | null>(null);
   const [isLoadingGame, setIsLoadingGame] = useState(true);
   const [isSummarizing, startSummaryTransition] = useTransition();
   const [summaryError, setSummaryError] = useState<string | null>(null);
-  
+
   const [userReview, setUserReview] = useState<Review | undefined>(undefined);
   const [categoryAverages, setCategoryAverages] = useState<Rating | null>(null);
 
   const fetchGameData = useCallback(async () => {
     setIsLoadingGame(true);
-    setSummaryError(null); 
+    setSummaryError(null);
     const gameData = await getGameDetails(gameId);
     setGame(gameData);
     if (gameData) {
-      if (currentUser && !authLoading) { 
+      if (currentUser && !authLoading) {
         const foundReview = gameData.reviews.find(r => r.userId === currentUser.uid);
         setUserReview(foundReview);
       } else if (!currentUser && !authLoading) {
@@ -57,7 +57,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
       setCategoryAverages(null);
     }
     setIsLoadingGame(false);
-  }, [gameId, currentUser, authLoading]); 
+  }, [gameId, currentUser, authLoading]);
 
   useEffect(() => {
     fetchGameData();
@@ -69,7 +69,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
         if (foundReview) setUserReview(foundReview);
     }
     if (game && !currentUser && !authLoading && userReview) {
-        setUserReview(undefined); 
+        setUserReview(undefined);
     }
   }, [currentUser, authLoading, game, userReview]);
 
@@ -77,7 +77,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
   const handleGenerateSummary = async () => {
     if (!game) return;
     setSummaryError(null);
-    setAiSummary(null); 
+    setAiSummary(null);
     startSummaryTransition(async () => {
        const reviewComments = game.reviews?.map(r => r.comment).filter(Boolean) as string[] || [];
       if (reviewComments.length === 0) {
@@ -118,10 +118,10 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
   return (
     <div className="space-y-10">
       <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
-        <div className="flex flex-row"> 
-          <div className="flex-1 p-6 space-y-4"> 
+        <div className="flex flex-row">
+          <div className="flex-1 p-6 space-y-4">
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">{game.name}</h1>
-            
+
             {categoryAverages && (
               <div className="mt-4 space-y-3 border-t border-border pt-4">
                 <h3 className="text-lg font-semibold text-foreground">Average Player Ratings:</h3>
@@ -129,8 +129,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
                   <div key={categoryKey} className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">{RATING_CATEGORIES[categoryKey as RatingCategory]}:</span>
                     <div className="flex items-center gap-2">
-                      <StarRating rating={categoryAverages[categoryKey]} readOnly size={16} />
-                      <span className="font-medium text-foreground">({categoryAverages[categoryKey].toFixed(1)})</span>
+                       <span className="font-medium text-foreground">{categoryAverages[categoryKey].toFixed(1)} / 5</span>
                     </div>
                   </div>
                 ))}
@@ -143,8 +142,8 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
                 <p className="text-sm text-muted-foreground italic">No ratings yet to calculate averages.</p>
             )}
           </div>
-          
-          <div className="w-1/3 p-2 flex-shrink-0 self-center"> 
+
+          <div className="w-1/3 p-2 flex-shrink-0 self-center">
             <div className="relative aspect-[3/4] w-full rounded-md overflow-hidden shadow-md">
               <Image
                 src={game.coverArtUrl || `https://placehold.co/400x600.png?text=${encodeURIComponent(game.name?.substring(0,15) || 'N/A')}`}
@@ -189,16 +188,16 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
                   </Alert>
             )}
           </div>
-          
-          <Separator className="my-4" /> 
 
-          <div> 
+          <Separator className="my-4" />
+
+          <div>
             <h2 className="text-2xl font-semibold text-foreground mb-6">Player Reviews ({game.reviews.length})</h2>
             <ReviewList reviews={game.reviews} currentUser={currentUser} gameId={game.id} onReviewDeleted={fetchGameData}/>
           </div>
         </div>
-        
-        <div className="lg:col-span-1 space-y-8 sticky top-24 self-start"> 
+
+        <div className="lg:col-span-1 space-y-8 sticky top-24 self-start">
           <Card className="shadow-md border border-border rounded-lg">
             <CardHeader>
               <CardTitle className="text-xl flex items-center gap-2">
@@ -207,9 +206,9 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <Button 
-                onClick={handleGenerateSummary} 
-                disabled={isSummarizing || !game.reviews || game.reviews.length === 0} 
+              <Button
+                onClick={handleGenerateSummary}
+                disabled={isSummarizing || !game.reviews || game.reviews.length === 0}
                 className="w-full bg-primary hover:bg-primary/90 text-primary-foreground mb-3 transition-colors"
               >
                 {isSummarizing ? (

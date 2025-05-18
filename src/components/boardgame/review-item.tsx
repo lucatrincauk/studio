@@ -3,11 +3,11 @@
 
 import type { Review, RatingCategory, Rating } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { StarRating } from './star-rating';
+// StarRating import removed
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { RATING_CATEGORIES } from '@/lib/types';
 import { formatReviewDate, calculateOverallCategoryAverage } from '@/lib/utils';
-import { UserCircle2, Trash2, Edit3, Loader2 } from 'lucide-react'; 
+import { UserCircle2, Trash2, Edit3, Loader2 } from 'lucide-react';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
 import {
@@ -70,8 +70,8 @@ export function ReviewItem({ review, currentUser, gameId, onReviewDeleted }: Rev
           </div>
           <div className="flex flex-col items-end">
             <div className="flex items-center gap-1 text-sm text-foreground mb-1">
-              <StarRating rating={overallReviewRating} readOnly size={16} />
-              <span className="font-semibold">({overallReviewRating.toFixed(1)})</span>
+              {/* StarRating replaced with numerical display */}
+              <span className="font-semibold">Overall: {overallReviewRating.toFixed(1)} / 5</span>
             </div>
             {isOwnReview && (
               <div className="flex gap-2 mt-1">
@@ -115,7 +115,8 @@ export function ReviewItem({ review, currentUser, gameId, onReviewDeleted }: Rev
           {(Object.keys(review.rating) as Array<keyof Rating>).map((categoryKey) => (
             <div key={categoryKey} className="flex justify-between items-center text-xs">
               <span className="text-muted-foreground">{RATING_CATEGORIES[categoryKey as RatingCategory]}:</span>
-              <StarRating rating={review.rating[categoryKey]} readOnly size={14} />
+              {/* StarRating replaced with numerical display */}
+              <span className="text-foreground font-medium">{review.rating[categoryKey]} / 5</span>
             </div>
           ))}
         </div>
