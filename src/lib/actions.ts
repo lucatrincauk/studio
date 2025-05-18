@@ -6,112 +6,20 @@ import { summarizeReviews } from '@/ai/flows/summarize-reviews';
 import { mockGames, addReviewToMockGame, mockReviews as allMockReviews } from '@/data/mock-games';
 import type { BoardGame, Review, Rating, AiSummary, SummarizeReviewsInput, BggSearchResult } from './types';
 import { z } from 'zod';
+import { BggClient } from 'bgg-sdk';
+import type { Thing } from 'bgg-sdk/dist/types'; // Adjusted import path based on typical SDK structure
 
-// Helper to decode HTML entities commonly found in BGG data
-function decodeHtmlEntities(text: string): string {
-  if (!text) return "";
-  // First, replace common named entities
-  let decoded = text
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&nbsp;/g, ' ');
+const bggClient = BggClient.Create();
 
-  // Then, replace numerical entities (decimal and hex)
-  decoded = decoded.replace(/&#(\d+);/g, (match, dec) => String.fromCharCode(dec));
-  decoded = decoded.replace(/&#x([0-9A-Fa-f]+);/g, (match, hex) => String.fromCharCode(parseInt(hex, 16)));
-  
-  // Remove any remaining <br /> tags or similar, then trim
-  decoded = decoded.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]*>/g, '').trim();
-  return decoded;
-}
-
-// Helper to parse BGG search XML for basic info (ID, name, year)
-function parseBggSearchXml(xml: string): Omit<BggSearchResult, 'rank'>[] {
-  const results: Omit<BggSearchResult, 'rank'>[] = [];
-  const itemRegex = /<item type="boardgame" id="(\d+)">([\s\S]*?)<\/item>/g;
-  let match;
-
-  while ((match = itemRegex.exec(xml)) !== null) {
-    const bggId = match[1];
-    const itemContent = match[2];
-
-    const nameRegex = /<name type="primary" value="([^"]+)"\s*\/>/;
-    const nameMatch = itemContent.match(nameRegex);
-    const name = nameMatch ? decodeHtmlEntities(nameMatch[1]) : 'Unknown Game';
-
-    const yearRegex = /<yearpublished value="(\d+)"\s*\/>/;
-    const yearMatch = itemContent.match(yearRegex);
-    const yearPublished = yearMatch ? parseInt(yearMatch[1], 10) : undefined;
-    
-    results.push({ bggId, name, yearPublished });
+// Helper to extract the primary name from BGG SDK's name array
+function getPrimaryName(names: Thing['names']): string {
+  if (Array.isArray(names)) {
+    const primaryNameObj = names.find(n => n.type === 'primary');
+    return primaryNameObj ? primaryNameObj.value : 'Unknown Game';
+  } else if (typeof names === 'string') { // Fallback if it's just a string
+    return names;
   }
-  return results;
-}
-
-// Helper to parse rank from BGG thing XML response
-function parseRankFromThingXml(xml: string): number {
-    // Regex targeting type="subtype" name="boardgame", making friendlyname optional for capture.
-    const rankRegex = /<rank\s+type="subtype"\s+name="boardgame"(?:\s+friendlyname="[^"]*")?\s+value="(\d+|Not Ranked)"[^>]*>/;
-    const statsBlockRegex = /<statistics>[\s\S]*?<ranks>([\s\S]*?)<\/ranks>[\s\S]*?<\/statistics>/; 
-    const statsMatch = xml.match(statsBlockRegex);
-
-    if (statsMatch) {
-        const ranksBlock = statsMatch[1]; // Content within <ranks>...</ranks>
-        const rankMatch = ranksBlock.match(rankRegex);
-        if (rankMatch && rankMatch[1]) { // Ensure rankMatch and its capture group exist
-            if (rankMatch[1] === 'Not Ranked') {
-                return Number.MAX_SAFE_INTEGER;
-            }
-            const parsedRank = parseInt(rankMatch[1], 10);
-            if (!isNaN(parsedRank)) {
-                return parsedRank;
-            }
-        }
-    }
-    return Number.MAX_SAFE_INTEGER; // Default if not found or not ranked
-}
-
-// Helper to parse BGG thing XML (very basic) for full import
-function parseBggThingXml(xml: string): Partial<BoardGame> {
-  const result: Partial<BoardGame> = {};
-  
-  const nameRegex = /<name type="primary" value="([^"]+)"\s*\/>/;
-  const nameMatch = xml.match(nameRegex);
-  if (nameMatch) result.name = decodeHtmlEntities(nameMatch[1]);
-
-  const descriptionRegex = /<description>([\s\S]*?)<\/description>/;
-  const descriptionMatch = xml.match(descriptionRegex);
-  if (descriptionMatch) result.description = decodeHtmlEntities(descriptionMatch[1]);
-  
-  const imageRegex = /<image>([\s\S]*?)<\/image>/;
-  const imageMatch = xml.match(imageRegex);
-  if (imageMatch) result.coverArtUrl = imageMatch[1];
-  else {
-    const thumbnailRegex = /<thumbnail>([\s\S]*?)<\/thumbnail>/;
-    const thumbnailMatch = xml.match(thumbnailRegex);
-    if (thumbnailMatch) result.coverArtUrl = thumbnailMatch[1];
-  }
-
-  const yearRegex = /<yearpublished value="(\d+)"\s*\/>/;
-  const yearMatch = xml.match(yearRegex);
-  if (yearMatch) result.yearPublished = parseInt(yearMatch[1], 10);
-
-  const minPlayersRegex = /<minplayers value="(\d+)"\s*\/>/;
-  const minPlayersMatch = xml.match(minPlayersRegex);
-  if (minPlayersMatch) result.minPlayers = parseInt(minPlayersMatch[1], 10);
-  
-  const maxPlayersRegex = /<maxplayers value="(\d+)"\s*\/>/;
-  const maxPlayersMatch = xml.match(maxPlayersRegex);
-  if (maxPlayersMatch) result.maxPlayers = parseInt(maxPlayersMatch[1], 10);
-
-  const playingTimeRegex = /<playingtime value="(\d+)"\s*\/>/;
-  const playingTimeMatch = xml.match(playingTimeRegex);
-  if (playingTimeMatch) result.playingTime = parseInt(playingTimeMatch[1], 10);
-  
-  return result;
+  return 'Unknown Game';
 }
 
 
@@ -120,43 +28,47 @@ export async function searchBggGamesAction(searchTerm: string): Promise<BggSearc
     return { error: 'Search term cannot be empty.' };
   }
   try {
-    // Step 1: Initial search to get basic game list (IDs, names, years)
-    const searchResponse = await fetch(`https://boardgamegeek.com/xmlapi2/search?type=boardgame&query=${encodeURIComponent(searchTerm)}`);
-    if (!searchResponse.ok) {
-      throw new Error(`BGG Search API request failed with status ${searchResponse.status}`);
+    const searchResponse = await bggClient.search.query({ query: searchTerm, type: ['boardgame'] });
+
+    if (!searchResponse || searchResponse.length === 0) {
+      return [];
     }
-    const searchXmlData = await searchResponse.text();
-
-    if (searchXmlData.includes("<error>")) {
-        const messageMatch = searchXmlData.match(/<message>([^<]+)<\/message>/);
-        const errorMessage = messageMatch ? messageMatch[1] : "Unknown BGG API error during search";
-        return { error: `BoardGameGeek API Error: ${errorMessage}` };
-    }
-
-    const basicResults = parseBggSearchXml(searchXmlData);
-
-    if (basicResults.length === 0) {
-        return [];
-    }
-
-    // Step 2: Fetch rank for each game by calling the /thing API
-    // Limiting to first 10 results to avoid excessive API calls & improve performance
-    const enrichedResultsPromises = basicResults.slice(0, 10).map(async (basicResult) => {
-        try {
-            const thingResponse = await fetch(`https://boardgamegeek.com/xmlapi2/thing?id=${basicResult.bggId}&stats=1`);
-            if (!thingResponse.ok) {
-                console.warn(`Failed to fetch details for BGG ID ${basicResult.bggId}: Status ${thingResponse.status}`);
-                return { ...basicResult, rank: Number.MAX_SAFE_INTEGER }; // Add with default rank on error
-            }
-            const thingXmlData = await thingResponse.text();
-            const rank = parseRankFromThingXml(thingXmlData);
-            return { ...basicResult, rank };
-        } catch (e) {
-            console.warn(`Error fetching details for BGG ID ${basicResult.bggId}:`, e);
-            return { ...basicResult, rank: Number.MAX_SAFE_INTEGER }; // Add with default rank on error
-        }
-    });
     
+    // Limit to first 10 results to avoid excessive API calls & improve performance
+    const limitedResults = searchResponse.slice(0, 10);
+
+    const enrichedResultsPromises = limitedResults.map(async (item) => {
+      try {
+        // The SDK's search result 'id' is a number
+        const thingDetailsArr = await bggClient.thing.query({ id: [item.id], stats: 1 });
+        let rank = Number.MAX_SAFE_INTEGER;
+
+        if (thingDetailsArr && thingDetailsArr.length > 0) {
+          const thing = thingDetailsArr[0];
+          if (thing.statistics && thing.statistics.ratings && thing.statistics.ratings.ranks) {
+            const boardgameRank = thing.statistics.ratings.ranks.find(r => r.name === 'boardgame' && r.type === 'subtype');
+            if (boardgameRank && boardgameRank.value && boardgameRank.value !== 'Not Ranked') {
+              rank = parseInt(boardgameRank.value, 10);
+            }
+          }
+        }
+        return {
+          bggId: item.id.toString(),
+          name: item.name, // SDK SearchItem provides 'name' directly
+          yearPublished: item.yearPublished || undefined,
+          rank: isNaN(rank) ? Number.MAX_SAFE_INTEGER : rank,
+        };
+      } catch (e) {
+        console.warn(`Error fetching details for BGG ID ${item.id}:`, e);
+        return {
+          bggId: item.id.toString(),
+          name: item.name,
+          yearPublished: item.yearPublished || undefined,
+          rank: Number.MAX_SAFE_INTEGER, // Default rank on error
+        };
+      }
+    });
+
     const enrichedResults = await Promise.all(enrichedResultsPromises);
     
     // Sort results by rank (ascending, unranked/error ones last)
@@ -166,51 +78,65 @@ export async function searchBggGamesAction(searchTerm: string): Promise<BggSearc
 
   } catch (error) {
     console.error('BGG Search Action Error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred during BGG search.';
-    return { error: errorMessage };
+    let errorMessage = 'An unknown error occurred during BGG search.';
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    } else if (typeof error === 'string') {
+      errorMessage = error;
+    }
+    // Check for specific SDK related error structures if available
+    // For example, if (error.response && error.response.data) ...
+    return { error: `BGG SDK Error: ${errorMessage}` };
   }
 }
 
 export async function importAndRateBggGameAction(bggId: string): Promise<{ gameId: string } | { error: string }> {
+  const numericBggId = parseInt(bggId, 10);
+  if (isNaN(numericBggId)) {
+    return { error: 'Invalid BGG ID format.' };
+  }
+
   const existingGameId = `bgg-${bggId}`;
   const existingGame = mockGames.find(game => game.id === existingGameId);
   if (existingGame) {
-    return { gameId: existingGame.id }; // Game already exists, return its ID
+    return { gameId: existingGame.id };
   }
 
   try {
-    // Fetching details for import, stats=1 ensures we get as much info as possible for the new game entry
-    const response = await fetch(`https://boardgamegeek.com/xmlapi2/thing?id=${bggId}&stats=1`); 
-    if (!response.ok) {
-      throw new Error(`BGG Thing API request failed with status ${response.status}`);
-    }
-    const xmlData = await response.text();
-    const gameDetails = parseBggThingXml(xmlData);
+    const thingDetailsArr = await bggClient.thing.query({ id: [numericBggId], stats: 1 });
 
-    if (!gameDetails.name) {
-      return { error: 'Could not retrieve essential game details from BGG.' };
+    if (!thingDetailsArr || thingDetailsArr.length === 0) {
+      return { error: 'Could not retrieve game details from BGG.' };
     }
+    
+    const thing = thingDetailsArr[0];
+
+    if (!thing.name && (!thing.names || getPrimaryName(thing.names) === 'Unknown Game')) {
+         return { error: 'Essential game details (name) missing from BGG response.' };
+    }
+    
+    const gameName = thing.name || getPrimaryName(thing.names);
 
     const newGame: BoardGame = {
       id: existingGameId,
-      name: gameDetails.name,
-      coverArtUrl: gameDetails.coverArtUrl || `https://placehold.co/400x600.png?text=${encodeURIComponent(gameDetails.name)}`, 
-      description: gameDetails.description || 'No description available.',
+      name: gameName,
+      coverArtUrl: thing.image || thing.thumbnail || `https://placehold.co/400x600.png?text=${encodeURIComponent(gameName)}`,
+      description: thing.description || 'No description available.',
       reviews: [],
-      yearPublished: gameDetails.yearPublished,
-      minPlayers: gameDetails.minPlayers,
-      maxPlayers: gameDetails.maxPlayers,
-      playingTime: gameDetails.playingTime,
-      bggId: parseInt(bggId, 10),
+      yearPublished: thing.yearPublished || undefined,
+      minPlayers: thing.minPlayers || undefined,
+      maxPlayers: thing.maxPlayers || undefined,
+      playingTime: thing.playingTime || thing.minPlaytime || undefined, // Prefer playingTime, fallback to minPlaytime
+      bggId: numericBggId,
     };
 
-    mockGames.push(newGame); 
+    mockGames.push(newGame);
     if (!allMockReviews[existingGameId]) {
         allMockReviews[existingGameId] = [];
     }
 
     revalidatePath('/');
-    revalidatePath(`/games/${existingGameId}`); 
+    revalidatePath(`/games/${existingGameId}`);
     
     return { gameId: newGame.id };
 
@@ -224,7 +150,7 @@ export async function importAndRateBggGameAction(bggId: string): Promise<{ gameI
 
 // Helper to find a game (simulates DB query)
 async function findGameById(gameId: string): Promise<BoardGame | undefined> {
-  const game = mockGames.find(game => game.id === gameId);
+  const game = mockGames.find(g => g.id === gameId);
   if (game) {
     return { ...game, reviews: allMockReviews[gameId] || game.reviews || [] };
   }
@@ -323,9 +249,9 @@ export async function generateAiSummaryAction(gameId: string): Promise<AiSummary
 
 // Action to get all games for the home page
 export async function getAllGamesAction(): Promise<BoardGame[]> {
+  // Ensure reviews are correctly associated if they are managed in allMockReviews
   return Promise.resolve(mockGames.map(game => ({
     ...game,
     reviews: allMockReviews[game.id] || game.reviews || []
   })));
 }
-
