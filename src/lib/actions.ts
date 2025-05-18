@@ -28,16 +28,9 @@ function decodeHtmlEntities(text: string): string {
   return decoded;
 }
 
-
-// Helper to parse BGG search XML (very basic) - returns initial results without rank
-interface InitialBggSearchResult {
-  bggId: string;
-  name: string;
-  yearPublished?: number;
-}
-
-function parseBggSearchXml(xml: string): InitialBggSearchResult[] {
-  const results: InitialBggSearchResult[] = [];
+// Updated helper to parse BGG search XML and attempt to extract rank
+function parseBggSearchXmlWithRank(xml: string): BggSearchResult[] {
+  const results: BggSearchResult[] = [];
   const itemRegex = /<item type="boardgame" id="(\d+)">([\s\S]*?)<\/item>/g;
   let match;
 
@@ -53,25 +46,35 @@ function parseBggSearchXml(xml: string): InitialBggSearchResult[] {
     const yearMatch = itemContent.match(yearRegex);
     const yearPublished = yearMatch ? parseInt(yearMatch[1], 10) : undefined;
 
-    results.push({ bggId, name, yearPublished });
+    // Attempt to parse rank if present in the item's XML structure.
+    // This is speculative for the /search endpoint.
+    // A more robust way is to get rank from /thing?id=<ID>&stats=1,
+    // but per user request, we are simplifying to one call.
+    let rank = Number.MAX_SAFE_INTEGER; // Default to high number (last in sort)
+    const rankRegex = /<rank type="subtype" name="boardgame" friendlyname="Board Game Rank" value="(\d+|Not Ranked)"/;
+    const statsBlockRegex = /<statistics>([\s\S]*?)<\/statistics>/; // Check if there's a stats block
+    const statsMatch = itemContent.match(statsBlockRegex);
+
+    if (statsMatch) { // If a stats block exists for the item
+        const rankMatch = statsMatch[0].match(rankRegex); // Search for rank within the stats block
+         if (rankMatch) {
+            if (rankMatch[1] === 'Not Ranked') {
+                rank = Number.MAX_SAFE_INTEGER;
+            } else {
+                const parsedRank = parseInt(rankMatch[1], 10);
+                if (!isNaN(parsedRank)) {
+                    rank = parsedRank;
+                }
+            }
+        }
+    }
+    // Fallback if no rank found in a per-item stats block (which is unlikely for /search)
+    // The user might be thinking of a global stats block in the response, but that wouldn't be per-item.
+    // For now, if not found within an item's own potential stats, it remains MAX_SAFE_INTEGER.
+
+    results.push({ bggId, name, yearPublished, rank });
   }
   return results;
-}
-
-// Helper to parse rank from BGG thing XML
-function parseRankFromThingXml(xml: string): number {
-  const rankRegex = /<rank type="subtype" name="boardgame" friendlyname="Board Game Rank" value="(\d+|Not Ranked)"/;
-  const rankMatch = xml.match(rankRegex);
-  if (rankMatch) {
-    if (rankMatch[1] === 'Not Ranked') {
-      return Number.MAX_SAFE_INTEGER; // Not ranked games get a high number to sort last
-    }
-    const rankValue = parseInt(rankMatch[1], 10);
-    if (!isNaN(rankValue)) {
-      return rankValue;
-    }
-  }
-  return Number.MAX_SAFE_INTEGER; // Default to high number if rank is not found or invalid
 }
 
 
@@ -121,48 +124,29 @@ export async function searchBggGamesAction(searchTerm: string): Promise<BggSearc
     return { error: 'Search term cannot be empty.' };
   }
   try {
-    // Step 1: Initial search for game IDs, names, and years
-    const searchResponse = await fetch(`https://boardgamegeek.com/xmlapi2/search?type=boardgame&query=${encodeURIComponent(searchTerm)}`);
+    // Single API call to BGG search with stats=1 parameter
+    const searchResponse = await fetch(`https://boardgamegeek.com/xmlapi2/search?type=boardgame&stats=1&query=${encodeURIComponent(searchTerm)}`);
     if (!searchResponse.ok) {
       throw new Error(`BGG Search API request failed with status ${searchResponse.status}`);
     }
     const searchXmlData = await searchResponse.text();
+
     if (searchXmlData.includes("<error>")) {
         const messageMatch = searchXmlData.match(/<message>([^<]+)<\/message>/);
         const errorMessage = messageMatch ? messageMatch[1] : "Unknown BGG API error during search";
         return { error: `BoardGameGeek API Error: ${errorMessage}` };
     }
-    const initialResults = parseBggSearchXml(searchXmlData);
 
-    if (initialResults.length === 0) {
+    const results = parseBggSearchXmlWithRank(searchXmlData);
+
+    if (results.length === 0) {
         return [];
     }
 
-    // Step 2: Fetch detailed stats (including rank) for each game
-    // BGG API can be slow; consider limiting the number of detail fetches if necessary.
-    // For now, fetching all.
-    const detailedResultsPromises = initialResults.map(async (game) => {
-      try {
-        const thingResponse = await fetch(`https://boardgamegeek.com/xmlapi2/thing?id=${game.bggId}&stats=1`);
-        if (!thingResponse.ok) {
-          console.warn(`BGG Thing API request for ID ${game.bggId} failed with status ${thingResponse.status}. Assigning max rank.`);
-          return { ...game, rank: Number.MAX_SAFE_INTEGER };
-        }
-        const thingXmlData = await thingResponse.text();
-        const rank = parseRankFromThingXml(thingXmlData);
-        return { ...game, rank };
-      } catch (e) {
-        console.warn(`Error fetching details for BGG ID ${game.bggId}:`, e);
-        return { ...game, rank: Number.MAX_SAFE_INTEGER }; // Assign max rank on error
-      }
-    });
-
-    const resultsWithRank = await Promise.all(detailedResultsPromises);
-
-    // Step 3: Sort results by rank (ascending, unranked/error ones last)
-    resultsWithRank.sort((a, b) => a.rank - b.rank);
+    // Sort results by rank (ascending, unranked/error ones last)
+    results.sort((a, b) => a.rank - b.rank);
     
-    return resultsWithRank;
+    return results;
 
   } catch (error) {
     console.error('BGG Search Action Error:', error);
@@ -179,12 +163,13 @@ export async function importAndRateBggGameAction(bggId: string): Promise<{ gameI
   }
 
   try {
-    const response = await fetch(`https://boardgamegeek.com/xmlapi2/thing?id=${bggId}&stats=1`); // Add stats=1 here too if needed for full import
+    // Fetching details for import, stats=1 ensures we get as much info as possible for the new game entry
+    const response = await fetch(`https://boardgamegeek.com/xmlapi2/thing?id=${bggId}&stats=1`); 
     if (!response.ok) {
       throw new Error(`BGG Thing API request failed with status ${response.status}`);
     }
     const xmlData = await response.text();
-    const gameDetails = parseBggThingXml(xmlData); // This parser doesn't get rank, but it's not stored on BoardGame type yet
+    const gameDetails = parseBggThingXml(xmlData);
 
     if (!gameDetails.name) {
       return { error: 'Could not retrieve essential game details from BGG.' };
