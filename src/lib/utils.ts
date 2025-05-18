@@ -1,6 +1,7 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-import type { BoardGame, Review, Rating } from "./types";
+import type { BoardGame, Review, Rating, RatingCategory } from "./types";
+import { RATING_CATEGORIES } from "./types";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -30,6 +31,37 @@ export function calculateOverallCategoryAverage(rating: Rating): number {
   const average = (feeling + gameDesign + presentation + management) / 4;
   return Math.round(average * 10) / 10;
 }
+
+export function calculateCategoryAverages(reviews: Review[]): Rating | null {
+  if (!reviews || reviews.length === 0) {
+    return null;
+  }
+
+  const numReviews = reviews.length;
+  const sumOfRatings: Rating = {
+    feeling: 0,
+    gameDesign: 0,
+    presentation: 0,
+    management: 0,
+  };
+
+  reviews.forEach(review => {
+    sumOfRatings.feeling += review.rating.feeling;
+    sumOfRatings.gameDesign += review.rating.gameDesign;
+    sumOfRatings.presentation += review.rating.presentation;
+    sumOfRatings.management += review.rating.management;
+  });
+
+  const averageRatings: Rating = {
+    feeling: Math.round((sumOfRatings.feeling / numReviews) * 10) / 10,
+    gameDesign: Math.round((sumOfRatings.gameDesign / numReviews) * 10) / 10,
+    presentation: Math.round((sumOfRatings.presentation / numReviews) * 10) / 10,
+    management: Math.round((sumOfRatings.management / numReviews) * 10) / 10,
+  };
+
+  return averageRatings;
+}
+
 
 export function formatReviewDate(dateString: string): string {
   return new Date(dateString).toLocaleDateString('en-US', {

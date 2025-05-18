@@ -4,16 +4,19 @@
 import { useEffect, useState, useTransition, useCallback, use } from 'react';
 import Image from 'next/image';
 import { getGameDetails } from '@/lib/actions';
-import type { BoardGame, AiSummary, Review } from '@/lib/types';
+import type { BoardGame, AiSummary, Review, Rating, RatingCategory } from '@/lib/types';
 import { ReviewList } from '@/components/boardgame/review-list';
 import { RatingForm } from '@/components/boardgame/rating-form';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // Removed CardDescription
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Wand2, Info } from 'lucide-react';
+import { AlertCircle, Loader2, Wand2, Info, Star } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { summarizeReviews } from '@/ai/flows/summarize-reviews'; 
+import { calculateCategoryAverages } from '@/lib/utils';
+import { RATING_CATEGORIES } from '@/lib/types';
+import { StarRating } from '@/components/boardgame/star-rating';
 
 interface GameDetailPageProps {
   params: Promise<{ 
@@ -34,17 +37,24 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
   const [summaryError, setSummaryError] = useState<string | null>(null);
   
   const [userReview, setUserReview] = useState<Review | undefined>(undefined);
+  const [categoryAverages, setCategoryAverages] = useState<Rating | null>(null);
 
   const fetchGameData = useCallback(async () => {
     setIsLoadingGame(true);
     setSummaryError(null); 
     const gameData = await getGameDetails(gameId);
     setGame(gameData);
-    if (gameData && currentUser) {
-      const foundReview = gameData.reviews.find(r => r.userId === currentUser.uid);
-      setUserReview(foundReview);
+    if (gameData) {
+      if (currentUser) {
+        const foundReview = gameData.reviews.find(r => r.userId === currentUser.uid);
+        setUserReview(foundReview);
+      } else {
+        setUserReview(undefined);
+      }
+      setCategoryAverages(calculateCategoryAverages(gameData.reviews));
     } else {
       setUserReview(undefined);
+      setCategoryAverages(null);
     }
     setIsLoadingGame(false);
   }, [gameId, currentUser]); 
@@ -100,11 +110,32 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
     <div className="space-y-10">
       <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
         <div className="flex flex-row"> 
-          <div className="flex-1 p-3 space-y-3"> 
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">{game.name}</h1> 
+          <div className="flex-1 p-6 space-y-4"> 
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">{game.name}</h1>
+            
+            {categoryAverages && (
+              <div className="mt-4 space-y-3 border-t border-border pt-4">
+                <h3 className="text-lg font-semibold text-foreground">Average Player Ratings:</h3>
+                {Object.entries(categoryAverages).map(([categoryKey, averageScore]) => (
+                  <div key={categoryKey} className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">{RATING_CATEGORIES[categoryKey as RatingCategory]}:</span>
+                    <div className="flex items-center gap-2">
+                      <StarRating rating={averageScore} readOnly size={16} />
+                      <span className="font-medium text-foreground">({averageScore.toFixed(1)})</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {!categoryAverages && game.reviews.length > 0 && (
+                 <p className="text-sm text-muted-foreground italic">Calculating average ratings...</p>
+            )}
+            {!categoryAverages && game.reviews.length === 0 && (
+                <p className="text-sm text-muted-foreground italic">No ratings yet to calculate averages.</p>
+            )}
           </div>
           
-          <div className="w-1/3 p-2 flex-shrink-0"> 
+          <div className="w-1/3 p-2 flex-shrink-0 self-center"> 
             <div className="relative aspect-[3/4] w-full rounded-md overflow-hidden shadow-md">
               <Image
                 src={game.coverArtUrl || `https://placehold.co/400x600.png?text=${encodeURIComponent(game.name?.substring(0,15) || 'N/A')}`}
@@ -124,7 +155,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
       <Separator />
 
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
-        <div className="lg:col-span-2 space-y-8"> {/* Increased space-y for better separation */}
+        <div className="lg:col-span-2 space-y-8">
           <RatingForm 
             gameId={game.id} 
             onReviewSubmitted={fetchGameData}
@@ -132,9 +163,9 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
             existingReview={userReview} 
           />
           
-          <Separator className="my-4" /> {/* Added separator */}
+          <Separator className="my-4" /> 
 
-          <div> {/* Added a div wrapper for the heading and list */}
+          <div> 
             <h2 className="text-2xl font-semibold text-foreground mb-6">Player Reviews ({game.reviews.length})</h2>
             <ReviewList reviews={game.reviews} currentUser={currentUser} gameId={game.id} onReviewDeleted={fetchGameData}/>
           </div>
