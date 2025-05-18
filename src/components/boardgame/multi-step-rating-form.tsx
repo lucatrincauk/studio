@@ -5,8 +5,7 @@ import { useState, useEffect, useTransition } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+// Input and Textarea are no longer needed here
 import { StarRating } from './star-rating';
 import type { RatingCategory, Review, Rating } from '@/lib/types';
 import { RATING_CATEGORIES } from '@/lib/types';
@@ -45,43 +44,38 @@ export function MultiStepRatingForm({
   const form = useForm<RatingFormValues>({
     resolver: zodResolver(reviewFormSchema),
     defaultValues: {
-      author: existingReview?.author || currentUser?.displayName || '',
       feeling: existingReview?.rating.feeling || 1,
       gameDesign: existingReview?.rating.gameDesign || 1,
       presentation: existingReview?.rating.presentation || 1,
       management: existingReview?.rating.management || 1,
-      comment: existingReview?.comment || '',
     },
   });
 
   useEffect(() => {
     if (existingReview) {
       form.reset({
-        author: existingReview.author,
         feeling: existingReview.rating.feeling,
         gameDesign: existingReview.rating.gameDesign,
         presentation: existingReview.rating.presentation,
         management: existingReview.rating.management,
-        comment: existingReview.comment,
       });
-    } else if (currentUser) {
-      form.reset({
-        author: currentUser.displayName || '',
+    } else {
+      form.reset({ // Reset to default values if no existing review or user changes
         feeling: 1,
         gameDesign: 1,
         presentation: 1,
         management: 1,
-        comment: '',
       });
     }
-  }, [existingReview, currentUser, form.reset, form]);
+  }, [existingReview, form.reset, form]);
 
 
   const handleNext = async () => {
     let fieldsToValidate: (keyof RatingFormValues)[] = [];
-    if (currentStep === 1) fieldsToValidate = ['author', 'feeling', 'comment'];
-    else if (currentStep > 1 && currentStep <= totalSteps) {
-        const categoryIndex = currentStep -1; // step 2 is index 1 for stepCategories
+    if (currentStep === 1) {
+        fieldsToValidate = ['feeling']; // Only feeling in step 1 now
+    } else if (currentStep > 1 && currentStep <= totalSteps) {
+        const categoryIndex = currentStep -1;
         if (categoryIndex < stepCategories.length) {
             fieldsToValidate = [stepCategories[categoryIndex]];
         }
@@ -126,9 +120,11 @@ export function MultiStepRatingForm({
           management: data.management,
         };
 
+        const reviewAuthor = currentUser.displayName || 'Anonymous';
+        const reviewComment = ""; // Comment is now empty
+
         if (existingReview?.id) {
           const reviewDocRef = doc(reviewsCollectionRef, existingReview.id);
-          // Ensure user owns this review
           const reviewSnapshot = await getDoc(reviewDocRef);
           if (!reviewSnapshot.exists() || reviewSnapshot.data()?.userId !== currentUser.uid) {
              toast({ title: "Error", description: "Review not found or you do not have permission to edit it.", variant: "destructive" });
@@ -136,30 +132,28 @@ export function MultiStepRatingForm({
              return;
           }
           await updateDoc(reviewDocRef, {
-            author: data.author,
+            author: reviewAuthor,
             rating,
-            comment: data.comment,
+            comment: reviewComment,
             date: new Date().toISOString(),
           });
           toast({ title: "Success!", description: "Review updated successfully!", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
         } else {
-          // Check if user already reviewed (unless editing)
           const existingReviewQuery = query(reviewsCollectionRef, where("userId", "==", currentUser.uid), limit(1));
           const existingReviewSnapshot = await getDocs(existingReviewQuery);
 
           if (!existingReviewSnapshot.empty) {
             toast({ title: "Already Reviewed", description: "You have already submitted a review for this game. Edit your existing review by re-opening this form.", variant: "default" });
             setFormError("You have already submitted a review for this game.");
-            // Optionally, find and pass this review to onReviewSubmitted to trigger edit mode on redirect
-            onReviewSubmitted(); // Navigate back, which should load the existing review
+            onReviewSubmitted(); 
             return;
           }
 
           const newReviewData = {
-            author: data.author,
+            author: reviewAuthor,
             userId: currentUser.uid,
             rating,
-            comment: data.comment,
+            comment: reviewComment,
             date: new Date().toISOString(),
           };
           await addDoc(reviewsCollectionRef, newReviewData);
@@ -181,23 +175,11 @@ export function MultiStepRatingForm({
     <Form {...form}>
       <form onSubmit={form.handleSubmit(processSubmit)} className="space-y-8">
         <Progress value={progressPercentage} className="w-full mb-6" />
-        <div className="min-h-[250px]"> {/* Ensure consistent height for steps */}
+        <div className="min-h-[250px]"> 
           {currentStep === 1 && (
             <div className="space-y-6 animate-fadeIn">
               <h3 className="text-lg font-semibold">{RATING_CATEGORIES.feeling}</h3>
-              <FormField
-                control={form.control}
-                name="author"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Your Display Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter your display name" {...field} disabled={!!existingReview || !currentUser.displayName}/>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {/* Author field removed */}
               <FormField
                 control={form.control}
                 name="feeling"
@@ -211,19 +193,10 @@ export function MultiStepRatingForm({
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="comment"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Your Review / Comments</FormLabel>
-                    <FormControl>
-                      <Textarea placeholder="Share your overall thoughts..." {...field} className="min-h-[100px]" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {/* Comment field removed */}
+               <p className="text-sm text-muted-foreground">
+                How enjoyable and engaging was the game overall?
+              </p>
             </div>
           )}
 
@@ -329,10 +302,3 @@ export function MultiStepRatingForm({
     </Form>
   );
 }
-
-// Basic CSS for fadeIn animation (can be added to globals.css or a style tag if needed)
-// @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-// .animate-fadeIn { animation: fadeIn 0.3s ease-out; }
-// For simplicity, I will use Tailwind's animation if available or just basic conditional rendering.
-// ShadCN's default setup might include some animation utilities, otherwise, simple opacity transition is fine.
-// For now, not adding custom CSS keyframes.
