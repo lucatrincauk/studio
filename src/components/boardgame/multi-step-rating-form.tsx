@@ -12,11 +12,11 @@ import { Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 import { reviewFormSchema, type RatingFormValues } from '@/lib/validators';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Progress } from '@/components/ui/progress';
 import { Slider } from '@/components/ui/slider';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { calculateOverallCategoryAverage, formatRatingNumber } from '@/lib/utils';
+import { Progress } from '@/components/ui/progress';
 
 import { db } from '@/lib/firebase';
 import { collection, addDoc, doc, updateDoc, query, where, getDocs, limit, getDoc } from 'firebase/firestore';
@@ -195,6 +195,7 @@ export function MultiStepRatingForm({
             toast({ title: "Success!", description: "Review submitted successfully!", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
           }
         }
+        form.reset(defaultFormValues);
         onReviewSubmitted();
       } catch (error) {
         console.error("Error submitting review:", error);
@@ -205,14 +206,12 @@ export function MultiStepRatingForm({
     });
   };
 
-  const progressPercentage = (currentStep / totalSteps) * 100;
-
   const getCurrentStepTitle = () => {
     if (currentStep === 1) return "Sentiments";
     if (currentStep === 2) return "Game Design";
     if (currentStep === 3) return "Aesthetics & Immersion";
     if (currentStep === 4) return "Learning & Logistics";
-    if (currentStep === 5) return "Review Your Ratings";
+    if (currentStep === 5) return "Your Ratings Summary";
     return "Review Step";
   };
   
@@ -221,7 +220,7 @@ export function MultiStepRatingForm({
     if (currentStep === 2) return "How would you rate the core mechanics and structure?";
     if (currentStep === 3) return "Rate the game's visual appeal and thematic elements.";
     if (currentStep === 4) return "How easy is the game to learn, set up, and tear down?";
-    if (currentStep === 5) return "Please check your ratings below before submitting."; // This will be removed for the CardDescription part
+    if (currentStep === 5) return ""; // No description for summary step header
     return "";
   }
 
@@ -249,10 +248,14 @@ export function MultiStepRatingForm({
   return (
     <Form {...form}>
       <form className="space-y-8"> 
-        <Progress value={progressPercentage} className="w-full mb-2" />
         <div className="min-h-[350px]"> 
-          <h3 className="text-xl font-semibold mb-1">{getCurrentStepTitle()}</h3>
-          { currentStep < 5 && <p className="text-sm text-muted-foreground mb-6">{getCurrentStepDescription()}</p> }
+          <div className="mb-6">
+            <h3 className="text-xl font-semibold">{getCurrentStepTitle()}</h3>
+            <p className="text-sm text-muted-foreground">Step {currentStep} / {totalSteps}</p>
+            {currentStep < 5 && getCurrentStepDescription() && (
+              <p className="text-sm text-muted-foreground mt-1">{getCurrentStepDescription()}</p>
+            )}
+          </div>
 
 
           {currentStep === 1 && ( 
@@ -372,7 +375,6 @@ export function MultiStepRatingForm({
                     <span className="text-2xl font-bold text-primary">{formatRatingNumber(yourOverallAverage * 2)}</span>
                   )}
                 </div>
-                {/* Removed CardDescription "Confirm your choices before submitting." */}
               </CardHeader>
               <CardContent className="space-y-4">
                 {stepCategories.slice(0, 4).map((categoryGroup, index) => (
