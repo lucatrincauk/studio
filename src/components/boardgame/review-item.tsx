@@ -8,6 +8,7 @@ import { formatReviewDate, calculateOverallCategoryAverage, formatRatingNumber, 
 import { UserCircle2 } from 'lucide-react';
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 import { useMemo } from 'react';
+import Link from 'next/link';
 
 interface ReviewItemProps {
   review: Review;
@@ -32,16 +33,18 @@ export function ReviewItem({ review }: ReviewItemProps) {
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
-            <Avatar className="h-10 w-10 border">
-              {review.authorPhotoURL && <AvatarImage src={review.authorPhotoURL} alt={review.author} />}
-              <AvatarFallback className="bg-muted text-muted-foreground">
-                {getAuthorInitial() ? getAuthorInitial() : <UserCircle2 className="h-6 w-6" />}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <CardTitle className="text-base font-semibold text-foreground">{review.author}</CardTitle>
-              <CardDescription className="text-xs text-muted-foreground">{formatReviewDate(review.date)}</CardDescription>
-            </div>
+            <Link href={`/users/${review.userId}`} className="flex items-center gap-3 group">
+              <Avatar className="h-10 w-10 border group-hover:border-primary transition-colors">
+                {review.authorPhotoURL && <AvatarImage src={review.authorPhotoURL} alt={review.author} />}
+                <AvatarFallback className="bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                  {getAuthorInitial() ? getAuthorInitial() : <UserCircle2 className="h-6 w-6" />}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <CardTitle className="text-base font-semibold text-foreground group-hover:text-primary group-hover:underline transition-colors">{review.author}</CardTitle>
+                <CardDescription className="text-xs text-muted-foreground">{formatReviewDate(review.date)}</CardDescription>
+              </div>
+            </Link>
           </div>
           <div className="flex flex-col items-end">
             <div className="text-2xl font-bold text-primary">
