@@ -4,7 +4,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, useFormContext } from 'react-hook-form';
-import { useActionState, useEffect, useTransition } from 'react';
+import { useEffect, useTransition, useState } from 'react'; // Removed useActionState, Added useState
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -17,9 +17,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { StarRating } from './star-rating';
-import type { RatingCategory, Review } from '@/lib/types';
+import type { RatingCategory, Review, Rating } from '@/lib/types';
 import { RATING_CATEGORIES } from '@/lib/types';
-import { submitNewReviewAction } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, LogIn } from 'lucide-react';
 import { reviewFormSchema, type RatingFormValues } from '@/lib/validators';
@@ -27,28 +26,21 @@ import type { User as FirebaseUser } from 'firebase/auth';
 import Link from 'next/link';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
+// Firestore imports for client-side write
+import { db } from '@/lib/firebase';
+import { collection, addDoc, query, where, getDocs, limit, doc, getDoc } from 'firebase/firestore';
+
 interface RatingFormProps {
   gameId: string;
   onReviewSubmitted?: () => void;
   currentUser: FirebaseUser | null;
-  existingReview?: Review | null;
+  existingReview?: Review | null; // This prop is for potential future edit functionality
 }
 
-type ReviewActionPayload = RatingFormValues & { userId?: string };
-
-const initialState = {
-  message: "",
-  errors: undefined as Record<string, string[]> | undefined,
-  success: false,
-};
-
 export function RatingForm({ gameId, onReviewSubmitted, currentUser, existingReview }: RatingFormProps) {
-  const [isActionPending, startTransition] = useTransition();
-
-  const [serverActionState, formActionDispatcher] = useActionState(
-    (prevState: typeof initialState, payload: ReviewActionPayload) => submitNewReviewAction(gameId, prevState, payload),
-    initialState
-  );
+  const [isSubmitting, startSubmitTransition] = useTransition();
+  const [formError, setFormError] = useState<string | null>(null);
+  const [formSuccess, setFormSuccess] = useState<string | null>(null);
   const { toast } = useToast();
 
   const form = useForm<RatingFormValues>({
@@ -75,8 +67,7 @@ export function RatingForm({ gameId, onReviewSubmitted, currentUser, existingRev
       });
     } else if (currentUser && !existingReview) {
         form.reset({
-            ...form.getValues(),
-            author: currentUser.displayName || '',
+            author: currentUser.displayName || '', // Pre-fill author name
             feeling: 1,
             gameDesign: 1,
             presentation: 1,
@@ -88,15 +79,59 @@ export function RatingForm({ gameId, onReviewSubmitted, currentUser, existingRev
   }, [existingReview, currentUser, form.reset]);
 
 
-  useEffect(() => {
-    if(serverActionState.message) {
-      if (serverActionState.success) {
-        toast({
-          title: "Success!",
-          description: serverActionState.message,
-        });
+  const ratingCategories: RatingCategory[] = ['feeling', 'gameDesign', 'presentation', 'management'];
+
+  const handleFormSubmit = async (data: RatingFormValues) => {
+    if (!currentUser) {
+      toast({ title: "Authentication Required", description: "Please log in to submit a review.", variant: "destructive" });
+      setFormError("Please log in to submit a review.");
+      return;
+    }
+    console.log('[CLIENT RATING FORM] Attempting to submit review. Data:', data, 'UserID:', currentUser.uid);
+    setFormError(null);
+    setFormSuccess(null);
+
+    startSubmitTransition(async () => {
+      try {
+        const gameDocRef = doc(db, "boardgames_collection", gameId);
+        const gameDocSnap = await getDoc(gameDocRef);
+        if (!gameDocSnap.exists()) {
+          toast({ title: "Error", description: "Game not found. Cannot submit review.", variant: "destructive" });
+          setFormError("Game not found. Cannot submit review.");
+          return;
+        }
+
+        const reviewsCollectionRef = collection(db, "boardgames_collection", gameId, 'reviews');
+        const existingReviewQuery = query(reviewsCollectionRef, where("userId", "==", currentUser.uid), limit(1));
+        const existingReviewSnapshot = await getDocs(existingReviewQuery);
+
+        if (!existingReviewSnapshot.empty && !existingReview) { // !existingReview ensures this check is for new submissions
+          toast({ title: "Already Reviewed", description: "You have already submitted a review for this game.", variant: "default" });
+          setFormError("You have already submitted a review for this game.");
+          return;
+        }
+        
+        const rating: Rating = { 
+          feeling: data.feeling, 
+          gameDesign: data.gameDesign, 
+          presentation: data.presentation, 
+          management: data.management 
+        };
+
+        const newReviewData = {
+          author: data.author,
+          userId: currentUser.uid,
+          rating,
+          comment: data.comment,
+          date: new Date().toISOString(),
+        };
+
+        await addDoc(reviewsCollectionRef, newReviewData);
+
+        toast({ title: "Success!", description: "Review submitted successfully!" });
+        setFormSuccess("Review submitted successfully!");
         form.reset({
-          author: currentUser?.displayName || '',
+          author: currentUser.displayName || '',
           feeling: 1,
           gameDesign: 1,
           presentation: 1,
@@ -104,36 +139,13 @@ export function RatingForm({ gameId, onReviewSubmitted, currentUser, existingRev
           comment: '',
         });
         onReviewSubmitted?.();
-      } else {
-        if (serverActionState.errors) {
-          Object.entries(serverActionState.errors).forEach(([fieldName, errors]) => {
-            form.setError(fieldName as keyof RatingFormValues, {
-              type: 'server',
-              message: errors[0],
-            });
-          });
-        }
-        toast({
-          title: "Error",
-          description: serverActionState.message || "Failed to submit review.",
-          variant: "destructive",
-        });
+
+      } catch (error) {
+        console.error("Error submitting review from client:", error);
+        const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+        toast({ title: "Error", description: `Failed to submit review: ${errorMessage}`, variant: "destructive" });
+        setFormError(`Failed to submit review: ${errorMessage}`);
       }
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [serverActionState, toast, onReviewSubmitted, currentUser]);
-
-
-  const ratingCategories: RatingCategory[] = ['feeling', 'gameDesign', 'presentation', 'management'];
-
-  const handleFormSubmit = (data: RatingFormValues) => {
-    if (!currentUser) {
-      toast({ title: "Authentication Required", description: "Please log in to submit a review.", variant: "destructive" });
-      return;
-    }
-    console.log('[CLIENT RATING FORM] Attempting to submit review. Data:', data, 'UserID:', currentUser.uid); // Added log
-    startTransition(() => {
-      formActionDispatcher({ ...data, userId: currentUser.uid });
     });
   };
 
@@ -219,9 +231,12 @@ export function RatingForm({ gameId, onReviewSubmitted, currentUser, existingRev
           )}
         />
 
-        <SubmitButton isActionPending={isActionPending} buttonText={existingReview ? "Update Review" : "Submit Review"} />
-         {serverActionState.message && !serverActionState.success && !serverActionState.errors && (
-          <p className="text-sm font-medium text-destructive">{serverActionState.message}</p>
+        <SubmitButton isActionPending={isSubmitting} buttonText={existingReview ? "Update Review" : "Submit Review"} />
+         {formError && (
+          <p className="text-sm font-medium text-destructive">{formError}</p>
+        )}
+        {formSuccess && !formError && (
+            <p className="text-sm font-medium text-green-600">{formSuccess}</p>
         )}
       </form>
     </Form>
@@ -230,7 +245,7 @@ export function RatingForm({ gameId, onReviewSubmitted, currentUser, existingRev
 
 function SubmitButton({ isActionPending, buttonText }: { isActionPending: boolean, buttonText: string }) {
   const { formState } = useFormContext<RatingFormValues>();
-  const rhfIsSubmitting = formState.isSubmitting;
+  const rhfIsSubmitting = formState.isSubmitting; // RHF's own indicator for async validation etc.
 
   const trulySubmitting = rhfIsSubmitting || isActionPending;
 
