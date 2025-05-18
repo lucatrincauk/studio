@@ -161,9 +161,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
                           {section.subRatings.map(sub => (
                             <li key={sub.name} className="flex justify-between items-center text-sm">
                               <span className="text-muted-foreground">{sub.name}:</span>
-                              <div className="flex items-center gap-2 w-20">
-                                <Progress value={(sub.average / 5) * 100} className="w-full h-2" />
-                              </div>
+                              <span className="font-medium text-foreground">{sub.average.toFixed(1)} / 5</span>
                             </li>
                           ))}
                         </ul>
