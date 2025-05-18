@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { calculateAverageRating } from '@/lib/utils';
-import { AlertCircle, Loader2, Wand2, Info } from 'lucide-react';
+import { AlertCircle, Loader2, Wand2, Info, CalendarDays, Users, Clock, Tags } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 interface GameDetailPageProps {
@@ -83,40 +83,74 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
   return (
     <div className="space-y-10">
       <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
-        <CardHeader className="p-0 relative">
-          <div className="relative w-full h-64 md:h-80 lg:h-96">
-            <Image
-              src={game.coverArtUrl}
-              alt={`${game.name} cover art`}
-              fill
-              priority
-              className="object-cover"
-              data-ai-hint={`board game ${game.name.split(' ')[0]?.toLowerCase() || 'detailed'}`}
-              sizes="100vw"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-          </div>
-          <div className="absolute bottom-0 left-0 p-6 md:p-8 text-white">
-            <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight drop-shadow-lg">{game.name}</h1>
-            <div className="mt-2 flex items-center gap-2">
-              <StarRating rating={averageRating} readOnly size={24} iconClassName="drop-shadow-sm" />
-              {averageRating > 0 && <span className="text-lg font-semibold drop-shadow-sm">{averageRating.toFixed(1)} ({game.reviews.length} ratings)</span>}
-              {averageRating === 0 && <span className="text-lg font-semibold drop-shadow-sm">Not yet rated</span>}
+        <div className="flex flex-col md:flex-row">
+          {/* Image Section */}
+          <div className="w-full md:w-1/3 lg:w-2/5 xl:w-1/3 p-1 md:p-2 flex-shrink-0">
+            <div className="relative aspect-[3/4] w-full rounded-md overflow-hidden shadow-md">
+              <Image
+                src={game.coverArtUrl || `https://placehold.co/400x600.png?text=${encodeURIComponent(game.name?.substring(0,15) || 'N/A')}`}
+                alt={`${game.name} cover art`}
+                fill
+                priority
+                className="object-cover"
+                data-ai-hint={`board game ${game.name.split(' ')[0]?.toLowerCase() || 'detailed'}`}
+                sizes="(max-width: 767px) 100vw, (min-width: 768px) 33vw, (min-width: 1024px) 40vw, (min-width: 1280px) 33vw"
+                onError={(e) => { e.currentTarget.src = `https://placehold.co/400x600.png?text=${encodeURIComponent(game.name?.substring(0,15) || 'N/A')}`; }}
+              />
             </div>
           </div>
-        </CardHeader>
-        <CardContent className="p-6 md:p-8 space-y-6">
-          <div>
-            <h2 className="text-2xl font-semibold text-foreground mb-3">Game Overview</h2>
-            <CardDescription className="text-base leading-relaxed text-foreground/90">{game.description}</CardDescription>
-            <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-3 text-sm bg-muted/50 p-4 rounded-md border">
-              {game.yearPublished && <div><strong>Year:</strong> <span className="text-foreground">{game.yearPublished}</span></div>}
-              {game.minPlayers && game.maxPlayers && <div><strong>Players:</strong> <span className="text-foreground">{game.minPlayers}-{game.maxPlayers}</span></div>}
-              {game.playingTime && <div><strong>Time:</strong> <span className="text-foreground">{game.playingTime} min</span></div>}
-              {game.bggId && <div><strong>BGG ID:</strong> <span className="text-foreground">{game.bggId}</span></div>}
+
+          {/* Game Info Section */}
+          <div className="flex-1 p-4 md:p-6 space-y-4">
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground">{game.name}</h1>
+            
+            <div className="flex items-center gap-2">
+              <StarRating rating={averageRating} readOnly size={24} iconClassName="text-accent" />
+              {averageRating > 0 && <span className="text-lg font-semibold">{averageRating.toFixed(1)} ({game.reviews.length} ratings)</span>}
+              {averageRating === 0 && <span className="text-lg font-semibold">Not yet rated</span>}
+            </div>
+
+            {/* Removed game description section */}
+            
+            <div className="mt-4 pt-4 border-t border-border/50 space-y-2">
+              <h3 className="text-lg font-semibold text-foreground mb-2">Game Details</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+                {game.yearPublished && (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <CalendarDays size={16} className="text-primary" />
+                    <strong>Year:</strong> <span className="text-foreground">{game.yearPublished}</span>
+                  </div>
+                )}
+                {(game.minPlayers || game.maxPlayers) && (
+                   <div className="flex items-center gap-2 text-muted-foreground">
+                    <Users size={16} className="text-primary" />
+                    <strong>Players:</strong> <span className="text-foreground">{game.minPlayers}{game.maxPlayers && game.minPlayers !== game.maxPlayers ? `-${game.maxPlayers}` : ''}</span>
+                  </div>
+                )}
+                {game.playingTime && (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Clock size={16} className="text-primary" />
+                    <strong>Time:</strong> <span className="text-foreground">{game.playingTime} min</span>
+                  </div>
+                )}
+                {game.bggId && (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Tags size={16} className="text-primary" />
+                    <strong>BGG ID:</strong> 
+                    <a 
+                        href={`https://boardgamegeek.com/boardgame/${game.bggId}`} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline"
+                    >
+                        {game.bggId}
+                    </a>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </CardContent>
+        </div>
       </Card>
 
       <Separator />
@@ -178,4 +212,3 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
 
 // Force dynamic rendering to ensure data is fresh, especially after review submissions
 export const dynamic = 'force-dynamic';
-
