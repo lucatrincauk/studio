@@ -3,7 +3,7 @@
 
 import type { BoardGame } from '@/lib/types';
 import { useState, useEffect, useTransition } from 'react';
-import { fetchBggUserCollectionAction, getBoardGamesFromFirestoreAction, syncBoardGamesToFirestoreAction } from '@/lib/actions';
+import { fetchBggUserCollectionAction, getBoardGamesFromFirestoreAction, syncBoardGamesToFirestoreAction, testServerAction } from '@/lib/actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 // import { GameCard } from '@/components/boardgame/game-card'; // Re-using for display
@@ -70,6 +70,14 @@ export default function CollectionPage() {
     setError(null);
     setBggFetchedCollection(null); // Clear previous BGG fetch
     startBggFetchTransition(async () => {
+      console.log('[CLIENT] Attempting to call testServerAction...');
+      try {
+        const testResult = await testServerAction("Hello from CollectionPage!");
+        console.log('[CLIENT] testServerAction result:', testResult);
+      } catch (e) {
+        console.error('[CLIENT] testServerAction error:', e);
+      }
+
       console.log('[CLIENT] Attempting to call fetchBggUserCollectionAction with username:', BGG_USERNAME);
       const result = await fetchBggUserCollectionAction(BGG_USERNAME);
       if ('error' in result) {
@@ -107,9 +115,6 @@ export default function CollectionPage() {
     });
   };
   
-  // Determine which collection to display: BGG fetched (if available) or DB (otherwise)
-  // This ensures that after fetching from BGG, the user sees the BGG list to confirm changes against.
-  // Once synced, bggFetchedCollection is cleared, and it reverts to showing DB.
   const displayedCollection = bggFetchedCollection || dbCollection;
   const displaySource = bggFetchedCollection ? "Fetched BGG Collection" : "Current DB Collection";
 
@@ -246,3 +251,6 @@ export default function CollectionPage() {
     </div>
   );
 }
+
+
+    
