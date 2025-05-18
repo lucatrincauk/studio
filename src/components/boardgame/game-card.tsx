@@ -1,11 +1,10 @@
 
 import Link from 'next/link';
-// import Image from 'next/image'; // No longer directly used
 import type { BoardGame } from '@/lib/types';
-import { Card, CardContent, CardDescription, CardFooter, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardFooter, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Users, Clock, CalendarDays } from 'lucide-react';
-import { SafeImage } from '@/components/common/SafeImage'; // Import SafeImage
+import { SafeImage } from '@/components/common/SafeImage';
 
 interface GameCardProps {
   game: BoardGame;
@@ -15,12 +14,11 @@ export function GameCard({ game }: GameCardProps) {
   const fallbackSrc = `https://placehold.co/200x300.png?text=${encodeURIComponent(game.name?.substring(0,10) || 'N/A')}`;
 
   return (
-    <Card className="flex flex-row overflow-hidden shadow-lg transition-all duration-300 ease-in-out hover:shadow-xl rounded-lg border border-border hover:border-primary/50 h-40 md:h-44"> {/* Adjusted height */}
-      {/* Image container on the left */}
+    <Card className="flex flex-row overflow-hidden shadow-lg transition-all duration-300 ease-in-out hover:shadow-xl rounded-lg border border-border hover:border-primary/50 h-40 md:h-44">
       <div className="relative w-1/3 md:w-2/5 h-full flex-shrink-0">
         <SafeImage
           src={game.coverArtUrl}
-          alt={`${game.name || 'Game'} cover art`}
+          alt={`${game.name || 'Gioco'} copertina`}
           fallbackSrc={fallbackSrc}
           fill
           sizes="(max-width: 767px) 33vw, (min-width: 768px) 20vw"
@@ -30,9 +28,8 @@ export function GameCard({ game }: GameCardProps) {
         />
       </div>
 
-      {/* Content container on the right */}
       <div className="flex flex-col flex-grow p-3 sm:p-4 justify-between overflow-y-auto">
-        <div> {/* Top group: Title, meta */}
+        <div>
           <CardTitle className="text-base sm:text-lg mb-1.5 leading-tight font-semibold group-hover:text-primary transition-colors">
             <Link href={`/games/${game.id}`} className="hover:underline focus:outline-none focus:ring-2 focus:ring-ring rounded">
               {game.name}
@@ -42,16 +39,16 @@ export function GameCard({ game }: GameCardProps) {
                 {game.yearPublished && <div className="flex items-center gap-1"><CalendarDays size={12}/> {game.yearPublished}</div>}
                 {(game.minPlayers || game.maxPlayers) && (
                   <div className="flex items-center gap-1"><Users size={12}/>
-                    {game.minPlayers}{game.maxPlayers && game.minPlayers !== game.maxPlayers ? `-${game.maxPlayers}` : ''} Players
+                    {game.minPlayers}{game.maxPlayers && game.minPlayers !== game.maxPlayers ? `-${game.maxPlayers}` : ''} Giocatori
                   </div>
                 )}
                 {game.playingTime && <div className="flex items-center gap-1"><Clock size={12}/> {game.playingTime} min</div>}
             </div>
         </div>
 
-        <CardFooter className="p-0 mt-auto flex flex-col items-start sm:flex-row sm:justify-end sm:items-center gap-2"> {/* Adjusted to justify-end for button */}
+        <CardFooter className="p-0 mt-auto flex flex-col items-start sm:flex-row sm:justify-end sm:items-center gap-2">
           <Button asChild variant="default" size="sm" className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-xs sm:text-sm">
-            <Link href={`/games/${game.id}`}>View Details</Link>
+            <Link href={`/games/${game.id}`}>Vedi Dettagli</Link>
           </Button>
         </CardFooter>
       </div>

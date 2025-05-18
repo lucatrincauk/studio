@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { List, LogOut, UserPlus, LogIn, BarChart3, MessagesSquare, Users2 } from 'lucide-react'; // Added MessagesSquare, Users2
+import { List, LogOut, UserPlus, LogIn, BarChart3, MessagesSquare, Users2 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import {
   DropdownMenu,
@@ -40,7 +40,7 @@ export function Header() {
                 className="flex items-center gap-1.5 text-sm font-medium transition-opacity hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-accent rounded-md px-2 py-1"
               >
                 <Users2 size={18} />
-                Users
+                Utenti
               </Link>
             </li>
             <li>
@@ -49,7 +49,7 @@ export function Header() {
                 className="flex items-center gap-1.5 text-sm font-medium transition-opacity hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-accent rounded-md px-2 py-1"
               >
                 <MessagesSquare size={18} />
-                All Reviews
+                Tutte le Recensioni
               </Link>
             </li>
             <li>
@@ -58,7 +58,7 @@ export function Header() {
                 className="flex items-center gap-1.5 text-sm font-medium transition-opacity hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-accent rounded-md px-2 py-1"
               >
                 <List size={18} />
-                Collection
+                Collezione
               </Link>
             </li>
             {loading ? (
@@ -80,7 +80,7 @@ export function Header() {
                     <DropdownMenuLabel className="font-normal">
                       <div className="flex flex-col space-y-1">
                         <p className="text-sm font-medium leading-none">
-                          {user.displayName || user.email?.split('@')[0] || 'User'}
+                          {user.displayName || user.email?.split('@')[0] || 'Utente'}
                         </p>
                         <p className="text-xs leading-none text-muted-foreground">
                           {user.email}
@@ -90,7 +90,7 @@ export function Header() {
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
                       <LogOut className="mr-2 h-4 w-4" />
-                      <span>Sign Out</span>
+                      <span>Esci</span>
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -101,7 +101,7 @@ export function Header() {
                   <Button variant="ghost" asChild className="text-sm font-medium transition-colors hover:bg-primary-foreground/10 hover:text-primary-foreground focus:outline-none focus:ring-2 focus:ring-accent rounded-md px-3 py-1.5">
                     <Link href="/signin">
                       <LogIn size={16} className="mr-1.5"/>
-                      Sign In
+                      Accedi
                     </Link>
                   </Button>
                 </li>
@@ -109,7 +109,7 @@ export function Header() {
                   <Button variant="default" asChild size="sm" className="text-sm font-medium bg-accent text-accent-foreground hover:bg-accent/90 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-primary rounded-md">
                      <Link href="/signup">
                        <UserPlus size={16} className="mr-1.5"/>
-                       Sign Up
+                       Registrati
                      </Link>
                   </Button>
                 </li>

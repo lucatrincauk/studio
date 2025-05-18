@@ -62,7 +62,7 @@ export default function GameRatePage() {
     return (
       <div className="flex flex-col justify-center items-center min-h-[calc(100vh-200px)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="mt-4 text-lg text-muted-foreground">Loading rating form...</p>
+        <p className="mt-4 text-lg text-muted-foreground">Caricamento modulo di valutazione...</p>
       </div>
     );
   }
@@ -71,13 +71,13 @@ export default function GameRatePage() {
     return (
       <div className="flex flex-col items-center justify-center text-center py-10">
         <AlertCircle className="h-12 w-12 text-destructive mb-4" />
-        <h2 className="text-2xl font-semibold mb-2">Game Not Found</h2>
+        <h2 className="text-2xl font-semibold mb-2">Gioco Non Trovato</h2>
         <p className="text-muted-foreground mb-6">
-          The game you are trying to rate could not be found.
+          Il gioco che stai cercando di valutare non è stato trovato.
         </p>
         <Button asChild variant="outline">
           <Link href="/">
-            <ArrowLeft className="mr-2 h-4 w-4" /> Go back to Homepage
+            <ArrowLeft className="mr-2 h-4 w-4" /> Torna alla Homepage
           </Link>
         </Button>
       </div>
@@ -88,13 +88,13 @@ export default function GameRatePage() {
     return (
        <div className="flex flex-col items-center justify-center text-center py-10">
         <AlertCircle className="h-12 w-12 text-destructive mb-4" />
-        <h2 className="text-2xl font-semibold mb-2">Authentication Required</h2>
+        <h2 className="text-2xl font-semibold mb-2">Autenticazione Richiesta</h2>
         <p className="text-muted-foreground mb-6">
-          You need to be logged in to rate this game.
+          Devi essere loggato per valutare questo gioco.
         </p>
         <Button asChild>
           <Link href={`/signin?redirect=/games/${gameId}/rate`}>
-             Sign In to Rate
+             Accedi per Valutare
           </Link>
         </Button>
       </div>
@@ -105,20 +105,20 @@ export default function GameRatePage() {
   return (
     <div className="max-w-2xl mx-auto py-8 px-4">
       <Button variant="outline" size="sm" className="mb-6" onClick={() => router.back()}>
-        <ArrowLeft className="mr-2 h-4 w-4" /> Back to Game
+        <ArrowLeft className="mr-2 h-4 w-4" /> Torna al Gioco
       </Button>
       <Card className="shadow-xl border border-border rounded-lg">
-        {currentRatingFormStep !== 5 && ( // Conditionally render the main card header
+        {currentRatingFormStep !== 5 && (
             <CardHeader>
                 <CardTitle className="text-2xl md:text-3xl">
-                    {userReview ? 'Edit Your Review for:' : 'Rate:'} <span className="text-primary">{game.name}</span>
+                    {userReview ? 'Modifica la Tua Recensione per:' : 'Valuta:'} <span className="text-primary">{game.name}</span>
                 </CardTitle>
                 <CardDescription>
-                    Follow the steps below to submit your rating.
+                    Segui i passaggi sottostanti per inviare la tua valutazione.
                 </CardDescription>
             </CardHeader>
         )}
-        <CardContent className={currentRatingFormStep === 5 ? 'pt-6' : ''}> {/* Adjust padding if header is hidden */}
+        <CardContent className={currentRatingFormStep === 5 ? 'pt-6' : ''}>
           <MultiStepRatingForm
             gameId={game.id}
             currentUser={currentUser}

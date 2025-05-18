@@ -13,17 +13,17 @@ export type RatingCategory =
   | 'setupTeardown';
 
 export const RATING_CATEGORIES: Record<RatingCategory, string> = {
-  excitedToReplay: 'Excitement to Replay', // Changed
-  mentallyStimulating: 'Mental Stimulation', // Changed
-  fun: 'Fun Factor',
-  decisionDepth: 'Decision Depth',
-  replayability: 'Replayability',
-  luck: 'Luck Factor',
-  lengthDowntime: 'Game Length & Downtime',
-  graphicDesign: 'Graphic Design',
-  componentsThemeLore: 'Components, Theme & Lore',
-  effortToLearn: 'Effort to Learn',
-  setupTeardown: 'Setup & Teardown',
+  excitedToReplay: 'Voglia di Rigiocarci',
+  mentallyStimulating: 'Stimolazione Mentale',
+  fun: 'Fattore Divertimento',
+  decisionDepth: 'Profondità Decisionale',
+  replayability: 'Rigiocabilità',
+  luck: 'Fattore Fortuna',
+  lengthDowntime: 'Durata e Tempi Morti',
+  graphicDesign: 'Design Grafico',
+  componentsThemeLore: 'Componenti, Tema e Ambientazione',
+  effortToLearn: 'Impegno per Imparare',
+  setupTeardown: 'Preparazione e Riordino',
 };
 
 export interface Rating {

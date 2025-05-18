@@ -7,7 +7,6 @@ import type { AugmentedReview } from '@/lib/types';
 import { ReviewItem } from '@/components/boardgame/review-item';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import Link from 'next/link';
-// import Image from 'next/image'; // No longer directly used
 import { MessageSquareText, Loader2, Info, UserCircle2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { calculateOverallCategoryAverage } from '@/lib/utils';
@@ -15,7 +14,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { SafeImage } from '@/components/common/SafeImage'; // Import SafeImage
+import { SafeImage } from '@/components/common/SafeImage';
 
 type SortOrder = 'mostRecent' | 'leastRecent' | 'highestRated' | 'lowestRated';
 
@@ -47,7 +46,7 @@ export default function AllReviewsPage() {
         const reviewsData = await getAllReviewsAction();
         setAllReviews(reviewsData);
       } catch (e) {
-        setError('Failed to load reviews.');
+        setError('Impossibile caricare le recensioni.');
         console.error(e);
       } finally {
         setIsLoading(false);
@@ -129,7 +128,7 @@ export default function AllReviewsPage() {
     return (
       <div className="flex flex-col justify-center items-center min-h-[calc(100vh-200px)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="mt-4 text-lg text-muted-foreground">Loading all reviews...</p>
+        <p className="mt-4 text-lg text-muted-foreground">Caricamento di tutte le recensioni...</p>
       </div>
     );
   }
@@ -138,7 +137,7 @@ export default function AllReviewsPage() {
     return (
       <Alert variant="destructive" className="max-w-md mx-auto my-10">
         <Info className="h-4 w-4" />
-        <AlertTitle>Error Loading Reviews</AlertTitle>
+        <AlertTitle>Errore nel Caricamento delle Recensioni</AlertTitle>
         <AlertDescription>{error}</AlertDescription>
       </Alert>
     );
@@ -158,33 +157,33 @@ export default function AllReviewsPage() {
         <CardHeader>
           <CardTitle className="text-2xl sm:text-3xl flex items-center gap-3">
             <MessageSquareText className="h-7 w-7 text-primary" />
-            Browse All Player Reviews
+            Sfoglia Tutte le Recensioni
           </CardTitle>
           <CardDescription>
-            Explore all reviews submitted by users across the entire game collection. Use the filters below to narrow your search.
+            Esplora tutte le recensioni inviate dagli utenti per l'intera collezione di giochi. Usa i filtri sottostanti per affinare la ricerca.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
             <div>
-              <label htmlFor="game-filter" className="block text-sm font-medium text-muted-foreground mb-1">Filter by Game</label>
+              <label htmlFor="game-filter" className="block text-sm font-medium text-muted-foreground mb-1">Filtra per Gioco</label>
               <Select value={selectedGame} onValueChange={setSelectedGame}>
                 <SelectTrigger id="game-filter" className="w-full">
-                  <SelectValue placeholder="Select a game" />
+                  <SelectValue placeholder="Seleziona un gioco" />
                 </SelectTrigger>
                 <SelectContent>
                   {uniqueGames.map(game => (
                     <SelectItem key={game.id} value={game.id}>
                       <div className="flex items-center gap-2">
                         {game.name === 'all' ? (
-                          <span>All Games</span>
+                          <span>Tutti i Giochi</span>
                         ) : (
                           <>
                             <div className="relative h-6 w-6 flex-shrink-0">
                               <SafeImage
                                 src={game.coverArtUrl}
                                 fallbackSrc={`https://placehold.co/40x40.png?text=${encodeURIComponent(game.name?.substring(0,2) || 'N/A')}`}
-                                alt={`${game.name} cover`}
+                                alt={`${game.name} copertina`}
                                 fill
                                 sizes="24px"
                                 className="object-cover rounded-sm"
@@ -202,17 +201,17 @@ export default function AllReviewsPage() {
             </div>
 
             <div>
-              <label htmlFor="user-filter" className="block text-sm font-medium text-muted-foreground mb-1">Filter by User</label>
+              <label htmlFor="user-filter" className="block text-sm font-medium text-muted-foreground mb-1">Filtra per Utente</label>
               <Select value={selectedUser} onValueChange={setSelectedUser}>
                 <SelectTrigger id="user-filter" className="w-full">
-                  <SelectValue placeholder="Select a user" />
+                  <SelectValue placeholder="Seleziona un utente" />
                 </SelectTrigger>
                 <SelectContent>
                   {uniqueUsers.map(user => (
                     <SelectItem key={user.author} value={user.author}>
                       <div className="flex items-center gap-2">
                         {user.author === 'all' ? (
-                          <span>All Users</span>
+                          <span>Tutti gli Utenti</span>
                         ) : (
                           <>
                             <Avatar className="h-5 w-5 border">
@@ -232,23 +231,23 @@ export default function AllReviewsPage() {
             </div>
 
             <div>
-              <label htmlFor="sort-order" className="block text-sm font-medium text-muted-foreground mb-1">Sort by</label>
+              <label htmlFor="sort-order" className="block text-sm font-medium text-muted-foreground mb-1">Ordina per</label>
               <Select value={sortOrder} onValueChange={(value) => setSortOrder(value as SortOrder)}>
                 <SelectTrigger id="sort-order" className="w-full">
-                  <SelectValue placeholder="Sort reviews" />
+                  <SelectValue placeholder="Ordina recensioni" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="mostRecent">Most Recent</SelectItem>
-                  <SelectItem value="leastRecent">Least Recent</SelectItem>
-                  <SelectItem value="highestRated">Highest Rated</SelectItem>
-                  <SelectItem value="lowestRated">Lowest Rated</SelectItem>
+                  <SelectItem value="mostRecent">Più Recenti</SelectItem>
+                  <SelectItem value="leastRecent">Meno Recenti</SelectItem>
+                  <SelectItem value="highestRated">Voto Più Alto</SelectItem>
+                  <SelectItem value="lowestRated">Voto Più Basso</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
            {hasActiveFilters && (
             <Button onClick={clearFilters} variant="outline" size="sm" className="mt-4">
-              Clear Filters & Sort
+              Azzera Filtri e Ordinamento
             </Button>
           )}
         </CardContent>
@@ -257,17 +256,17 @@ export default function AllReviewsPage() {
       <Separator />
 
       <div className="mb-4 text-lg font-semibold">
-        Displaying {filteredAndSortedReviews.length} of {allReviews.length} reviews
+        Mostrando {filteredAndSortedReviews.length} di {allReviews.length} recensioni
       </div>
 
       {Object.keys(reviewsByGame).length === 0 ? (
          <Alert variant="default" className="bg-secondary/30 border-secondary">
             <Info className="h-4 w-4" />
-            <AlertTitle>No Reviews Found</AlertTitle>
+            <AlertTitle>Nessuna Recensione Trovata</AlertTitle>
             <AlertDescription>
-              No reviews match your current filter criteria. Try adjusting your filters or{' '}
+              Nessuna recensione corrisponde ai tuoi criteri di filtro. Prova a modificare i filtri o{' '}
               { hasActiveFilters && 
-                <Button variant="link" className="p-0 h-auto inline" onClick={clearFilters}>clear all filters</Button>
+                <Button variant="link" className="p-0 h-auto inline" onClick={clearFilters}>azzera tutti i filtri</Button>
               }.
             </AlertDescription>
         </Alert>
@@ -275,7 +274,7 @@ export default function AllReviewsPage() {
         <div className="space-y-8">
           {Object.entries(reviewsByGame).map(([gameId, gameReviews]) => {
             if (!gameReviews || gameReviews.length === 0) return null;
-            const firstReviewForGame = gameReviews[0]; // Used to get game details for the header
+            const firstReviewForGame = gameReviews[0]; 
             const fallbackGameHeaderSrc = `https://placehold.co/80x120.png?text=${encodeURIComponent(firstReviewForGame.gameName?.substring(0,10) || 'N/A')}`;
             return (
               <Card key={gameId} className="overflow-hidden shadow-lg border border-border rounded-lg">
@@ -285,7 +284,7 @@ export default function AllReviewsPage() {
                       <SafeImage
                         src={firstReviewForGame.gameCoverArtUrl}
                         fallbackSrc={fallbackGameHeaderSrc}
-                        alt={`${firstReviewForGame.gameName || 'Game'} cover art`}
+                        alt={`${firstReviewForGame.gameName || 'Gioco'} copertina`}
                         fill
                         sizes="48px"
                         className="object-cover"
@@ -296,7 +295,7 @@ export default function AllReviewsPage() {
                       <h3 className="text-md font-semibold text-primary leading-tight">
                         {firstReviewForGame.gameName}
                       </h3>
-                      <p className="text-xs text-muted-foreground">View Game Details</p>
+                      <p className="text-xs text-muted-foreground">Vedi Dettagli Gioco</p>
                     </div>
                   </Link>
                 </CardHeader>

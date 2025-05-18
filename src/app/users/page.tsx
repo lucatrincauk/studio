@@ -16,19 +16,19 @@ export default async function UsersPage() {
         <CardHeader>
           <CardTitle className="text-2xl sm:text-3xl flex items-center gap-3">
             <Users2 className="h-7 w-7 text-primary" />
-            Browse Users
+            Sfoglia Utenti
           </CardTitle>
           <CardDescription>
-            Explore users and see their reviewed games.
+            Esplora gli utenti e vedi i giochi che hanno recensito.
           </CardDescription>
         </CardHeader>
         <CardContent>
           {users.length === 0 ? (
              <Alert variant="default" className="bg-secondary/30 border-secondary">
               <AlertCircle className="h-4 w-4" />
-              <AlertTitle>No Users Found</AlertTitle>
+              <AlertTitle>Nessun Utente Trovato</AlertTitle>
               <AlertDescription>
-                There are no users who have submitted reviews yet.
+                Non ci sono utenti che hanno ancora inviato recensioni.
               </AlertDescription>
             </Alert>
           ) : (

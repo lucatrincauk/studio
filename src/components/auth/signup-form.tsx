@@ -20,20 +20,19 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, Loader2 } from "lucide-react";
 import Link from 'next/link';
 import { Separator } from '@/components/ui/separator';
-import { useState } from 'react'; // Added
+import { useState } from 'react';
 
 const formSchema = z.object({
-  email: z.string().email({ message: "Invalid email address." }),
-  password: z.string().min(6, { message: "Password must be at least 6 characters." }),
+  email: z.string().email({ message: "Indirizzo email non valido." }),
+  password: z.string().min(6, { message: "La password deve contenere almeno 6 caratteri." }),
   confirmPassword: z.string(),
 }).refine(data => data.password === data.confirmPassword, {
-  message: "Passwords don't match.",
+  message: "Le password non coincidono.",
   path: ["confirmPassword"], 
 });
 
 type SignupFormValues = z.infer<typeof formSchema>;
 
-// Simple SVG for Google icon
 const GoogleIcon = () => (
   <svg viewBox="0 0 24 24" className="h-5 w-5 mr-2">
     <path
@@ -48,7 +47,7 @@ const GoogleIcon = () => (
 export function SignupForm() {
   const { signUp, signInWithGoogle, loading, error, clearError } = useAuth();
   const router = useRouter();
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false); // Added
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   const form = useForm<SignupFormValues>({
     resolver: zodResolver(formSchema),
@@ -83,7 +82,7 @@ export function SignupForm() {
         {error && (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Sign-up Failed</AlertTitle>
+            <AlertTitle>Registrazione Fallita</AlertTitle>
             <AlertDescription>{error.message}</AlertDescription>
           </Alert>
         )}
@@ -94,7 +93,7 @@ export function SignupForm() {
             <FormItem>
               <FormLabel>Email</FormLabel>
               <FormControl>
-                <Input type="email" placeholder="your@email.com" {...field} />
+                <Input type="email" placeholder="tua@email.com" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -118,7 +117,7 @@ export function SignupForm() {
           name="confirmPassword"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Confirm Password</FormLabel>
+              <FormLabel>Conferma Password</FormLabel>
               <FormControl>
                 <Input type="password" placeholder="••••••••" {...field} />
               </FormControl>
@@ -128,13 +127,13 @@ export function SignupForm() {
         />
         <Button type="submit" disabled={loading || isGoogleLoading} className="w-full">
           {(loading && !isGoogleLoading) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-          Sign Up with Email
+          Registrati con Email
         </Button>
 
         <div className="relative my-4">
           <Separator />
           <div className="absolute inset-0 flex items-center">
-            <span className="mx-auto bg-card px-2 text-xs text-muted-foreground">OR</span>
+            <span className="mx-auto bg-card px-2 text-xs text-muted-foreground">O</span>
           </div>
         </div>
 
@@ -146,13 +145,13 @@ export function SignupForm() {
           className="w-full flex items-center justify-center"
         >
           {isGoogleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <GoogleIcon />}
-          Sign Up with Google
+          Registrati con Google
         </Button>
 
          <p className="text-sm text-center text-muted-foreground pt-2">
-          Already have an account?{' '}
+          Hai già un account?{' '}
           <Link href="/signin" className="font-medium text-primary hover:underline">
-            Sign In
+            Accedi
           </Link>
         </p>
       </form>

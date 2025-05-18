@@ -6,10 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { MessageSquareText, AlertCircle, Gamepad2, UserCircle2 } from 'lucide-react';
 import Link from 'next/link';
-// import Image from 'next/image'; // No longer directly used
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
-import { SafeImage } from '@/components/common/SafeImage'; // Import SafeImage
+import { SafeImage } from '@/components/common/SafeImage';
 
 interface UserDetailPageProps {
   params: {
@@ -25,8 +24,8 @@ export default async function UserDetailPage({ params }: UserDetailPageProps) {
     return (
       <Alert variant="destructive" className="max-w-md mx-auto my-10">
         <AlertCircle className="h-4 w-4" />
-        <AlertTitle>User Not Found</AlertTitle>
-        <AlertDescription>The user you are looking for could not be found.</AlertDescription>
+        <AlertTitle>Utente Non Trovato</AlertTitle>
+        <AlertDescription>L'utente che cerchi non è stato trovato.</AlertDescription>
       </Alert>
     );
   }
@@ -45,7 +44,7 @@ export default async function UserDetailPage({ params }: UserDetailPageProps) {
             {user.name}
           </CardTitle>
           <CardDescription className="text-lg text-muted-foreground">
-            {reviews.length} {reviews.length === 1 ? 'Review' : 'Reviews'} Submitted
+            {reviews.length} {reviews.length === 1 ? 'Recensione Inviata' : 'Recensioni Inviate'}
           </CardDescription>
         </CardHeader>
       </Card>
@@ -55,14 +54,14 @@ export default async function UserDetailPage({ params }: UserDetailPageProps) {
       <div>
         <h2 className="text-2xl font-semibold mb-6 text-foreground flex items-center gap-3">
           <MessageSquareText className="h-6 w-6 text-primary" />
-          Reviews by {user.name}
+          Recensioni di {user.name}
         </h2>
         {reviews.length === 0 ? (
           <Alert variant="default" className="bg-secondary/30 border-secondary">
             <Gamepad2 className="h-4 w-4" />
-            <AlertTitle>No Reviews Yet</AlertTitle>
+            <AlertTitle>Nessuna Recensione Ancora</AlertTitle>
             <AlertDescription>
-              {user.name} has not submitted any reviews.
+              {user.name} non ha ancora inviato recensioni.
             </AlertDescription>
           </Alert>
         ) : (
@@ -77,7 +76,7 @@ export default async function UserDetailPage({ params }: UserDetailPageProps) {
                          <SafeImage
                           src={review.gameCoverArtUrl}
                           fallbackSrc={fallbackGameHeaderSrc}
-                          alt={`${review.gameName || 'Game'} cover art`}
+                          alt={`${review.gameName || 'Gioco'} copertina`}
                           fill
                           sizes="48px"
                           className="object-cover"
@@ -88,7 +87,7 @@ export default async function UserDetailPage({ params }: UserDetailPageProps) {
                         <h3 className="text-md font-semibold text-primary leading-tight">
                           {review.gameName}
                         </h3>
-                         <p className="text-xs text-muted-foreground">View Game & Full Review</p>
+                         <p className="text-xs text-muted-foreground">Vedi Gioco e Recensione Completa</p>
                       </div>
                     </Link>
                   </CardHeader>

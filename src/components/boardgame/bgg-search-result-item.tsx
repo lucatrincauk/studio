@@ -28,7 +28,7 @@ export function BggSearchResultItem({ result, onAddGame, isAdding }: BggSearchRe
         <CardTitle className="text-lg font-semibold">{result.name}</CardTitle>
         {result.yearPublished && (
           <CardDescription className="text-sm text-muted-foreground">
-            Published: {result.yearPublished}
+            Pubblicato: {result.yearPublished}
           </CardDescription>
         )}
       </CardHeader>
@@ -44,11 +44,11 @@ export function BggSearchResultItem({ result, onAddGame, isAdding }: BggSearchRe
         >
           {isAdding || isPending ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Adding...
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Aggiungendo...
             </>
           ) : (
             <>
-              <PlusCircle className="mr-2 h-4 w-4" /> Add and Rate
+              <PlusCircle className="mr-2 h-4 w-4" /> Aggiungi e Valuta
             </>
           )}
         </Button>
@@ -63,7 +63,7 @@ export function BggSearchResultItem({ result, onAddGame, isAdding }: BggSearchRe
                 target="_blank" 
                 rel="noopener noreferrer"
             >
-                View on BGG <ExternalLink className="ml-2 h-4 w-4" />
+                Vedi su BGG <ExternalLink className="ml-2 h-4 w-4" />
             </a>
         </Button>
       </CardFooter>

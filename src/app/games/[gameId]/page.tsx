@@ -2,7 +2,6 @@
 'use client';
 
 import { useEffect, useState, useTransition, useCallback, use } from 'react';
-// import Image from 'next/image'; // No longer directly used
 import Link from 'next/link';
 import { getGameDetails } from '@/lib/actions';
 import type { BoardGame, AiSummary, Review, Rating, GroupedCategoryAverages } from '@/lib/types';
@@ -30,7 +29,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { SafeImage } from '@/components/common/SafeImage'; // Import SafeImage
+import { SafeImage } from '@/components/common/SafeImage';
 
 
 interface GameDetailPageProps {
@@ -109,10 +108,10 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
         }
     }
     if (game && !currentUser && !authLoading && userReview) {
-        setUserReview(undefined); // Clear userReview if user logs out
+        setUserReview(undefined); 
         setUserOverallScore(null);
     }
-     if (!currentUser && !authLoading) { // Ensure userReview is cleared if no user
+     if (!currentUser && !authLoading) { 
       setUserReview(undefined);
       setUserOverallScore(null);
     }
@@ -126,14 +125,14 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
     startSummaryTransition(async () => {
        const gameRatings = game.reviews.map(r => r.rating).filter(Boolean) as Rating[];
       if (gameRatings.length === 0) {
-        setSummaryError("No ratings available to summarize.");
+        setSummaryError("Nessuna valutazione disponibile per generare un riepilogo.");
         return;
       }
       try {
         const result = await summarizeReviews({ gameName: game.name, ratings: gameRatings });
         setAiSummary(result);
       } catch (error) {
-         const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred during summary generation.';
+         const errorMessage = error instanceof Error ? error.message : 'Si è verificato un errore sconosciuto durante la generazione del riepilogo.';
          setSummaryError(errorMessage);
       }
     });
@@ -142,7 +141,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
   const confirmDeleteUserReview = async () => {
     setShowDeleteConfirmDialog(false);
     if (!currentUser || !userReview?.id) {
-      toast({ title: "Error", description: "Could not delete review. User or review not found.", variant: "destructive" });
+      toast({ title: "Errore", description: "Impossibile eliminare la recensione. Utente o recensione non trovati.", variant: "destructive" });
       return;
     }
 
@@ -150,14 +149,14 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
       try {
         const reviewDocRef = doc(db, "boardgames_collection", gameId, 'reviews', userReview.id);
         await deleteDoc(reviewDocRef);
-        toast({ title: "Review Deleted", description: "Your review has been successfully deleted." });
-        setUserReview(undefined); // Clear local userReview state
+        toast({ title: "Recensione Eliminata", description: "La tua recensione è stata eliminata con successo." });
+        setUserReview(undefined); 
         setUserOverallScore(null);
-        await fetchGameData(); // Refresh all game data
+        await fetchGameData(); 
       } catch (error) {
-        console.error("Error deleting review from Firestore:", error);
-        const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
-        toast({ title: "Error", description: `Failed to delete review: ${errorMessage}`, variant: "destructive" });
+        console.error("Errore durante l'eliminazione della recensione da Firestore:", error);
+        const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
+        toast({ title: "Errore", description: `Impossibile eliminare la recensione: ${errorMessage}`, variant: "destructive" });
       }
     });
   };
@@ -167,7 +166,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
     return (
       <div className="flex flex-col justify-center items-center min-h-[calc(100vh-200px)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="mt-4 text-lg text-muted-foreground">Loading game details...</p>
+        <p className="mt-4 text-lg text-muted-foreground">Caricamento dettagli gioco...</p>
       </div>
     );
   }
@@ -176,9 +175,9 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
     return (
       <Alert variant="destructive" className="max-w-md mx-auto my-10">
         <AlertCircle className="h-4 w-4" />
-        <AlertTitle>Error: Game Not Found</AlertTitle>
+        <AlertTitle>Errore: Gioco Non Trovato</AlertTitle>
         <AlertDescription>
-          The game you are looking for could not be found. It might have been removed or the ID is incorrect.
+          Il gioco che cerchi non è stato trovato. Potrebbe essere stato rimosso o l'ID non è corretto.
         </AlertDescription>
       </Alert>
     );
@@ -190,7 +189,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
     <div className="space-y-10">
       <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
         <div className="flex flex-col md:flex-row">
-          <div className="flex-1 p-6 space-y-4 order-1 md:order-1"> {/* Ensure text is first on all screens, then image for desktop */}
+          <div className="flex-1 p-6 space-y-4 order-1 md:order-1">
             <div className="flex justify-between items-start mb-4">
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">{game.name}</h1>
               {globalGameAverage !== null && (
@@ -200,11 +199,11 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
               )}
             </div>
             
-            <div className="md:hidden my-4 max-w-[240px] mx-auto"> {/* Mobile Image - below title */}
+            <div className="md:hidden my-4 max-w-[240px] mx-auto">
               <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
                 <SafeImage
                   src={game.coverArtUrl}
-                  alt={`${game.name} cover art`}
+                  alt={`${game.name} copertina`}
                   fallbackSrc={fallbackSrc}
                   fill
                   priority
@@ -216,19 +215,19 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
             </div>
             
             <div className="mt-4 space-y-1 md:border-t-0 border-t border-border pt-4 md:pt-0">
-              <h3 className="text-lg font-semibold text-foreground mb-3">Average Player Ratings:</h3>
+              <h3 className="text-lg font-semibold text-foreground mb-3">Valutazioni Medie dei Giocatori:</h3>
               <GroupedRatingsDisplay 
                 groupedAverages={groupedCategoryAverages} 
-                noRatingsMessage="No ratings yet to calculate averages."
+                noRatingsMessage="Nessuna valutazione per calcolare le medie."
               />
             </div>
           </div>
 
-          <div className="hidden md:block md:w-1/4 p-6 flex-shrink-0 self-start order-2"> {/* Desktop Image */}
+          <div className="hidden md:block md:w-1/4 p-6 flex-shrink-0 self-start order-2">
             <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
               <SafeImage
                 src={game.coverArtUrl}
-                alt={`${game.name} cover art`}
+                alt={`${game.name} copertina`}
                 fallbackSrc={fallbackSrc}
                 fill
                 priority
@@ -248,7 +247,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
           <div className="p-6 border border-border rounded-lg shadow-md bg-card">
             <div className="flex justify-between items-center mb-1">
                 <h3 className="text-xl font-semibold text-foreground">
-                {userReview ? "Manage Your Review" : "Share Your Thoughts"}
+                {userReview ? "Gestisci la Tua Recensione" : "Condividi la Tua Opinione"}
                 </h3>
                 {userReview && userOverallScore !== null && (
                     <span className="text-2xl font-bold text-primary">
@@ -258,14 +257,14 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
             </div>
             <p className="text-muted-foreground mb-4">
               {userReview
-                ? "You've already rated this game. You can edit or delete your ratings below."
-                : "Help others by sharing your experience with this game."}
+                ? "Hai già valutato questo gioco. Puoi modificare o eliminare le tue valutazioni qui sotto."
+                : "Aiuta gli altri condividendo la tua esperienza con questo gioco."}
             </p>
             <div className="flex flex-col sm:flex-row gap-2">
               <Button asChild className="w-full sm:w-auto bg-accent text-accent-foreground hover:bg-accent/90">
                 <Link href={`/games/${gameId}/rate`}>
                   <Edit className="mr-2 h-4 w-4" />
-                  {userReview ? "Edit Your Review" : "Rate this Game"}
+                  {userReview ? "Modifica la Tua Recensione" : "Valuta questo Gioco"}
                 </Link>
               </Button>
               {userReview && (
@@ -273,20 +272,20 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
                   <AlertDialogTrigger asChild>
                     <Button variant="destructive" className="w-full sm:w-auto" disabled={isDeletingReview}>
                       {isDeletingReview ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
-                      Delete My Review
+                      Elimina la Mia Recensione
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
-                      <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                      <AlertDialogTitle>Sei sicuro?</AlertDialogTitle>
                       <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete your review for {game.name}.
+                        Questa azione non può essere annullata. Eliminerà permanentemente la tua recensione per {game.name}.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogCancel>Annulla</AlertDialogCancel>
                       <AlertDialogAction onClick={confirmDeleteUserReview} className="bg-destructive hover:bg-destructive/90">
-                        {isDeletingReview ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Confirm Delete" }
+                        {isDeletingReview ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Conferma Eliminazione" }
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
@@ -297,7 +296,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
                  <Alert variant="default" className="mt-4 bg-secondary/30 border-secondary">
                     <Info className="h-4 w-4 text-secondary-foreground" />
                     <AlertDescription className="text-secondary-foreground">
-                      <Link href={`/signin?redirect=/games/${gameId}/rate`} className="font-semibold underline">Sign in</Link> to add or edit a review.
+                      <Link href={`/signin?redirect=/games/${gameId}/rate`} className="font-semibold underline">Accedi</Link> per aggiungere o modificare una recensione.
                     </AlertDescription>
                   </Alert>
             )}
@@ -306,7 +305,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
           <Separator className="my-4" />
 
           <div>
-            <h2 className="text-2xl font-semibold text-foreground mb-6">Player Reviews ({game.reviews.length})</h2>
+            <h2 className="text-2xl font-semibold text-foreground mb-6">Recensioni dei Giocatori ({game.reviews.length})</h2>
             <ReviewList reviews={game.reviews} currentUser={currentUser} gameId={game.id} onReviewDeleted={fetchGameData}/>
           </div>
         </div>
@@ -316,7 +315,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
             <CardHeader>
               <CardTitle className="text-xl flex items-center gap-2">
                 <Wand2 className="h-5 w-5 text-primary"/>
-                AI Review Summary
+                Riepilogo IA delle Recensioni
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -326,23 +325,23 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
                 className="w-full bg-primary hover:bg-primary/90 text-primary-foreground mb-3 transition-colors"
               >
                 {isSummarizing ? (
-                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating...</>
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generazione in corso...</>
                 ) : (
-                  'Generate Summary'
+                  'Genera Riepilogo'
                 )}
               </Button>
               {(!game.reviews || game.reviews.length === 0) && !isSummarizing && (
                    <Alert variant="default" className="bg-secondary/30 border-secondary">
                     <Info className="h-4 w-4 text-secondary-foreground" />
                     <AlertDescription className="text-secondary-foreground">
-                      Add some reviews first to generate an AI summary.
+                      Aggiungi prima qualche recensione per generare un riepilogo IA.
                     </AlertDescription>
                   </Alert>
               )}
               {summaryError && (
                 <Alert variant="destructive" className="mt-3">
                   <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Summary Error</AlertTitle>
+                  <AlertTitle>Errore nel Riepilogo</AlertTitle>
                   <AlertDescription>{summaryError}</AlertDescription>
                 </Alert>
               )}

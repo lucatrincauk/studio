@@ -20,16 +20,15 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, Loader2 } from "lucide-react";
 import Link from 'next/link';
 import { Separator } from '@/components/ui/separator';
-import { useState } from 'react'; // Added useState import
+import { useState } from 'react';
 
 const formSchema = z.object({
-  email: z.string().email({ message: "Invalid email address." }),
-  password: z.string().min(1, { message: "Password is required." }),
+  email: z.string().email({ message: "Indirizzo email non valido." }),
+  password: z.string().min(1, { message: "Password richiesta." }),
 });
 
 type SigninFormValues = z.infer<typeof formSchema>;
 
-// Simple SVG for Google icon
 const GoogleIcon = () => (
   <svg viewBox="0 0 24 24" className="h-5 w-5 mr-2">
     <path
@@ -79,7 +78,7 @@ export function SigninForm() {
         {error && (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Sign-in Failed</AlertTitle>
+            <AlertTitle>Accesso Fallito</AlertTitle>
             <AlertDescription>{error.message}</AlertDescription>
           </Alert>
         )}
@@ -90,7 +89,7 @@ export function SigninForm() {
             <FormItem>
               <FormLabel>Email</FormLabel>
               <FormControl>
-                <Input type="email" placeholder="your@email.com" {...field} />
+                <Input type="email" placeholder="tua@email.com" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -111,13 +110,13 @@ export function SigninForm() {
         />
         <Button type="submit" disabled={loading || isGoogleLoading} className="w-full">
           {(loading && !isGoogleLoading) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-          Sign In with Email
+          Accedi con Email
         </Button>
 
         <div className="relative my-4">
           <Separator />
           <div className="absolute inset-0 flex items-center">
-            <span className="mx-auto bg-card px-2 text-xs text-muted-foreground">OR</span>
+            <span className="mx-auto bg-card px-2 text-xs text-muted-foreground">O</span>
           </div>
         </div>
 
@@ -129,14 +128,14 @@ export function SigninForm() {
           className="w-full flex items-center justify-center"
         >
           {isGoogleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <GoogleIcon />}
-          Sign In with Google
+          Accedi con Google
         </Button>
 
         <div className="text-sm text-center space-y-2 mt-6">
             <p className="text-muted-foreground">
-            Don't have an account?{' '}
+            Non hai un account?{' '}
             <Link href="/signup" className="font-medium text-primary hover:underline">
-                Sign Up
+                Registrati
             </Link>
             </p>
         </div>

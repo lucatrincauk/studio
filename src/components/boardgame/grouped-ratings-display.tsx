@@ -1,7 +1,7 @@
 
 'use client';
 
-import type { GroupedCategoryAverages, SectionAverage, SubRatingAverage } from '@/lib/types'; // Assuming GroupedCategoryAverages is in types
+import type { GroupedCategoryAverages } from '@/lib/types';
 import {
   Accordion,
   AccordionContent,
@@ -17,18 +17,17 @@ interface GroupedRatingsDisplayProps {
   groupedAverages: GroupedCategoryAverages | null;
   isLoading?: boolean;
   noRatingsMessage?: string;
-  defaultOpenSections?: string[]; // e.g., ["section-0", "section-1"] to open first two by default
+  defaultOpenSections?: string[];
 }
 
 export function GroupedRatingsDisplay({
   groupedAverages,
   isLoading = false,
-  noRatingsMessage = "No ratings data available.",
+  noRatingsMessage = "Nessun dato di valutazione disponibile.",
   defaultOpenSections = [],
 }: GroupedRatingsDisplayProps) {
   if (isLoading) {
-    // Optional: Add a skeleton loader here if desired
-    return <p className="text-muted-foreground">Loading ratings...</p>;
+    return <p className="text-muted-foreground">Caricamento valutazioni...</p>;
   }
 
   if (!groupedAverages || groupedAverages.length === 0) {

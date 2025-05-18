@@ -17,8 +17,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Punteggiometro', // Changed title
-  description: 'Rate and review your favorite board games.',
+  title: 'Punteggiometro',
+  description: 'Valuta e recensisci i tuoi giochi da tavolo preferiti.',
 };
 
 export default function RootLayout({
@@ -27,7 +27,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full">
+    <html lang="it" className="h-full"> {/* Changed lang to it */}
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-screen bg-background`}>
         <AuthProvider> {/* Wrap with AuthProvider */}
           <Header />
@@ -36,7 +36,7 @@ export default function RootLayout({
           </main>
           <Toaster />
           <footer className="py-6 text-center text-sm text-muted-foreground">
-            © {new Date().getFullYear()} Punteggiometro. All rights reserved. {/* Changed name */}
+            © {new Date().getFullYear()} Punteggiometro. Tutti i diritti riservati.
           </footer>
         </AuthProvider>
       </body>

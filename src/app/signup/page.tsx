@@ -7,8 +7,8 @@ export default function SignupPage() {
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-20rem)] py-12">
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">Create an Account</CardTitle>
-          <CardDescription>Enter your details to get started.</CardDescription>
+          <CardTitle className="text-2xl font-bold">Crea un Account</CardTitle>
+          <CardDescription>Inserisci i tuoi dati per iniziare.</CardDescription>
         </CardHeader>
         <CardContent>
           <SignupForm />

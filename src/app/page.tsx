@@ -1,3 +1,4 @@
+
 import { getAllGamesAction } from '@/lib/actions';
 import { GameSearchList } from '@/components/boardgame/game-search-list';
 
@@ -9,10 +10,10 @@ export default async function HomePage() {
       <section>
         <div className="mb-6 text-center">
           <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground mb-2">
-            Explore Your Favorite Board Games
+            Esplora i Tuoi Giochi da Tavolo Preferiti
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Discover, rate, and review a world of tabletop adventures. Use the search below to find a specific game.
+            Scopri, valuta e recensisci un mondo di avventure da tavolo. Usa la ricerca qui sotto per trovare un gioco specifico.
           </p>
         </div>
         

@@ -39,16 +39,16 @@ export function CollectionConfirmationDialog({
     <AlertDialog open={isOpen} onOpenChange={onClose}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Confirm Database Sync</AlertDialogTitle>
+          <AlertDialogTitle>Conferma Sincronizzazione Database</AlertDialogTitle>
           <AlertDialogDescription>
-            Please review the changes that will be made to your game collection in the database.
+            Rivedi le modifiche che verranno apportate alla tua collezione di giochi nel database.
           </AlertDialogDescription>
         </AlertDialogHeader>
         
         <div className="my-4 space-y-4 max-h-[50vh] overflow-y-auto">
           {gamesToAdd.length > 0 && (
             <div>
-              <h4 className="font-semibold text-green-600 mb-1">Games to Add/Update ({gamesToAdd.length}):</h4>
+              <h4 className="font-semibold text-green-600 mb-1">Giochi da Aggiungere/Aggiornare ({gamesToAdd.length}):</h4>
               <ScrollArea className="h-32 w-full rounded-md border p-2">
                 <ul className="list-disc list-inside text-sm">
                   {gamesToAdd.map(game => <li key={game.id}>{game.name}</li>)}
@@ -58,7 +58,7 @@ export function CollectionConfirmationDialog({
           )}
           {gamesToRemove.length > 0 && (
             <div>
-              <h4 className="font-semibold text-red-600 mb-1">Games to Remove ({gamesToRemove.length}):</h4>
+              <h4 className="font-semibold text-red-600 mb-1">Giochi da Rimuovere ({gamesToRemove.length}):</h4>
                <ScrollArea className="h-32 w-full rounded-md border p-2">
                 <ul className="list-disc list-inside text-sm">
                   {gamesToRemove.map(game => <li key={game.id}>{game.name}</li>)}
@@ -67,17 +67,17 @@ export function CollectionConfirmationDialog({
             </div>
           )}
           {gamesToAdd.length === 0 && gamesToRemove.length === 0 && (
-            <p className="text-sm text-muted-foreground">No changes to sync.</p>
+            <p className="text-sm text-muted-foreground">Nessuna modifica da sincronizzare.</p>
           )}
         </div>
 
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={onClose} disabled={isSyncing}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel onClick={onClose} disabled={isSyncing}>Annulla</AlertDialogCancel>
           <Button onClick={onConfirm} disabled={isSyncing || (gamesToAdd.length === 0 && gamesToRemove.length === 0)} className="bg-primary text-primary-foreground hover:bg-primary/90">
             {isSyncing ? (
-              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Confirming...</>
+              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Conferma in corso...</>
             ) : (
-              'Confirm Sync'
+              'Conferma Sincronizzazione'
             )}
           </Button>
         </AlertDialogFooter>
