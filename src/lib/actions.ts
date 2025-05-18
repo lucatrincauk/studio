@@ -398,7 +398,13 @@ export async function getGameDetails(gameId: string): Promise<BoardGame | null> 
             id: reviewDoc.id,
             author: reviewData.author || 'Unknown Author',
             userId: reviewData.userId || 'unknown_user_id',
-            rating: reviewData.rating as Rating || { feeling: 0, gameDesign: 0, presentation: 0, management: 0 },
+            authorPhotoURL: reviewData.authorPhotoURL || null,
+            rating: reviewData.rating as Rating || { 
+                excitedToReplay: 0, mentallyStimulating: 0, fun: 0, 
+                decisionDepth: 0, replayability: 0, luck: 0, lengthDowntime: 0,
+                graphicDesign: 0, componentsThemeLore: 0,
+                effortToLearn: 0, setupTeardown: 0
+            },
             comment: reviewData.comment || '',
             date: reviewData.date || new Date().toISOString(),
           };
@@ -613,4 +619,5 @@ export async function syncBoardGamesToFirestoreAction(
         return { success: false, message: 'Database sync failed.', error: errorMessage };
     }
 }
+
 

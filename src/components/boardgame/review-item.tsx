@@ -3,7 +3,7 @@
 
 import type { Review, RatingCategory, Rating, GroupedCategoryAverages } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'; // Added AvatarImage
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { RATING_CATEGORIES } from '@/lib/types';
 import { formatReviewDate, calculateOverallCategoryAverage, formatRatingNumber, calculateGroupedCategoryAverages } from '@/lib/utils';
 import { UserCircle2, Trash2, Edit3, Loader2 } from 'lucide-react';
@@ -70,8 +70,7 @@ export function ReviewItem({ review, currentUser, gameId, onReviewDeleted }: Rev
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
             <Avatar className="h-10 w-10 border">
-              {/* We don't store avatar URLs with reviews, so AvatarImage is omitted. */}
-              {/* <AvatarImage src={review.authorAvatarUrl} alt={review.author} /> */}
+              {review.authorPhotoURL && <AvatarImage src={review.authorPhotoURL} alt={review.author} />}
               <AvatarFallback className="bg-muted text-muted-foreground">
                 {getAuthorInitial() ? getAuthorInitial() : <UserCircle2 className="h-6 w-6" />}
               </AvatarFallback>
@@ -132,3 +131,4 @@ export function ReviewItem({ review, currentUser, gameId, onReviewDeleted }: Rev
     </Card>
   );
 }
+

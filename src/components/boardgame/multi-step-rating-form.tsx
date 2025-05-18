@@ -141,10 +141,12 @@ export function MultiStepRatingForm({
     const rating: RatingType = { ...data };
     const reviewAuthor = currentUser.displayName || 'Anonymous';
     const reviewComment = ""; // Comments are not part of this form anymore
+    const authorPhotoURL = currentUser.photoURL || null;
 
     const newReviewData: Omit<Review, 'id'> = {
       author: reviewAuthor,
       userId: currentUser.uid,
+      authorPhotoURL: authorPhotoURL,
       rating,
       comment: reviewComment,
       date: new Date().toISOString(),
@@ -219,6 +221,7 @@ export function MultiStepRatingForm({
             id: 'summary', // Temporary ID, not saved
             author: currentUser.displayName || 'Anonymous',
             userId: currentUser.uid,
+            authorPhotoURL: currentUser.photoURL || null,
             rating: currentRatings,
             comment: '', // No comment in this form
             date: new Date().toISOString(),
@@ -283,8 +286,8 @@ export function MultiStepRatingForm({
                         </span>
                     )}
                 </div>
-                <CardDescription className="text-left">
-                    Your review has been saved. Here's a summary:
+                <CardDescription className="text-left text-sm text-muted-foreground">
+                     Your review has been saved. Here's a summary:
                 </CardDescription>
             </CardHeader>
         )}
@@ -467,3 +470,4 @@ export function MultiStepRatingForm({
     </Form>
   );
 }
+

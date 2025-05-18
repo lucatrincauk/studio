@@ -44,6 +44,7 @@ export interface Review {
   id: string;
   author: string;
   userId: string;
+  authorPhotoURL?: string | null; // Added
   rating: Rating;
   comment: string;
   date: string; // ISO date string
@@ -84,3 +85,4 @@ export interface SectionAverage {
   subRatings: SubRatingAverage[];
 }
 export type GroupedCategoryAverages = SectionAverage[];
+
