@@ -5,7 +5,7 @@ import { useState, useEffect, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
-import type { RatingCategory, Review, Rating, GroupedCategoryAverages } from '@/lib/types';
+import type { RatingCategory, Review, GroupedCategoryAverages } from '@/lib/types';
 import { RATING_CATEGORIES } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, AlertCircle, CheckCircle } from 'lucide-react';
@@ -27,7 +27,7 @@ interface MultiStepRatingFormProps {
   existingReview?: Review | null;
 }
 
-const totalSteps = 5;
+const totalSteps = 5; // Actual total steps including summary
 const stepCategories: (keyof RatingFormValues)[][] = [
   ['excitedToReplay', 'mentallyStimulating', 'fun'],
   ['decisionDepth', 'replayability', 'luck', 'lengthDowntime'],
@@ -106,8 +106,8 @@ export function MultiStepRatingForm({
 
   const handleNext = async () => {
     let fieldsToValidate: (keyof RatingFormValues)[] = [];
-     // Steps 1 through 4 have fields
-    if (currentStep >= 1 && currentStep <= 4) {
+     // Steps 1 through 3 have fields leading to next step
+    if (currentStep >= 1 && currentStep <= 3) {
         fieldsToValidate = stepCategories[currentStep-1];
     }
 
@@ -137,9 +137,9 @@ export function MultiStepRatingForm({
 
     const rating: Rating = { ...data };
     const reviewAuthor = currentUser.displayName || 'Anonymous';
-    const reviewComment = "";
+    const reviewComment = ""; // Comment field removed from form
 
-    const newReviewData = {
+    const newReviewData: Omit<Review, 'id'> = {
       author: reviewAuthor,
       userId: currentUser.uid,
       rating,
@@ -173,16 +173,16 @@ export function MultiStepRatingForm({
         const existingReviewQuery = query(reviewsCollectionRef, where("userId", "==", currentUser.uid), limit(1));
         const existingReviewSnapshot = await getDocs(existingReviewQuery);
 
-        if (!existingReviewSnapshot.empty && !existingReview) {
+        if (!existingReviewSnapshot.empty && !existingReview) { // User has a review, but we are not in "edit" mode
           toast({ title: "Already Reviewed", description: "You have already submitted a review for this game. Edit your existing review instead.", variant: "destructive" });
           setFormError("You have already submitted a review for this game. Please edit your existing one.");
           return false;
-        } else if (!existingReviewSnapshot.empty && existingReview?.id !== existingReviewSnapshot.docs[0].id){
+        } else if (!existingReviewSnapshot.empty && existingReview?.id !== existingReviewSnapshot.docs[0].id){ // User has a review, and it's different from the one being "edited"
            const reviewToUpdateRef = existingReviewSnapshot.docs[0].ref;
            await updateDoc(reviewToUpdateRef, newReviewData);
            toast({ title: "Review Updated", description: "Your existing review for this game has been updated.", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
         }
-         else {
+         else { // New review or properly editing an existing one
           await addDoc(reviewsCollectionRef, newReviewData);
           toast({ title: "Success!", description: "Review submitted successfully!", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
         }
@@ -211,11 +211,12 @@ export function MultiStepRatingForm({
         if (submissionSuccessful) {
           const currentRatings = form.getValues();
           const tempReviewForSummary: Review = {
-            id: 'summary', author: '', userId: '', rating: currentRatings, comment: '', date: new Date().toISOString(),
+            id: 'summary', author: currentUser.displayName || 'Anonymous', userId: currentUser.uid, rating: currentRatings, comment: '', date: new Date().toISOString(),
           };
           setGroupedAveragesForSummary(calculateGroupedCategoryAverages([tempReviewForSummary]));
-          setCurrentStep(5);
+          setCurrentStep(5); // Move to summary step on success
         }
+        // If not successful, user stays on step 4, error is shown by processSubmitAndStay
       });
     } else {
       setFormError(`Please correct errors in ${getCurrentStepTitle()} before proceeding.`);
@@ -242,7 +243,7 @@ export function MultiStepRatingForm({
     if (currentStep === 2) return "How would you rate the core mechanics and structure?";
     if (currentStep === 3) return "Rate the game's visual appeal and thematic elements.";
     if (currentStep === 4) return "How easy is the game to learn, set up, and tear down?";
-    if (currentStep === 5) return "Your review has been saved. Here's a summary:";
+    if (currentStep === 5) return "Your review has been saved. Here's a summary:"; // Updated description for step 5
     return "";
   }
 
@@ -257,14 +258,16 @@ export function MultiStepRatingForm({
   return (
     <Form {...form}>
       <form className="space-y-8">
-        <div className="mb-6">
-          <div className="flex justify-between items-center">
-            <h3 className="text-xl font-semibold">{getCurrentStepTitle()} - Step {currentStep} / {totalSteps}</h3>
+        {currentStep <= 4 && ( // Only show generic header for steps 1-4
+          <div className="mb-6">
+            <div className="flex justify-between items-center">
+              <h3 className="text-xl font-semibold">{getCurrentStepTitle()} - Step {currentStep} / 4</h3>
+            </div>
+            {getCurrentStepDescription() && (
+              <p className="text-sm text-muted-foreground mt-1">{getCurrentStepDescription()}</p>
+            )}
           </div>
-          {getCurrentStepDescription() && currentStep !== 5 && (
-            <p className="text-sm text-muted-foreground mt-1">{getCurrentStepDescription()}</p>
-          )}
-        </div>
+        )}
 
         <div className="min-h-[300px] sm:min-h-[350px]">
           {currentStep === 1 && (
@@ -398,7 +401,7 @@ export function MultiStepRatingForm({
               </CardContent>
             </Card>
           )}
-          {currentStep === 5 && isSubmitting && !groupedAveragesForSummary && (
+          {currentStep === 5 && isSubmitting && !groupedAveragesForSummary && ( // This might occur if submission fails after advancing to step 5 somehow
             <div className="flex justify-center items-center h-full">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
               <span className="ml-2">Loading summary...</span>
@@ -412,15 +415,17 @@ export function MultiStepRatingForm({
             </div>
         )}
 
-        <div className="flex justify-between items-center pt-4 border-t">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handlePrevious}
-            disabled={currentStep === 1 || isSubmitting}
-          >
-            Previous
-          </Button>
+        <div className={`flex ${currentStep > 1 && currentStep <= 4 ? 'justify-between' : 'justify-end'} items-center pt-4 border-t`}>
+          {currentStep > 1 && currentStep <= 4 && ( // Only show Previous for steps 2, 3, 4
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handlePrevious}
+              disabled={isSubmitting}
+            >
+              Previous
+            </Button>
+          )}
 
           {currentStep < 4 ? (
             <Button type="button" onClick={handleNext} disabled={isSubmitting} className="bg-primary hover:bg-primary/90 text-primary-foreground">
@@ -441,11 +446,11 @@ export function MultiStepRatingForm({
                 existingReview ? 'Update Review' : 'Submit Review'
               )}
             </Button>
-          ) : (
+          ) : ( // currentStep === 5
              <Button
                 type="button"
                 onClick={() => {
-                  form.reset(defaultFormValues);
+                  form.reset(defaultFormValues); // Reset form before redirecting
                   onReviewSubmitted();
                 }}
                 className="bg-primary hover:bg-primary/90 text-primary-foreground"
