@@ -4,7 +4,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, useFormContext } from 'react-hook-form';
-import { useActionState } from 'react';
+import { useActionState, useEffect, useTransition } from 'react'; // Added useTransition
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import {
@@ -21,7 +21,6 @@ import { StarRating } from './star-rating';
 import type { RatingCategory } from '@/lib/types';
 import { RATING_CATEGORIES } from '@/lib/types';
 import { submitNewReviewAction } from '@/lib/actions';
-import { useEffect } from 'react'; // Removed useRef
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 
@@ -48,8 +47,9 @@ const initialState = {
 };
 
 export function RatingForm({ gameId }: RatingFormProps) {
-  // The server action (submitNewReviewAction) will be updated to accept RatingFormValues
-  const [state, formAction] = useActionState(
+  const [isActionPending, startTransition] = useTransition();
+
+  const [serverActionState, formActionDispatcher] = useActionState(
     (prevState: typeof initialState, payload: RatingFormValues) => submitNewReviewAction(gameId, prevState, payload),
     initialState
   );
@@ -68,11 +68,11 @@ export function RatingForm({ gameId }: RatingFormProps) {
   });
 
   useEffect(() => {
-    if(state.message) {
-      if (state.success) {
+    if(serverActionState.message) {
+      if (serverActionState.success) {
         toast({
           title: "Success!",
-          description: state.message,
+          description: serverActionState.message,
         });
         form.reset({
           author: '',
@@ -83,8 +83,8 @@ export function RatingForm({ gameId }: RatingFormProps) {
           comment: '',
         });
       } else {
-        if (state.errors) {
-          Object.entries(state.errors).forEach(([fieldName, errors]) => {
+        if (serverActionState.errors) {
+          Object.entries(serverActionState.errors).forEach(([fieldName, errors]) => {
             form.setError(fieldName as keyof RatingFormValues, {
               type: 'server',
               message: errors[0],
@@ -93,21 +93,27 @@ export function RatingForm({ gameId }: RatingFormProps) {
         }
         toast({
           title: "Error",
-          description: state.message || "Failed to submit review.",
+          description: serverActionState.message || "Failed to submit review.",
           variant: "destructive",
         });
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state, toast]); // form.reset and form.setError are stable, no need to add to deps
+  }, [serverActionState, toast]);
 
 
   const ratingCategories: RatingCategory[] = ['feeling', 'gameDesign', 'presentation', 'management'];
 
+  const handleFormSubmit = (data: RatingFormValues) => {
+    startTransition(() => {
+      formActionDispatcher(data);
+    });
+  };
+
   return (
     <Form {...form}>
       <form
-        onSubmit={form.handleSubmit(formAction)} // RHF handles client validation, then calls formAction
+        onSubmit={form.handleSubmit(handleFormSubmit)} 
         className="space-y-6 p-6 border border-border rounded-lg shadow-md bg-card"
       >
         <h3 className="text-xl font-semibold text-foreground">Rate this Game</h3>
@@ -169,26 +175,28 @@ export function RatingForm({ gameId }: RatingFormProps) {
           )}
         />
 
-        <SubmitButton />
-         {state.message && !state.success && !state.errors && (
-          <p className="text-sm font-medium text-destructive">{state.message}</p>
+        <SubmitButton isActionPending={isActionPending} />
+         {serverActionState.message && !serverActionState.success && !serverActionState.errors && (
+          <p className="text-sm font-medium text-destructive">{serverActionState.message}</p>
         )}
       </form>
     </Form>
   );
 }
 
-function SubmitButton() {
-  const form = useFormContext();
-  const isSubmitting = form.formState.isSubmitting;
+function SubmitButton({ isActionPending }: { isActionPending: boolean }) {
+  const { formState } = useFormContext<RatingFormValues>();
+  const rhfIsSubmitting = formState.isSubmitting;
+
+  const trulySubmitting = rhfIsSubmitting || isActionPending;
 
   return (
     <Button
       type="submit"
       className="w-full sm:w-auto bg-accent text-accent-foreground hover:bg-accent/90 focus:ring-accent/50 transition-colors"
-      disabled={isSubmitting}
+      disabled={trulySubmitting}
     >
-      {isSubmitting ? (
+      {trulySubmitting ? (
         <>
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           Submitting...
