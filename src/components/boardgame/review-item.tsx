@@ -3,7 +3,6 @@
 
 import type { Review, RatingCategory, Rating } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-// StarRating import removed
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { RATING_CATEGORIES } from '@/lib/types';
 import { formatReviewDate, calculateOverallCategoryAverage } from '@/lib/utils';
@@ -24,7 +23,7 @@ import {
 import { useState, useTransition } from 'react';
 import { deleteReviewAction } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
-import Link from 'next/link'; // For Edit button
+import Link from 'next/link';
 
 interface ReviewItemProps {
   review: Review;
@@ -41,7 +40,7 @@ export function ReviewItem({ review, currentUser, gameId, onReviewDeleted }: Rev
   const { toast } = useToast();
 
   const handleDeleteReview = async () => {
-    if (!currentUser) return;
+    if (!currentUser || !review.id) return; // Added null check for review.id
     startDeleteTransition(async () => {
       const result = await deleteReviewAction(gameId, review.id, currentUser.uid);
       if (result.success) {
@@ -70,7 +69,6 @@ export function ReviewItem({ review, currentUser, gameId, onReviewDeleted }: Rev
           </div>
           <div className="flex flex-col items-end">
             <div className="flex items-center gap-1 text-sm text-foreground mb-1">
-              {/* StarRating replaced with numerical display */}
               <span className="font-semibold">Overall: {overallReviewRating.toFixed(1)} / 5</span>
             </div>
             {isOwnReview && (
@@ -115,7 +113,6 @@ export function ReviewItem({ review, currentUser, gameId, onReviewDeleted }: Rev
           {(Object.keys(review.rating) as Array<keyof Rating>).map((categoryKey) => (
             <div key={categoryKey} className="flex justify-between items-center text-xs">
               <span className="text-muted-foreground">{RATING_CATEGORIES[categoryKey as RatingCategory]}:</span>
-              {/* StarRating replaced with numerical display */}
               <span className="text-foreground font-medium">{review.rating[categoryKey]} / 5</span>
             </div>
           ))}

@@ -10,13 +10,12 @@ import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Wand2, Info, Star, Edit } from 'lucide-react';
+import { AlertCircle, Loader2, Wand2, Info, Edit } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { summarizeReviews } from '@/ai/flows/summarize-reviews';
 import { calculateCategoryAverages } from '@/lib/utils';
 import { RATING_CATEGORIES } from '@/lib/types';
-// StarRating import removed
 
 interface GameDetailPageProps {
   params: Promise<{
@@ -170,7 +169,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
             </h3>
             <p className="text-muted-foreground mb-4">
               {userReview
-                ? "You've already rated this game. You can edit your ratings and comments."
+                ? "You've already rated this game. You can edit your ratings."
                 : "Help others by sharing your experience with this game."}
             </p>
             <Button asChild className="w-full sm:w-auto bg-accent text-accent-foreground hover:bg-accent/90">

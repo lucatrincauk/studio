@@ -8,35 +8,30 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-// This function may need re-evaluation based on how an "overall average" is desired now.
-// For now, it sums all 6 categories.
-export function calculateAverageRating(game: BoardGame): number {
-  if (!game.reviews || game.reviews.length === 0) {
-    return 0;
-  }
-
-  let totalStars = 0;
-  let numberOfRatings = 0;
-
-  game.reviews.forEach(review => {
-    totalStars += review.rating.excitedToReplay + 
-                  review.rating.mentallyStimulating + 
-                  review.rating.fun + 
-                  review.rating.gameDesign + 
-                  review.rating.presentation + 
-                  review.rating.management;
-    numberOfRatings += 6; // Each review now has 6 rating categories
-  });
-
-  if (numberOfRatings === 0) return 0;
-  
-  const average = totalStars / numberOfRatings;
-  return Math.round(average * 10) / 10; // Round to one decimal place
-}
-
 export function calculateOverallCategoryAverage(rating: Rating): number {
-  const { excitedToReplay, mentallyStimulating, fun, gameDesign, presentation, management } = rating;
-  const average = (excitedToReplay + mentallyStimulating + fun + gameDesign + presentation + management) / 6;
+  const {
+    excitedToReplay,
+    mentallyStimulating,
+    fun,
+    decisionDepth,
+    replayability,
+    luck,
+    lengthDowntime,
+    presentation,
+    management
+  } = rating;
+  const sum = excitedToReplay +
+              mentallyStimulating +
+              fun +
+              decisionDepth +
+              replayability +
+              luck +
+              lengthDowntime +
+              presentation +
+              management;
+  const count = Object.keys(rating).length;
+  if (count === 0) return 0;
+  const average = sum / count;
   return Math.round(average * 10) / 10;
 }
 
@@ -50,7 +45,10 @@ export function calculateCategoryAverages(reviews: Review[]): Rating | null {
     excitedToReplay: 0,
     mentallyStimulating: 0,
     fun: 0,
-    gameDesign: 0,
+    decisionDepth: 0,
+    replayability: 0,
+    luck: 0,
+    lengthDowntime: 0,
     presentation: 0,
     management: 0,
   };
@@ -59,7 +57,10 @@ export function calculateCategoryAverages(reviews: Review[]): Rating | null {
     sumOfRatings.excitedToReplay += review.rating.excitedToReplay;
     sumOfRatings.mentallyStimulating += review.rating.mentallyStimulating;
     sumOfRatings.fun += review.rating.fun;
-    sumOfRatings.gameDesign += review.rating.gameDesign;
+    sumOfRatings.decisionDepth += review.rating.decisionDepth;
+    sumOfRatings.replayability += review.rating.replayability;
+    sumOfRatings.luck += review.rating.luck;
+    sumOfRatings.lengthDowntime += review.rating.lengthDowntime;
     sumOfRatings.presentation += review.rating.presentation;
     sumOfRatings.management += review.rating.management;
   });
@@ -68,7 +69,10 @@ export function calculateCategoryAverages(reviews: Review[]): Rating | null {
     excitedToReplay: Math.round((sumOfRatings.excitedToReplay / numReviews) * 10) / 10,
     mentallyStimulating: Math.round((sumOfRatings.mentallyStimulating / numReviews) * 10) / 10,
     fun: Math.round((sumOfRatings.fun / numReviews) * 10) / 10,
-    gameDesign: Math.round((sumOfRatings.gameDesign / numReviews) * 10) / 10,
+    decisionDepth: Math.round((sumOfRatings.decisionDepth / numReviews) * 10) / 10,
+    replayability: Math.round((sumOfRatings.replayability / numReviews) * 10) / 10,
+    luck: Math.round((sumOfRatings.luck / numReviews) * 10) / 10,
+    lengthDowntime: Math.round((sumOfRatings.lengthDowntime / numReviews) * 10) / 10,
     presentation: Math.round((sumOfRatings.presentation / numReviews) * 10) / 10,
     management: Math.round((sumOfRatings.management / numReviews) * 10) / 10,
   };
