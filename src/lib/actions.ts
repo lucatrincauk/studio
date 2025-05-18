@@ -9,27 +9,32 @@ import { z } from 'zod';
 
 // Import 'bgg' (the pre-initialized client instance) and types from 'bgg-sdk'
 import { bgg } from 'bgg-sdk';
-import type { Thing, Names, Name, Rank, SearchResponseItem as BggSdkSearchResponseItem } from 'bgg-sdk';
+import type { 
+  SearchResponseItem as BggSdkSearchResponseItem, 
+  Name, 
+  YearPublished, 
+  Thing, 
+  Rank 
+} from 'bgg-sdk';
 
 // Directly use the imported 'bgg' as the client instance.
 const bggClient = bgg;
 
 // Helper to extract the primary name value
-function getPrimaryNameValue(names: Names | Name | string | undefined): string {
-  if (!names) return 'Unknown Game';
-  if (typeof names === 'string') return names;
-  if (Array.isArray(names)) { // It's Name[] if 'Names' type from SDK resolves to Name[]
-    const primaryNameObj = names.find(n => n.type === 'primary');
-    return primaryNameObj ? primaryNameObj.value : (names[0]?.value || 'Unknown Game');
-  } else if (typeof names === 'object' && 'value' in names) { // It's Name
-    return (names as Name).value;
-  }
-  return 'Unknown Game';
+function getPrimaryNameValue(nameInput: Name | Name[] | string | undefined): string {
+  if (!nameInput) return 'Unknown Game';
+  if (typeof nameInput === 'string') return nameInput;
+  
+  const namesArray = Array.isArray(nameInput) ? nameInput : [nameInput];
+  const primaryNameObj = namesArray.find(n => n.type === 'primary');
+  
+  return primaryNameObj ? primaryNameObj.value : (namesArray[0]?.value || 'Unknown Game');
 }
 
 
 export async function searchBggGamesAction(searchTerm: string): Promise<BggSearchResult[] | { error: string }> {
-  if (!bggClient) {
+  if (!bggClient || typeof bggClient.search !== 'function') {
+    console.error('BGG SDK client not available or search function missing.');
     return { error: 'BGG SDK client not available.' };
   }
   if (!searchTerm.trim()) {
@@ -37,13 +42,26 @@ export async function searchBggGamesAction(searchTerm: string): Promise<BggSearc
   }
 
   try {
-    const searchResponse: BggSdkSearchResponseItem[] = await bggClient.search({ query: searchTerm, type: ['boardgame'] });
+    // According to user feedback, responseFromSdk is an object like { termsofuse: "...", items: BggSdkSearchResponseItem[] }
+    const responseFromSdk: any = await bggClient.search({ query: searchTerm, type: ['boardgame'] });
 
-    if (!searchResponse || !Array.isArray(searchResponse) || searchResponse.length === 0) {
-      return []; // Return empty array if not a valid array response or empty
+    let gamesList: BggSdkSearchResponseItem[] = [];
+
+    // Prioritize user feedback: responseFromSdk is an object, and responseFromSdk.items is the array.
+    if (responseFromSdk && typeof responseFromSdk === 'object' && responseFromSdk.items && Array.isArray(responseFromSdk.items)) {
+      gamesList = responseFromSdk.items;
+    } 
+    // Fallback for SDK type signature: responseFromSdk itself is the array.
+    else if (Array.isArray(responseFromSdk)) {
+      gamesList = responseFromSdk;
+    }
+    // If neither, gamesList remains empty, indicating no results or unexpected structure.
+
+    if (gamesList.length === 0) {
+      return [];
     }
     
-    const limitedResults = searchResponse.slice(0, 10); 
+    const limitedResults = gamesList.slice(0, 10); 
 
     const enrichedResultsPromises = limitedResults.map(async (item: BggSdkSearchResponseItem) => {
       try {
@@ -51,22 +69,20 @@ export async function searchBggGamesAction(searchTerm: string): Promise<BggSearc
         if (isNaN(thingId)) {
             console.warn(`Invalid BGG ID for item: ${item.name?.value}`);
             return {
-              bggId: String(item.id),
+              bggId: String(item.id), // Keep original ID string if parsing fails
               name: item.name?.value || 'Unknown (ID invalid)',
               yearPublished: item.yearpublished?.value,
-              rank: Number.MAX_SAFE_INTEGER,
+              rank: Number.MAX_SAFE_INTEGER, // Consistent high rank for unrankable items
             };
         }
 
-        // Fetch details using bggClient.thing
         const thingDetailsArr: Thing[] = await bggClient.thing({ id: [thingId], stats: 1 });
         let rankValue = Number.MAX_SAFE_INTEGER; 
-        let actualName = item.name?.value || 'Unknown Name'; // from SearchResponseItem
-        let yearPublishedValue = item.yearpublished?.value; // from SearchResponseItem
-
+        let actualName = item.name?.value || 'Unknown Name';
+        let yearPublishedValue = item.yearpublished?.value;
 
         if (thingDetailsArr && thingDetailsArr.length > 0) {
-          const thing = thingDetailsArr[0]; // This is of type Thing
+          const thing = thingDetailsArr[0];
           actualName = getPrimaryNameValue(thing.name) || actualName;
           yearPublishedValue = thing.yearpublished?.value || yearPublishedValue;
 
@@ -89,6 +105,7 @@ export async function searchBggGamesAction(searchTerm: string): Promise<BggSearc
         };
       } catch (e) {
         console.warn(`Error fetching details for BGG ID ${item.id}:`, e);
+        // Ensure a consistent structure for items that failed enrichment
         return {
           bggId: String(item.id),
           name: item.name?.value || 'Error fetching name', 
@@ -100,7 +117,7 @@ export async function searchBggGamesAction(searchTerm: string): Promise<BggSearc
 
     const enrichedResults = await Promise.all(enrichedResultsPromises);
     
-    enrichedResults.sort((a, b) => a.rank - b.rank);
+    enrichedResults.sort((a, b) => a.rank - b.rank); // Sort by rank ascending
     
     return enrichedResults;
 
@@ -117,7 +134,7 @@ export async function searchBggGamesAction(searchTerm: string): Promise<BggSearc
 }
 
 export async function importAndRateBggGameAction(bggId: string): Promise<{ gameId: string } | { error: string }> {
-  if (!bggClient) { 
+  if (!bggClient || typeof bggClient.thing !== 'function') { 
     return { error: 'BGG SDK client not available.' };
   }
   const numericBggId = parseInt(bggId, 10);
@@ -132,21 +149,20 @@ export async function importAndRateBggGameAction(bggId: string): Promise<{ gameI
   }
 
   try {
-    // Fetch details using bggClient.thing
     const thingDetailsArr: Thing[] = await bggClient.thing({ id: [numericBggId], stats: 1 });
 
     if (!thingDetailsArr || thingDetailsArr.length === 0) {
       return { error: 'Could not retrieve game details from BGG.' };
     }
     
-    const thing = thingDetailsArr[0]; // This is of type Thing
+    const thing = thingDetailsArr[0]; 
     
     const gameName = getPrimaryNameValue(thing.name);
     if (gameName === 'Unknown Game') { 
          return { error: 'Essential game details (name) missing from BGG response.' };
     }
     
-    const description = thing.description ? thing.description.replace(/&rsquo;/g, "'").replace(/&ndash;/g, "-").replace(/&mdash;/g, "—").replace(/&quot;/g, "\"").replace(/&amp;/g, "&") : 'No description available.';
+    const description = thing.description ? String(thing.description).replace(/&rsquo;/g, "'").replace(/&ndash;/g, "-").replace(/&mdash;/g, "—").replace(/&quot;/g, "\"").replace(/&amp;/g, "&") : 'No description available.';
 
     const newGame: BoardGame = {
       id: existingGameId, 
@@ -157,7 +173,7 @@ export async function importAndRateBggGameAction(bggId: string): Promise<{ gameI
       yearPublished: thing.yearpublished?.value,
       minPlayers: thing.minplayers?.value,
       maxPlayers: thing.maxplayers?.value,
-      playingTime: thing.playingtime?.value || thing.minplaytime?.value, // SDK uses playingtime
+      playingTime: thing.playingtime?.value || thing.minplaytime?.value, 
       bggId: numericBggId,
     };
 
@@ -182,6 +198,7 @@ export async function importAndRateBggGameAction(bggId: string): Promise<{ gameI
 async function findGameById(gameId: string): Promise<BoardGame | undefined> {
   const game = mockGames.find(g => g.id === gameId);
   if (game) {
+    // Ensure the reviews are freshly retrieved from the central allMockReviews object
     return { ...game, reviews: allMockReviews[gameId] || game.reviews || [] };
   }
   return undefined;
@@ -278,10 +295,8 @@ export async function generateAiSummaryAction(gameId: string): Promise<AiSummary
 }
 
 export async function getAllGamesAction(): Promise<BoardGame[]> {
-  // Ensure reviews from allMockReviews are correctly mapped to each game
   return Promise.resolve(mockGames.map(game => ({
     ...game,
     reviews: allMockReviews[game.id] || game.reviews || [] 
   })));
 }
-
