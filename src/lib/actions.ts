@@ -17,47 +17,60 @@ import type {
   Rank 
 } from 'bgg-sdk';
 
-// Directly use the imported 'bgg' as the client instance.
 const bggClient = bgg;
 
 // Helper to extract the primary name value
 function getPrimaryNameValue(nameInput: Name | Name[] | string | undefined): string {
-  if (!nameInput) return 'Unknown Game';
-  if (typeof nameInput === 'string') return nameInput;
-  
+  const fallbackName = "Name Not Found in Details"; // Specific fallback for this function
+  if (!nameInput) return fallbackName;
+
+  if (typeof nameInput === 'string') {
+    const trimmedName = nameInput.trim();
+    return trimmedName || fallbackName; // Return trimmed string or fallback if empty
+  }
+
   const namesArray = Array.isArray(nameInput) ? nameInput : [nameInput];
-  const primaryNameObj = namesArray.find(n => n.type === 'primary');
+  if (namesArray.length === 0) return fallbackName;
+
+  // Find primary name first
+  const primaryNameObj = namesArray.find(n => n.type === 'primary' && n.value && n.value.trim() !== '');
+  if (primaryNameObj && primaryNameObj.value) {
+    return primaryNameObj.value.trim();
+  }
   
-  return primaryNameObj ? primaryNameObj.value : (namesArray[0]?.value || 'Unknown Game');
+  // If no valid primary name, try the first name in the array, if it's valid and non-empty
+  const firstNameObj = namesArray[0];
+  if (firstNameObj && firstNameObj.value && firstNameObj.value.trim() !== '') {
+    return firstNameObj.value.trim();
+  }
+  
+  return fallbackName; // If no suitable name is found
 }
 
 
 export async function searchBggGamesAction(searchTerm: string): Promise<BggSearchResult[] | { error: string }> {
-  if (!bggClient || typeof bggClient.search !== 'function') {
+  if (!bggClient) {
     console.error('BGG SDK client not available or search function missing.');
-    return { error: 'BGG SDK client not available.' };
+    return { error: 'BGG SDK client not initialized.' };
   }
   if (!searchTerm.trim()) {
     return { error: 'Search term cannot be empty.' };
   }
 
   try {
-    // According to user feedback, responseFromSdk is an object like { termsofuse: "...", items: BggSdkSearchResponseItem[] }
     const responseFromSdk: any = await bggClient.search({ query: searchTerm, type: ['boardgame'] });
 
     let gamesList: BggSdkSearchResponseItem[] = [];
 
-    // Prioritize user feedback: responseFromSdk is an object, and responseFromSdk.items is the array.
     if (responseFromSdk && typeof responseFromSdk === 'object' && responseFromSdk.items && Array.isArray(responseFromSdk.items)) {
       gamesList = responseFromSdk.items;
-    } 
-    // Fallback for SDK type signature: responseFromSdk itself is the array.
-    else if (Array.isArray(responseFromSdk)) {
+    } else if (Array.isArray(responseFromSdk)) {
+      // Fallback if SDK structure is different, though user feedback suggests .items is correct
       gamesList = responseFromSdk;
     }
-    // If neither, gamesList remains empty, indicating no results or unexpected structure.
 
-    if (gamesList.length === 0) {
+
+    if (!Array.isArray(gamesList) || gamesList.length === 0) {
       return [];
     }
     
@@ -69,21 +82,33 @@ export async function searchBggGamesAction(searchTerm: string): Promise<BggSearc
         if (isNaN(thingId)) {
             console.warn(`Invalid BGG ID for item: ${item.name?.value}`);
             return {
-              bggId: String(item.id), // Keep original ID string if parsing fails
-              name: item.name?.value || 'Unknown (ID invalid)',
+              bggId: String(item.id),
+              name: (item.name?.value && item.name.value.trim() !== '') ? item.name.value.trim() : 'Invalid BGG ID',
               yearPublished: item.yearpublished?.value,
-              rank: Number.MAX_SAFE_INTEGER, // Consistent high rank for unrankable items
+              rank: Number.MAX_SAFE_INTEGER,
             };
         }
 
-        const thingDetailsArr: Thing[] = await bggClient.thing({ id: [thingId], stats: 1 });
-        let rankValue = Number.MAX_SAFE_INTEGER; 
-        let actualName = item.name?.value || 'Unknown Name';
+        // Initial values from search item
+        let gameName = (item.name?.value && item.name.value.trim() !== '') ? item.name.value.trim() : 'Processing...';
         let yearPublishedValue = item.yearpublished?.value;
+        let rankValue = Number.MAX_SAFE_INTEGER; 
+
+        // Attempt to get more details from the 'thing' endpoint
+        const thingDetailsArr: Thing[] = await bggClient.thing({ id: [thingId], stats: 1 });
 
         if (thingDetailsArr && thingDetailsArr.length > 0) {
           const thing = thingDetailsArr[0];
-          actualName = getPrimaryNameValue(thing.name) || actualName;
+          const detailedName = getPrimaryNameValue(thing.name);
+
+          if (detailedName !== "Name Not Found in Details") {
+            gameName = detailedName; // Prioritize name from 'thing' details
+          } else if (gameName === 'Processing...') { 
+            // If 'thing' details didn't provide a name and initial search name was also placeholder
+            gameName = 'Unknown Name'; 
+          }
+          // If 'thing' details name was fallback, but 'gameName' was already set from item.name.value, keep it.
+          
           yearPublishedValue = thing.yearpublished?.value || yearPublishedValue;
 
           if (thing.statistics && thing.statistics.ratings && thing.statistics.ratings.ranks && thing.statistics.ratings.ranks.rank) {
@@ -96,19 +121,29 @@ export async function searchBggGamesAction(searchTerm: string): Promise<BggSearc
               }
             }
           }
+        } else {
+          // If thing call failed or returned no data, and gameName is still 'Processing...'
+          if (gameName === 'Processing...') {
+            gameName = 'Unknown Name (details unavailable)';
+          }
         }
+        
+        // Final check if gameName is still the processing placeholder after all attempts
+        if (gameName === 'Processing...') {
+            gameName = 'Unknown Name';
+        }
+
         return {
           bggId: String(item.id),
-          name: actualName,
+          name: gameName,
           yearPublished: yearPublishedValue,
           rank: rankValue,
         };
       } catch (e) {
         console.warn(`Error fetching details for BGG ID ${item.id}:`, e);
-        // Ensure a consistent structure for items that failed enrichment
         return {
           bggId: String(item.id),
-          name: item.name?.value || 'Error fetching name', 
+          name: (item.name?.value && item.name.value.trim() !== '') ? item.name.value.trim() : 'Error fetching name', 
           yearPublished: item.yearpublished?.value,
           rank: Number.MAX_SAFE_INTEGER, 
         };
@@ -116,8 +151,7 @@ export async function searchBggGamesAction(searchTerm: string): Promise<BggSearc
     });
 
     const enrichedResults = await Promise.all(enrichedResultsPromises);
-    
-    enrichedResults.sort((a, b) => a.rank - b.rank); // Sort by rank ascending
+    enrichedResults.sort((a, b) => a.rank - b.rank); 
     
     return enrichedResults;
 
@@ -134,7 +168,7 @@ export async function searchBggGamesAction(searchTerm: string): Promise<BggSearc
 }
 
 export async function importAndRateBggGameAction(bggId: string): Promise<{ gameId: string } | { error: string }> {
-  if (!bggClient || typeof bggClient.thing !== 'function') { 
+  if (!bggClient) { 
     return { error: 'BGG SDK client not available.' };
   }
   const numericBggId = parseInt(bggId, 10);
@@ -158,11 +192,24 @@ export async function importAndRateBggGameAction(bggId: string): Promise<{ gameI
     const thing = thingDetailsArr[0]; 
     
     const gameName = getPrimaryNameValue(thing.name);
-    if (gameName === 'Unknown Game') { 
+    if (gameName === "Name Not Found in Details") { 
          return { error: 'Essential game details (name) missing from BGG response.' };
     }
     
-    const description = thing.description ? String(thing.description).replace(/&rsquo;/g, "'").replace(/&ndash;/g, "-").replace(/&mdash;/g, "—").replace(/&quot;/g, "\"").replace(/&amp;/g, "&") : 'No description available.';
+    const descriptionHtml = thing.description ? String(thing.description) : 'No description available.';
+    // Basic HTML entity decoding
+    const description = descriptionHtml
+        .replace(/&quot;/g, '"')
+        .replace(/&apos;/g, "'")
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&amp;/g, '&')
+        // BGG specific entities (often numerical) might need a more robust solution if they are common
+        .replace(/&#(\d+);/g, (match, dec) => String.fromCharCode(dec))
+        .replace(/&rsquo;/g, "’")
+        .replace(/&ndash;/g, "–")
+        .replace(/&mdash;/g, "—");
+
 
     const newGame: BoardGame = {
       id: existingGameId, 
@@ -198,7 +245,6 @@ export async function importAndRateBggGameAction(bggId: string): Promise<{ gameI
 async function findGameById(gameId: string): Promise<BoardGame | undefined> {
   const game = mockGames.find(g => g.id === gameId);
   if (game) {
-    // Ensure the reviews are freshly retrieved from the central allMockReviews object
     return { ...game, reviews: allMockReviews[gameId] || game.reviews || [] };
   }
   return undefined;
@@ -300,3 +346,6 @@ export async function getAllGamesAction(): Promise<BoardGame[]> {
     reviews: allMockReviews[game.id] || game.reviews || [] 
   })));
 }
+
+
+    
