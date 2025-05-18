@@ -4,14 +4,15 @@
 import { useEffect, useState, useTransition, useCallback, use } from 'react';
 import Image from 'next/image';
 import { getGameDetails, generateAiSummaryAction } from '@/lib/actions';
-import type { BoardGame, AiSummary } from '@/lib/types';
+import type { BoardGame, AiSummary, Review } from '@/lib/types'; // Added Review
 import { ReviewList } from '@/components/boardgame/review-list';
 import { RatingForm } from '@/components/boardgame/rating-form';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Wand2, Info, CalendarDays, Users, Clock, Tags } from 'lucide-react';
+import { AlertCircle, Loader2, Wand2, Info } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useAuth } from '@/contexts/auth-context'; // Added useAuth
 
 interface GameDetailPageProps {
   params: Promise<{ 
@@ -23,18 +24,29 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
   const params = use(paramsPromise); 
   const { gameId } = params; 
 
+  const { user: currentUser } = useAuth(); // Get current user
+
   const [game, setGame] = useState<BoardGame | null>(null);
   const [aiSummary, setAiSummary] = useState<AiSummary | null>(null);
   const [isLoadingGame, setIsLoadingGame] = useState(true);
   const [isSummarizing, startSummaryTransition] = useTransition();
   const [summaryError, setSummaryError] = useState<string | null>(null);
+  
+  // Find if current user has reviewed this game
+  const [userReview, setUserReview] = useState<Review | undefined>(undefined);
 
   const fetchGameData = useCallback(async () => {
     setIsLoadingGame(true);
     const gameData = await getGameDetails(gameId);
     setGame(gameData);
+    if (gameData && currentUser) {
+      const foundReview = gameData.reviews.find(r => r.userId === currentUser.uid);
+      setUserReview(foundReview);
+    } else {
+      setUserReview(undefined);
+    }
     setIsLoadingGame(false);
-  }, [gameId]);
+  }, [gameId, currentUser]); // Added currentUser to dependencies
 
   useEffect(() => {
     fetchGameData();
@@ -112,10 +124,16 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
         <div className="lg:col-span-2 space-y-6">
           <h2 className="text-2xl font-semibold text-foreground">Player Reviews ({game.reviews.length})</h2>
-          <ReviewList reviews={game.reviews} />
+          <ReviewList reviews={game.reviews} currentUser={currentUser} gameId={game.id} onReviewDeleted={fetchGameData}/>
         </div>
         <div className="lg:col-span-1 space-y-8 sticky top-24 self-start"> 
-          <RatingForm gameId={game.id} onReviewSubmitted={fetchGameData} />
+          <RatingForm 
+            gameId={game.id} 
+            onReviewSubmitted={fetchGameData}
+            currentUser={currentUser}
+            // Pass existing review if found for edit mode (future enhancement)
+            // existingReview={userReview} 
+          />
           
           <Card className="shadow-md border border-border rounded-lg">
             <CardHeader>

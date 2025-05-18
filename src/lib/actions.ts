@@ -4,7 +4,7 @@
 import { revalidatePath } from 'next/cache';
 import { summarizeReviews } from '@/ai/flows/summarize-reviews';
 import type { BoardGame, Review, Rating, AiSummary, SummarizeReviewsInput, BggSearchResult } from './types';
-import { reviewFormSchema, type RatingFormValues } from '@/lib/validators'; // Import from new location
+import { reviewFormSchema, type RatingFormValues } from '@/lib/validators';
 import { db } from '@/lib/firebase';
 import {
   collection,
@@ -16,7 +16,9 @@ import {
   writeBatch,
   addDoc,
   query,
-  orderBy
+  orderBy,
+  where,
+  limit
 } from 'firebase/firestore';
 
 const BGG_API_BASE_URL = 'https://boardgamegeek.com/xmlapi2';
@@ -387,6 +389,7 @@ export async function getGameDetails(gameId: string): Promise<BoardGame | null> 
           return {
             id: reviewDoc.id,
             author: reviewData.author || 'Unknown Author',
+            userId: reviewData.userId || 'unknown_user_id', // Add userId
             rating: reviewData.rating as Rating || { feeling: 0, gameDesign: 0, presentation: 0, management: 0 },
             comment: reviewData.comment || '',
             date: reviewData.date || new Date().toISOString(),
@@ -425,10 +428,15 @@ export async function getGameDetails(gameId: string): Promise<BoardGame | null> 
 export async function submitNewReviewAction(
   gameId: string,
   prevState: any,
-  data: RatingFormValues
+  data: RatingFormValues & { userId?: string } // userId is now optional in payload
 ): Promise<{ message: string; errors?: Record<string, string[]>; success: boolean }> {
-  // Server-side validation using the imported schema
-  const validatedFields = reviewFormSchema.safeParse(data);
+  const { userId, ...reviewData } = data;
+
+  if (!userId) {
+    return { message: 'User not authenticated. Please log in to submit a review.', success: false };
+  }
+
+  const validatedFields = reviewFormSchema.safeParse(reviewData);
 
   if (!validatedFields.success) {
     return { message: "Failed to submit review due to validation errors.", errors: validatedFields.error.flatten().fieldErrors, success: false };
@@ -438,37 +446,79 @@ export async function submitNewReviewAction(
   const rating: Rating = { feeling, gameDesign, presentation, management };
 
   try {
-    console.log(`[SUBMITREVIEW] Checking if game exists: ${gameId}`);
     const gameDocRef = doc(db, FIRESTORE_COLLECTION_NAME, gameId);
     const gameDocSnap = await getDoc(gameDocRef);
     if (!gameDocSnap.exists()) {
-      console.error(`[SUBMITREVIEW] Game not found: ${gameId}`);
       return { message: 'Failed to submit review: Game not found.', success: false };
     }
-    console.log(`[SUBMITREVIEW] Game found. Adding review for ${gameId}`);
 
     const reviewsCollectionRef = collection(db, FIRESTORE_COLLECTION_NAME, gameId, 'reviews');
+    
+    // Check if user already submitted a review for this game
+    const existingReviewQuery = query(reviewsCollectionRef, where("userId", "==", userId), limit(1));
+    const existingReviewSnapshot = await getDocs(existingReviewQuery);
+    if (!existingReviewSnapshot.empty) {
+        return { message: 'You have already submitted a review for this game.', success: false };
+    }
+
     const newReviewData = {
       author,
+      userId, // Store the authenticated user's ID
       rating,
       comment,
       date: new Date().toISOString(),
     };
 
     await addDoc(reviewsCollectionRef, newReviewData);
-    console.log(`[SUBMITREVIEW] Review added successfully to Firestore for game ${gameId}`);
 
     revalidatePath(`/games/${gameId}`);
     revalidatePath('/');
     revalidatePath('/collection');
-    return { message: 'Review submitted successfully to database!', success: true };
+    return { message: 'Review submitted successfully!', success: true };
 
   } catch (error) {
-    console.error("[SUBMITREVIEW] Error submitting review to Firestore:", error);
+    console.error("Error submitting review to Firestore:", error);
     const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
-    return { message: `Failed to submit review to database: ${errorMessage}`, success: false };
+    return { message: `Failed to submit review: ${errorMessage}`, success: false };
   }
 }
+
+export async function deleteReviewAction(
+  gameId: string,
+  reviewId: string,
+  requestingUserId: string
+): Promise<{ success: boolean; message: string }> {
+  if (!requestingUserId) {
+    return { success: false, message: 'User not authenticated.' };
+  }
+
+  try {
+    const reviewDocRef = doc(db, FIRESTORE_COLLECTION_NAME, gameId, 'reviews', reviewId);
+    const reviewDocSnap = await getDoc(reviewDocRef);
+
+    if (!reviewDocSnap.exists()) {
+      return { success: false, message: 'Review not found.' };
+    }
+
+    const reviewData = reviewDocSnap.data();
+    if (reviewData.userId !== requestingUserId) {
+      return { success: false, message: 'You are not authorized to delete this review.' };
+    }
+
+    await deleteDoc(reviewDocRef);
+
+    revalidatePath(`/games/${gameId}`);
+    revalidatePath('/');
+    revalidatePath('/collection');
+    return { success: true, message: 'Review deleted successfully.' };
+
+  } catch (error) {
+    console.error("Error deleting review from Firestore:", error);
+    const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+    return { success: false, message: `Failed to delete review: ${errorMessage}` };
+  }
+}
+
 
 export async function generateAiSummaryAction(gameId: string): Promise<AiSummary | { error: string }> {
   const game = await getGameDetails(gameId);
@@ -510,11 +560,10 @@ async function fetchWithRetry(url: string, retries = 3, delay = 1500, attempt = 
         const response = await fetch(url, { cache: 'no-store' });
         // console.log(`[BGG Fetch Attempt ${attempt}/${retries}] URL: ${url.substring(0,100)}..., Status: ${response.status}`);
 
-
         if (response.status === 200) {
             const xmlText = await response.text();
             if (!xmlText.includes('<items') && !xmlText.includes("<item ") && attempt < retries) { 
-                 console.warn(`BGG API (200 OK) but potentially incomplete XML (no <items> or <item> tag). Retrying in ${delay / 1000}s... Content (first 200 chars): ${xmlText.substring(0,200)}`);
+                 // console.warn(`BGG API (200 OK) but potentially incomplete XML (no <items> or <item> tag). Retrying in ${delay / 1000}s... Content (first 200 chars): ${xmlText.substring(0,200)}`);
                  await new Promise(resolve => setTimeout(resolve, delay));
                  return fetchWithRetry(url, retries, Math.min(delay * 2, 30000), attempt + 1);
             }
@@ -535,7 +584,7 @@ async function fetchWithRetry(url: string, retries = 3, delay = 1500, attempt = 
     } catch (error) {
         console.error(`Error on BGG fetch attempt ${attempt}: ${error instanceof Error ? error.message : String(error)}`);
         if (attempt < retries) {
-            console.warn(`Retrying BGG fetch in ${delay / 1000}s... (Attempt ${attempt}/${retries})`);
+            // console.warn(`Retrying BGG fetch in ${delay / 1000}s... (Attempt ${attempt}/${retries})`);
             await new Promise(resolve => setTimeout(resolve, delay));
             return fetchWithRetry(url, retries, Math.min(delay * 2, 30000), attempt + 1);
         }

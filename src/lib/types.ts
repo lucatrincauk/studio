@@ -17,7 +17,8 @@ export interface Rating {
 
 export interface Review {
   id: string;
-  author: string;
+  author: string; // Display name chosen by the user
+  userId: string; // Firebase Auth UID of the user who wrote the review
   rating: Rating;
   comment: string;
   date: string; // ISO date string
@@ -46,3 +47,4 @@ export interface BggSearchResult {
   yearPublished?: number;
   rank: number;
 }
+
