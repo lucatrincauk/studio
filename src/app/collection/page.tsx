@@ -202,7 +202,7 @@ export default function CollectionPage() {
             <CardHeader className="p-0">
               <div className="relative w-full h-48">
                 <Image
-                  src={game.coverArtUrl}
+                  src={game.coverArtUrl || `https://placehold.co/200x300.png?text=${encodeURIComponent(game.name?.substring(0,10) || 'N/A')}`}
                   alt={`${game.name} cover art`}
                   fill
                   sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
