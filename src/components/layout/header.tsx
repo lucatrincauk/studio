@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { List, LogOut, UserPlus, LogIn, BarChart3 } from 'lucide-react';
+import { List, LogOut, UserPlus, LogIn, BarChart3, MessagesSquare } from 'lucide-react'; // Added MessagesSquare
 import { useAuth } from '@/contexts/auth-context';
 import {
   DropdownMenu,
@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"; // Added AvatarImage back
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 
 export function Header() {
@@ -28,12 +28,21 @@ export function Header() {
     <header className="bg-primary text-primary-foreground sticky top-0 z-50 shadow-md">
       <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link href="/" className="flex items-center gap-2 transition-opacity hover:opacity-80">
-          <BarChart3 className="h-8 w-8" /> {/* Changed icon */}
+          <BarChart3 className="h-8 w-8" />
           <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Punteggiometro</h1>
         </Link>
         
         <nav>
-          <ul className="flex items-center gap-4">
+          <ul className="flex items-center gap-2 sm:gap-4">
+            <li>
+              <Link 
+                href="/reviews" 
+                className="flex items-center gap-1.5 text-sm font-medium transition-opacity hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-accent rounded-md px-2 py-1"
+              >
+                <MessagesSquare size={18} />
+                All Reviews
+              </Link>
+            </li>
             <li>
               <Link 
                 href="/collection" 
@@ -69,11 +78,6 @@ export function Header() {
                         </p>
                       </div>
                     </DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    {/* Add more items like "Profile", "Settings" here if needed */}
-                    {/* <DropdownMenuItem asChild>
-                      <Link href="/profile">Profile</Link>
-                    </DropdownMenuItem> */}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
                       <LogOut className="mr-2 h-4 w-4" />

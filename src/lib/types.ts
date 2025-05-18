@@ -44,10 +44,16 @@ export interface Review {
   id: string;
   author: string;
   userId: string;
-  authorPhotoURL?: string | null; // Added
+  authorPhotoURL?: string | null;
   rating: Rating;
   comment: string;
   date: string; // ISO date string
+}
+
+export interface AugmentedReview extends Review {
+  gameId: string;
+  gameName: string;
+  gameCoverArtUrl?: string;
 }
 
 export interface BoardGame {
