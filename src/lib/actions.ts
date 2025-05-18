@@ -76,8 +76,13 @@ function getPrimaryNameValue(nameElements: { type?: string | null; value?: strin
     if (!primaryName && nameElements[0] && nameElements[0].value && nameElements[0].value.trim()) {
         primaryName = decodeHtmlEntities(nameElements[0].value.trim());
     }
-    return primaryName || "Name Not Found in Details";
+    
+    if (!primaryName || primaryName.trim() === "") {
+        return "Name Not Found in Details";
+    }
+    return primaryName;
 }
+
 
 async function parseRankFromThingXml(xmlText: string): Promise<number> {
     const rankMatch = /<rank\s+type="subtype"\s+name="boardgame"\s+(?:bayesaverage="[^"]*"\s+)?value="(\d+)"(?:\s+friendlyname="[^"]*")?\s*\/?>/i.exec(xmlText);
@@ -291,10 +296,34 @@ export async function importAndRateBggGameAction(bggId: string): Promise<{ gameI
     if (isNaN(numericBggId)) return { error: 'Invalid BGG ID format.' };
 
     const existingGameId = `bgg-${bggId}`;
-    const existingMockGame = mockGames.find(game => game.id === existingGameId);
-    if (existingMockGame) { 
-        return { gameId: existingMockGame.id };
+    // Check Firestore first if it exists
+    try {
+        const gameDocRef = doc(db, FIRESTORE_COLLECTION_NAME, existingGameId);
+        const docSnap = await getDoc(gameDocRef);
+        if (docSnap.exists()) {
+             // Game exists in Firestore, potentially update mockGames in memory if needed
+            const firestoreGameData = docSnap.data() as Omit<BoardGame, 'id' | 'reviews'>;
+            const gameInMemory = mockGames.find(g => g.id === existingGameId);
+            if (!gameInMemory) {
+                mockGames.push({
+                    id: existingGameId,
+                    ...firestoreGameData,
+                    reviews: allMockReviews[existingGameId] || []
+                });
+            } else {
+                // Optionally update in-memory version if Firestore is more up-to-date
+                Object.assign(gameInMemory, firestoreGameData);
+            }
+            if (!allMockReviews[existingGameId]) {
+                allMockReviews[existingGameId] = [];
+            }
+            return { gameId: existingGameId };
+        }
+    } catch (dbError) {
+        console.warn(`Error checking Firestore for existing game ${existingGameId}:`, dbError);
+        // Proceed to fetch from BGG if Firestore check fails, but log it.
     }
+
 
     try {
         const thingResponseFetch = await fetch(`${BGG_API_BASE_URL}/thing?id=${numericBggId}&stats=1`);
@@ -321,11 +350,7 @@ export async function importAndRateBggGameAction(bggId: string): Promise<{ gameI
             bggId: numericBggId,
         };
 
-        mockGames.push(newGame); 
-        if (!allMockReviews[existingGameId]) { 
-            allMockReviews[existingGameId] = [];
-        }
-        
+        // Add to Firestore
         try {
             const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, newGame.id);
             await setDoc(gameRef, {
@@ -338,8 +363,21 @@ export async function importAndRateBggGameAction(bggId: string): Promise<{ gameI
                 playingTime: newGame.playingTime ?? null,
                 description: newGame.description ?? "No description available.",
             });
+            // Also update in-memory stores
+            const existingMockGameIndex = mockGames.findIndex(g => g.id === newGame.id);
+            if (existingMockGameIndex !== -1) {
+                mockGames[existingMockGameIndex] = newGame;
+            } else {
+                mockGames.push(newGame);
+            }
+            if (!allMockReviews[newGame.id]) { 
+                allMockReviews[newGame.id] = [];
+            }
+
         } catch (dbError) {
-            console.warn(`Failed to add game ${newGame.id} to Firestore during import:`, dbError);
+            console.error(`Failed to add game ${newGame.id} to Firestore during import:`, dbError);
+            // Return error so UI can reflect this
+            return { error: `Failed to save game to database: ${dbError instanceof Error ? dbError.message : String(dbError)}` };
         }
         
         revalidatePath('/'); 
@@ -355,19 +393,41 @@ export async function importAndRateBggGameAction(bggId: string): Promise<{ gameI
 }
 
 async function findGameById(gameId: string): Promise<BoardGame | undefined> {
+  // Prioritize Firestore fetch for single game details if mock is not sufficient
   const gameFromMocks = mockGames.find(g => g.id === gameId);
   if (gameFromMocks) {
-    return { ...gameFromMocks, reviews: allMockReviews[gameId] || gameFromMocks.reviews || [] };
+      // Ensure reviews are loaded from allMockReviews
+      gameFromMocks.reviews = allMockReviews[gameId] || gameFromMocks.reviews || [];
+      return gameFromMocks;
+  }
+  
+  // If not in mock, try fetching from Firestore
+  try {
+      const gameDocRef = doc(db, FIRESTORE_COLLECTION_NAME, gameId);
+      const docSnap = await getDoc(gameDocRef);
+      if (docSnap.exists()) {
+          const data = docSnap.data() as Omit<BoardGame, 'id' | 'reviews'>;
+          const game: BoardGame = {
+              id: gameId,
+              ...data,
+              reviews: allMockReviews[gameId] || [] // Attempt to load reviews from memory
+          };
+          // Update caches
+          mockGames.push(game);
+          if (!allMockReviews[gameId]) {
+              allMockReviews[gameId] = [];
+          }
+          return game;
+      }
+  } catch (error) {
+      console.error(`Error fetching game ${gameId} from Firestore:`, error);
   }
   return undefined;
 }
 
 export async function getGameDetails(gameId: string): Promise<BoardGame | null> {
-  const game = mockGames.find(g => g.id === gameId);
-  if (!game) {
-    return null;
-  }
-  return { ...game, reviews: allMockReviews[gameId] || [] };
+  const game = await findGameById(gameId);
+  return game || null;
 }
 
 const reviewSchema = z.object({
@@ -396,6 +456,9 @@ export async function submitNewReviewAction(gameId: string, prevState: any, form
   
   const { author, feeling, gameDesign, presentation, management, comment } = validatedFields.data;
   const rating: Rating = { feeling, gameDesign, presentation, management };
+  
+  // Note: Reviews are currently only stored in memory (allMockReviews and mockGames).
+  // For persistence, reviews should be saved to Firestore, likely in a subcollection of the game.
   const addedReview = addReviewToMockGame(gameId, { rating, comment, author });
 
   if (addedReview) {
@@ -404,7 +467,22 @@ export async function submitNewReviewAction(gameId: string, prevState: any, form
     revalidatePath('/collection');
     return { message: 'Review submitted successfully!', success: true };
   } else {
-    return { message: 'Failed to submit review: Game not found in local data store.', success: false };
+    // This else branch might be hit if addReviewToMockGame returns null,
+    // which happens if the gameId is not found in mockGames.
+    // Ensure findGameById or similar is called to load the game into mockGames if necessary.
+    const gameExists = await findGameById(gameId);
+    if (!gameExists) {
+        return { message: 'Failed to submit review: Game not found.', success: false };
+    }
+    // Retry adding if game was just loaded
+    const retryAddedReview = addReviewToMockGame(gameId, { rating, comment, author });
+    if (retryAddedReview) {
+        revalidatePath(`/games/${gameId}`);
+        revalidatePath('/');
+        revalidatePath('/collection');
+        return { message: 'Review submitted successfully!', success: true };
+    }
+    return { message: 'Failed to submit review: Could not add review to game data.', success: false };
   }
 }
 
@@ -435,21 +513,24 @@ export async function generateAiSummaryAction(gameId: string): Promise<AiSummary
 }
 
 export async function getAllGamesAction(): Promise<BoardGame[]> {
-  return Promise.resolve(
-    mockGames.map(game => ({
-      ...game,
-      reviews: allMockReviews[game.id] || game.reviews || [], 
-    }))
-  );
+  const result = await getBoardGamesFromFirestoreAction();
+  if ('error' in result) {
+    console.error("getAllGamesAction: Failed to fetch games from Firestore -", result.error);
+    return []; // Return empty array on error
+  }
+  // getBoardGamesFromFirestoreAction already updates mockGames and allMockReviews with Firestore data
+  return result;
 }
 
 
 async function fetchWithRetry(url: string, retries = 5, delay = 1000, attempt = 1): Promise<string> {
     try {
         const response = await fetch(url, { cache: 'no-store' }); 
+        console.log(`[FETCH ATTEMPT ${attempt}] URL: ${url}, Status: ${response.status}`);
 
         if (response.status === 200) {
             const xmlText = await response.text();
+            // console.log(`[FETCH SUCCESS] XML (first 2000 chars):`, xmlText.substring(0, 2000));
             if (!xmlText.includes('<items')) { 
                  if (attempt < retries) {
                     console.warn(`BGG API returned 200 OK but no <items> tag found. Retrying in ${delay / 1000}s... (Attempt ${attempt + 1}/${retries})`);
@@ -482,14 +563,15 @@ async function fetchWithRetry(url: string, retries = 5, delay = 1000, attempt = 
 
 
 export async function fetchBggUserCollectionAction(username: string): Promise<BoardGame[] | { error: string }> {
+    console.log(`[SERVER ACTION ENTRY] fetchBggUserCollectionAction called for username: ${username}`);
     try {
         const url = `${BGG_API_BASE_URL}/collection?username=${username}&own=1&excludesubtype=boardgameexpansion`;        
         const collectionXml = await fetchWithRetry(url);
         const games = await parseBggCollectionXml(collectionXml);
+        console.log(`[SERVER ACTION] Parsed ${games.length} games from BGG collection for ${username}.`);
         return games;
-
     } catch (error) {
-        console.error(`Error fetching or parsing BGG collection for ${username}:`, error);
+        console.error(`[SERVER ACTION ERROR] Error fetching or parsing BGG collection for ${username}:`, error);
         const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred while fetching BGG collection.';
         return { error: errorMessage };
     }
@@ -512,16 +594,26 @@ export async function getBoardGamesFromFirestoreAction(): Promise<BoardGame[] | 
                 maxPlayers: data.maxPlayers,
                 playingTime: data.playingTime,
                 description: data.description || "No description.",
-                reviews: data.reviews || [], 
+                reviews: [], // Reviews are managed by allMockReviews for now
             });
         });
+        
+        // Update in-memory stores
         mockGames.length = 0; 
         mockGames.push(...games); 
         games.forEach(game => {
+            // Initialize reviews in allMockReviews if not present
             if (!allMockReviews[game.id]) { 
                 allMockReviews[game.id] = [];
             }
+            // Ensure the game object in mockGames also points to the correct review array
+            const mockGameInstance = mockGames.find(mg => mg.id === game.id);
+            if (mockGameInstance) {
+                mockGameInstance.reviews = allMockReviews[game.id];
+            }
         });
+        
+        console.log(`Fetched ${games.length} games from Firestore and updated in-memory stores.`);
         return games;
     } catch (error) {
         console.error('Error fetching games from Firestore:', error);
@@ -572,6 +664,9 @@ export async function syncBoardGamesToFirestoreAction(
             await batch.commit();
         }
         
+        // After syncing, reload data from Firestore to update in-memory stores
+        await getBoardGamesFromFirestoreAction();
+
         revalidatePath('/collection'); 
         revalidatePath('/'); 
         return { success: true, message: `Sync complete. ${gamesToAdd.length} games added/updated, ${gamesToRemove.length} games removed.` };
