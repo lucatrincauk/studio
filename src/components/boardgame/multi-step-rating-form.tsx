@@ -259,10 +259,10 @@ export function MultiStepRatingForm({
 
   return (
     <Form {...form}>
-      <form className="space-y-8">
+      <form>
         {/* Generic Step Header (for steps 1-4) */}
         {currentStep <= totalInputSteps && (
-          <div className="mb-4"> {/* Reduced margin-bottom here */}
+          <div className="mb-4">
             <div className="flex justify-between items-center">
               <h3 className="text-xl font-semibold">{getCurrentStepTitle()} - Step {currentStep} / {totalInputSteps}</h3>
             </div>
@@ -290,7 +290,7 @@ export function MultiStepRatingForm({
         )}
 
 
-        <div className="min-h-[300px] sm:min-h-[350px]">
+        <div className="min-h-[240px] sm:min-h-[280px]">
           {currentStep === 1 && (
             <div className="space-y-6 animate-fadeIn">
               {(stepCategories[0] as RatingCategory[]).map((fieldName) => (
@@ -414,12 +414,12 @@ export function MultiStepRatingForm({
         </div>
 
         {formError && (
-            <div className="p-3 bg-destructive/10 border border-destructive text-destructive text-sm rounded-md flex items-center gap-2">
+            <div className="p-3 bg-destructive/10 border border-destructive text-destructive text-sm rounded-md flex items-center gap-2 mt-4">
                 <AlertCircle size={16} /> {formError}
             </div>
         )}
 
-        <div className={`flex ${currentStep > 1 && currentStep <= totalInputSteps ? 'justify-between' : 'justify-end'} items-center pt-4 border-t`}>
+        <div className={`flex ${currentStep > 1 && currentStep <= totalInputSteps ? 'justify-between' : 'justify-end'} items-center pt-4 border-t mt-6`}>
           {currentStep > 1 && currentStep <= totalInputSteps && ( // Show Previous button for steps 2, 3, 4
             <Button
               type="button"
@@ -467,4 +467,3 @@ export function MultiStepRatingForm({
     </Form>
   );
 }
-
