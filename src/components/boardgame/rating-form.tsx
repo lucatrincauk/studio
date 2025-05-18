@@ -22,10 +22,11 @@ import { RATING_CATEGORIES } from '@/lib/types';
 import { submitNewReviewAction } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-import { reviewFormSchema, type RatingFormValues } from '@/lib/validators'; // Import from new location
+import { reviewFormSchema, type RatingFormValues } from '@/lib/validators'; 
 
 interface RatingFormProps {
   gameId: string;
+  onReviewSubmitted?: () => void; // New prop
 }
 
 const initialState = {
@@ -34,7 +35,7 @@ const initialState = {
   success: false,
 };
 
-export function RatingForm({ gameId }: RatingFormProps) {
+export function RatingForm({ gameId, onReviewSubmitted }: RatingFormProps) {
   const [isActionPending, startTransition] = useTransition();
 
   const [serverActionState, formActionDispatcher] = useActionState(
@@ -70,6 +71,7 @@ export function RatingForm({ gameId }: RatingFormProps) {
           management: 1,
           comment: '',
         });
+        onReviewSubmitted?.(); // Call the callback on success
       } else {
         if (serverActionState.errors) {
           Object.entries(serverActionState.errors).forEach(([fieldName, errors]) => {
@@ -87,7 +89,7 @@ export function RatingForm({ gameId }: RatingFormProps) {
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [serverActionState, toast]);
+  }, [serverActionState, toast, onReviewSubmitted]); // form removed from deps, onReviewSubmitted added
 
 
   const ratingCategories: RatingCategory[] = ['feeling', 'gameDesign', 'presentation', 'management'];

@@ -5,25 +5,23 @@ import { useEffect, useState, useTransition, useCallback, use } from 'react';
 import Image from 'next/image';
 import { getGameDetails, generateAiSummaryAction } from '@/lib/actions';
 import type { BoardGame, AiSummary } from '@/lib/types';
-// import { StarRating } from '@/components/boardgame/star-rating'; // Removed
 import { ReviewList } from '@/components/boardgame/review-list';
 import { RatingForm } from '@/components/boardgame/rating-form';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-// import { calculateAverageRating } from '@/lib/utils'; // Removed
 import { AlertCircle, Loader2, Wand2, Info, CalendarDays, Users, Clock, Tags } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 interface GameDetailPageProps {
-  params: Promise<{ // Updated: params is a Promise
+  params: Promise<{ 
     gameId: string;
   }>;
 }
 
 export default function GameDetailPage({ params: paramsPromise }: GameDetailPageProps) {
-  const params = use(paramsPromise); // Unwrap the Promise
-  const { gameId } = params; // Access gameId from resolved params
+  const params = use(paramsPromise); 
+  const { gameId } = params; 
 
   const [game, setGame] = useState<BoardGame | null>(null);
   const [aiSummary, setAiSummary] = useState<AiSummary | null>(null);
@@ -78,22 +76,21 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
     );
   }
 
-  // const averageRating = calculateAverageRating(game); // Removed
 
   return (
     <div className="space-y-10">
       <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
-        <div className="flex flex-row"> {/* Main container for info and image */}
-          {/* Game Info Section (Now on the left) */}
-          <div className="flex-1 p-3 space-y-3"> {/* Adjusted padding and spacing */}
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">{game.name}</h1> {/* Responsive font size */}
+        <div className="flex flex-row"> 
+          
+          <div className="flex-1 p-3 space-y-3"> 
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">{game.name}</h1> 
             
-            {/* Game Details section removed */}
+            
             
           </div>
 
-          {/* Image Section (Now on the right) */}
-          <div className="w-1/3 p-2 flex-shrink-0"> {/* Adjusted width and padding for all screens */}
+          
+          <div className="w-1/3 p-2 flex-shrink-0"> 
             <div className="relative aspect-[3/4] w-full rounded-md overflow-hidden shadow-md">
               <Image
                 src={game.coverArtUrl || `https://placehold.co/400x600.png?text=${encodeURIComponent(game.name?.substring(0,15) || 'N/A')}`}
@@ -117,8 +114,8 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
           <h2 className="text-2xl font-semibold text-foreground">Player Reviews ({game.reviews.length})</h2>
           <ReviewList reviews={game.reviews} />
         </div>
-        <div className="lg:col-span-1 space-y-8 sticky top-24 self-start"> {/* Sticky sidebar for form and summary */}
-          <RatingForm gameId={game.id} />
+        <div className="lg:col-span-1 space-y-8 sticky top-24 self-start"> 
+          <RatingForm gameId={game.id} onReviewSubmitted={fetchGameData} />
           
           <Card className="shadow-md border border-border rounded-lg">
             <CardHeader>
@@ -167,6 +164,4 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
   );
 }
 
-// Force dynamic rendering to ensure data is fresh, especially after review submissions
 export const dynamic = 'force-dynamic';
-
