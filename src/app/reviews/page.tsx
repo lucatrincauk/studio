@@ -7,7 +7,7 @@ import type { AugmentedReview } from '@/lib/types';
 import { ReviewItem } from '@/components/boardgame/review-item';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import Link from 'next/link';
-import Image from 'next/image'; // Import Next Image
+import Image from 'next/image';
 import { MessageSquareText, Loader2, Info, UserCircle2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { calculateOverallCategoryAverage } from '@/lib/utils';
@@ -24,7 +24,7 @@ interface UserFilterOption {
 }
 
 interface GameFilterOption {
-  id: string; // Add gameId for unique key
+  id: string;
   name: string;
   coverArtUrl?: string | null;
 }
@@ -69,7 +69,7 @@ export default function AllReviewsPage() {
   const uniqueGames: GameFilterOption[] = useMemo(() => {
     const gamesMap = new Map<string, GameFilterOption>();
     allReviews.forEach(review => {
-      if (review.gameName && !gamesMap.has(review.gameId)) { // Use gameId as key
+      if (review.gameName && !gamesMap.has(review.gameId)) {
         gamesMap.set(review.gameId, { id: review.gameId, name: review.gameName, coverArtUrl: review.gameCoverArtUrl });
       }
     });
@@ -80,17 +80,14 @@ export default function AllReviewsPage() {
   const filteredAndSortedReviews = useMemo(() => {
     let reviewsToDisplay = [...allReviews];
 
-    // Filter by user
     if (selectedUser !== 'all') {
       reviewsToDisplay = reviewsToDisplay.filter(review => review.author === selectedUser);
     }
 
-    // Filter by game
     if (selectedGame !== 'all') {
-      reviewsToDisplay = reviewsToDisplay.filter(review => review.gameId === selectedGame); // Filter by gameId
+      reviewsToDisplay = reviewsToDisplay.filter(review => review.gameId === selectedGame);
     }
 
-    // Sort
     switch (sortOrder) {
       case 'mostRecent':
         reviewsToDisplay.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -102,19 +99,30 @@ export default function AllReviewsPage() {
         reviewsToDisplay.sort((a, b) => {
           const ratingA = calculateOverallCategoryAverage(a.rating);
           const ratingB = calculateOverallCategoryAverage(b.rating);
-          return ratingB - ratingA; // Descending for highest
+          return ratingB - ratingA;
         });
         break;
       case 'lowestRated':
         reviewsToDisplay.sort((a, b) => {
           const ratingA = calculateOverallCategoryAverage(a.rating);
           const ratingB = calculateOverallCategoryAverage(b.rating);
-          return ratingA - ratingB; // Ascending for lowest
+          return ratingA - ratingB;
         });
         break;
     }
     return reviewsToDisplay;
   }, [allReviews, selectedUser, selectedGame, sortOrder]);
+
+  const reviewsByGame = useMemo(() => {
+    const grouped: Record<string, AugmentedReview[]> = {};
+    filteredAndSortedReviews.forEach(review => {
+      if (!grouped[review.gameId]) {
+        grouped[review.gameId] = [];
+      }
+      grouped[review.gameId].push(review);
+    });
+    return grouped;
+  }, [filteredAndSortedReviews]);
 
   if (isLoading) {
     return (
@@ -143,7 +151,6 @@ export default function AllReviewsPage() {
   
   const hasActiveFilters = selectedUser !== 'all' || selectedGame !== 'all' || sortOrder !== 'mostRecent';
 
-
   return (
     <div className="space-y-8">
       <Card className="shadow-lg border border-border rounded-lg">
@@ -166,7 +173,7 @@ export default function AllReviewsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   {uniqueGames.map(game => (
-                    <SelectItem key={game.id} value={game.id}> {/* Use game.id as value */}
+                    <SelectItem key={game.id} value={game.id}>
                       <div className="flex items-center gap-2">
                         {game.name === 'all' ? (
                           <span>All Games</span>
@@ -174,12 +181,13 @@ export default function AllReviewsPage() {
                           <>
                             <div className="relative h-6 w-6 flex-shrink-0">
                               <Image
-                                src={game.coverArtUrl || `https://placehold.co/40x40.png?text=${game.name.substring(0,1)}`}
+                                src={game.coverArtUrl || `https://placehold.co/40x40.png`}
                                 alt={`${game.name} cover`}
                                 fill
                                 sizes="24px"
                                 className="object-cover rounded-sm"
                                 data-ai-hint="game cover"
+                                onError={(e) => { e.currentTarget.src = `https://placehold.co/40x40.png`; }}
                               />
                             </div>
                             <span>{game.name}</span>
@@ -251,7 +259,7 @@ export default function AllReviewsPage() {
         Displaying {filteredAndSortedReviews.length} of {allReviews.length} reviews
       </div>
 
-      {filteredAndSortedReviews.length === 0 ? (
+      {Object.keys(reviewsByGame).length === 0 ? (
          <Alert variant="default" className="bg-secondary/30 border-secondary">
             <Info className="h-4 w-4" />
             <AlertTitle>No Reviews Found</AlertTitle>
@@ -263,38 +271,43 @@ export default function AllReviewsPage() {
             </AlertDescription>
         </Alert>
       ) : (
-        <div className="space-y-6">
-          {filteredAndSortedReviews.map((review) => (
-            <Card key={`${review.gameId}-${review.id}`} className="overflow-hidden shadow-md border border-border rounded-lg">
-              <CardHeader className="bg-muted/30 p-3 flex flex-row items-center gap-3">
-                <Link href={`/games/${review.gameId}`} className="flex items-center gap-3 hover:opacity-80 transition-opacity w-full">
-                  <div className="relative h-16 w-12 flex-shrink-0 rounded-sm overflow-hidden shadow-sm">
-                    <Image
-                      src={review.gameCoverArtUrl || `https://placehold.co/80x120.png?text=${review.gameName?.substring(0,3) || 'N/A'}`}
-                      alt={`${review.gameName || 'Game'} cover art`}
-                      fill
-                      sizes="48px"
-                      className="object-cover"
-                      data-ai-hint={`board game ${review.gameName?.split(' ')[0]?.toLowerCase() || 'mini'}`}
-                      onError={(e) => { e.currentTarget.src = `https://placehold.co/80x120.png?text=${review.gameName?.substring(0,3) || 'N/A'}`; }}
-                    />
-                  </div>
-                  <div className="flex-grow">
-                    <h3 className="text-md font-semibold text-primary leading-tight">
-                      {review.gameName}
-                    </h3>
-                    <p className="text-xs text-muted-foreground">View Game Details</p>
-                  </div>
-                </Link>
-              </CardHeader>
-              <CardContent className="p-4">
-                <ReviewItem review={review} /> 
-              </CardContent>
-            </Card>
-          ))}
+        <div className="space-y-8">
+          {Object.entries(reviewsByGame).map(([gameId, gameReviews]) => {
+            if (!gameReviews || gameReviews.length === 0) return null;
+            const firstReviewForGame = gameReviews[0]; // Used to get game details for the header
+            return (
+              <Card key={gameId} className="overflow-hidden shadow-lg border border-border rounded-lg">
+                <CardHeader className="bg-muted/30 p-3 flex flex-row items-center gap-3">
+                  <Link href={`/games/${firstReviewForGame.gameId}`} className="flex items-center gap-3 hover:opacity-80 transition-opacity w-full">
+                    <div className="relative h-16 w-12 flex-shrink-0 rounded-sm overflow-hidden shadow-sm">
+                      <Image
+                        src={firstReviewForGame.gameCoverArtUrl || `https://placehold.co/80x120.png`}
+                        alt={`${firstReviewForGame.gameName || 'Game'} cover art`}
+                        fill
+                        sizes="48px"
+                        className="object-cover"
+                        data-ai-hint={`board game ${firstReviewForGame.gameName?.split(' ')[0]?.toLowerCase() || 'mini'}`}
+                        onError={(e) => { e.currentTarget.src = `https://placehold.co/80x120.png`; }}
+                      />
+                    </div>
+                    <div className="flex-grow">
+                      <h3 className="text-md font-semibold text-primary leading-tight">
+                        {firstReviewForGame.gameName}
+                      </h3>
+                      <p className="text-xs text-muted-foreground">View Game Details</p>
+                    </div>
+                  </Link>
+                </CardHeader>
+                <CardContent className="p-4 space-y-4">
+                  {gameReviews.map((review) => (
+                    <ReviewItem key={review.id} review={review} /> 
+                  ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>
   );
 }
-
