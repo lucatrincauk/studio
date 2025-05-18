@@ -13,7 +13,6 @@ const BGG_API_BASE_URL = 'https://boardgamegeek.com/xmlapi2';
 const FIRESTORE_COLLECTION_NAME = 'boardgames_collection';
 
 // --- Top-level Helper Functions for BGG XML Parsing ---
-// Moved decodeHtmlEntities and other parsing helpers to top-level
 function decodeHtmlEntities(text: string): string {
     if (typeof text !== 'string') return '';
     return text.replace(/&quot;/g, '"')
@@ -155,11 +154,19 @@ async function parseBggThingXmlToBoardGame(xmlText: string, bggIdInput: number):
 
 async function parseBggCollectionXml(xmlText: string): Promise<BoardGame[]> {
     const games: BoardGame[] = [];
-    // Relaxed regex: removed objecttype="thing" and made subtype optional in main item match
+    const processedBggIds = new Set<number>(); // Track processed BGG IDs
+    // Relaxed regex: made subtype optional in main item match
     const itemMatches = xmlText.matchAll(/<item[^>]*objectid="(\d+)"(?:[^>]*subtype="boardgame")?[^>]*>([\s\S]*?)<\/item>/gi);
 
     for (const itemMatch of itemMatches) {
         const bggId = parseInt(itemMatch[1], 10);
+        if (processedBggIds.has(bggId)) { // Skip if this BGG ID has already been processed
+            console.warn(`[parseBggCollectionXml] Duplicate BGG ID ${bggId} found in XML. Skipping.`);
+            continue;
+        }
+        processedBggIds.add(bggId); // Add BGG ID to set of processed IDs
+
+
         const itemContent = itemMatch[2];
 
         // Additional check: ensure subtype is boardgame if present
@@ -494,6 +501,8 @@ async function fetchWithRetry(url: string, retries = 5, delay = 1000, attempt = 
 
 // MINIMAL VERSION of fetchBggUserCollectionAction for testing
 export async function fetchBggUserCollectionAction(username: string): Promise<BoardGame[] | { error: string }> {
+    // console.log(`[SERVER ACTION EXECUTING - MINIMAL] fetchBggUserCollectionAction called for username: ${username}`);
+    // return [];
     console.log(`[SERVER ACTION ENTRY - fetchBggUserCollectionAction] Called for username: ${username}`);
     try {
         const url = `${BGG_API_BASE_URL}/collection?username=${username}&own=1&excludesubtype=boardgameexpansion`;
@@ -595,12 +604,15 @@ export async function syncBoardGamesToFirestoreAction(
         revalidatePath('/'); 
         return { success: true, message: `Sync complete. ${gamesToAdd.length} games added/updated, ${gamesToRemove.length} games removed.` };
 
-    } catch (error) {
+    } catch (error)
+     {
         console.error('Error syncing games to Firestore:', error);
         const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred during database sync.';
         return { success: false, message: 'Database sync failed.', error: errorMessage };
     }
 }
+    
+
     
 
     
