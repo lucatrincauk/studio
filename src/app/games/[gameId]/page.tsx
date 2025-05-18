@@ -3,8 +3,8 @@
 
 import { useEffect, useState, useTransition, useCallback, use } from 'react';
 import Image from 'next/image';
-import { getGameDetails, generateAiSummaryAction } from '@/lib/actions';
-import type { BoardGame, AiSummary, Review } from '@/lib/types'; // Added Review
+import { getGameDetails } from '@/lib/actions'; // Removed generateAiSummaryAction
+import type { BoardGame, AiSummary, Review } from '@/lib/types';
 import { ReviewList } from '@/components/boardgame/review-list';
 import { RatingForm } from '@/components/boardgame/rating-form';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Separator } from '@/components/ui/separator';
 import { AlertCircle, Loader2, Wand2, Info } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { useAuth } from '@/contexts/auth-context'; // Added useAuth
+import { useAuth } from '@/contexts/auth-context';
+import { summarizeReviews } from '@/ai/flows/summarize-reviews'; // Import summarizeReviews directly
 
 interface GameDetailPageProps {
   params: Promise<{ 
@@ -24,7 +25,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
   const params = use(paramsPromise); 
   const { gameId } = params; 
 
-  const { user: currentUser } = useAuth(); // Get current user
+  const { user: currentUser } = useAuth(); 
 
   const [game, setGame] = useState<BoardGame | null>(null);
   const [aiSummary, setAiSummary] = useState<AiSummary | null>(null);
@@ -32,11 +33,12 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
   const [isSummarizing, startSummaryTransition] = useTransition();
   const [summaryError, setSummaryError] = useState<string | null>(null);
   
-  // Find if current user has reviewed this game
   const [userReview, setUserReview] = useState<Review | undefined>(undefined);
 
   const fetchGameData = useCallback(async () => {
     setIsLoadingGame(true);
+    setSummaryError(null); // Clear previous summary errors on data refresh
+    // setAiSummary(null); // Optionally clear previous summary too
     const gameData = await getGameDetails(gameId);
     setGame(gameData);
     if (gameData && currentUser) {
@@ -46,7 +48,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
       setUserReview(undefined);
     }
     setIsLoadingGame(false);
-  }, [gameId, currentUser]); // Added currentUser to dependencies
+  }, [gameId, currentUser]); 
 
   useEffect(() => {
     fetchGameData();
@@ -58,11 +60,18 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
     setSummaryError(null);
     setAiSummary(null); 
     startSummaryTransition(async () => {
-      const result = await generateAiSummaryAction(game.id);
-      if ('error' in result) {
-        setSummaryError(result.error);
-      } else {
+      // const result = await generateAiSummaryAction(game.id); // Old way
+       const reviewComments = game.reviews?.map(r => r.comment).filter(Boolean) as string[] || [];
+      if (reviewComments.length === 0) {
+        setSummaryError("No review comments available to summarize.");
+        return;
+      }
+      try {
+        const result = await summarizeReviews({ gameName: game.name, reviews: reviewComments });
         setAiSummary(result);
+      } catch (error) {
+         const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred during summary generation.';
+         setSummaryError(errorMessage);
       }
     });
   };
@@ -96,11 +105,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
           
           <div className="flex-1 p-3 space-y-3"> 
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">{game.name}</h1> 
-            
-            
-            
           </div>
-
           
           <div className="w-1/3 p-2 flex-shrink-0"> 
             <div className="relative aspect-[3/4] w-full rounded-md overflow-hidden shadow-md">
@@ -131,8 +136,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
             gameId={game.id} 
             onReviewSubmitted={fetchGameData}
             currentUser={currentUser}
-            // Pass existing review if found for edit mode (future enhancement)
-            // existingReview={userReview} 
+            existingReview={userReview} 
           />
           
           <Card className="shadow-md border border-border rounded-lg">
@@ -145,7 +149,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
             <CardContent>
               <Button 
                 onClick={handleGenerateSummary} 
-                disabled={isSummarizing || game.reviews.length === 0} 
+                disabled={isSummarizing || !game.reviews || game.reviews.length === 0} 
                 className="w-full bg-primary hover:bg-primary/90 text-primary-foreground mb-3 transition-colors"
               >
                 {isSummarizing ? (
@@ -154,7 +158,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
                   'Generate Summary'
                 )}
               </Button>
-              {game.reviews.length === 0 && !isSummarizing && (
+              {(!game.reviews || game.reviews.length === 0) && !isSummarizing && (
                    <Alert variant="default" className="bg-secondary/30 border-secondary">
                     <Info className="h-4 w-4 text-secondary-foreground" />
                     <AlertDescription className="text-secondary-foreground">
@@ -183,3 +187,4 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
 }
 
 export const dynamic = 'force-dynamic';
+
