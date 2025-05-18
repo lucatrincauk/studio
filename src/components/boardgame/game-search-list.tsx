@@ -35,7 +35,7 @@ const debounce = <F extends (...args: any[]) => any>(func: F, waitFor: number) =
 
 export function GameSearchList({ initialGames }: GameSearchListProps) {
   const [searchTerm, setSearchTerm] = useState('');
-  const [displayedGames, setDisplayedGames] = useState<BoardGame[]>(initialGames);
+  const [localFilteredGames, setLocalFilteredGames] = useState<BoardGame[]>(initialGames);
   
   const [bggResults, setBggResults] = useState<BggSearchResult[]>([]);
   const [isLoadingBgg, setIsLoadingBgg] = useState(false);
@@ -68,34 +68,33 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
   const debouncedSearchBgg = useMemo(() => debounce(handleSearchBgg, 500), [handleSearchBgg]);
 
   useEffect(() => {
-    if (searchTerm.trim()) {
-      debouncedSearchBgg(searchTerm.trim());
+    const trimmedSearchTerm = searchTerm.toLowerCase().trim();
+
+    if (!trimmedSearchTerm) {
+      setLocalFilteredGames(initialGames); // Show all local games
+      setBggResults([]); // Clear BGG results
+      setBggError(null);
+      setIsLoadingBgg(false); // Ensure loading state is reset
+      return;
+    }
+
+    // Filter local games
+    const filtered = initialGames.filter(game =>
+      game.name.toLowerCase().includes(trimmedSearchTerm)
+    );
+    setLocalFilteredGames(filtered);
+
+    if (filtered.length === 0) {
+      // No local results, so search BGG
+      setBggResults([]); // Clear previous BGG results before new search to avoid showing stale BGG results while new ones load
+      debouncedSearchBgg(trimmedSearchTerm);
     } else {
-      // Clear BGG results and show local filtered games if search term is cleared
+      // Local results found, clear any BGG results/state as we won't show them
       setBggResults([]);
       setBggError(null);
       setIsLoadingBgg(false);
-      // Filter initialGames based on cleared search (effectively showing all initialGames)
-      setDisplayedGames(initialGames.filter(game =>
-        game.name.toLowerCase().includes(searchTerm.toLowerCase().trim())
-      ));
     }
   }, [searchTerm, initialGames, debouncedSearchBgg]);
-  
-  // Filter local games when search term is present but BGG search might not be active yet or no term
-   useEffect(() => {
-    if (!searchTerm.trim()) {
-      setDisplayedGames(initialGames);
-    } else {
-      // This local filtering is mostly for when the search term is cleared
-      // BGG results will typically override this display when searchTerm is active
-      setDisplayedGames(
-        initialGames.filter(game =>
-          game.name.toLowerCase().includes(searchTerm.toLowerCase().trim())
-        )
-      );
-    }
-  }, [searchTerm, initialGames]);
 
 
   const handleImportGame = async (bggId: string) => {
@@ -113,18 +112,11 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
           title: 'Game Added!',
           description: 'The game has been added to your collection.',
         });
-        // router.push(`/games/${result.gameId}`);
-        // Instead of direct navigation, let's revalidate and let user click if they want.
-        // Or, we can update the initialGames list if possible.
-        // For now, a simple refresh or re-fetch of initialGames would be needed to see it in the local list
-        // A full page navigation will refresh the data due to server components.
          router.push(`/games/${result.gameId}?imported=true`);
       }
       setIsImportingId(null);
     });
   };
-
-  const showBggResults = searchTerm.trim().length > 0;
 
   return (
     <div className="space-y-8">
@@ -132,7 +124,7 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
         <Search className="absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground pointer-events-none" />
         <Input
           type="search"
-          placeholder="Search local games or type to find on BoardGameGeek..."
+          placeholder="Search your games or find new ones on BoardGameGeek..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="w-full rounded-lg bg-background py-3 pl-11 pr-4 text-base shadow-sm border border-input focus:ring-2 focus:ring-primary/50 focus:border-primary"
@@ -140,62 +132,89 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
         />
       </div>
 
-      {isLoadingBgg && (
-        <div className="flex flex-col justify-center items-center py-10">
-          <Loader2 className="h-10 w-10 animate-spin text-primary" />
-          <p className="mt-3 text-muted-foreground">Searching BoardGameGeek...</p>
-        </div>
-      )}
-
-      {bggError && !isLoadingBgg && (
-        <Alert variant="destructive" className="max-w-lg mx-auto">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>BGG Search Error</AlertTitle>
-          <AlertDescription>{bggError}</AlertDescription>
-        </Alert>
-      )}
-
-      {showBggResults && !isLoadingBgg && !bggError && bggResults.length > 0 && (
-        <section>
-          <h3 className="text-xl font-semibold mb-4 text-foreground">BoardGameGeek Results ({bggResults.length})</h3>
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {bggResults.map((bggGame) => (
-              <BggSearchResultItem 
-                key={bggGame.bggId} 
-                result={bggGame} 
-                onAddGame={handleImportGame}
-                isAdding={isPendingImport && isImportingId === bggGame.bggId}
-              />
-            ))}
-          </div>
-        </section>
-      )}
-      
-      {showBggResults && !isLoadingBgg && !bggError && bggResults.length === 0 && searchTerm.trim().length > 0 && (
-         <Alert variant="default" className="max-w-lg mx-auto bg-secondary/30 border-secondary">
-          <Info className="h-4 w-4" />
-          <AlertTitle>No BGG Results</AlertTitle>
-          <AlertDescription>No games found on BoardGameGeek for "{searchTerm}". Try a different search term.</AlertDescription>
-        </Alert>
-      )}
-
-      {!showBggResults && displayedGames.length > 0 && (
-        <section>
-           <h3 className="text-xl font-semibold mb-4 text-foreground">Your Games ({displayedGames.length})</h3>
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
-            {displayedGames.map((game) => (
-              <GameCard key={game.id} game={game} />
-            ))}
-          </div>
-        </section>
-      )}
-      
-      {!showBggResults && displayedGames.length === 0 && (
-         <Alert variant="default" className="max-w-lg mx-auto bg-secondary/30 border-secondary">
-          <Info className="h-4 w-4" />
-          <AlertTitle>No Local Games</AlertTitle>
-          <AlertDescription>No games found in your collection. Try searching on BoardGameGeek to add some!</AlertDescription>
-        </Alert>
+      {/* Case 1: Search term is active */}
+      {searchTerm.trim().length > 0 ? (
+        <>
+          {/* Subcase 1.1: Local results found */}
+          {localFilteredGames.length > 0 ? (
+            <section>
+              <h3 className="text-xl font-semibold mb-4 text-foreground">
+                Matching Your Games ({localFilteredGames.length})
+              </h3>
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
+                {localFilteredGames.map((game) => (
+                  <GameCard key={game.id} game={game} />
+                ))}
+              </div>
+            </section>
+          ) : (
+            <>
+              {/* Subcase 1.2: No local results found, so BGG search interface is shown */}
+              {isLoadingBgg && (
+                <div className="flex flex-col justify-center items-center py-10">
+                  <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                  <p className="mt-3 text-muted-foreground">Searching BoardGameGeek for "{searchTerm}"...</p>
+                </div>
+              )}
+              {bggError && !isLoadingBgg && (
+                <Alert variant="destructive" className="max-w-lg mx-auto">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>BGG Search Error</AlertTitle>
+                  <AlertDescription>{bggError}</AlertDescription>
+                </Alert>
+              )}
+              
+              {!isLoadingBgg && !bggError && bggResults.length > 0 && (
+                <section>
+                  <h3 className="text-xl font-semibold mb-4 text-foreground">
+                    BoardGameGeek Results ({bggResults.length})
+                  </h3>
+                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                    {bggResults.map((bggGame) => (
+                      <BggSearchResultItem 
+                        key={bggGame.bggId} 
+                        result={bggGame} 
+                        onAddGame={handleImportGame}
+                        isAdding={isPendingImport && isImportingId === bggGame.bggId}
+                      />
+                    ))}
+                  </div>
+                </section>
+              )}
+              
+              {/* Subcase 1.2.1: No results from BGG either (and not loading and no error) */}
+              {!isLoadingBgg && !bggError && bggResults.length === 0 && (
+                 <Alert variant="default" className="max-w-lg mx-auto bg-secondary/30 border-secondary">
+                  <Info className="h-4 w-4" />
+                  <AlertTitle>No Results Found</AlertTitle>
+                  <AlertDescription>No games found locally or on BoardGameGeek for "{searchTerm}".</AlertDescription>
+                </Alert>
+              )}
+            </>
+          )}
+        </>
+      ) : (
+        <>
+          {/* Case 2: Search term is INACTIVE (empty) */}
+          {initialGames.length > 0 ? (
+            <section>
+              <h3 className="text-xl font-semibold mb-4 text-foreground">
+                Your Games ({initialGames.length})
+              </h3>
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
+                {initialGames.map((game) => (
+                  <GameCard key={game.id} game={game} />
+                ))}
+              </div>
+            </section>
+          ) : (
+            <Alert variant="default" className="max-w-lg mx-auto bg-secondary/30 border-secondary">
+              <Info className="h-4 w-4" />
+              <AlertTitle>No Games in Collection</AlertTitle>
+              <AlertDescription>Your collection is empty. Try searching on BoardGameGeek to add new games!</AlertDescription>
+            </Alert>
+          )}
+        </>
       )}
     </div>
   );
