@@ -4,8 +4,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, useFormContext } from 'react-hook-form';
-import { useActionState, useEffect, useTransition } from 'react'; // Added useTransition
-import { z } from 'zod';
+import { useActionState, useEffect, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -23,18 +22,7 @@ import { RATING_CATEGORIES } from '@/lib/types';
 import { submitNewReviewAction } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-
-// Export schema and type for use in actions.ts
-export const formSchema = z.object({
-  author: z.string().min(2, "Name must be at least 2 characters.").max(50, "Name cannot exceed 50 characters."),
-  feeling: z.coerce.number().min(1, "Rating is required").max(5),
-  gameDesign: z.coerce.number().min(1, "Rating is required").max(5),
-  presentation: z.coerce.number().min(1, "Rating is required").max(5),
-  management: z.coerce.number().min(1, "Rating is required").max(5),
-  comment: z.string().min(5, "Comment must be at least 5 characters.").max(500, "Comment cannot exceed 500 characters."),
-});
-
-export type RatingFormValues = z.infer<typeof formSchema>;
+import { reviewFormSchema, type RatingFormValues } from '@/lib/validators'; // Import from new location
 
 interface RatingFormProps {
   gameId: string;
@@ -56,7 +44,7 @@ export function RatingForm({ gameId }: RatingFormProps) {
   const { toast } = useToast();
 
   const form = useForm<RatingFormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(reviewFormSchema),
     defaultValues: {
       author: '',
       feeling: 1,

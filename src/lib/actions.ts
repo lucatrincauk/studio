@@ -3,10 +3,8 @@
 
 import { revalidatePath } from 'next/cache';
 import { summarizeReviews } from '@/ai/flows/summarize-reviews';
-import { mockGames } from '@/data/mock-games';
 import type { BoardGame, Review, Rating, AiSummary, SummarizeReviewsInput, BggSearchResult } from './types';
-// Import the schema and type from rating-form
-import { formSchema as reviewFormSchema, type RatingFormValues } from '@/components/boardgame/rating-form';
+import { reviewFormSchema, type RatingFormValues } from '@/lib/validators'; // Import from new location
 import { db } from '@/lib/firebase';
 import {
   collection,
@@ -427,7 +425,7 @@ export async function getGameDetails(gameId: string): Promise<BoardGame | null> 
 export async function submitNewReviewAction(
   gameId: string,
   prevState: any,
-  data: RatingFormValues // Changed from FormData to RatingFormValues
+  data: RatingFormValues
 ): Promise<{ message: string; errors?: Record<string, string[]>; success: boolean }> {
   // Server-side validation using the imported schema
   const validatedFields = reviewFormSchema.safeParse(data);
@@ -580,10 +578,6 @@ export async function getBoardGamesFromFirestoreAction(): Promise<BoardGame[] | 
             });
         });
 
-        // Update the mockGames in-memory cache (optional, can be removed if not strictly needed elsewhere)
-        // mockGames.length = 0;
-        // mockGames.push(...games.map(g => ({ ...g, reviews: [] }))); // Reviews not loaded for list views
-
         return games;
     } catch (error) {
         console.error('Error fetching games from Firestore:', error);
@@ -634,8 +628,6 @@ export async function syncBoardGamesToFirestoreAction(
             await batch.commit();
         }
 
-        // No need to call getBoardGamesFromFirestoreAction() here just to update mockGames.
-        // Revalidation paths will trigger data refetch on the client as needed.
 
         revalidatePath('/collection');
         revalidatePath('/');
@@ -648,3 +640,4 @@ export async function syncBoardGamesToFirestoreAction(
         return { success: false, message: 'Database sync failed.', error: errorMessage };
     }
 }
+
