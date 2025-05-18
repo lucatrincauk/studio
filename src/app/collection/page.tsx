@@ -3,15 +3,16 @@
 
 import type { BoardGame } from '@/lib/types';
 import { useState, useEffect, useTransition } from 'react';
-import { fetchBggUserCollectionAction, getBoardGamesFromFirestoreAction, syncBoardGamesToFirestoreAction, testServerAction } from '@/lib/actions';
+import { fetchBggUserCollectionAction, getBoardGamesFromFirestoreAction, syncBoardGamesToFirestoreAction } from '@/lib/actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-// import { GameCard } from '@/components/boardgame/game-card'; // Re-using for display
-import { Loader2, AlertCircle, CheckCircle, Users, Clock, CalendarDays, Info } from 'lucide-react';
+import { Loader2, AlertCircle, Info } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { CollectionConfirmationDialog } from '@/components/collection/confirmation-dialog';
 import Image from 'next/image';
+import { Users, Clock, CalendarDays } from 'lucide-react';
+
 
 const BGG_USERNAME = 'lctr01'; // Hardcoded for now
 
@@ -66,24 +67,14 @@ export default function CollectionPage() {
   }, [bggFetchedCollection, dbCollection]);
 
   const handleFetchBggCollection = () => {
-    console.log('[CLIENT] handleFetchBggCollection called');
     setError(null);
     setBggFetchedCollection(null); // Clear previous BGG fetch
     startBggFetchTransition(async () => {
-      console.log('[CLIENT] Attempting to call testServerAction...');
-      try {
-        const testResult = await testServerAction("Hello from CollectionPage!");
-        console.log('[CLIENT] testServerAction result:', testResult);
-      } catch (e) {
-        console.error('[CLIENT] testServerAction error:', e);
-      }
-
-      console.log('[CLIENT] Attempting to call fetchBggUserCollectionAction with username:', BGG_USERNAME);
       const result = await fetchBggUserCollectionAction(BGG_USERNAME);
       if ('error' in result) {
         setError(result.error);
         toast({ title: 'BGG Fetch Error', description: result.error, variant: 'destructive' });
-        setBggFetchedCollection([]); // Ensure it's an empty array on error to clear diff
+        setBggFetchedCollection([]); 
       } else {
         setBggFetchedCollection(result);
         toast({ title: 'BGG Collection Fetched', description: `Found ${result.length} owned games for ${BGG_USERNAME}. Check pending changes below.` });
@@ -106,8 +97,8 @@ export default function CollectionPage() {
       const result = await syncBoardGamesToFirestoreAction(gamesToAdd, gamesToRemove);
       if (result.success) {
         toast({ title: 'Sync Successful', description: result.message });
-        await loadDbCollection(); // Refresh DB collection
-        setBggFetchedCollection(null); // Clear BGG data and pending changes
+        await loadDbCollection(); 
+        setBggFetchedCollection(null); 
       } else {
         setError(result.error || 'Database sync failed.');
         toast({ title: 'Sync Error', description: result.error || 'An unknown error occurred.', variant: 'destructive' });
@@ -252,5 +243,7 @@ export default function CollectionPage() {
   );
 }
 
+
+    
 
     

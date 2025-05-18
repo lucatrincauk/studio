@@ -155,39 +155,32 @@ async function parseBggThingXmlToBoardGame(xmlText: string, bggIdInput: number):
 async function parseBggCollectionXml(xmlText: string): Promise<BoardGame[]> {
     const games: BoardGame[] = [];
     const processedBggIds = new Set<number>(); // Track processed BGG IDs
-    // Relaxed regex: made subtype optional in main item match
     const itemMatches = xmlText.matchAll(/<item[^>]*objectid="(\d+)"(?:[^>]*subtype="boardgame")?[^>]*>([\s\S]*?)<\/item>/gi);
 
     for (const itemMatch of itemMatches) {
         const bggId = parseInt(itemMatch[1], 10);
-        if (processedBggIds.has(bggId)) { // Skip if this BGG ID has already been processed
-            console.warn(`[parseBggCollectionXml] Duplicate BGG ID ${bggId} found in XML. Skipping.`);
+        if (processedBggIds.has(bggId)) { 
             continue;
         }
-        processedBggIds.add(bggId); // Add BGG ID to set of processed IDs
-
+        processedBggIds.add(bggId); 
 
         const itemContent = itemMatch[2];
 
-        // Additional check: ensure subtype is boardgame if present
-        const subtypeMatch = /subtype="([^"]+)"/.exec(itemMatch[0]); // Check subtype on the full item tag
+        const subtypeMatch = /subtype="([^"]+)"/.exec(itemMatch[0]); 
         if (subtypeMatch && subtypeMatch[1] !== "boardgame") {
-            continue; // Skip if subtype is present and not boardgame
+            continue; 
         }
         
         let name = '';
-        // Prioritize primary name with sortindex="1"
         const primaryNameMatch = /<name sortindex="1"[^>]*>([\s\S]*?)<\/name>/.exec(itemContent);
         if (primaryNameMatch && primaryNameMatch[1] && primaryNameMatch[1].trim()) {
             name = decodeHtmlEntities(primaryNameMatch[1].trim());
         } else {
-            // Fallback to any name tag if primary is not found or empty
             const anyNameMatch = /<name[^>]*>([\s\S]*?)<\/name>/.exec(itemContent);
             if (anyNameMatch && anyNameMatch[1] && anyNameMatch[1].trim()) {
                 name = decodeHtmlEntities(anyNameMatch[1].trim());
             }
         }
-        // Final fallback if no name is found
         if (!name) {
             name = `BGG Game ID ${bggId}`; 
         }
@@ -216,7 +209,6 @@ async function parseBggCollectionXml(xmlText: string): Promise<BoardGame[]> {
             maxPlayers = parseInt(statsMatch[2], 10);
             playingTime = parseInt(statsMatch[3], 10); 
         } else {
-            // Try to get individual stats if the combined one isn't found
             const minP = /<stats[^>]*minplayers="(\d+)"/.exec(itemContent);
             if(minP) minPlayers = parseInt(minP[1], 10);
             const maxP = /<stats[^>]*maxplayers="(\d+)"/.exec(itemContent);
@@ -243,11 +235,6 @@ async function parseBggCollectionXml(xmlText: string): Promise<BoardGame[]> {
 
 
 // --- Server Actions ---
-
-export async function testServerAction(message: string): Promise<{ data: string }> {
-  console.log('[SERVER ACTION TEST] Received message:', message);
-  return { data: `Server received: ${message}` };
-}
 
 export async function searchBggGamesAction(searchTerm: string): Promise<BggSearchResult[] | { error: string }> {
     if (!searchTerm.trim()) {
@@ -458,66 +445,51 @@ export async function getAllGamesAction(): Promise<BoardGame[]> {
 
 
 async function fetchWithRetry(url: string, retries = 5, delay = 1000, attempt = 1): Promise<string> {
-    console.log(`[SERVER ACTION BGG FETCH] Attempt ${attempt} to fetch: ${url}`);
     try {
-        const response = await fetch(url, { cache: 'no-store' }); // Prevent caching of 202 responses
-        console.log(`[SERVER ACTION BGG FETCH] Response status for attempt ${attempt}: ${response.status}`);
+        const response = await fetch(url, { cache: 'no-store' }); 
 
         if (response.status === 200) {
             const xmlText = await response.text();
-            // Log first 2000 chars of XML to avoid flooding logs, or full if shorter
-            console.log(`[SERVER ACTION BGG FETCH] Received 200 OK. XML (first 2k chars or less): ${xmlText.substring(0, 2000)}`); 
-            if (!xmlText.includes('<items')) { // A 200 OK without <items> might be a malformed response
+            if (!xmlText.includes('<items')) { 
                  if (attempt < retries) {
-                    console.log(`[SERVER ACTION BGG FETCH] 200 OK but no <items> tag found. Retrying in ${delay / 1000}s... (Attempt ${attempt + 1}/${retries})`);
+                    console.warn(`BGG API returned 200 OK but no <items> tag found. Retrying in ${delay / 1000}s... (Attempt ${attempt + 1}/${retries})`);
                     await new Promise(resolve => setTimeout(resolve, delay));
-                    return fetchWithRetry(url, retries, Math.min(delay * 2, 30000), attempt + 1); // Exponential backoff, cap at 30s
+                    return fetchWithRetry(url, retries, Math.min(delay * 2, 30000), attempt + 1); 
                 } else {
                     throw new Error(`BGG API returned 200 OK but no <items> tag found after ${retries} attempts. XML: ${xmlText.substring(0, 500)}`);
                 }
             }
             return xmlText;
         } else if (response.status === 202 && attempt < retries) {
-            console.log(`[SERVER ACTION BGG FETCH] Received 202 Accepted. Retrying in ${delay / 1000}s... (Attempt ${attempt + 1}/${retries})`);
+            console.warn(`BGG API returned 202 Accepted. Retrying in ${delay / 1000}s... (Attempt ${attempt + 1}/${retries})`);
             await new Promise(resolve => setTimeout(resolve, delay));
-            return fetchWithRetry(url, retries, Math.min(delay * 2, 30000), attempt + 1); // Exponential backoff
+            return fetchWithRetry(url, retries, Math.min(delay * 2, 30000), attempt + 1); 
         } else if (response.status !== 200 && response.status !== 202) {
              const errorText = await response.text().catch(() => "Could not read error response body");
              throw new Error(`BGG API Error: Status ${response.status}. Response: ${errorText.substring(0,500)}`);
-        } else { // Retries exhausted for 202
+        } else { 
             throw new Error(`BGG API still processing after ${retries} attempts (last status: ${response.status}). Please try again later.`);
         }
     } catch (error) {
-        console.error(`[SERVER ACTION BGG FETCH] Error on attempt ${attempt} for ${url}:`, error);
         if (attempt < retries) {
-            console.log(`[SERVER ACTION BGG FETCH] Retrying in ${delay / 1000}s... (Attempt ${attempt + 1}/${retries})`);
+            console.warn(`Error on attempt ${attempt} for ${url}: ${error instanceof Error ? error.message : String(error)}. Retrying in ${delay / 1000}s... (Attempt ${attempt + 1}/${retries})`);
             await new Promise(resolve => setTimeout(resolve, delay));
             return fetchWithRetry(url, retries, Math.min(delay * 2, 30000), attempt + 1);
         }
-        throw error; // Re-throw after exhausting retries
+        throw error; 
     }
 }
 
 
-// MINIMAL VERSION of fetchBggUserCollectionAction for testing
 export async function fetchBggUserCollectionAction(username: string): Promise<BoardGame[] | { error: string }> {
-    // console.log(`[SERVER ACTION EXECUTING - MINIMAL] fetchBggUserCollectionAction called for username: ${username}`);
-    // return [];
-    console.log(`[SERVER ACTION ENTRY - fetchBggUserCollectionAction] Called for username: ${username}`);
     try {
-        const url = `${BGG_API_BASE_URL}/collection?username=${username}&own=1&excludesubtype=boardgameexpansion`;
-        console.log(`[SERVER ACTION - fetchBggUserCollectionAction] Fetching URL: ${url}`);
-        
+        const url = `${BGG_API_BASE_URL}/collection?username=${username}&own=1&excludesubtype=boardgameexpansion`;        
         const collectionXml = await fetchWithRetry(url);
-        // If fetchWithRetry was successful, collectionXml will be a string.
-        // If it failed after retries, it would have thrown an error, caught below.
-
         const games = await parseBggCollectionXml(collectionXml);
-        console.log(`[SERVER ACTION - fetchBggUserCollectionAction] Parsed ${games.length} games from BGG for ${username}.`);
         return games;
 
     } catch (error) {
-        console.error(`[SERVER ACTION ERROR - fetchBggUserCollectionAction] Error fetching or parsing BGG collection for ${username}:`, error);
+        console.error(`Error fetching or parsing BGG collection for ${username}:`, error);
         const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred while fetching BGG collection.';
         return { error: errorMessage };
     }
@@ -611,6 +583,8 @@ export async function syncBoardGamesToFirestoreAction(
         return { success: false, message: 'Database sync failed.', error: errorMessage };
     }
 }
+    
+
     
 
     
