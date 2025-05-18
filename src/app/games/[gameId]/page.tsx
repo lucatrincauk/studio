@@ -3,17 +3,17 @@
 
 import { useEffect, useState, useTransition, useCallback, use } from 'react';
 import Image from 'next/image';
-import { getGameDetails } from '@/lib/actions'; // Removed generateAiSummaryAction
+import { getGameDetails } from '@/lib/actions';
 import type { BoardGame, AiSummary, Review } from '@/lib/types';
 import { ReviewList } from '@/components/boardgame/review-list';
 import { RatingForm } from '@/components/boardgame/rating-form';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // Removed CardDescription
 import { Separator } from '@/components/ui/separator';
 import { AlertCircle, Loader2, Wand2, Info } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
-import { summarizeReviews } from '@/ai/flows/summarize-reviews'; // Import summarizeReviews directly
+import { summarizeReviews } from '@/ai/flows/summarize-reviews'; 
 
 interface GameDetailPageProps {
   params: Promise<{ 
@@ -37,8 +37,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
 
   const fetchGameData = useCallback(async () => {
     setIsLoadingGame(true);
-    setSummaryError(null); // Clear previous summary errors on data refresh
-    // setAiSummary(null); // Optionally clear previous summary too
+    setSummaryError(null); 
     const gameData = await getGameDetails(gameId);
     setGame(gameData);
     if (gameData && currentUser) {
@@ -60,7 +59,6 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
     setSummaryError(null);
     setAiSummary(null); 
     startSummaryTransition(async () => {
-      // const result = await generateAiSummaryAction(game.id); // Old way
        const reviewComments = game.reviews?.map(r => r.comment).filter(Boolean) as string[] || [];
       if (reviewComments.length === 0) {
         setSummaryError("No review comments available to summarize.");
@@ -102,7 +100,6 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
     <div className="space-y-10">
       <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
         <div className="flex flex-row"> 
-          
           <div className="flex-1 p-3 space-y-3"> 
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">{game.name}</h1> 
           </div>
@@ -127,11 +124,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
       <Separator />
 
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
-        <div className="lg:col-span-2 space-y-6">
-          <h2 className="text-2xl font-semibold text-foreground">Player Reviews ({game.reviews.length})</h2>
-          <ReviewList reviews={game.reviews} currentUser={currentUser} gameId={game.id} onReviewDeleted={fetchGameData}/>
-        </div>
-        <div className="lg:col-span-1 space-y-8 sticky top-24 self-start"> 
+        <div className="lg:col-span-2 space-y-8"> {/* Increased space-y for better separation */}
           <RatingForm 
             gameId={game.id} 
             onReviewSubmitted={fetchGameData}
@@ -139,6 +132,15 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
             existingReview={userReview} 
           />
           
+          <Separator className="my-4" /> {/* Added separator */}
+
+          <div> {/* Added a div wrapper for the heading and list */}
+            <h2 className="text-2xl font-semibold text-foreground mb-6">Player Reviews ({game.reviews.length})</h2>
+            <ReviewList reviews={game.reviews} currentUser={currentUser} gameId={game.id} onReviewDeleted={fetchGameData}/>
+          </div>
+        </div>
+        
+        <div className="lg:col-span-1 space-y-8 sticky top-24 self-start"> 
           <Card className="shadow-md border border-border rounded-lg">
             <CardHeader>
               <CardTitle className="text-xl flex items-center gap-2">
@@ -187,4 +189,3 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
 }
 
 export const dynamic = 'force-dynamic';
-
