@@ -54,6 +54,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
   const [userReview, setUserReview] = useState<Review | undefined>(undefined);
   const [groupedCategoryAverages, setGroupedCategoryAverages] = useState<GroupedCategoryAverages | null>(null);
   const [globalGameAverage, setGlobalGameAverage] = useState<number | null>(null);
+  const [userOverallScore, setUserOverallScore] = useState<number | null>(null);
 
   const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false);
   const [isDeletingReview, startDeleteReviewTransition] = useTransition();
@@ -65,11 +66,18 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
     const gameData = await getGameDetails(gameId);
     setGame(gameData);
     if (gameData) {
+      let foundUserReview: Review | undefined = undefined;
       if (currentUser && !authLoading) {
-        const foundReview = gameData.reviews.find(r => r.userId === currentUser.uid);
-        setUserReview(foundReview);
+        foundUserReview = gameData.reviews.find(r => r.userId === currentUser.uid);
+        setUserReview(foundUserReview);
+        if (foundUserReview) {
+          setUserOverallScore(calculateOverallCategoryAverage(foundUserReview.rating));
+        } else {
+          setUserOverallScore(null);
+        }
       } else if (!currentUser && !authLoading) {
         setUserReview(undefined);
+        setUserOverallScore(null);
       }
       setGroupedCategoryAverages(calculateGroupedCategoryAverages(gameData.reviews));
       
@@ -80,6 +88,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
       setUserReview(undefined);
       setGroupedCategoryAverages(null);
       setGlobalGameAverage(null);
+      setUserOverallScore(null);
     }
     setIsLoadingGame(false);
   }, [gameId, currentUser, authLoading]);
@@ -91,13 +100,20 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
   useEffect(() => {
     if (game && currentUser && !authLoading && !userReview) {
         const foundReview = game.reviews.find(r => r.userId === currentUser.uid);
-        if (foundReview) setUserReview(foundReview);
+        if (foundReview) {
+          setUserReview(foundReview);
+          setUserOverallScore(calculateOverallCategoryAverage(foundReview.rating));
+        } else {
+           setUserOverallScore(null);
+        }
     }
     if (game && !currentUser && !authLoading && userReview) {
         setUserReview(undefined); // Clear userReview if user logs out
+        setUserOverallScore(null);
     }
      if (!currentUser && !authLoading) { // Ensure userReview is cleared if no user
       setUserReview(undefined);
+      setUserOverallScore(null);
     }
   }, [currentUser, authLoading, game, userReview]);
 
@@ -139,6 +155,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
         await deleteDoc(reviewDocRef);
         toast({ title: "Review Deleted", description: "Your review has been successfully deleted." });
         setUserReview(undefined); // Clear local userReview state
+        setUserOverallScore(null);
         await fetchGameData(); // Refresh all game data
       } catch (error) {
         console.error("Error deleting review from Firestore:", error);
@@ -230,9 +247,16 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
         <div className="lg:col-span-2 space-y-8">
           <div className="p-6 border border-border rounded-lg shadow-md bg-card">
-            <h3 className="text-xl font-semibold text-foreground mb-3">
-              {userReview ? "Manage Your Review" : "Share Your Thoughts"}
-            </h3>
+            <div className="flex justify-between items-center mb-1">
+                <h3 className="text-xl font-semibold text-foreground">
+                {userReview ? "Manage Your Review" : "Share Your Thoughts"}
+                </h3>
+                {userReview && userOverallScore !== null && (
+                    <span className="text-2xl font-bold text-primary">
+                        {formatRatingNumber(userOverallScore * 2)}
+                    </span>
+                )}
+            </div>
             <p className="text-muted-foreground mb-4">
               {userReview
                 ? "You've already rated this game. You can edit or delete your ratings below."
@@ -337,3 +361,5 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
 }
 
 export const dynamic = 'force-dynamic';
+
+    
