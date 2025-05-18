@@ -5,13 +5,13 @@ import { useEffect, useState, useTransition, useCallback, use } from 'react';
 import Image from 'next/image';
 import { getGameDetails, generateAiSummaryAction } from '@/lib/actions';
 import type { BoardGame, AiSummary } from '@/lib/types';
-import { StarRating } from '@/components/boardgame/star-rating';
+// import { StarRating } from '@/components/boardgame/star-rating'; // Removed
 import { ReviewList } from '@/components/boardgame/review-list';
 import { RatingForm } from '@/components/boardgame/rating-form';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { calculateAverageRating } from '@/lib/utils';
+// import { calculateAverageRating } from '@/lib/utils'; // Removed
 import { AlertCircle, Loader2, Wand2, Info, CalendarDays, Users, Clock, Tags } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
@@ -78,37 +78,24 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
     );
   }
 
-  const averageRating = calculateAverageRating(game);
+  // const averageRating = calculateAverageRating(game); // Removed
 
   return (
     <div className="space-y-10">
       <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
-        <div className="flex flex-row"> {/* Changed from flex-col md:flex-row */}
-          {/* Image Section */}
-          <div className="w-1/3 p-2 flex-shrink-0"> {/* Adjusted width and padding for all screens */}
-            <div className="relative aspect-[3/4] w-full rounded-md overflow-hidden shadow-md">
-              <Image
-                src={game.coverArtUrl || `https://placehold.co/400x600.png?text=${encodeURIComponent(game.name?.substring(0,15) || 'N/A')}`}
-                alt={`${game.name} cover art`}
-                fill
-                priority
-                className="object-cover"
-                data-ai-hint={`board game ${game.name.split(' ')[0]?.toLowerCase() || 'detailed'}`}
-                sizes="(max-width: 767px) 33vw, (min-width: 768px) 33vw, (min-width: 1024px) 40vw, (min-width: 1280px) 33vw" // Adjusted mobile size
-                onError={(e) => { e.currentTarget.src = `https://placehold.co/400x600.png?text=${encodeURIComponent(game.name?.substring(0,15) || 'N/A')}`; }}
-              />
-            </div>
-          </div>
-
-          {/* Game Info Section */}
+        <div className="flex flex-row"> {/* Main container for info and image */}
+          {/* Game Info Section (Now on the left) */}
           <div className="flex-1 p-3 space-y-3"> {/* Adjusted padding and spacing */}
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">{game.name}</h1> {/* Responsive font size */}
             
+            {/* StarRating and average rating display removed */}
+            {/* 
             <div className="flex items-center gap-2">
               <StarRating rating={averageRating} readOnly size={24} iconClassName="text-accent" />
               {averageRating > 0 && <span className="text-lg font-semibold">{averageRating.toFixed(1)} ({game.reviews.length} ratings)</span>}
               {averageRating === 0 && <span className="text-lg font-semibold">Not yet rated</span>}
-            </div>
+            </div> 
+            */}
             
             <div className="mt-4 pt-4 border-t border-border/50 space-y-2">
               <h3 className="text-lg font-semibold text-foreground mb-2">Game Details</h3>
@@ -146,6 +133,22 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+
+          {/* Image Section (Now on the right) */}
+          <div className="w-1/3 p-2 flex-shrink-0"> {/* Adjusted width and padding for all screens */}
+            <div className="relative aspect-[3/4] w-full rounded-md overflow-hidden shadow-md">
+              <Image
+                src={game.coverArtUrl || `https://placehold.co/400x600.png?text=${encodeURIComponent(game.name?.substring(0,15) || 'N/A')}`}
+                alt={`${game.name} cover art`}
+                fill
+                priority
+                className="object-cover"
+                data-ai-hint={`board game ${game.name.split(' ')[0]?.toLowerCase() || 'detailed'}`}
+                sizes="(max-width: 767px) 33vw, (min-width: 768px) 33vw, (min-width: 1024px) 40vw, (min-width: 1280px) 33vw"
+                onError={(e) => { e.currentTarget.src = `https://placehold.co/400x600.png?text=${encodeURIComponent(game.name?.substring(0,15) || 'N/A')}`; }}
+              />
             </div>
           </div>
         </div>
