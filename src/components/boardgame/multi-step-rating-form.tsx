@@ -221,7 +221,7 @@ export function MultiStepRatingForm({
     if (currentStep === 2) return "How would you rate the core mechanics and structure?";
     if (currentStep === 3) return "Rate the game's visual appeal and thematic elements.";
     if (currentStep === 4) return "How easy is the game to learn, set up, and tear down?";
-    if (currentStep === 5) return "Please check your ratings below before submitting.";
+    if (currentStep === 5) return "Please check your ratings below before submitting."; // This will be removed for the CardDescription part
     return "";
   }
 
@@ -252,7 +252,8 @@ export function MultiStepRatingForm({
         <Progress value={progressPercentage} className="w-full mb-2" />
         <div className="min-h-[350px]"> 
           <h3 className="text-xl font-semibold mb-1">{getCurrentStepTitle()}</h3>
-          <p className="text-sm text-muted-foreground mb-6">{getCurrentStepDescription()}</p>
+          { currentStep < 5 && <p className="text-sm text-muted-foreground mb-6">{getCurrentStepDescription()}</p> }
+
 
           {currentStep === 1 && ( 
             <div className="space-y-6 animate-fadeIn">
@@ -368,10 +369,10 @@ export function MultiStepRatingForm({
                 <div className="flex justify-between items-center">
                   <CardTitle className="text-lg">Your Ratings Summary</CardTitle>
                   {yourOverallAverage > 0 && (
-                    <span className="text-xl font-bold text-primary">{formatRatingNumber(yourOverallAverage * 2)}</span>
+                    <span className="text-2xl font-bold text-primary">{formatRatingNumber(yourOverallAverage * 2)}</span>
                   )}
                 </div>
-                <CardDescription>Confirm your choices before submitting.</CardDescription>
+                {/* Removed CardDescription "Confirm your choices before submitting." */}
               </CardHeader>
               <CardContent className="space-y-4">
                 {stepCategories.slice(0, 4).map((categoryGroup, index) => (
