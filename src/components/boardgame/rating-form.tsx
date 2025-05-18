@@ -4,7 +4,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, useFormContext } from 'react-hook-form';
-import { useActionState } from 'react'; // Changed from react-dom
+import { useActionState } from 'react';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import {
@@ -21,20 +21,21 @@ import { StarRating } from './star-rating';
 import type { RatingCategory } from '@/lib/types';
 import { RATING_CATEGORIES } from '@/lib/types';
 import { submitNewReviewAction } from '@/lib/actions';
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react'; // Removed useRef
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 
-const formSchema = z.object({
+// Export schema and type for use in actions.ts
+export const formSchema = z.object({
   author: z.string().min(2, "Name must be at least 2 characters.").max(50, "Name cannot exceed 50 characters."),
-  feeling: z.number().min(1, "Rating is required").max(5),
-  gameDesign: z.number().min(1, "Rating is required").max(5),
-  presentation: z.number().min(1, "Rating is required").max(5),
-  management: z.number().min(1, "Rating is required").max(5),
+  feeling: z.coerce.number().min(1, "Rating is required").max(5),
+  gameDesign: z.coerce.number().min(1, "Rating is required").max(5),
+  presentation: z.coerce.number().min(1, "Rating is required").max(5),
+  management: z.coerce.number().min(1, "Rating is required").max(5),
   comment: z.string().min(5, "Comment must be at least 5 characters.").max(500, "Comment cannot exceed 500 characters."),
 });
 
-type RatingFormValues = z.infer<typeof formSchema>;
+export type RatingFormValues = z.infer<typeof formSchema>;
 
 interface RatingFormProps {
   gameId: string;
@@ -47,22 +48,23 @@ const initialState = {
 };
 
 export function RatingForm({ gameId }: RatingFormProps) {
-  const [state, formAction] = useActionState(submitNewReviewAction.bind(null, gameId), initialState);
+  // The server action (submitNewReviewAction) will be updated to accept RatingFormValues
+  const [state, formAction] = useActionState(
+    (prevState: typeof initialState, payload: RatingFormValues) => submitNewReviewAction(gameId, prevState, payload),
+    initialState
+  );
   const { toast } = useToast();
-  const formRef = useRef<HTMLFormElement>(null);
 
   const form = useForm<RatingFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       author: '',
-      feeling: 1, // Default to 1 star
-      gameDesign: 1, // Default to 1 star
-      presentation: 1, // Default to 1 star
-      management: 1, // Default to 1 star
+      feeling: 1,
+      gameDesign: 1,
+      presentation: 1,
+      management: 1,
       comment: '',
     },
-    // The 'errors' prop was removed here to prevent potential re-render loops.
-    // Server errors are handled imperatively in the useEffect below using form.setError().
   });
 
   useEffect(() => {
@@ -72,12 +74,12 @@ export function RatingForm({ gameId }: RatingFormProps) {
           title: "Success!",
           description: state.message,
         });
-        form.reset({ 
+        form.reset({
           author: '',
-          feeling: 1, // Reset to 1 star
-          gameDesign: 1, // Reset to 1 star
-          presentation: 1, // Reset to 1 star
-          management: 1, // Reset to 1 star
+          feeling: 1,
+          gameDesign: 1,
+          presentation: 1,
+          management: 1,
           comment: '',
         });
       } else {
@@ -96,7 +98,8 @@ export function RatingForm({ gameId }: RatingFormProps) {
         });
       }
     }
-  }, [state, toast, form]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state, toast]); // form.reset and form.setError are stable, no need to add to deps
 
 
   const ratingCategories: RatingCategory[] = ['feeling', 'gameDesign', 'presentation', 'management'];
@@ -104,8 +107,7 @@ export function RatingForm({ gameId }: RatingFormProps) {
   return (
     <Form {...form}>
       <form
-        ref={formRef}
-        action={formAction}
+        onSubmit={form.handleSubmit(formAction)} // RHF handles client validation, then calls formAction
         className="space-y-6 p-6 border border-border rounded-lg shadow-md bg-card"
       >
         <h3 className="text-xl font-semibold text-foreground">Rate this Game</h3>
@@ -168,7 +170,7 @@ export function RatingForm({ gameId }: RatingFormProps) {
         />
 
         <SubmitButton />
-         {state.message && !state.success && !state.errors && ( 
+         {state.message && !state.success && !state.errors && (
           <p className="text-sm font-medium text-destructive">{state.message}</p>
         )}
       </form>
@@ -177,14 +179,14 @@ export function RatingForm({ gameId }: RatingFormProps) {
 }
 
 function SubmitButton() {
-  const form = useFormContext(); 
-  const isSubmitting = form.formState.isSubmitting; 
+  const form = useFormContext();
+  const isSubmitting = form.formState.isSubmitting;
 
   return (
     <Button
       type="submit"
       className="w-full sm:w-auto bg-accent text-accent-foreground hover:bg-accent/90 focus:ring-accent/50 transition-colors"
-      disabled={isSubmitting} 
+      disabled={isSubmitting}
     >
       {isSubmitting ? (
         <>
@@ -197,4 +199,3 @@ function SubmitButton() {
     </Button>
   );
 }
-
