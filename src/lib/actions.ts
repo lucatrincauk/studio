@@ -7,51 +7,18 @@ import { mockGames, addReviewToMockGame, mockReviews as allMockReviews } from '@
 import type { BoardGame, Review, Rating, AiSummary, SummarizeReviewsInput, BggSearchResult } from './types';
 import { z } from 'zod';
 
-// Import 'bgg' (assuming it's the BggClient class or instance) and types from 'bgg-sdk'
+// Import 'bgg' (the pre-initialized client instance) and types from 'bgg-sdk'
 import { bgg } from 'bgg-sdk';
 import type { Thing, Names, Name, Rank, SearchResponseItem as BggSdkSearchResponseItem } from 'bgg-sdk';
 
-let bggClient: any = null; // Initialize to null
+// Directly use the imported 'bgg' as the client instance.
+const bggClient = bgg;
 
-try {
-  // The error "Export BggClient doesn't exist... Did you mean to import bgg?"
-  // suggests 'bgg' is the primary named export resolved by the bundler.
-  // This 'bgg' could be the BggClient class, or the pre-initialized instance.
-
-  if (typeof bgg?.Create === 'function') {
-    // If 'bgg' (the import) has a 'Create' method, it's likely the BggClient class.
-    bggClient = bgg.Create();
-    // console.log('bgg-sdk: Initialized client using `bgg.Create()` (imported `bgg` was the class).');
-  } else if (bgg && typeof bgg.search?.query === 'function') {
-    // If 'bgg' (the import) has methods like 'search.query', it's likely the pre-initialized instance.
-    bggClient = bgg;
-    // console.log('bgg-sdk: Initialized client using imported `bgg` directly (it was the instance).');
-  } else {
-    // If neither of the above, then the 'bgg' import is not what we expect.
-    console.error('bgg-sdk: The imported `bgg` is neither the BggClient class nor a recognizable client instance.');
-    // Attempting to use the default export as a fallback, as SDKs sometimes structure this way
-    const sdkDefault = (require('bgg-sdk') as any)?.default; // Using require for broader compatibility if ESM import fails.
-    if (sdkDefault && typeof sdkDefault.bgg?.search?.query === 'function') {
-        bggClient = sdkDefault.bgg;
-        // console.log('bgg-sdk: Initialized client using `require("bgg-sdk").default.bgg`.');
-    } else if (sdkDefault && typeof sdkDefault.BggClient?.Create === 'function') {
-        bggClient = sdkDefault.BggClient.Create();
-        // console.log('bgg-sdk: Initialized client using `require("bgg-sdk").default.BggClient.Create()`.');
-    } else {
-      console.error('bgg-sdk: All attempts to initialize client have failed. `bggClient` remains null.');
-    }
-  }
-} catch (error) {
-  console.error('bgg-sdk: Error during client instantiation attempt:', error);
-  bggClient = null; // Ensure client is null on error
-}
-
-
-// Helper to extract the primary name from BGG SDK's name array/object
+// Helper to extract the primary name value
 function getPrimaryNameValue(names: Names | Name | string | undefined): string {
   if (!names) return 'Unknown Game';
   if (typeof names === 'string') return names;
-  if (Array.isArray(names)) { // It's Names[]
+  if (Array.isArray(names)) { // It's Name[] if 'Names' type from SDK resolves to Name[]
     const primaryNameObj = names.find(n => n.type === 'primary');
     return primaryNameObj ? primaryNameObj.value : (names[0]?.value || 'Unknown Game');
   } else if (typeof names === 'object' && 'value' in names) { // It's Name
@@ -62,15 +29,15 @@ function getPrimaryNameValue(names: Names | Name | string | undefined): string {
 
 
 export async function searchBggGamesAction(searchTerm: string): Promise<BggSearchResult[] | { error: string }> {
-  if (!bggClient) {
-    return { error: 'BGG SDK client not initialized.' };
+  if (!bggClient) { // Should not happen if 'bgg' import works
+    return { error: 'BGG SDK client not available.' };
   }
   if (!searchTerm.trim()) {
     return { error: 'Search term cannot be empty.' };
   }
 
   try {
-    const searchResponse: BggSdkSearchResponseItem[] = await bggClient.search.query({ query: searchTerm, type: ['boardgame'] });
+    const searchResponse: BggSdkSearchResponseItem[] = await bggClient.search({ query: searchTerm, type: ['boardgame'] });
 
     if (!searchResponse || searchResponse.length === 0) {
       return [];
@@ -91,14 +58,15 @@ export async function searchBggGamesAction(searchTerm: string): Promise<BggSearc
             };
         }
 
-        const thingDetailsArr: Thing[] = await bggClient.thing.query({ id: [thingId], stats: 1 });
+        // Fetch details using bggClient.thing
+        const thingDetailsArr: Thing[] = await bggClient.thing({ id: [thingId], stats: 1 });
         let rankValue = Number.MAX_SAFE_INTEGER; 
-        let actualName = item.name?.value || 'Unknown Name';
-        let yearPublishedValue = item.yearpublished?.value;
+        let actualName = item.name?.value || 'Unknown Name'; // from SearchResponseItem
+        let yearPublishedValue = item.yearpublished?.value; // from SearchResponseItem
 
 
         if (thingDetailsArr && thingDetailsArr.length > 0) {
-          const thing = thingDetailsArr[0];
+          const thing = thingDetailsArr[0]; // This is of type Thing
           actualName = getPrimaryNameValue(thing.name) || actualName;
           yearPublishedValue = thing.yearpublished?.value || yearPublishedValue;
 
@@ -149,8 +117,8 @@ export async function searchBggGamesAction(searchTerm: string): Promise<BggSearc
 }
 
 export async function importAndRateBggGameAction(bggId: string): Promise<{ gameId: string } | { error: string }> {
-  if (!bggClient) {
-    return { error: 'BGG SDK client not initialized.' };
+  if (!bggClient) { // Should not happen
+    return { error: 'BGG SDK client not available.' };
   }
   const numericBggId = parseInt(bggId, 10);
   if (isNaN(numericBggId)) {
@@ -164,13 +132,14 @@ export async function importAndRateBggGameAction(bggId: string): Promise<{ gameI
   }
 
   try {
-    const thingDetailsArr: Thing[] = await bggClient.thing.query({ id: [numericBggId], stats: 1 });
+    // Fetch details using bggClient.thing
+    const thingDetailsArr: Thing[] = await bggClient.thing({ id: [numericBggId], stats: 1 });
 
     if (!thingDetailsArr || thingDetailsArr.length === 0) {
       return { error: 'Could not retrieve game details from BGG.' };
     }
     
-    const thing = thingDetailsArr[0];
+    const thing = thingDetailsArr[0]; // This is of type Thing
     
     const gameName = getPrimaryNameValue(thing.name);
     if (gameName === 'Unknown Game') { 
@@ -188,7 +157,7 @@ export async function importAndRateBggGameAction(bggId: string): Promise<{ gameI
       yearPublished: thing.yearpublished?.value,
       minPlayers: thing.minplayers?.value,
       maxPlayers: thing.maxplayers?.value,
-      playingTime: thing.playingtime?.value || thing.minplaytime?.value,
+      playingTime: thing.playingtime?.value || thing.minplaytime?.value, // SDK uses playingtime
       bggId: numericBggId,
     };
 
@@ -205,7 +174,7 @@ export async function importAndRateBggGameAction(bggId: string): Promise<{ gameI
   } catch (error) {
     console.error('BGG Import Error:', error);
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred during BGG import.';
-    return { error: errorMessage };
+    return { error: `BGG SDK Error: ${errorMessage}` };
   }
 }
 
@@ -315,3 +284,4 @@ export async function getAllGamesAction(): Promise<BoardGame[]> {
     reviews: allMockReviews[game.id] || game.reviews || [] 
   })));
 }
+
