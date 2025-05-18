@@ -138,10 +138,6 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
     });
   };
 
-  const handleDeleteUserReview = async () => {
-    setShowDeleteConfirmDialog(true);
-  };
-
   const confirmDeleteUserReview = async () => {
     setShowDeleteConfirmDialog(false);
     if (!currentUser || !userReview?.id) {
@@ -191,17 +187,17 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
     <div className="space-y-10">
       <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
         <div className="flex flex-col md:flex-row">
-          <div className="flex-1 p-6 space-y-4 order-1">
+          <div className="flex-1 p-6 space-y-4 order-1 md:order-1"> {/* Ensure text is first on all screens, then image for desktop */}
             <div className="flex justify-between items-start mb-4">
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">{game.name}</h1>
               {globalGameAverage !== null && (
-                <span className="text-3xl sm:text-4xl font-bold text-primary whitespace-nowrap">
+                <span className="text-3xl sm:text-4xl font-bold text-primary whitespace-nowrap ml-4">
                   {formatRatingNumber(globalGameAverage * 2)}
                 </span>
               )}
             </div>
             
-            <div className="md:hidden my-4 max-w-[240px] mx-auto">
+            <div className="md:hidden my-4 max-w-[240px] mx-auto"> {/* Mobile Image - below title */}
               <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
                 <Image
                   src={game.coverArtUrl || `https://placehold.co/400x600.png`}
@@ -225,7 +221,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
             </div>
           </div>
 
-          <div className="hidden md:block md:w-1/4 p-6 flex-shrink-0 self-start order-2">
+          <div className="hidden md:block md:w-1/4 p-6 flex-shrink-0 self-start order-2"> {/* Desktop Image */}
             <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
               <Image
                 src={game.coverArtUrl || `https://placehold.co/400x600.png`}
@@ -287,7 +283,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
                       <AlertDialogAction onClick={confirmDeleteUserReview} className="bg-destructive hover:bg-destructive/90">
-                        Confirm Delete
+                        {isDeletingReview ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Confirm Delete" }
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
