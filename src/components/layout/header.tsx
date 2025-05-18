@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"; // Removed AvatarImage
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"; // Added AvatarImage back
 
 
 export function Header() {
@@ -51,7 +51,7 @@ export function Header() {
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="relative h-9 w-9 rounded-full p-0 hover:bg-primary-foreground/10 focus-visible:ring-accent">
                       <Avatar className="h-9 w-9">
-                        {/* AvatarImage removed to always show fallback */}
+                        <AvatarImage src={user.photoURL || undefined} alt={user.displayName || user.email || 'User Avatar'} />
                         <AvatarFallback className="bg-accent text-accent-foreground">
                           {user.email ? user.email.substring(0, 1).toUpperCase() : 'U'}
                         </AvatarFallback>
