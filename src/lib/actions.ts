@@ -6,17 +6,23 @@ import { summarizeReviews } from '@/ai/flows/summarize-reviews';
 import { mockGames, addReviewToMockGame, mockReviews as allMockReviews } from '@/data/mock-games';
 import type { BoardGame, Review, Rating, AiSummary, SummarizeReviewsInput, BggSearchResult } from './types';
 import { z } from 'zod';
-import bggSdkDefaultWrapper from 'bgg-sdk'; // Default import
-import type { Thing, Names, Name, Rank } from 'bgg-sdk/dist/types'; // Ensure specific types for clarity
 
-// Handle potential CJS/ESM interop: bggSdkDefaultWrapper might be { default: { bgg: client, BggClient: Class } }
-// or bggSdkDefaultWrapper might be { bgg: client, BggClient: Class } if default import directly gives module.exports
-const bggClientCandidate = (bggSdkDefaultWrapper as any).default || bggSdkDefaultWrapper;
-const bggClient = bggClientCandidate.bgg;
+// Import 'bgg' (assuming it's the BggClient class) and types from 'bgg-sdk'
+import { bgg } from 'bgg-sdk';
+import type { Thing, Names, Name, Rank, SearchResponseItem as BggSdkSearchResponseItem } from 'bgg-sdk';
 
-if (!bggClient || typeof bggClient.search?.query !== 'function' || typeof bggClient.thing?.query !== 'function') {
-  console.error('Failed to initialize bggClient correctly. SDK structure might have changed or interop issue persists.');
-  // Fallback or throw, depending on how critical this is. For now, let's log and proceed, errors will occur downstream.
+let bggClient: any;
+try {
+  // Assuming the named export 'bgg' is the BggClient class
+  if (typeof bgg?.Create === 'function') {
+    bggClient = bgg.Create();
+  } else {
+    console.error('Failed to initialize bggClient: bgg.Create is not a function. The imported `bgg` is not the BggClient class as expected.');
+    bggClient = null;
+  }
+} catch (error) {
+  console.error('Error during BGG client instantiation:', error);
+  bggClient = null;
 }
 
 
@@ -43,7 +49,8 @@ export async function searchBggGamesAction(searchTerm: string): Promise<BggSearc
   }
 
   try {
-    const searchResponse = await bggClient.search.query({ query: searchTerm, type: ['boardgame'] });
+    // The SDK's search query items are of type BggSdkSearchResponseItem
+    const searchResponse: BggSdkSearchResponseItem[] = await bggClient.search.query({ query: searchTerm, type: ['boardgame'] });
 
     if (!searchResponse || searchResponse.length === 0) {
       return [];
@@ -51,11 +58,23 @@ export async function searchBggGamesAction(searchTerm: string): Promise<BggSearc
     
     const limitedResults = searchResponse.slice(0, 10); 
 
-    const enrichedResultsPromises = limitedResults.map(async (item) => {
+    const enrichedResultsPromises = limitedResults.map(async (item: BggSdkSearchResponseItem) => {
       try {
-        const thingDetailsArr = await bggClient.thing.query({ id: [item.id], stats: 1 });
+        // Ensure item.id is a number for the 'thing' query
+        const thingId = typeof item.id === 'string' ? parseInt(item.id, 10) : item.id;
+        if (isNaN(thingId)) {
+            console.warn(`Invalid BGG ID for item: ${item.name?.value}`);
+            return {
+              bggId: String(item.id), // Keep original ID as string
+              name: item.name?.value || 'Unknown (ID invalid)',
+              yearPublished: item.yearpublished?.value,
+              rank: Number.MAX_SAFE_INTEGER,
+            };
+        }
+
+        const thingDetailsArr: Thing[] = await bggClient.thing.query({ id: [thingId], stats: 1 });
         let rankValue = Number.MAX_SAFE_INTEGER; 
-        let actualName = item.name.value; // search response name is a Name object
+        let actualName = item.name?.value || 'Unknown Name'; // search response name is a Name object
         let yearPublishedValue = item.yearpublished?.value;
 
 
@@ -64,8 +83,7 @@ export async function searchBggGamesAction(searchTerm: string): Promise<BggSearc
           actualName = getPrimaryNameValue(thing.name) || actualName; // thing.name can be Name or Name[]
           yearPublishedValue = thing.yearpublished?.value || yearPublishedValue;
 
-          if (thing.statistics && thing.statistics.ratings && thing.statistics.ratings.ranks) {
-            // Ranks can be a single Rank object or an array of Rank objects
+          if (thing.statistics && thing.statistics.ratings && thing.statistics.ratings.ranks && thing.statistics.ratings.ranks.rank) {
             const ranksArray = Array.isArray(thing.statistics.ratings.ranks.rank) ? thing.statistics.ratings.ranks.rank : [thing.statistics.ratings.ranks.rank];
             const boardgameRankObj = ranksArray.find(r => r.name === 'boardgame' && r.type === 'subtype');
             if (boardgameRankObj && typeof boardgameRankObj.value === 'string' && boardgameRankObj.value !== 'Not Ranked') {
@@ -77,7 +95,7 @@ export async function searchBggGamesAction(searchTerm: string): Promise<BggSearc
           }
         }
         return {
-          bggId: item.id.toString(),
+          bggId: String(item.id), // Ensure bggId is string
           name: actualName,
           yearPublished: yearPublishedValue,
           rank: rankValue,
@@ -85,8 +103,8 @@ export async function searchBggGamesAction(searchTerm: string): Promise<BggSearc
       } catch (e) {
         console.warn(`Error fetching details for BGG ID ${item.id}:`, e);
         return {
-          bggId: item.id.toString(),
-          name: item.name.value, 
+          bggId: String(item.id),
+          name: item.name?.value || 'Error fetching name', 
           yearPublished: item.yearpublished?.value,
           rank: Number.MAX_SAFE_INTEGER, 
         };
@@ -127,15 +145,15 @@ export async function importAndRateBggGameAction(bggId: string): Promise<{ gameI
   }
 
   try {
-    const thingDetailsArr = await bggClient.thing.query({ id: [numericBggId], stats: 1 });
+    const thingDetailsArr: Thing[] = await bggClient.thing.query({ id: [numericBggId], stats: 1 });
 
     if (!thingDetailsArr || thingDetailsArr.length === 0) {
       return { error: 'Could not retrieve game details from BGG.' };
     }
     
-    const thing = thingDetailsArr[0] as Thing; // Cast to Thing for better type safety
+    const thing = thingDetailsArr[0];
     
-    const gameName = getPrimaryNameValue(thing.name); // thing.name can be Name or Name[]
+    const gameName = getPrimaryNameValue(thing.name);
     if (gameName === 'Unknown Game') { 
          return { error: 'Essential game details (name) missing from BGG response.' };
     }
@@ -278,3 +296,4 @@ export async function getAllGamesAction(): Promise<BoardGame[]> {
     reviews: allMockReviews[game.id] || game.reviews || [] 
   })));
 }
+
