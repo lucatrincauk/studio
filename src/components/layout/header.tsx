@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { List, LogOut, UserPlus, LogIn, GaugeCircle } from 'lucide-react'; // Added GaugeCircle
+import { List, LogOut, UserPlus, LogIn, BarChart3 } from 'lucide-react'; // Changed GaugeCircle to BarChart3
 import { useAuth } from '@/contexts/auth-context';
 import {
   DropdownMenu,
@@ -28,8 +28,8 @@ export function Header() {
     <header className="bg-primary text-primary-foreground sticky top-0 z-50 shadow-md">
       <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link href="/" className="flex items-center gap-2 transition-opacity hover:opacity-80">
-          <GaugeCircle className="h-8 w-8" /> {/* Changed icon */}
-          <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Punteggiometro</h1> {/* Changed name */}
+          <BarChart3 className="h-8 w-8" /> {/* Changed icon */}
+          <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Punteggiometro</h1>
         </Link>
         
         <nav>
