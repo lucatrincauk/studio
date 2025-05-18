@@ -17,23 +17,23 @@ export interface Rating {
 
 export interface Review {
   id: string;
-  author: string; // For simplicity, can be a fixed string or user input later
+  author: string;
   rating: Rating;
   comment: string;
   date: string; // ISO date string
 }
 
 export interface BoardGame {
-  id: string;
+  id: string; // For BGG games, this will be `bgg-${bggId}`
   name: string;
   coverArtUrl: string;
-  description: string;
+  description?: string; // Description might not be available from BGG collection API
   reviews: Review[];
   yearPublished?: number;
   minPlayers?: number;
   maxPlayers?: number;
   playingTime?: number; // in minutes
-  bggId?: number; // BoardGameGeek ID
+  bggId: number; // BoardGameGeek ID, ensure this is always present for BGG games
 }
 
 export interface AiSummary {
@@ -44,6 +44,5 @@ export interface BggSearchResult {
   bggId: string;
   name: string;
   yearPublished?: number;
-  rank: number; // Rank will be a number; unranked or unavailable games get a high number.
+  rank: number;
 }
-
