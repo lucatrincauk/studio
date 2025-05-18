@@ -69,7 +69,7 @@ export function ReviewItem({ review, currentUser, gameId, onReviewDeleted }: Rev
           </div>
           <div className="flex flex-col items-end">
             <div className="flex items-center gap-1 text-sm text-foreground mb-1">
-              <span className="font-semibold">Overall: {formatRatingNumber(overallReviewRating)} / 5</span>
+              <span className="font-semibold">Overall: {formatRatingNumber(overallReviewRating * 2)}</span>
             </div>
             {isOwnReview && (
               <div className="flex gap-2 mt-1">

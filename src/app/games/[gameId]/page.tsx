@@ -136,7 +136,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">{game.name}</h1>
               {globalGameAverage !== null && (
                 <span className="text-xl sm:text-2xl font-semibold text-primary whitespace-nowrap">
-                  ({formatRatingNumber(globalGameAverage)} / 5)
+                  ({formatRatingNumber(globalGameAverage * 2)})
                 </span>
               )}
             </div>

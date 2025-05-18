@@ -373,7 +373,7 @@ export function MultiStepRatingForm({
                   <h4 className="text-md font-semibold mb-2 text-primary">Your Overall Average Rating:</h4>
                   <div className="flex items-center gap-3">
                     <Progress value={(yourOverallAverage / 5) * 100} className="w-full h-3" />
-                    <span className="text-lg font-bold text-primary">{formatRatingNumber(yourOverallAverage)} / 5</span>
+                    <span className="text-lg font-bold text-primary">{formatRatingNumber(yourOverallAverage * 2)}</span>
                   </div>
                 </div>
                 <Separator />
