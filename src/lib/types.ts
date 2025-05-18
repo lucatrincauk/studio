@@ -13,8 +13,8 @@ export type RatingCategory =
   | 'setupTeardown';
 
 export const RATING_CATEGORIES: Record<RatingCategory, string> = {
-  excitedToReplay: 'Excited to Replay',
-  mentallyStimulating: 'Mentally Stimulating',
+  excitedToReplay: 'Excitement to Replay', // Changed
+  mentallyStimulating: 'Mental Stimulation', // Changed
   fun: 'Fun Factor',
   decisionDepth: 'Decision Depth',
   replayability: 'Replayability',
@@ -62,10 +62,10 @@ export interface BoardGame {
   coverArtUrl: string;
   description?: string;
   reviews: Review[];
-  yearPublished?: number;
-  minPlayers?: number;
-  maxPlayers?: number;
-  playingTime?: number;
+  yearPublished?: number | null; // Allow null
+  minPlayers?: number | null; // Allow null
+  maxPlayers?: number | null; // Allow null
+  playingTime?: number | null; // Allow null
   bggId: number;
 }
 
