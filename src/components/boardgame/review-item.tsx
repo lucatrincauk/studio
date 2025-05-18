@@ -11,9 +11,6 @@ import { useMemo } from 'react';
 
 interface ReviewItemProps {
   review: Review;
-  // currentUser prop is no longer needed here as edit/delete are removed
-  // gameId prop is no longer needed here
-  // onReviewDeleted prop is no longer needed here
 }
 
 export function ReviewItem({ review }: ReviewItemProps) {
@@ -27,7 +24,7 @@ export function ReviewItem({ review }: ReviewItemProps) {
     if (review.author && review.author.trim().length > 0) {
       return review.author.substring(0, 1).toUpperCase();
     }
-    return ''; 
+    return '';
   };
 
   return (
@@ -47,10 +44,9 @@ export function ReviewItem({ review }: ReviewItemProps) {
             </div>
           </div>
           <div className="flex flex-col items-end">
-            <div className="flex items-center gap-1 text-lg font-semibold text-primary mb-1">
+            <div className="text-2xl font-bold text-primary">
               {formatRatingNumber(overallReviewRating * 2)}
             </div>
-            {/* Edit and Delete buttons are removed from here */}
           </div>
         </div>
       </CardHeader>
@@ -58,10 +54,10 @@ export function ReviewItem({ review }: ReviewItemProps) {
         {review.comment && review.comment.trim() !== "" && (
          <p className="text-sm text-foreground/90 mb-4 leading-relaxed">{review.comment}</p>
         )}
-        <GroupedRatingsDisplay 
+        <GroupedRatingsDisplay
             groupedAverages={groupedAveragesForReview}
             noRatingsMessage="No detailed ratings provided for this review."
-            defaultOpenSections={[]} 
+            defaultOpenSections={[]}
         />
       </CardContent>
     </Card>
