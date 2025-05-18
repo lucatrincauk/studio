@@ -34,7 +34,7 @@ const stepCategories: (keyof RatingFormValues)[][] = [
   ['decisionDepth', 'replayability', 'luck', 'lengthDowntime'], // Step 2: Game Design
   ['graphicDesign', 'componentsThemeLore'], // Step 3: Aesthetics & Immersion
   ['effortToLearn', 'setupTeardown'], // Step 4: Learning & Logistics
-  [], // Step 5: Summary (no new inputs)
+  [], // Step 5: Summary (no new inputs, displays saved data)
 ];
 
 const sectionTitles: string[] = [
@@ -99,7 +99,8 @@ export function MultiStepRatingForm({
 
   const handleNext = async () => {
     let fieldsToValidate: (keyof RatingFormValues)[] = [];
-    if (currentStep >= 1 && currentStep < totalSteps) {
+    // Validate fields for current step (1, 2, or 3) before proceeding
+    if (currentStep >= 1 && currentStep < 4) { // Only for steps before submission step
         fieldsToValidate = stepCategories[currentStep-1];
     }
 
@@ -123,88 +124,114 @@ export function MultiStepRatingForm({
     setFormError(null);
   };
 
-  const processSubmit = async (data: RatingFormValues) => {
+  // Handles the actual Firestore submission
+  const processSubmitFirestore = async (data: RatingFormValues): Promise<boolean> => {
     setFormError(null);
-    startSubmitTransition(async () => {
-      try {
-        const gameDocRef = doc(db, "boardgames_collection", gameId);
-        const gameDocSnap = await getDoc(gameDocRef);
-        if (!gameDocSnap.exists()) {
-          toast({ title: "Error", description: "Game not found. Cannot submit review.", variant: "destructive" });
-          setFormError("Game not found. Cannot submit review.");
-          return;
-        }
+    let submissionSuccess = false;
 
-        const reviewsCollectionRef = collection(db, "boardgames_collection", gameId, 'reviews');
-        const rating: Rating = {
-          excitedToReplay: data.excitedToReplay,
-          mentallyStimulating: data.mentallyStimulating,
-          fun: data.fun,
-          decisionDepth: data.decisionDepth,
-          replayability: data.replayability,
-          luck: data.luck,
-          lengthDowntime: data.lengthDowntime,
-          graphicDesign: data.graphicDesign,
-          componentsThemeLore: data.componentsThemeLore,
-          effortToLearn: data.effortToLearn,
-          setupTeardown: data.setupTeardown,
-        };
-
-        const reviewAuthor = currentUser.displayName || 'Anonymous';
-        const reviewComment = ""; 
-
-        if (existingReview?.id) {
-          const reviewDocRef = doc(reviewsCollectionRef, existingReview.id);
-          const reviewSnapshot = await getDoc(reviewDocRef);
-          if (!reviewSnapshot.exists() || reviewSnapshot.data()?.userId !== currentUser.uid) {
-             toast({ title: "Error", description: "Review not found or you do not have permission to edit it.", variant: "destructive" });
-             setFormError("Review not found or you do not have permission to edit it.");
-             return;
+    await new Promise<void>(resolve => {
+      startSubmitTransition(async () => {
+        try {
+          const gameDocRef = doc(db, "boardgames_collection", gameId);
+          const gameDocSnap = await getDoc(gameDocRef);
+          if (!gameDocSnap.exists()) {
+            toast({ title: "Error", description: "Game not found. Cannot submit review.", variant: "destructive" });
+            setFormError("Game not found. Cannot submit review.");
+            submissionSuccess = false;
+            resolve();
+            return;
           }
-          await updateDoc(reviewDocRef, {
-            author: reviewAuthor,
-            rating,
-            comment: reviewComment,
-            date: new Date().toISOString(),
-            userId: currentUser.uid,
-          });
-          toast({ title: "Success!", description: "Review updated successfully!", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
-        } else {
-          const existingReviewQuery = query(reviewsCollectionRef, where("userId", "==", currentUser.uid), limit(1));
-          const existingReviewSnapshot = await getDocs(existingReviewQuery);
 
-          if (!existingReviewSnapshot.empty) {
-             const existingReviewDoc = existingReviewSnapshot.docs[0];
-             await updateDoc(existingReviewDoc.ref, {
-                author: reviewAuthor,
-                rating,
-                comment: reviewComment,
-                date: new Date().toISOString(),
-                userId: currentUser.uid,
-             });
-            toast({ title: "Review Updated", description: "Your existing review for this game has been updated.", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
-          } else {
-            const newReviewData = {
+          const reviewsCollectionRef = collection(db, "boardgames_collection", gameId, 'reviews');
+          const rating: Rating = { ...data }; // All fields from form data are part of the rating
+
+          const reviewAuthor = currentUser.displayName || 'Anonymous';
+          const reviewComment = ""; 
+
+          if (existingReview?.id) {
+            const reviewDocRef = doc(reviewsCollectionRef, existingReview.id);
+            const reviewSnapshot = await getDoc(reviewDocRef);
+            if (!reviewSnapshot.exists() || reviewSnapshot.data()?.userId !== currentUser.uid) {
+               toast({ title: "Error", description: "Review not found or you do not have permission to edit it.", variant: "destructive" });
+               setFormError("Review not found or you do not have permission to edit it.");
+               submissionSuccess = false;
+               resolve();
+               return;
+            }
+            await updateDoc(reviewDocRef, {
               author: reviewAuthor,
-              userId: currentUser.uid,
               rating,
               comment: reviewComment,
               date: new Date().toISOString(),
-            };
-            await addDoc(reviewsCollectionRef, newReviewData);
-            toast({ title: "Success!", description: "Review submitted successfully!", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
+              userId: currentUser.uid,
+            });
+            toast({ title: "Success!", description: "Review updated successfully!", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
+          } else {
+            const existingReviewQuery = query(reviewsCollectionRef, where("userId", "==", currentUser.uid), limit(1));
+            const existingReviewSnapshot = await getDocs(existingReviewQuery);
+
+            if (!existingReviewSnapshot.empty) {
+              // This case ideally shouldn't be hit if existingReview prop is correctly passed
+              // but as a safeguard, update if found.
+               const existingReviewDoc = existingReviewSnapshot.docs[0];
+               await updateDoc(existingReviewDoc.ref, {
+                  author: reviewAuthor,
+                  rating,
+                  comment: reviewComment,
+                  date: new Date().toISOString(),
+                  userId: currentUser.uid,
+               });
+              toast({ title: "Review Updated", description: "Your existing review for this game has been updated.", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
+            } else {
+              const newReviewData = {
+                author: reviewAuthor,
+                userId: currentUser.uid,
+                rating,
+                comment: reviewComment,
+                date: new Date().toISOString(),
+              };
+              await addDoc(reviewsCollectionRef, newReviewData);
+              toast({ title: "Success!", description: "Review submitted successfully!", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
+            }
           }
+          submissionSuccess = true;
+        } catch (error) {
+          console.error("Error submitting review:", error);
+          const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+          toast({ title: "Error", description: `Failed to submit review: ${errorMessage}`, variant: "destructive" });
+          setFormError(`Failed to submit review: ${errorMessage}`);
+          submissionSuccess = false;
+        } finally {
+          resolve();
         }
-        form.reset(defaultFormValues);
-        onReviewSubmitted();
-      } catch (error) {
-        console.error("Error submitting review:", error);
-        const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
-        toast({ title: "Error", description: `Failed to submit review: ${errorMessage}`, variant: "destructive" });
-        setFormError(`Failed to submit review: ${errorMessage}`);
-      }
+      });
     });
+    return submissionSuccess;
   };
+
+  // Handler for Step 4's submit button
+  const handleStep4Submit = async () => {
+    const fieldsToValidate = stepCategories[3] as (keyof RatingFormValues)[]; // Step 4 fields
+    const isValid = await form.trigger(fieldsToValidate);
+
+    if (isValid) {
+      setFormError(null);
+      const data = form.getValues();
+      const submissionSuccessful = await processSubmitFirestore(data);
+      if (submissionSuccessful) {
+        setCurrentStep(5); // Move to summary step
+      }
+      // If not successful, processSubmitFirestore would have set formError
+    } else {
+      setFormError(`Please correct errors in ${getCurrentStepTitle()} before proceeding.`);
+      toast({
+        title: "Validation Error",
+        description: `Please ensure all fields in ${getCurrentStepTitle()} are correctly filled.`,
+        variant: "destructive",
+      });
+    }
+  };
+
 
   const getCurrentStepTitle = () => {
     if (currentStep === 1) return "Sentiments";
@@ -220,29 +247,16 @@ export function MultiStepRatingForm({
     if (currentStep === 2) return "How would you rate the core mechanics and structure?";
     if (currentStep === 3) return "Rate the game's visual appeal and thematic elements.";
     if (currentStep === 4) return "How easy is the game to learn, set up, and tear down?";
-    if (currentStep === 5) return ""; // No description for summary step header
+    if (currentStep === 5) return "Your review has been saved. Here's a summary:";
     return "";
   }
 
   const calculateYourOverallAverage = () => {
     const currentValues = form.getValues();
-    const ratingData: Rating = {
-      excitedToReplay: currentValues.excitedToReplay,
-      mentallyStimulating: currentValues.mentallyStimulating,
-      fun: currentValues.fun,
-      decisionDepth: currentValues.decisionDepth,
-      replayability: currentValues.replayability,
-      luck: currentValues.luck,
-      lengthDowntime: currentValues.lengthDowntime,
-      graphicDesign: currentValues.graphicDesign,
-      componentsThemeLore: currentValues.componentsThemeLore,
-      effortToLearn: currentValues.effortToLearn,
-      setupTeardown: currentValues.setupTeardown,
-    };
-    return calculateOverallCategoryAverage(ratingData);
+    return calculateOverallCategoryAverage(currentValues);
   };
   
-  const yourOverallAverage = currentStep === 5 ? calculateYourOverallAverage() : 0;
+  const yourOverallAverage = calculateYourOverallAverage();
 
 
   return (
@@ -250,9 +264,11 @@ export function MultiStepRatingForm({
       <form className="space-y-8"> 
         <div className="min-h-[350px]"> 
           <div className="mb-6">
-            <h3 className="text-xl font-semibold">{getCurrentStepTitle()}</h3>
-            <p className="text-sm text-muted-foreground">Step {currentStep} / {totalSteps}</p>
-            {currentStep < 5 && getCurrentStepDescription() && (
+            <div className="flex justify-between items-center">
+              <h3 className="text-xl font-semibold">{getCurrentStepTitle()}</h3>
+              <span className="text-sm text-muted-foreground">Step {currentStep} / {totalSteps}</span>
+            </div>
+            {getCurrentStepDescription() && (
               <p className="text-sm text-muted-foreground mt-1">{getCurrentStepDescription()}</p>
             )}
           </div>
@@ -415,29 +431,40 @@ export function MultiStepRatingForm({
           >
             Previous
           </Button>
-          {currentStep < totalSteps ? (
+          
+          {currentStep < 4 ? ( // Steps 1, 2, 3 show "Next"
             <Button type="button" onClick={handleNext} disabled={isSubmitting} className="bg-primary hover:bg-primary/90 text-primary-foreground">
               Next
             </Button>
-          ) : (
+          ) : currentStep === 4 ? ( // Step 4 shows "Submit Review" or "Update Review"
             <Button 
               type="button" 
-              onClick={form.handleSubmit(processSubmit)} 
-              disabled={isSubmitting || !form.formState.isValid} 
+              onClick={handleStep4Submit} 
+              disabled={isSubmitting} 
               className="bg-accent hover:bg-accent/90 text-accent-foreground"
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting...
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> {existingReview ? 'Updating...' : 'Submitting...'}
                 </>
               ) : (
                 existingReview ? 'Update Review' : 'Submit Review'
               )}
             </Button>
+          ) : ( // Step 5 (Summary of saved data) shows "Finish & Back to Game"
+             <Button
+                type="button"
+                onClick={() => {
+                  form.reset(defaultFormValues); // Reset form before navigating away
+                  onReviewSubmitted();
+                }}
+                className="bg-primary hover:bg-primary/90 text-primary-foreground"
+              >
+                Finish & Back to Game
+              </Button>
           )}
         </div>
       </form>
     </Form>
   );
 }
-
