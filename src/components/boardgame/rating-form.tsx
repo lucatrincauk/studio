@@ -46,7 +46,7 @@ const initialState = {
 };
 
 export function RatingForm({ gameId }: RatingFormProps) {
-  const [state, formAction] = useActionState(submitNewReviewAction.bind(null, gameId), initialState); // Changed to useActionState
+  const [state, formAction] = useActionState(submitNewReviewAction.bind(null, gameId), initialState);
   const { toast } = useToast();
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -60,18 +60,18 @@ export function RatingForm({ gameId }: RatingFormProps) {
       management: 0,
       comment: '',
     },
-    // Pass server errors to RHF
-    errors: state.errors ? Object.fromEntries(Object.entries(state.errors).map(([key, value]) => [key, { type: 'server', message: value[0] }])) : undefined,
+    // The 'errors' prop was removed here to prevent potential re-render loops.
+    // Server errors are handled imperatively in the useEffect below using form.setError().
   });
 
   useEffect(() => {
-    if(state.message) { // Check if there's a message from the server action
+    if(state.message) {
       if (state.success) {
         toast({
           title: "Success!",
           description: state.message,
         });
-        form.reset({ // Reset with default values
+        form.reset({ 
           author: '',
           feeling: 0,
           gameDesign: 0,
@@ -79,11 +79,7 @@ export function RatingForm({ gameId }: RatingFormProps) {
           management: 0,
           comment: '',
         });
-        // Clear server-side error message after handling
-        // This requires a way to reset 'state' or ignore old messages.
-        // For simplicity, we'll rely on user navigating away or new form submission.
       } else {
-         // Update RHF errors if they came from server
         if (state.errors) {
           Object.entries(state.errors).forEach(([fieldName, errors]) => {
             form.setError(fieldName as keyof RatingFormValues, {
@@ -171,7 +167,7 @@ export function RatingForm({ gameId }: RatingFormProps) {
         />
 
         <SubmitButton />
-         {state.message && !state.success && !state.errors && ( // Global form error not tied to a field
+         {state.message && !state.success && !state.errors && ( 
           <p className="text-sm font-medium text-destructive">{state.message}</p>
         )}
       </form>
@@ -179,23 +175,15 @@ export function RatingForm({ gameId }: RatingFormProps) {
   );
 }
 
-// Submit button needs to be a separate component to use useFormStatus
-// but useFormStatus is experimental with app router.
-// We'll use a regular button and rely on form state if possible or just show static text.
-// The formAction handles the submission, not RHF's handleSubmit.
-// We can manually handle a pending state if needed based on the start of the action.
 function SubmitButton() {
-  // This is a simplified submit button. For robust pending state with server actions + RHF,
-  // more complex state management or `useTransition` at the form level might be needed.
-  // const { pending } = useFormStatus(); // If this was a direct child of <form> and using experimental features.
-  const form = useFormContext(); // Assuming this component is rendered within FormProvider
-  const isSubmitting = form.formState.isSubmitting; // For client-side RHF submission lifecycle
+  const form = useFormContext(); 
+  const isSubmitting = form.formState.isSubmitting; 
 
   return (
     <Button
       type="submit"
       className="w-full sm:w-auto bg-accent text-accent-foreground hover:bg-accent/90 focus:ring-accent/50 transition-colors"
-      disabled={isSubmitting} // This works if RHF is involved in submission, less so for pure server actions
+      disabled={isSubmitting} 
     >
       {isSubmitting ? (
         <>
