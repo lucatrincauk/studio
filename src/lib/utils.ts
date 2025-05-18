@@ -15,36 +15,37 @@ export function formatRatingNumber(num: number): string {
   return num.toFixed(1);
 }
 
+const RATING_WEIGHTS: Record<RatingCategory, number> = {
+  excitedToReplay: 4,
+  mentallyStimulating: 2,
+  fun: 2,
+  decisionDepth: 2,
+  replayability: 2,
+  luck: 2,
+  lengthDowntime: 2,
+  graphicDesign: 1,
+  componentsThemeLore: 1,
+  effortToLearn: 1,
+  setupTeardown: 1,
+};
+
 export function calculateOverallCategoryAverage(rating: Rating): number {
-  const {
-    excitedToReplay,
-    mentallyStimulating,
-    fun,
-    decisionDepth,
-    replayability,
-    luck,
-    lengthDowntime,
-    graphicDesign,
-    componentsThemeLore,
-    effortToLearn,
-    setupTeardown
-  } = rating;
-  const sum = excitedToReplay +
-              mentallyStimulating +
-              fun +
-              decisionDepth +
-              replayability +
-              luck +
-              lengthDowntime +
-              graphicDesign +
-              componentsThemeLore +
-              effortToLearn +
-              setupTeardown;
-  const count = Object.keys(rating).length;
-  if (count === 0) return 0;
-  const average = sum / count;
-  return Math.round(average * 10) / 10;
+  let weightedSum = 0;
+  let totalWeightFactor = 0; // Sum of all weights
+
+  (Object.keys(rating) as Array<keyof Rating>).forEach(key => {
+    const weight = RATING_WEIGHTS[key];
+    weightedSum += (rating[key] * weight);
+    totalWeightFactor += weight;
+  });
+
+  if (totalWeightFactor === 0) return 0;
+
+  // The average is now on a 1-5 scale, reflecting the weighted influence
+  const average = weightedSum / totalWeightFactor;
+  return Math.round(average * 10) / 10; // Keep it on 1-5 scale, rounded
 }
+
 
 export function calculateCategoryAverages(reviews: Review[]): Rating | null {
   if (!reviews || reviews.length === 0) {
@@ -68,43 +69,36 @@ export function calculateCategoryAverages(reviews: Review[]): Rating | null {
 
   reviews.forEach(review => {
     (Object.keys(sumOfRatings) as Array<keyof Rating>).forEach(key => {
-      sumOfRatings[key] += review.rating[key] || 0;
+      // Ensure review.rating[key] exists and is a number, default to 0 if not
+      const ratingValue = typeof review.rating[key] === 'number' ? review.rating[key] : 0;
+      sumOfRatings[key] += ratingValue;
     });
   });
 
-  const averageRatings: Rating = {
-    excitedToReplay: Math.round((sumOfRatings.excitedToReplay / numReviews) * 10) / 10,
-    mentallyStimulating: Math.round((sumOfRatings.mentallyStimulating / numReviews) * 10) / 10,
-    fun: Math.round((sumOfRatings.fun / numReviews) * 10) / 10,
-    decisionDepth: Math.round((sumOfRatings.decisionDepth / numReviews) * 10) / 10,
-    replayability: Math.round((sumOfRatings.replayability / numReviews) * 10) / 10,
-    luck: Math.round((sumOfRatings.luck / numReviews) * 10) / 10,
-    lengthDowntime: Math.round((sumOfRatings.lengthDowntime / numReviews) * 10) / 10,
-    graphicDesign: Math.round((sumOfRatings.graphicDesign / numReviews) * 10) / 10,
-    componentsThemeLore: Math.round((sumOfRatings.componentsThemeLore / numReviews) * 10) / 10,
-    effortToLearn: Math.round((sumOfRatings.effortToLearn / numReviews) * 10) / 10,
-    setupTeardown: Math.round((sumOfRatings.setupTeardown / numReviews) * 10) / 10,
-  };
+  const averageRatings: Rating = {} as Rating;
+  (Object.keys(sumOfRatings) as Array<keyof Rating>).forEach(key => {
+    averageRatings[key] = Math.round((sumOfRatings[key] / numReviews) * 10) / 10;
+  });
 
   return averageRatings;
 }
 
 export interface SubRatingAverage {
   name: string;
-  average: number;
+  average: number; // This will be the unweighted average for display
 }
 export interface SectionAverage {
   sectionTitle: string;
-  sectionAverage: number;
+  sectionAverage: number; // This will be the weighted average for the section trigger
   subRatings: SubRatingAverage[];
 }
 export type GroupedCategoryAverages = SectionAverage[];
 
 
 export function calculateGroupedCategoryAverages(reviews: Review[]): GroupedCategoryAverages | null {
-  const individualAverages = calculateCategoryAverages(reviews);
+  const individualSubCategoryAverages = calculateCategoryAverages(reviews);
 
-  if (!individualAverages) {
+  if (!individualSubCategoryAverages) {
     return null;
   }
 
@@ -116,18 +110,27 @@ export function calculateGroupedCategoryAverages(reviews: Review[]): GroupedCate
   ];
 
   const groupedAverages: GroupedCategoryAverages = sectionsMeta.map(section => {
-    let sectionSum = 0;
-    let sectionCount = 0;
+    let sectionWeightedSum = 0;
+    let sectionTotalWeightFactor = 0; // Sum of weights for this section
+    
     const subRatings: SubRatingAverage[] = section.keys.map(key => {
-      const average = individualAverages[key];
-      sectionSum += average;
-      sectionCount++;
-      return { name: RATING_CATEGORIES[key], average };
+      const subCategoryAverage = individualSubCategoryAverages[key]; // Raw average (1-5)
+      const weight = RATING_WEIGHTS[key];
+      
+      sectionWeightedSum += (subCategoryAverage * weight);
+      sectionTotalWeightFactor += weight;
+      
+      return { name: RATING_CATEGORIES[key], average: subCategoryAverage }; // Store raw average for detail display
     });
+
+    // Calculate the weighted average for the section, on a 1-5 scale
+    const sectionAverageValue = sectionTotalWeightFactor > 0 
+      ? Math.round((sectionWeightedSum / sectionTotalWeightFactor) * 10) / 10 
+      : 0;
 
     return {
       sectionTitle: section.title,
-      sectionAverage: sectionCount > 0 ? Math.round((sectionSum / sectionCount) * 10) / 10 : 0,
+      sectionAverage: sectionAverageValue,
       subRatings,
     };
   });
