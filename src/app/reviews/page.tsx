@@ -7,7 +7,7 @@ import type { AugmentedReview } from '@/lib/types';
 import { ReviewItem } from '@/components/boardgame/review-item';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import Link from 'next/link';
-import Image from 'next/image';
+// import Image from 'next/image'; // No longer directly used
 import { MessageSquareText, Loader2, Info, UserCircle2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { calculateOverallCategoryAverage } from '@/lib/utils';
@@ -15,6 +15,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { SafeImage } from '@/components/common/SafeImage'; // Import SafeImage
 
 type SortOrder = 'mostRecent' | 'leastRecent' | 'highestRated' | 'lowestRated';
 
@@ -180,14 +181,14 @@ export default function AllReviewsPage() {
                         ) : (
                           <>
                             <div className="relative h-6 w-6 flex-shrink-0">
-                              <Image
-                                src={game.coverArtUrl || `https://placehold.co/40x40.png`}
+                              <SafeImage
+                                src={game.coverArtUrl}
+                                fallbackSrc={`https://placehold.co/40x40.png?text=${encodeURIComponent(game.name?.substring(0,2) || 'N/A')}`}
                                 alt={`${game.name} cover`}
                                 fill
                                 sizes="24px"
                                 className="object-cover rounded-sm"
                                 data-ai-hint="game cover"
-                                onError={(e) => { e.currentTarget.src = `https://placehold.co/40x40.png`; }}
                               />
                             </div>
                             <span>{game.name}</span>
@@ -275,19 +276,20 @@ export default function AllReviewsPage() {
           {Object.entries(reviewsByGame).map(([gameId, gameReviews]) => {
             if (!gameReviews || gameReviews.length === 0) return null;
             const firstReviewForGame = gameReviews[0]; // Used to get game details for the header
+            const fallbackGameHeaderSrc = `https://placehold.co/80x120.png?text=${encodeURIComponent(firstReviewForGame.gameName?.substring(0,10) || 'N/A')}`;
             return (
               <Card key={gameId} className="overflow-hidden shadow-lg border border-border rounded-lg">
                 <CardHeader className="bg-muted/30 p-3 flex flex-row items-center gap-3">
                   <Link href={`/games/${firstReviewForGame.gameId}`} className="flex items-center gap-3 hover:opacity-80 transition-opacity w-full">
                     <div className="relative h-16 w-12 flex-shrink-0 rounded-sm overflow-hidden shadow-sm">
-                      <Image
-                        src={firstReviewForGame.gameCoverArtUrl || `https://placehold.co/80x120.png`}
+                      <SafeImage
+                        src={firstReviewForGame.gameCoverArtUrl}
+                        fallbackSrc={fallbackGameHeaderSrc}
                         alt={`${firstReviewForGame.gameName || 'Game'} cover art`}
                         fill
                         sizes="48px"
                         className="object-cover"
                         data-ai-hint={`board game ${firstReviewForGame.gameName?.split(' ')[0]?.toLowerCase() || 'mini'}`}
-                        onError={(e) => { e.currentTarget.src = `https://placehold.co/80x120.png`; }}
                       />
                     </div>
                     <div className="flex-grow">

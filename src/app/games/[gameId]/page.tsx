@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useState, useTransition, useCallback, use } from 'react';
-import Image from 'next/image';
+// import Image from 'next/image'; // No longer directly used
 import Link from 'next/link';
 import { getGameDetails } from '@/lib/actions';
 import type { BoardGame, AiSummary, Review, Rating, GroupedCategoryAverages } from '@/lib/types';
@@ -30,6 +30,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { SafeImage } from '@/components/common/SafeImage'; // Import SafeImage
 
 
 interface GameDetailPageProps {
@@ -182,6 +183,8 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
       </Alert>
     );
   }
+  
+  const fallbackSrc = `https://placehold.co/400x600.png?text=${encodeURIComponent(game.name?.substring(0,10) || 'N/A')}`;
 
   return (
     <div className="space-y-10">
@@ -199,15 +202,15 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
             
             <div className="md:hidden my-4 max-w-[240px] mx-auto"> {/* Mobile Image - below title */}
               <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
-                <Image
-                  src={game.coverArtUrl || `https://placehold.co/400x600.png`}
+                <SafeImage
+                  src={game.coverArtUrl}
                   alt={`${game.name} cover art`}
+                  fallbackSrc={fallbackSrc}
                   fill
                   priority
                   className="object-cover"
                   data-ai-hint={`board game ${game.name.split(' ')[0]?.toLowerCase() || 'detailed'}`}
                   sizes="(max-width: 767px) 240px"
-                  onError={(e) => { e.currentTarget.src = `https://placehold.co/400x600.png`; }}
                 />
               </div>
             </div>
@@ -223,15 +226,15 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
 
           <div className="hidden md:block md:w-1/4 p-6 flex-shrink-0 self-start order-2"> {/* Desktop Image */}
             <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
-              <Image
-                src={game.coverArtUrl || `https://placehold.co/400x600.png`}
+              <SafeImage
+                src={game.coverArtUrl}
                 alt={`${game.name} cover art`}
+                fallbackSrc={fallbackSrc}
                 fill
                 priority
                 className="object-cover"
                 data-ai-hint={`board game ${game.name.split(' ')[0]?.toLowerCase() || 'detailed'}`}
                 sizes="25vw"
-                onError={(e) => { e.currentTarget.src = `https://placehold.co/400x600.png`; }}
               />
             </div>
           </div>
@@ -357,5 +360,3 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
 }
 
 export const dynamic = 'force-dynamic';
-
-    

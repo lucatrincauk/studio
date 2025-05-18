@@ -6,9 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { MessageSquareText, AlertCircle, Gamepad2, UserCircle2 } from 'lucide-react';
 import Link from 'next/link';
-import Image from 'next/image';
+// import Image from 'next/image'; // No longer directly used
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
+import { SafeImage } from '@/components/common/SafeImage'; // Import SafeImage
 
 interface UserDetailPageProps {
   params: {
@@ -66,34 +67,37 @@ export default async function UserDetailPage({ params }: UserDetailPageProps) {
           </Alert>
         ) : (
           <div className="space-y-6">
-            {reviews.map((review) => (
-              <Card key={review.id} className="overflow-hidden shadow-md border border-border rounded-lg">
-                <CardHeader className="bg-muted/30 p-3 flex flex-row items-center gap-3">
-                  <Link href={`/games/${review.gameId}`} className="flex items-center gap-3 hover:opacity-80 transition-opacity w-full">
-                    <div className="relative h-16 w-12 flex-shrink-0 rounded-sm overflow-hidden shadow-sm">
-                       <Image
-                        src={review.gameCoverArtUrl || `https://placehold.co/80x120.png`}
-                        alt={`${review.gameName || 'Game'} cover art`}
-                        fill
-                        sizes="48px"
-                        className="object-cover"
-                        data-ai-hint={`board game ${review.gameName?.split(' ')[0]?.toLowerCase() || 'mini'}`}
-                        onError={(e) => { e.currentTarget.src = `https://placehold.co/80x120.png`; }}
-                      />
-                    </div>
-                    <div className="flex-grow">
-                      <h3 className="text-md font-semibold text-primary leading-tight">
-                        {review.gameName}
-                      </h3>
-                       <p className="text-xs text-muted-foreground">View Game & Full Review</p>
-                    </div>
-                  </Link>
-                </CardHeader>
-                <CardContent className="p-4">
-                  <ReviewItem review={review} />
-                </CardContent>
-              </Card>
-            ))}
+            {reviews.map((review) => {
+              const fallbackGameHeaderSrc = `https://placehold.co/80x120.png?text=${encodeURIComponent(review.gameName?.substring(0,10) || 'N/A')}`;
+              return (
+                <Card key={review.id} className="overflow-hidden shadow-md border border-border rounded-lg">
+                  <CardHeader className="bg-muted/30 p-3 flex flex-row items-center gap-3">
+                    <Link href={`/games/${review.gameId}`} className="flex items-center gap-3 hover:opacity-80 transition-opacity w-full">
+                      <div className="relative h-16 w-12 flex-shrink-0 rounded-sm overflow-hidden shadow-sm">
+                         <SafeImage
+                          src={review.gameCoverArtUrl}
+                          fallbackSrc={fallbackGameHeaderSrc}
+                          alt={`${review.gameName || 'Game'} cover art`}
+                          fill
+                          sizes="48px"
+                          className="object-cover"
+                          data-ai-hint={`board game ${review.gameName?.split(' ')[0]?.toLowerCase() || 'mini'}`}
+                        />
+                      </div>
+                      <div className="flex-grow">
+                        <h3 className="text-md font-semibold text-primary leading-tight">
+                          {review.gameName}
+                        </h3>
+                         <p className="text-xs text-muted-foreground">View Game & Full Review</p>
+                      </div>
+                    </Link>
+                  </CardHeader>
+                  <CardContent className="p-4">
+                    <ReviewItem review={review} />
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
       </div>
