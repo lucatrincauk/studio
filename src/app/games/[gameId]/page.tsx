@@ -14,7 +14,7 @@ import { AlertCircle, Loader2, Wand2, Info, Edit } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { summarizeReviews } from '@/ai/flows/summarize-reviews';
-import { calculateGroupedCategoryAverages, type GroupedCategoryAverages } from '@/lib/utils';
+import { calculateGroupedCategoryAverages, calculateCategoryAverages, calculateOverallCategoryAverage, type GroupedCategoryAverages } from '@/lib/utils'; // Added calculateCategoryAverages and calculateOverallCategoryAverage
 import { RATING_CATEGORIES } from '@/lib/types';
 import {
   Accordion,
@@ -43,6 +43,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
 
   const [userReview, setUserReview] = useState<Review | undefined>(undefined);
   const [groupedCategoryAverages, setGroupedCategoryAverages] = useState<GroupedCategoryAverages | null>(null);
+  const [globalGameAverage, setGlobalGameAverage] = useState<number | null>(null); // New state for global average
 
   const fetchGameData = useCallback(async () => {
     setIsLoadingGame(true);
@@ -57,9 +58,15 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
         setUserReview(undefined);
       }
       setGroupedCategoryAverages(calculateGroupedCategoryAverages(gameData.reviews));
+      
+      // Calculate and set global average rating
+      const flatCategoryAverages = calculateCategoryAverages(gameData.reviews);
+      setGlobalGameAverage(flatCategoryAverages ? calculateOverallCategoryAverage(flatCategoryAverages) : null);
+
     } else {
       setUserReview(undefined);
       setGroupedCategoryAverages(null);
+      setGlobalGameAverage(null); // Reset global average if no game data
     }
     setIsLoadingGame(false);
   }, [gameId, currentUser, authLoading]);
@@ -125,7 +132,15 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
       <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
         <div className="flex flex-row">
           <div className="flex-1 p-6 space-y-4">
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">{game.name}</h1>
+            <div className="flex items-center gap-x-3 gap-y-1 flex-wrap mb-4">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">{game.name}</h1>
+              {globalGameAverage !== null && (
+                <span className="text-xl sm:text-2xl font-semibold text-primary whitespace-nowrap">
+                  ({globalGameAverage.toFixed(1)} / 5)
+                </span>
+              )}
+            </div>
+            
 
             {groupedCategoryAverages && groupedCategoryAverages.length > 0 && (
               <div className="mt-4 space-y-1 border-t border-border pt-4">
@@ -189,7 +204,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
             </h3>
             <p className="text-muted-foreground mb-4">
               {userReview
-                ? "You've already rated this game. You can edit your ratings."
+                ? "You've already rated this game. You can edit your ratings below."
                 : "Help others by sharing your experience with this game."}
             </p>
             <Button asChild className="w-full sm:w-auto bg-accent text-accent-foreground hover:bg-accent/90">
@@ -265,3 +280,4 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
 }
 
 export const dynamic = 'force-dynamic';
+
