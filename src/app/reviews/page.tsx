@@ -7,19 +7,25 @@ import type { AugmentedReview } from '@/lib/types';
 import { ReviewItem } from '@/components/boardgame/review-item';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import Link from 'next/link';
+import Image from 'next/image'; // Import Next Image
 import { MessageSquareText, Loader2, Info, UserCircle2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { calculateOverallCategoryAverage } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'; // Added Avatar imports
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 
 type SortOrder = 'mostRecent' | 'leastRecent' | 'highestRated' | 'lowestRated';
 
 interface UserFilterOption {
   author: string;
   authorPhotoURL?: string | null;
+}
+
+interface GameFilterOption {
+  name: string;
+  coverArtUrl?: string | null;
 }
 
 export default function AllReviewsPage() {
@@ -59,9 +65,15 @@ export default function AllReviewsPage() {
     return [{ author: 'all', authorPhotoURL: null }, ...sortedUsers];
   }, [allReviews]);
 
-  const uniqueGames = useMemo(() => {
-    const games = new Set(allReviews.map(review => review.gameName));
-    return ['all', ...Array.from(games).sort()];
+  const uniqueGames: GameFilterOption[] = useMemo(() => {
+    const gamesMap = new Map<string, GameFilterOption>();
+    allReviews.forEach(review => {
+      if (review.gameName && !gamesMap.has(review.gameName)) {
+        gamesMap.set(review.gameName, { name: review.gameName, coverArtUrl: review.gameCoverArtUrl });
+      }
+    });
+    const sortedGames = Array.from(gamesMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+    return [{ name: 'all', coverArtUrl: null }, ...sortedGames];
   }, [allReviews]);
 
   const filteredAndSortedReviews = useMemo(() => {
@@ -153,8 +165,26 @@ export default function AllReviewsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   {uniqueGames.map(game => (
-                    <SelectItem key={game} value={game}>
-                      {game === 'all' ? 'All Games' : game}
+                    <SelectItem key={game.name} value={game.name}>
+                      <div className="flex items-center gap-2">
+                        {game.name === 'all' ? (
+                          <span>All Games</span>
+                        ) : (
+                          <>
+                            <div className="relative h-6 w-6 flex-shrink-0">
+                              <Image
+                                src={game.coverArtUrl || `https://placehold.co/40x40.png?text=${game.name.substring(0,1)}`}
+                                alt={`${game.name} cover`}
+                                fill
+                                sizes="24px"
+                                className="object-cover rounded-sm"
+                                data-ai-hint="game cover"
+                              />
+                            </div>
+                            <span>{game.name}</span>
+                          </>
+                        )}
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
