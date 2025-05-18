@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo, useEffect, useCallback, useTransition } from 'react';
+import { useState, useEffect, useCallback, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import type { BoardGame, BggSearchResult } from '@/lib/types';
 import { GameCard } from '@/components/boardgame/game-card';
@@ -17,22 +17,6 @@ interface GameSearchListProps {
   initialGames: BoardGame[];
 }
 
-// Debounce function
-const debounce = <F extends (...args: any[]) => any>(func: F, waitFor: number) => {
-  let timeout: ReturnType<typeof setTimeout> | null = null;
-
-  const debounced = (...args: Parameters<F>) => {
-    if (timeout !== null) {
-      clearTimeout(timeout);
-      timeout = null;
-    }
-    timeout = setTimeout(() => func(...args), waitFor);
-  };
-
-  return debounced as (...args: Parameters<F>) => ReturnType<F>;
-};
-
-
 export function GameSearchList({ initialGames }: GameSearchListProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [localFilteredGames, setLocalFilteredGames] = useState<BoardGame[]>(initialGames);
@@ -41,34 +25,15 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
   const [isLoadingBgg, setIsLoadingBgg] = useState(false);
   const [bggError, setBggError] = useState<string | null>(null);
   const [isImportingId, setIsImportingId] = useState<string | null>(null); 
+  const [bggSearchAttempted, setBggSearchAttempted] = useState(false);
   
   const [isPendingImport, startImportTransition] = useTransition();
   const router = useRouter();
   const { toast } = useToast();
 
-  const handleSearchBgg = useCallback(async (query: string) => {
-    if (!query.trim()) {
-      setBggResults([]);
-      setBggError(null);
-      setIsLoadingBgg(false);
-      return;
-    }
-    setIsLoadingBgg(true);
-    setBggError(null);
-    const result = await searchBggGamesAction(query);
-    if ('error' in result) {
-      setBggError(result.error);
-      setBggResults([]);
-    } else {
-      setBggResults(result);
-    }
-    setIsLoadingBgg(false);
-  }, []);
-
-  const debouncedSearchBgg = useMemo(() => debounce(handleSearchBgg, 500), [handleSearchBgg]);
-
   useEffect(() => {
     const trimmedSearchTerm = searchTerm.toLowerCase().trim();
+    setBggSearchAttempted(false); // Reset BGG search attempt flag with each new search term
 
     if (!trimmedSearchTerm) {
       setLocalFilteredGames(initialGames); // Show all local games
@@ -84,18 +49,31 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
     );
     setLocalFilteredGames(filtered);
 
-    if (filtered.length === 0) {
-      // No local results, so search BGG
-      setBggResults([]); // Clear previous BGG results before new search to avoid showing stale BGG results while new ones load
-      debouncedSearchBgg(trimmedSearchTerm);
-    } else {
-      // Local results found, clear any BGG results/state as we won't show them
-      setBggResults([]);
-      setBggError(null);
-      setIsLoadingBgg(false);
-    }
-  }, [searchTerm, initialGames, debouncedSearchBgg]);
+    // Clear previous BGG results and error state when local search is re-evaluated,
+    // as BGG search will now be manual if local results are empty.
+    setBggResults([]);
+    setBggError(null);
+    setIsLoadingBgg(false);
+  }, [searchTerm, initialGames]);
 
+
+  const handleManualBggSearch = async () => {
+    if (!searchTerm.trim()) {
+      return; // Should not happen if button is only shown with a search term
+    }
+    setBggSearchAttempted(true);
+    setIsLoadingBgg(true);
+    setBggResults([]); 
+    setBggError(null);
+    const result = await searchBggGamesAction(searchTerm);
+    if ('error' in result) {
+      setBggError(result.error);
+      setBggResults([]);
+    } else {
+      setBggResults(result);
+    }
+    setIsLoadingBgg(false);
+  };
 
   const handleImportGame = async (bggId: string) => {
     setIsImportingId(bggId);
@@ -149,22 +127,19 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
             </section>
           ) : (
             <>
-              {/* Subcase 1.2: No local results found, so BGG search interface is shown */}
-              {isLoadingBgg && (
+              {/* Subcase 1.2: No local results found. Check BGG states or offer manual BGG search. */}
+              {isLoadingBgg ? (
                 <div className="flex flex-col justify-center items-center py-10">
                   <Loader2 className="h-10 w-10 animate-spin text-primary" />
                   <p className="mt-3 text-muted-foreground">Searching BoardGameGeek for "{searchTerm}"...</p>
                 </div>
-              )}
-              {bggError && !isLoadingBgg && (
+              ) : bggError ? (
                 <Alert variant="destructive" className="max-w-lg mx-auto">
                   <AlertCircle className="h-4 w-4" />
                   <AlertTitle>BGG Search Error</AlertTitle>
                   <AlertDescription>{bggError}</AlertDescription>
                 </Alert>
-              )}
-              
-              {!isLoadingBgg && !bggError && bggResults.length > 0 && (
+              ) : bggResults.length > 0 ? (
                 <section>
                   <h3 className="text-xl font-semibold mb-4 text-foreground">
                     BoardGameGeek Results ({bggResults.length})
@@ -180,14 +155,24 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
                     ))}
                   </div>
                 </section>
-              )}
-              
-              {/* Subcase 1.2.1: No results from BGG either (and not loading and no error) */}
-              {!isLoadingBgg && !bggError && bggResults.length === 0 && (
-                 <Alert variant="default" className="max-w-lg mx-auto bg-secondary/30 border-secondary">
+              ) : bggSearchAttempted ? (
+                // BGG search was attempted, but no results found
+                <Alert variant="default" className="max-w-lg mx-auto bg-secondary/30 border-secondary">
                   <Info className="h-4 w-4" />
-                  <AlertTitle>No Results Found</AlertTitle>
-                  <AlertDescription>No games found locally or on BoardGameGeek for "{searchTerm}".</AlertDescription>
+                  <AlertTitle>No Results on BoardGameGeek</AlertTitle>
+                  <AlertDescription>No games found on BoardGameGeek for "{searchTerm}".</AlertDescription>
+                </Alert>
+              ) : (
+                // No local games, BGG search not yet attempted for this term
+                <Alert variant="default" className="max-w-lg mx-auto bg-secondary/30 border-secondary text-center">
+                  <Info className="h-4 w-4 mx-auto mb-2 text-muted-foreground" />
+                  <AlertTitle className="mb-1 text-foreground">No Games Found Locally</AlertTitle>
+                  <AlertDescription className="mb-3 text-muted-foreground">
+                    No games matching "{searchTerm}" were found in your collection.
+                  </AlertDescription>
+                  <Button onClick={handleManualBggSearch} className="bg-primary text-primary-foreground hover:bg-primary/90">
+                    <Search className="mr-2 h-4 w-4" /> Search on BoardGameGeek
+                  </Button>
                 </Alert>
               )}
             </>
