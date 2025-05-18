@@ -7,22 +7,43 @@ import { mockGames, addReviewToMockGame, mockReviews as allMockReviews } from '@
 import type { BoardGame, Review, Rating, AiSummary, SummarizeReviewsInput, BggSearchResult } from './types';
 import { z } from 'zod';
 
-// Import 'bgg' (assuming it's the BggClient class) and types from 'bgg-sdk'
+// Import 'bgg' (assuming it's the BggClient class or instance) and types from 'bgg-sdk'
 import { bgg } from 'bgg-sdk';
 import type { Thing, Names, Name, Rank, SearchResponseItem as BggSdkSearchResponseItem } from 'bgg-sdk';
 
-let bggClient: any;
+let bggClient: any = null; // Initialize to null
+
 try {
-  // Assuming the named export 'bgg' is the BggClient class
+  // The error "Export BggClient doesn't exist... Did you mean to import bgg?"
+  // suggests 'bgg' is the primary named export resolved by the bundler.
+  // This 'bgg' could be the BggClient class, or the pre-initialized instance.
+
   if (typeof bgg?.Create === 'function') {
+    // If 'bgg' (the import) has a 'Create' method, it's likely the BggClient class.
     bggClient = bgg.Create();
+    // console.log('bgg-sdk: Initialized client using `bgg.Create()` (imported `bgg` was the class).');
+  } else if (bgg && typeof bgg.search?.query === 'function') {
+    // If 'bgg' (the import) has methods like 'search.query', it's likely the pre-initialized instance.
+    bggClient = bgg;
+    // console.log('bgg-sdk: Initialized client using imported `bgg` directly (it was the instance).');
   } else {
-    console.error('Failed to initialize bggClient: bgg.Create is not a function. The imported `bgg` is not the BggClient class as expected.');
-    bggClient = null;
+    // If neither of the above, then the 'bgg' import is not what we expect.
+    console.error('bgg-sdk: The imported `bgg` is neither the BggClient class nor a recognizable client instance.');
+    // Attempting to use the default export as a fallback, as SDKs sometimes structure this way
+    const sdkDefault = (require('bgg-sdk') as any)?.default; // Using require for broader compatibility if ESM import fails.
+    if (sdkDefault && typeof sdkDefault.bgg?.search?.query === 'function') {
+        bggClient = sdkDefault.bgg;
+        // console.log('bgg-sdk: Initialized client using `require("bgg-sdk").default.bgg`.');
+    } else if (sdkDefault && typeof sdkDefault.BggClient?.Create === 'function') {
+        bggClient = sdkDefault.BggClient.Create();
+        // console.log('bgg-sdk: Initialized client using `require("bgg-sdk").default.BggClient.Create()`.');
+    } else {
+      console.error('bgg-sdk: All attempts to initialize client have failed. `bggClient` remains null.');
+    }
   }
 } catch (error) {
-  console.error('Error during BGG client instantiation:', error);
-  bggClient = null;
+  console.error('bgg-sdk: Error during client instantiation attempt:', error);
+  bggClient = null; // Ensure client is null on error
 }
 
 
@@ -41,15 +62,14 @@ function getPrimaryNameValue(names: Names | Name | string | undefined): string {
 
 
 export async function searchBggGamesAction(searchTerm: string): Promise<BggSearchResult[] | { error: string }> {
-  if (!searchTerm.trim()) {
-    return { error: 'Search term cannot be empty.' };
-  }
   if (!bggClient) {
     return { error: 'BGG SDK client not initialized.' };
   }
+  if (!searchTerm.trim()) {
+    return { error: 'Search term cannot be empty.' };
+  }
 
   try {
-    // The SDK's search query items are of type BggSdkSearchResponseItem
     const searchResponse: BggSdkSearchResponseItem[] = await bggClient.search.query({ query: searchTerm, type: ['boardgame'] });
 
     if (!searchResponse || searchResponse.length === 0) {
@@ -60,12 +80,11 @@ export async function searchBggGamesAction(searchTerm: string): Promise<BggSearc
 
     const enrichedResultsPromises = limitedResults.map(async (item: BggSdkSearchResponseItem) => {
       try {
-        // Ensure item.id is a number for the 'thing' query
         const thingId = typeof item.id === 'string' ? parseInt(item.id, 10) : item.id;
         if (isNaN(thingId)) {
             console.warn(`Invalid BGG ID for item: ${item.name?.value}`);
             return {
-              bggId: String(item.id), // Keep original ID as string
+              bggId: String(item.id),
               name: item.name?.value || 'Unknown (ID invalid)',
               yearPublished: item.yearpublished?.value,
               rank: Number.MAX_SAFE_INTEGER,
@@ -74,13 +93,13 @@ export async function searchBggGamesAction(searchTerm: string): Promise<BggSearc
 
         const thingDetailsArr: Thing[] = await bggClient.thing.query({ id: [thingId], stats: 1 });
         let rankValue = Number.MAX_SAFE_INTEGER; 
-        let actualName = item.name?.value || 'Unknown Name'; // search response name is a Name object
+        let actualName = item.name?.value || 'Unknown Name';
         let yearPublishedValue = item.yearpublished?.value;
 
 
         if (thingDetailsArr && thingDetailsArr.length > 0) {
           const thing = thingDetailsArr[0];
-          actualName = getPrimaryNameValue(thing.name) || actualName; // thing.name can be Name or Name[]
+          actualName = getPrimaryNameValue(thing.name) || actualName;
           yearPublishedValue = thing.yearpublished?.value || yearPublishedValue;
 
           if (thing.statistics && thing.statistics.ratings && thing.statistics.ratings.ranks && thing.statistics.ratings.ranks.rank) {
@@ -95,7 +114,7 @@ export async function searchBggGamesAction(searchTerm: string): Promise<BggSearc
           }
         }
         return {
-          bggId: String(item.id), // Ensure bggId is string
+          bggId: String(item.id),
           name: actualName,
           yearPublished: yearPublishedValue,
           rank: rankValue,
@@ -296,4 +315,3 @@ export async function getAllGamesAction(): Promise<BoardGame[]> {
     reviews: allMockReviews[game.id] || game.reviews || [] 
   })));
 }
-
