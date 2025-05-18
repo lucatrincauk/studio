@@ -7,14 +7,20 @@ import type { AugmentedReview } from '@/lib/types';
 import { ReviewItem } from '@/components/boardgame/review-item';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import Link from 'next/link';
-import { MessageSquareText, Loader2, Info } from 'lucide-react';
+import { MessageSquareText, Loader2, Info, UserCircle2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { calculateOverallCategoryAverage } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'; // Added Avatar imports
 
 type SortOrder = 'mostRecent' | 'leastRecent' | 'highestRated' | 'lowestRated';
+
+interface UserFilterOption {
+  author: string;
+  authorPhotoURL?: string | null;
+}
 
 export default function AllReviewsPage() {
   const [allReviews, setAllReviews] = useState<AugmentedReview[]>([]);
@@ -42,9 +48,15 @@ export default function AllReviewsPage() {
     fetchReviews();
   }, []);
 
-  const uniqueUsers = useMemo(() => {
-    const users = new Set(allReviews.map(review => review.author));
-    return ['all', ...Array.from(users).sort()];
+  const uniqueUsers: UserFilterOption[] = useMemo(() => {
+    const usersMap = new Map<string, UserFilterOption>();
+    allReviews.forEach(review => {
+      if (!usersMap.has(review.author)) {
+        usersMap.set(review.author, { author: review.author, authorPhotoURL: review.authorPhotoURL });
+      }
+    });
+    const sortedUsers = Array.from(usersMap.values()).sort((a, b) => a.author.localeCompare(b.author));
+    return [{ author: 'all', authorPhotoURL: null }, ...sortedUsers];
   }, [allReviews]);
 
   const uniqueGames = useMemo(() => {
@@ -157,8 +169,22 @@ export default function AllReviewsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   {uniqueUsers.map(user => (
-                    <SelectItem key={user} value={user}>
-                      {user === 'all' ? 'All Users' : user}
+                    <SelectItem key={user.author} value={user.author}>
+                      <div className="flex items-center gap-2">
+                        {user.author === 'all' ? (
+                          <span>All Users</span>
+                        ) : (
+                          <>
+                            <Avatar className="h-5 w-5 border">
+                              {user.authorPhotoURL && <AvatarImage src={user.authorPhotoURL} alt={user.author} />}
+                              <AvatarFallback className="bg-muted text-muted-foreground text-xs">
+                                {user.author.substring(0, 1).toUpperCase() || <UserCircle2 className="h-3 w-3" />}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span>{user.author}</span>
+                          </>
+                        )}
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -226,3 +252,4 @@ export default function AllReviewsPage() {
     </div>
   );
 }
+
