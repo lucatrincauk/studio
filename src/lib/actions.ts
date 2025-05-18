@@ -477,6 +477,9 @@ export async function fetchBggUserCollectionAction(username: string): Promise<Bo
 
             if (response.status === 200) {
                 const text = await response.text();
+                // Log the raw XML here
+                console.log("BGG Collection XML Response (Attempt " + (i+1) + "):", text.substring(0, 2000) + (text.length > 2000 ? "..." : ""));
+
                 if (text.includes("<items")) { 
                     return text;
                 }
