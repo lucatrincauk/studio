@@ -68,17 +68,17 @@ export function MultiStepRatingForm({
   const { toast } = useToast();
 
   const defaultFormValues: RatingFormValues = {
-    excitedToReplay: existingReview?.rating.excitedToReplay || 1,
-    mentallyStimulating: existingReview?.rating.mentallyStimulating || 1,
-    fun: existingReview?.rating.fun || 1,
-    decisionDepth: existingReview?.rating.decisionDepth || 1,
-    replayability: existingReview?.rating.replayability || 1,
-    luck: existingReview?.rating.luck || 1,
-    lengthDowntime: existingReview?.rating.lengthDowntime || 1,
-    graphicDesign: existingReview?.rating.graphicDesign || 1,
-    componentsThemeLore: existingReview?.rating.componentsThemeLore || 1,
-    effortToLearn: existingReview?.rating.effortToLearn || 1,
-    setupTeardown: existingReview?.rating.setupTeardown || 1,
+    excitedToReplay: existingReview?.rating.excitedToReplay || 3,
+    mentallyStimulating: existingReview?.rating.mentallyStimulating || 3,
+    fun: existingReview?.rating.fun || 3,
+    decisionDepth: existingReview?.rating.decisionDepth || 3,
+    replayability: existingReview?.rating.replayability || 3,
+    luck: existingReview?.rating.luck || 3,
+    lengthDowntime: existingReview?.rating.lengthDowntime || 3,
+    graphicDesign: existingReview?.rating.graphicDesign || 3,
+    componentsThemeLore: existingReview?.rating.componentsThemeLore || 3,
+    effortToLearn: existingReview?.rating.effortToLearn || 3,
+    setupTeardown: existingReview?.rating.setupTeardown || 3,
   };
 
   const form = useForm<RatingFormValues>({
@@ -276,7 +276,7 @@ export function MultiStepRatingForm({
         )}
 
         {/* Specific Header for Step 5 (Summary) */}
-        {currentStep === 5 && (
+         {currentStep === 5 && (
             <CardHeader className="px-0 pt-0 pb-4 text-center">
                 <div className="flex justify-between items-center mb-1">
                     <CardTitle className="text-2xl md:text-3xl text-left">Your Ratings Summary</CardTitle>
