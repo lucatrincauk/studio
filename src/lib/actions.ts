@@ -53,15 +53,15 @@ function parseBggSearchXml(xml: string): Omit<BggSearchResult, 'rank'>[] {
 
 // Helper to parse rank from BGG thing XML response
 function parseRankFromThingXml(xml: string): number {
-    const rankRegex = /<rank type="subtype" name="boardgame" friendlyname="Board Game Rank" value="(\d+|Not Ranked)"/;
-    // Rank is usually within <statistics><ratings><ranks>...</ranks></ratings></statistics>
+    // Regex targeting type="subtype" name="boardgame", making friendlyname optional for capture.
+    const rankRegex = /<rank\s+type="subtype"\s+name="boardgame"(?:\s+friendlyname="[^"]*")?\s+value="(\d+|Not Ranked)"[^>]*>/;
     const statsBlockRegex = /<statistics>[\s\S]*?<ranks>([\s\S]*?)<\/ranks>[\s\S]*?<\/statistics>/; 
     const statsMatch = xml.match(statsBlockRegex);
 
     if (statsMatch) {
         const ranksBlock = statsMatch[1]; // Content within <ranks>...</ranks>
         const rankMatch = ranksBlock.match(rankRegex);
-        if (rankMatch) {
+        if (rankMatch && rankMatch[1]) { // Ensure rankMatch and its capture group exist
             if (rankMatch[1] === 'Not Ranked') {
                 return Number.MAX_SAFE_INTEGER;
             }
