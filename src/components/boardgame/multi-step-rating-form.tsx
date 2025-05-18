@@ -15,8 +15,14 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Slider } from '@/components/ui/slider';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { calculateOverallCategoryAverage, formatRatingNumber } from '@/lib/utils';
+import { calculateOverallCategoryAverage, formatRatingNumber, calculateGroupedCategoryAverages, type GroupedCategoryAverages } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 import { db } from '@/lib/firebase';
 import { collection, addDoc, doc, updateDoc, query, where, getDocs, limit, getDoc } from 'firebase/firestore';
@@ -30,10 +36,10 @@ interface MultiStepRatingFormProps {
 
 const totalSteps = 5;
 const stepCategories: (keyof RatingFormValues)[][] = [
-  ['excitedToReplay', 'mentallyStimulating', 'fun'], // Step 1: Sentiments
-  ['decisionDepth', 'replayability', 'luck', 'lengthDowntime'], // Step 2: Game Design
-  ['graphicDesign', 'componentsThemeLore'], // Step 3: Aesthetics & Immersion
-  ['effortToLearn', 'setupTeardown'], // Step 4: Learning & Logistics
+  ['excitedToReplay', 'mentallyStimulating', 'fun'],
+  ['decisionDepth', 'replayability', 'luck', 'lengthDowntime'],
+  ['graphicDesign', 'componentsThemeLore'],
+  ['effortToLearn', 'setupTeardown'],
   [], // Step 5: Summary (no new inputs, displays saved data)
 ];
 
@@ -54,6 +60,7 @@ export function MultiStepRatingForm({
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, startSubmitTransition] = useTransition();
   const [formError, setFormError] = useState<string | null>(null);
+  const [groupedAveragesForSummary, setGroupedAveragesForSummary] = useState<GroupedCategoryAverages | null>(null);
   const { toast } = useToast();
 
   const defaultFormValues: RatingFormValues = {
@@ -73,7 +80,7 @@ export function MultiStepRatingForm({
   const form = useForm<RatingFormValues>({
     resolver: zodResolver(reviewFormSchema),
     defaultValues: defaultFormValues,
-    mode: 'onChange', 
+    mode: 'onChange',
   });
 
   useEffect(() => {
@@ -99,13 +106,24 @@ export function MultiStepRatingForm({
 
   const handleNext = async () => {
     let fieldsToValidate: (keyof RatingFormValues)[] = [];
-    // Validate fields for current step (1, 2, or 3) before proceeding
-    if (currentStep >= 1 && currentStep < 4) { // Only for steps before submission step
+    if (currentStep >= 1 && currentStep <= 4) {
         fieldsToValidate = stepCategories[currentStep-1];
     }
 
     const isValid = await form.trigger(fieldsToValidate);
     if (isValid) {
+      if (currentStep === 4) { // Moving from step 4 to step 5 (summary)
+        const currentRatings = form.getValues();
+        const tempReviewForSummary: Review = {
+          id: 'summary',
+          author: '', // Not needed for this calculation
+          userId: '', // Not needed for this calculation
+          rating: currentRatings,
+          comment: '', // Not needed for this calculation
+          date: new Date().toISOString(),
+        };
+        setGroupedAveragesForSummary(calculateGroupedCategoryAverages([tempReviewForSummary]));
+      }
       setCurrentStep((prev) => Math.min(prev + 1, totalSteps));
       setFormError(null);
     } else {
@@ -124,104 +142,94 @@ export function MultiStepRatingForm({
     setFormError(null);
   };
 
-  // Handles the actual Firestore submission
   const processSubmitFirestore = async (data: RatingFormValues): Promise<boolean> => {
     setFormError(null);
     let submissionSuccess = false;
 
-    await new Promise<void>(resolve => {
-      startSubmitTransition(async () => {
-        try {
-          const gameDocRef = doc(db, "boardgames_collection", gameId);
-          const gameDocSnap = await getDoc(gameDocRef);
-          if (!gameDocSnap.exists()) {
-            toast({ title: "Error", description: "Game not found. Cannot submit review.", variant: "destructive" });
-            setFormError("Game not found. Cannot submit review.");
-            submissionSuccess = false;
-            resolve();
-            return;
-          }
+    // Construct the rating object from the form data
+    const rating: Rating = { ...data };
 
-          const reviewsCollectionRef = collection(db, "boardgames_collection", gameId, 'reviews');
-          const rating: Rating = { ...data }; // All fields from form data are part of the rating
+    const reviewAuthor = currentUser.displayName || 'Anonymous';
+    const reviewComment = ""; // No comment field anymore
 
-          const reviewAuthor = currentUser.displayName || 'Anonymous';
-          const reviewComment = ""; 
+    const newReviewData = {
+      author: reviewAuthor,
+      userId: currentUser.uid,
+      rating,
+      comment: reviewComment,
+      date: new Date().toISOString(),
+    };
 
-          if (existingReview?.id) {
-            const reviewDocRef = doc(reviewsCollectionRef, existingReview.id);
-            const reviewSnapshot = await getDoc(reviewDocRef);
-            if (!reviewSnapshot.exists() || reviewSnapshot.data()?.userId !== currentUser.uid) {
-               toast({ title: "Error", description: "Review not found or you do not have permission to edit it.", variant: "destructive" });
-               setFormError("Review not found or you do not have permission to edit it.");
-               submissionSuccess = false;
-               resolve();
-               return;
-            }
-            await updateDoc(reviewDocRef, {
-              author: reviewAuthor,
-              rating,
-              comment: reviewComment,
-              date: new Date().toISOString(),
-              userId: currentUser.uid,
-            });
-            toast({ title: "Success!", description: "Review updated successfully!", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
-          } else {
-            const existingReviewQuery = query(reviewsCollectionRef, where("userId", "==", currentUser.uid), limit(1));
-            const existingReviewSnapshot = await getDocs(existingReviewQuery);
+    try {
+      const gameDocRef = doc(db, "boardgames_collection", gameId);
+      const gameDocSnap = await getDoc(gameDocRef);
 
-            if (!existingReviewSnapshot.empty) {
-              // This case ideally shouldn't be hit if existingReview prop is correctly passed
-              // but as a safeguard, update if found.
-               const existingReviewDoc = existingReviewSnapshot.docs[0];
-               await updateDoc(existingReviewDoc.ref, {
-                  author: reviewAuthor,
-                  rating,
-                  comment: reviewComment,
-                  date: new Date().toISOString(),
-                  userId: currentUser.uid,
-               });
-              toast({ title: "Review Updated", description: "Your existing review for this game has been updated.", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
-            } else {
-              const newReviewData = {
-                author: reviewAuthor,
-                userId: currentUser.uid,
-                rating,
-                comment: reviewComment,
-                date: new Date().toISOString(),
-              };
-              await addDoc(reviewsCollectionRef, newReviewData);
-              toast({ title: "Success!", description: "Review submitted successfully!", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
-            }
-          }
-          submissionSuccess = true;
-        } catch (error) {
-          console.error("Error submitting review:", error);
-          const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
-          toast({ title: "Error", description: `Failed to submit review: ${errorMessage}`, variant: "destructive" });
-          setFormError(`Failed to submit review: ${errorMessage}`);
-          submissionSuccess = false;
-        } finally {
-          resolve();
+      if (!gameDocSnap.exists()) {
+        toast({ title: "Error", description: "Game not found. Cannot submit review.", variant: "destructive" });
+        setFormError("Game not found. Cannot submit review.");
+        return false;
+      }
+
+      const reviewsCollectionRef = collection(db, "boardgames_collection", gameId, 'reviews');
+
+      if (existingReview?.id) {
+        // Update existing review
+        const reviewDocRef = doc(reviewsCollectionRef, existingReview.id);
+        const reviewSnapshot = await getDoc(reviewDocRef);
+        if (!reviewSnapshot.exists() || reviewSnapshot.data()?.userId !== currentUser.uid) {
+           toast({ title: "Error", description: "Review not found or you do not have permission to edit it.", variant: "destructive" });
+           setFormError("Review not found or you do not have permission to edit it.");
+           return false;
         }
-      });
-    });
+        await updateDoc(reviewDocRef, newReviewData);
+        toast({ title: "Success!", description: "Review updated successfully!", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
+      } else {
+        // Check if user already submitted a review for this game
+        const existingReviewQuery = query(reviewsCollectionRef, where("userId", "==", currentUser.uid), limit(1));
+        const existingReviewSnapshot = await getDocs(existingReviewQuery);
+
+        if (!existingReviewSnapshot.empty) {
+          // User already reviewed, update it (this logic path might be redundant if existingReview prop is always correctly set)
+          const existingReviewDoc = existingReviewSnapshot.docs[0];
+          await updateDoc(existingReviewDoc.ref, newReviewData);
+          toast({ title: "Review Updated", description: "Your existing review for this game has been updated.", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
+        } else {
+          // Add new review
+          await addDoc(reviewsCollectionRef, newReviewData);
+          toast({ title: "Success!", description: "Review submitted successfully!", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
+        }
+      }
+      submissionSuccess = true;
+    } catch (error) {
+      console.error("Error submitting review:", error);
+      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+      toast({ title: "Error", description: `Failed to submit review: ${errorMessage}`, variant: "destructive" });
+      setFormError(`Failed to submit review: ${errorMessage}`);
+      submissionSuccess = false;
+    }
     return submissionSuccess;
   };
 
-  // Handler for Step 4's submit button
   const handleStep4Submit = async () => {
-    const fieldsToValidate = stepCategories[3] as (keyof RatingFormValues)[]; // Step 4 fields
+    const fieldsToValidate = stepCategories[3] as (keyof RatingFormValues)[];
     const isValid = await form.trigger(fieldsToValidate);
 
     if (isValid) {
       setFormError(null);
       const data = form.getValues();
-      const submissionSuccessful = await processSubmitFirestore(data);
-      if (submissionSuccessful) {
-        setCurrentStep(5); // Move to summary step
-      }
-      // If not successful, processSubmitFirestore would have set formError
+      
+      startSubmitTransition(async () => {
+        const submissionSuccessful = await processSubmitFirestore(data);
+        if (submissionSuccessful) {
+          // Prepare data for summary step
+          const currentRatings = form.getValues();
+          const tempReviewForSummary: Review = {
+            id: 'summary', author: '', userId: '', rating: currentRatings, comment: '', date: new Date().toISOString(),
+          };
+          setGroupedAveragesForSummary(calculateGroupedCategoryAverages([tempReviewForSummary]));
+          setCurrentStep(5); // Move to summary step
+        }
+      });
     } else {
       setFormError(`Please correct errors in ${getCurrentStepTitle()} before proceeding.`);
       toast({
@@ -261,20 +269,18 @@ export function MultiStepRatingForm({
 
   return (
     <Form {...form}>
-      <form className="space-y-8"> 
-        <div className="min-h-[350px]"> 
-          <div className="mb-6">
-            <div className="flex justify-between items-center">
-              <h3 className="text-xl font-semibold">{getCurrentStepTitle()}</h3>
-              <span className="text-sm text-muted-foreground">Step {currentStep} / {totalSteps}</span>
-            </div>
-            {getCurrentStepDescription() && (
-              <p className="text-sm text-muted-foreground mt-1">{getCurrentStepDescription()}</p>
-            )}
+      <form className="space-y-8">
+        <div className="mb-6">
+          <div className="flex justify-between items-center">
+            <h3 className="text-xl font-semibold">{getCurrentStepTitle()} - Step {currentStep} / {totalSteps}</h3>
           </div>
+          {getCurrentStepDescription() && (
+            <p className="text-sm text-muted-foreground mt-1">{getCurrentStepDescription()}</p>
+          )}
+        </div>
 
-
-          {currentStep === 1 && ( 
+        <div className="min-h-[350px]">
+          {currentStep === 1 && (
             <div className="space-y-6 animate-fadeIn">
               {(stepCategories[0] as RatingCategory[]).map((fieldName) => (
                 <FormField
@@ -301,7 +307,7 @@ export function MultiStepRatingForm({
             </div>
           )}
 
-          {currentStep === 2 && ( 
+          {currentStep === 2 && (
             <div className="space-y-6 animate-fadeIn">
               {(stepCategories[1] as RatingCategory[]).map((fieldName) => (
                  <FormField
@@ -328,7 +334,7 @@ export function MultiStepRatingForm({
             </div>
           )}
 
-          {currentStep === 3 && ( 
+          {currentStep === 3 && (
             <div className="space-y-6 animate-fadeIn">
               {(stepCategories[2] as RatingCategory[]).map((fieldName) => (
                  <FormField
@@ -355,7 +361,7 @@ export function MultiStepRatingForm({
             </div>
           )}
 
-          {currentStep === 4 && ( 
+          {currentStep === 4 && (
             <div className="space-y-6 animate-fadeIn">
              {(stepCategories[3] as RatingCategory[]).map((fieldName) => (
                  <FormField
@@ -382,37 +388,49 @@ export function MultiStepRatingForm({
             </div>
           )}
 
-          {currentStep === 5 && (
+          {currentStep === 5 && groupedAveragesForSummary && (
             <Card className="animate-fadeIn border-border shadow-md">
               <CardHeader>
-                <div className="flex justify-between items-center">
-                  <CardTitle className="text-lg">Your Ratings Summary</CardTitle>
-                  {yourOverallAverage > 0 && (
-                    <span className="text-2xl font-bold text-primary">{formatRatingNumber(yourOverallAverage * 2)}</span>
-                  )}
-                </div>
+                 <div className="flex justify-between items-center">
+                    <CardTitle className="text-lg">Your Ratings Summary</CardTitle>
+                    {yourOverallAverage > 0 && (
+                        <span className="text-2xl font-bold text-primary">{formatRatingNumber(yourOverallAverage * 2)}</span>
+                    )}
+                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {stepCategories.slice(0, 4).map((categoryGroup, index) => (
-                  categoryGroup.length > 0 && (
-                    <div key={sectionTitles[index]}>
-                      <h4 className="text-md font-semibold mb-2 text-primary">{sectionTitles[index]}</h4>
-                      <ul className="space-y-2.5 pl-2">
-                        {(categoryGroup as RatingCategory[]).map((fieldName) => (
-                          <li key={fieldName} className="flex justify-between items-center text-sm">
-                            <span className="text-muted-foreground">{RATING_CATEGORIES[fieldName]}:</span>
-                             <div className="w-24">
-                                <Progress value={(form.getValues(fieldName) / 5) * 100} className="h-2" />
-                             </div>
-                          </li>
-                        ))}
-                      </ul>
-                      {index < 3 && <Separator className="my-3"/>}
-                    </div>
-                  )
-                ))}
+              <CardContent>
+                <Accordion type="multiple" className="w-full">
+                  {groupedAveragesForSummary.map((section, index) => (
+                    <AccordionItem value={`section-summary-${index}`} key={section.sectionTitle}>
+                      <AccordionTrigger className="hover:no-underline text-left">
+                        <div className="flex justify-between w-full items-center pr-2 gap-4">
+                           <span className="font-medium text-md text-foreground flex-grow">{section.sectionTitle}</span>
+                           <div className="flex items-center gap-2 flex-shrink-0 w-24">
+                             <Progress value={(section.sectionAverage / 5) * 100} className="w-full h-2.5" />
+                           </div>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <ul className="space-y-2.5 pl-2 pt-2">
+                          {section.subRatings.map(sub => (
+                            <li key={sub.name} className="flex justify-between items-center text-sm">
+                              <span className="text-muted-foreground">{sub.name}:</span>
+                              <span className="font-medium text-foreground">{formatRatingNumber(sub.average)} / 5</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
               </CardContent>
             </Card>
+          )}
+          {currentStep === 5 && !groupedAveragesForSummary && (
+            <div className="flex justify-center items-center h-full">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <span className="ml-2">Loading summary...</span>
+            </div>
           )}
         </div>
 
@@ -432,15 +450,15 @@ export function MultiStepRatingForm({
             Previous
           </Button>
           
-          {currentStep < 4 ? ( // Steps 1, 2, 3 show "Next"
+          {currentStep < 4 ? (
             <Button type="button" onClick={handleNext} disabled={isSubmitting} className="bg-primary hover:bg-primary/90 text-primary-foreground">
               Next
             </Button>
-          ) : currentStep === 4 ? ( // Step 4 shows "Submit Review" or "Update Review"
-            <Button 
-              type="button" 
-              onClick={handleStep4Submit} 
-              disabled={isSubmitting} 
+          ) : currentStep === 4 ? (
+            <Button
+              type="button"
+              onClick={handleStep4Submit}
+              disabled={isSubmitting}
               className="bg-accent hover:bg-accent/90 text-accent-foreground"
             >
               {isSubmitting ? (
@@ -455,7 +473,7 @@ export function MultiStepRatingForm({
              <Button
                 type="button"
                 onClick={() => {
-                  form.reset(defaultFormValues); // Reset form before navigating away
+                  form.reset(defaultFormValues);
                   onReviewSubmitted();
                 }}
                 className="bg-primary hover:bg-primary/90 text-primary-foreground"
@@ -468,3 +486,4 @@ export function MultiStepRatingForm({
     </Form>
   );
 }
+
