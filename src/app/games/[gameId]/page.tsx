@@ -83,17 +83,17 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
 
 
   const handleGenerateSummary = async () => {
-    if (!game) return;
+    if (!game || !game.reviews) return;
     setSummaryError(null);
     setAiSummary(null);
     startSummaryTransition(async () => {
-       const reviewComments = game.reviews?.map(r => r.comment).filter(Boolean) as string[] || [];
-      if (reviewComments.length === 0) {
-        setSummaryError("No review comments available to summarize.");
+       const gameRatings = game.reviews.map(r => r.rating).filter(Boolean) as Rating[];
+      if (gameRatings.length === 0) {
+        setSummaryError("No ratings available to summarize.");
         return;
       }
       try {
-        const result = await summarizeReviews({ gameName: game.name, reviews: reviewComments });
+        const result = await summarizeReviews({ gameName: game.name, ratings: gameRatings });
         setAiSummary(result);
       } catch (error) {
          const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred during summary generation.';
@@ -271,3 +271,4 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
 }
 
 export const dynamic = 'force-dynamic';
+
