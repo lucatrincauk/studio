@@ -150,18 +150,20 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
   const handleTogglePinGame = async () => {
     if (!game) return;
     startPinToggleTransition(async () => {
+      const newPinStatus = !currentIsPinned;
       try {
         const gameRef = doc(db, "boardgames_collection", game.id);
         await updateDoc(gameRef, {
-          isPinned: !currentIsPinned
+          isPinned: newPinStatus
         });
-        setCurrentIsPinned(!currentIsPinned);
+        setCurrentIsPinned(newPinStatus); 
         toast({
           title: "Stato Vetrina Aggiornato",
-          description: `Il gioco è stato ${!currentIsPinned ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
+          description: `Il gioco è stato ${newPinStatus ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
         });
         
-        await fetchGameData(); 
+        // No revalidatePath here, local state and subsequent data fetches will handle UI updates.
+        await fetchGameData(); // Re-fetch game data to reflect the change universally if needed elsewhere
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({
@@ -202,7 +204,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     <div className="space-y-10">
       <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
         <div className="flex flex-col md:flex-row">
-          {/* Main content: Title, Score, Game Details, Ratings Accordion */}
           <div className="flex-1 p-6 space-y-4 order-1">
             <div className="flex justify-between items-start mb-2">
                 <div className="flex items-center gap-2 flex-1 mr-4">
@@ -221,9 +222,11 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                   )}
                 </div>
               {globalGameAverage !== null && (
-              <span className="text-3xl sm:text-4xl font-bold text-primary whitespace-nowrap">
-                  {formatRatingNumber(globalGameAverage * 2)}
-              </span>
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-md flex-shrink-0">
+                  <span className="text-xl sm:text-2xl font-bold">
+                    {formatRatingNumber(globalGameAverage * 2)}
+                  </span>
+                </div>
               )}
             </div>
             
@@ -333,7 +336,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 <h3 className="text-xl font-semibold text-foreground flex-grow mr-2">La Tua Recensione</h3>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <Button asChild size="sm">
-                    <Link href={`/games/${gameId}/rate`}>
+                     <Link href={`/games/${gameId}/rate`}>
                       <span className="flex items-center">
                         <Edit className="mr-0 sm:mr-2 h-4 w-4" />
                         <span className="hidden sm:inline">Modifica</span>
