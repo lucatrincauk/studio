@@ -8,7 +8,6 @@ import type { BoardGame, BggSearchResult } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Search, Loader2, AlertCircle, Info, ExternalLink, PlusCircle, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
-// Removed: import { searchBggGamesAction, importAndRateBggGameAction } from '@/lib/actions';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -122,32 +121,31 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
                   <SortIcon columnKey="name" />
                 </Button>
               </TableHead>
-              <TableHead className="hidden md:table-cell text-center">Giocatori</TableHead>
-              <TableHead className="hidden md:table-cell text-center">Durata</TableHead>
               <TableHead className="text-center">
                  <Button variant="ghost" onClick={() => handleSort('overallAverageRating')} className="px-1">
                   Voto Medio
                   <SortIcon columnKey="overallAverageRating" />
                 </Button>
               </TableHead>
-              <TableHead className="text-right">Azioni</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {games.map(game => (
               <TableRow key={game.id}>
                 <TableCell>
-                  <div className="relative w-12 h-16 sm:w-16 sm:h-20 rounded overflow-hidden shadow-sm">
-                    <SafeImage
-                      src={game.coverArtUrl}
-                      fallbackSrc={`https://placehold.co/64x80.png?text=${encodeURIComponent(game.name?.substring(0,3) || 'N/A')}`}
-                      alt={`${game.name || 'Gioco'} copertina`}
-                      fill
-                      sizes="(max-width: 640px) 48px, 64px"
-                      className="object-cover"
-                      data-ai-hint={`board game ${game.name?.split(' ')[0]?.toLowerCase() || 'mini'}`}
-                    />
-                  </div>
+                  <Link href={`/games/${game.id}`} className="block">
+                    <div className="relative w-12 h-16 sm:w-16 sm:h-20 rounded overflow-hidden shadow-sm hover:opacity-80 transition-opacity">
+                      <SafeImage
+                        src={game.coverArtUrl}
+                        fallbackSrc={`https://placehold.co/64x80.png?text=${encodeURIComponent(game.name?.substring(0,3) || 'N/A')}`}
+                        alt={`${game.name || 'Gioco'} copertina`}
+                        fill
+                        sizes="(max-width: 640px) 48px, 64px"
+                        className="object-cover"
+                        data-ai-hint={`board game ${game.name?.split(' ')[0]?.toLowerCase() || 'mini'}`}
+                      />
+                    </div>
+                  </Link>
                 </TableCell>
                 <TableCell className="font-medium">
                   <Link href={`/games/${game.id}`} className="hover:text-primary hover:underline">
@@ -155,21 +153,16 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
                     {game.yearPublished && ` (${game.yearPublished})`}
                   </Link>
                 </TableCell>
-                <TableCell className="hidden md:table-cell text-center">
-                  {game.minPlayers}{game.maxPlayers && game.minPlayers !== game.maxPlayers ? `-${game.maxPlayers}` : ''}
-                </TableCell>
-                <TableCell className="hidden md:table-cell text-center">{game.playingTime ? `${game.playingTime} min` : '-'}</TableCell>
                 <TableCell className="text-center">
                   {game.overallAverageRating !== null && typeof game.overallAverageRating === 'number' ? (
-                    <span className="font-semibold text-primary">{formatRatingNumber(game.overallAverageRating * 2)}</span>
+                    <Link href={`/games/${game.id}`} className="hover:text-primary hover:underline">
+                      <span className="font-semibold text-primary">{formatRatingNumber(game.overallAverageRating * 2)}</span>
+                    </Link>
                   ) : (
-                    '-'
+                    <Link href={`/games/${game.id}`} className="hover:text-primary hover:underline">
+                      <span className="text-muted-foreground">-</span>
+                    </Link>
                   )}
-                </TableCell>
-                <TableCell className="text-right">
-                  <Button variant="outline" size="sm" asChild>
-                    <Link href={`/games/${game.id}`}>Vedi Dettagli</Link>
-                  </Button>
                 </TableCell>
               </TableRow>
             ))}
@@ -200,7 +193,7 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
           ) : (
             <Alert variant="default" className="max-w-lg mx-auto bg-secondary/30 border-secondary text-center">
               <Info className="h-4 w-4 mx-auto mb-2 text-muted-foreground" />
-              <AlertTitle className="mb-1 text-foreground">Nessun Gioco Trovato Localmente</AlertTitle>
+              <AlertTitle className="mb-1 text-foreground">Nessun Gioco Trovato</AlertTitle>
               <AlertDescription className="mb-3 text-muted-foreground">
                 Nessun gioco corrispondente a "{searchTerm}" è stato trovato nella tua collezione.
               </AlertDescription>
