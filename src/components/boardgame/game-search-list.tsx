@@ -5,11 +5,9 @@ import { useState, useEffect, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { BoardGame, BggSearchResult } from '@/lib/types';
-// Removed GameCard import as it's no longer used for the main list here
-import { BggSearchResultItem } from './bgg-search-result-item';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Loader2, AlertCircle, Info, ExternalLink } from 'lucide-react';
+import { Search, Loader2, AlertCircle, Info, ExternalLink, PlusCircle } from 'lucide-react';
 import { searchBggGamesAction, importAndRateBggGameAction } from '@/lib/actions';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
@@ -104,7 +102,7 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
     });
   };
 
-  const GameTable = ({ games, title }: { games: BoardGame[], title: string }) => (
+  const LocalGamesTable = ({ games, title }: { games: BoardGame[], title: string }) => (
     <section>
       <h3 className="text-xl font-semibold mb-4 text-foreground">
         {title} ({games.length})
@@ -168,6 +166,61 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
     </section>
   );
 
+  const BggResultsTable = ({ results }: { results: BggSearchResult[] }) => (
+    <section>
+      <h3 className="text-xl font-semibold mb-4 text-foreground">
+        Risultati da BoardGameGeek ({results.length})
+      </h3>
+      <div className="overflow-x-auto bg-card p-4 rounded-lg shadow-md border border-border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Nome</TableHead>
+              <TableHead className="text-center">Anno</TableHead>
+              <TableHead className="text-right">Azioni</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {results.map(result => (
+              <TableRow key={result.bggId}>
+                <TableCell className="font-medium">{result.name}</TableCell>
+                <TableCell className="text-center">{result.yearPublished || '-'}</TableCell>
+                <TableCell className="text-right space-x-2">
+                  <Button
+                    onClick={() => handleImportGame(result.bggId)}
+                    disabled={isPendingImport && isImportingId === result.bggId}
+                    size="sm"
+                    className="bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                  >
+                    {(isPendingImport && isImportingId === result.bggId) ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <PlusCircle className="mr-2 h-4 w-4" />
+                    )}
+                    Aggiungi e Valuta
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    asChild
+                  >
+                    <a 
+                        href={`https://boardgamegeek.com/boardgame/${result.bggId}`} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                    >
+                        Vedi su BGG <ExternalLink className="ml-2 h-3 w-3" />
+                    </a>
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </section>
+  );
+
 
   return (
     <div className="space-y-8">
@@ -186,7 +239,7 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
       {searchTerm.trim().length > 0 ? (
         <>
           {localFilteredGames.length > 0 ? (
-            <GameTable games={localFilteredGames} title="Giochi Corrispondenti nella Tua Collezione" />
+            <LocalGamesTable games={localFilteredGames} title="Giochi Corrispondenti nella Tua Collezione" />
           ) : (
             <>
               {isLoadingBgg ? (
@@ -201,21 +254,7 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
                   <AlertDescription>{bggError}</AlertDescription>
                 </Alert>
               ) : bggResults.length > 0 ? (
-                <section>
-                  <h3 className="text-xl font-semibold mb-4 text-foreground">
-                    Risultati da BoardGameGeek ({bggResults.length})
-                  </h3>
-                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                    {bggResults.map((bggGame) => (
-                      <BggSearchResultItem 
-                        key={bggGame.bggId} 
-                        result={bggGame} 
-                        onAddGame={handleImportGame}
-                        isAdding={isPendingImport && isImportingId === bggGame.bggId}
-                      />
-                    ))}
-                  </div>
-                </section>
+                <BggResultsTable results={bggResults} />
               ) : bggSearchAttempted ? (
                 <Alert variant="default" className="max-w-lg mx-auto bg-secondary/30 border-secondary">
                   <Info className="h-4 w-4" />
@@ -240,7 +279,7 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
       ) : (
         <>
           {initialGames.length > 0 ? (
-             <GameTable games={initialGames} title="I Tuoi Giochi" />
+             <LocalGamesTable games={initialGames} title="I Tuoi Giochi" />
           ) : (
             <Alert variant="default" className="max-w-lg mx-auto bg-secondary/30 border-secondary">
               <Info className="h-4 w-4" />
