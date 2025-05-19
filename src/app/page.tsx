@@ -74,7 +74,7 @@ export default async function HomePage() {
                   </div>
                   <div className="flex-grow min-w-0 ml-2 sm:ml-3 flex justify-between items-center">
                     <Link href={`/games/${game.id}`} className="group flex-1">
-                      <h3 className="text-md sm:text-lg font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-2 hover:underline">
+                      <h3 className="text-md sm:text-lg font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-3 hover:underline">
                         {game.name}
                       </h3>
                       {game.yearPublished && (
@@ -112,3 +112,4 @@ export default async function HomePage() {
 }
 
 export const revalidate = 3600;
+
