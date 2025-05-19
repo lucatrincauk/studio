@@ -28,7 +28,7 @@ interface GameSearchListProps {
 
 export function GameSearchList({ initialGames }: GameSearchListProps) {
   const [searchTerm, setSearchTerm] = useState('');
-  const [localFilteredGames, setLocalFilteredGames] = useState<BoardGame[]>(initialGames);
+  const [localFilteredGames, setLocalFilteredGames] = useState<BoardGame[]>(initialGames.sort((a,b) => (a.name || "").localeCompare(b.name || "")));
   
   const [bggResults, setBggResults] = useState<BggSearchResult[]>([]);
   const [isLoadingBgg, setIsLoadingBgg] = useState(false);
@@ -45,7 +45,7 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
     setBggSearchAttempted(false); 
 
     if (!trimmedSearchTerm) {
-      setLocalFilteredGames(initialGames); 
+      setLocalFilteredGames(initialGames.sort((a,b) => (a.name || "").localeCompare(b.name || ""))); 
       setBggResults([]); 
       setBggError(null);
       setIsLoadingBgg(false); 
@@ -53,8 +53,8 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
     }
 
     const filtered = initialGames.filter(game =>
-      game.name.toLowerCase().includes(trimmedSearchTerm)
-    );
+      (game.name || '').toLowerCase().includes(trimmedSearchTerm)
+    ).sort((a,b) => (a.name || "").localeCompare(b.name || ""));
     setLocalFilteredGames(filtered);
 
     setBggResults([]);
@@ -96,7 +96,7 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
           title: 'Gioco Aggiunto!',
           description: 'Il gioco è stato aggiunto alla tua collezione.',
         });
-         router.push(`/games/${result.gameId}/rate`); // Go to rate page after import
+         router.push(`/games/${result.gameId}/rate`); 
       }
       setIsImportingId(null);
     });
@@ -113,7 +113,6 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
             <TableRow>
               <TableHead className="w-[60px] sm:w-[80px]">Copertina</TableHead>
               <TableHead>Nome</TableHead>
-              <TableHead className="hidden sm:table-cell text-center">Anno</TableHead>
               <TableHead className="hidden md:table-cell text-center">Giocatori</TableHead>
               <TableHead className="hidden md:table-cell text-center">Durata</TableHead>
               <TableHead className="text-center">Voto Medio</TableHead>
@@ -139,9 +138,9 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
                 <TableCell className="font-medium">
                   <Link href={`/games/${game.id}`} className="hover:text-primary hover:underline">
                     {game.name || "Gioco Senza Nome"}
+                    {game.yearPublished && ` (${game.yearPublished})`}
                   </Link>
                 </TableCell>
-                <TableCell className="hidden sm:table-cell text-center">{game.yearPublished || '-'}</TableCell>
                 <TableCell className="hidden md:table-cell text-center">
                   {game.minPlayers}{game.maxPlayers && game.minPlayers !== game.maxPlayers ? `-${game.maxPlayers}` : ''}
                 </TableCell>
@@ -176,15 +175,16 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
           <TableHeader>
             <TableRow>
               <TableHead>Nome</TableHead>
-              <TableHead className="text-center">Anno</TableHead>
               <TableHead className="text-right">Azioni</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {results.map(result => (
               <TableRow key={result.bggId}>
-                <TableCell className="font-medium">{result.name}</TableCell>
-                <TableCell className="text-center">{result.yearPublished || '-'}</TableCell>
+                <TableCell className="font-medium">
+                  {result.name}
+                  {result.yearPublished && ` (${result.yearPublished})`}
+                </TableCell>
                 <TableCell className="text-right space-x-2">
                   <Button
                     onClick={() => handleImportGame(result.bggId)}
@@ -292,4 +292,3 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
     </div>
   );
 }
-

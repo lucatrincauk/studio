@@ -6,7 +6,7 @@ import { useState, useEffect, useTransition } from 'react';
 import { fetchBggUserCollectionAction, getBoardGamesFromFirestoreAction, syncBoardGamesToFirestoreAction } from '@/lib/actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, AlertCircle, Info, Star, Users, Clock, CalendarDays, ExternalLink } from 'lucide-react';
+import { Loader2, AlertCircle, Info, Users, Clock, ExternalLink } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { CollectionConfirmationDialog } from '@/components/collection/confirmation-dialog';
@@ -56,7 +56,9 @@ export default function AdminCollectionPage() {
       setDbCollection([]);
       toast({ title: 'Errore Caricamento DB', description: result.error, variant: 'destructive'});
     } else {
-      setDbCollection(result);
+      // Sort by name before setting
+      const sortedResult = result.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      setDbCollection(sortedResult);
     }
     setIsLoadingDb(false);
   };
@@ -96,7 +98,9 @@ export default function AdminCollectionPage() {
         toast({ title: 'Errore Sincronizzazione BGG', description: result.error, variant: 'destructive' });
         setBggFetchedCollection([]); 
       } else {
-        setBggFetchedCollection(result);
+        // Sort by name before setting
+        const sortedResult = result.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        setBggFetchedCollection(sortedResult);
         toast({ title: 'Collezione BGG Caricata', description: `Trovati ${result.length} giochi posseduti per ${BGG_USERNAME}. Controlla le modifiche in sospeso qui sotto.` });
       }
     });
@@ -126,7 +130,7 @@ export default function AdminCollectionPage() {
     });
   };
   
-  const displayedCollection = bggFetchedCollection || dbCollection;
+  const displayedCollection = (bggFetchedCollection || dbCollection).sort((a,b) => (a.name || "").localeCompare(b.name || ""));
   const displaySource = bggFetchedCollection ? "Collezione BGG Caricata" : "Collezione DB Corrente";
 
   return (
@@ -225,7 +229,6 @@ export default function AdminCollectionPage() {
                     <TableRow>
                         <TableHead className="w-[80px]">Copertina</TableHead>
                         <TableHead>Nome</TableHead>
-                        <TableHead className="hidden sm:table-cell text-center">Anno</TableHead>
                         <TableHead className="hidden md:table-cell text-center">Giocatori</TableHead>
                         <TableHead className="hidden md:table-cell text-center">Durata</TableHead>
                         <TableHead className="text-center">Voto</TableHead>
@@ -248,8 +251,10 @@ export default function AdminCollectionPage() {
                             />
                             </div>
                         </TableCell>
-                        <TableCell className="font-medium">{game.name || "Gioco Senza Nome"}</TableCell>
-                        <TableCell className="hidden sm:table-cell text-center">{game.yearPublished || '-'}</TableCell>
+                        <TableCell className="font-medium">
+                            {game.name || "Gioco Senza Nome"}
+                            {game.yearPublished && ` (${game.yearPublished})`}
+                        </TableCell>
                         <TableCell className="hidden md:table-cell text-center">
                             {game.minPlayers}{game.maxPlayers && game.minPlayers !== game.maxPlayers ? `-${game.maxPlayers}` : ''}
                         </TableCell>
