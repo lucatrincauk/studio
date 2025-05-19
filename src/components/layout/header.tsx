@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { List, LogOut, UserPlus, LogIn, BarChart3, MessagesSquare, Users2 } from 'lucide-react';
+import { LogOut, UserPlus, LogIn, BarChart3, MessagesSquare, Users2, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import {
   DropdownMenu,
@@ -13,11 +13,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { AvatarImage } from '@radix-ui/react-avatar';
 
 
 export function Header() {
-  const { user, signOut, loading } = useAuth();
+  const { user, signOut, loading, isAdmin } = useAuth();
 
   const handleSignOut = async () => {
     await signOut();
@@ -52,15 +53,7 @@ export function Header() {
                 Tutte le Recensioni
               </Link>
             </li>
-            <li>
-              <Link
-                href="/collection"
-                className="flex items-center gap-1.5 text-sm font-medium transition-opacity hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-accent rounded-md px-2 py-1"
-              >
-                <List size={18} />
-                Collezione
-              </Link>
-            </li>
+            {/* Removed "Collezione" link from main navigation */}
             {loading ? (
               <div className="h-8 w-20 animate-pulse rounded-md bg-primary-foreground/20"></div>
             ) : user ? (
@@ -88,6 +81,14 @@ export function Header() {
                       </div>
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
+                    {isAdmin && (
+                      <DropdownMenuItem asChild className="cursor-pointer">
+                        <Link href="/admin">
+                          <ShieldCheck className="mr-2 h-4 w-4" />
+                          Sezione Admin
+                        </Link>
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
                       <LogOut className="mr-2 h-4 w-4" />
                       <span>Esci</span>

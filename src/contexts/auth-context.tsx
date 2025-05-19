@@ -8,18 +8,21 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
-  GoogleAuthProvider, // Added
-  signInWithPopup, // Added
+  GoogleAuthProvider,
+  signInWithPopup,
 } from 'firebase/auth';
-import { auth } from '@/lib/firebase'; // Ensure your firebase.ts exports auth
+import { auth } from '@/lib/firebase';
+
+const ADMIN_EMAIL = "lucatrinca.uk@gmail.com";
 
 interface AuthContextType {
   user: FirebaseUser | null;
   loading: boolean;
   error: AuthError | null;
+  isAdmin: boolean;
   signUp: (email: string, pass: string) => Promise<FirebaseUser | null>;
   signIn: (email: string, pass: string) => Promise<FirebaseUser | null>;
-  signInWithGoogle: () => Promise<FirebaseUser | null>; // Added
+  signInWithGoogle: () => Promise<FirebaseUser | null>;
   signOut: () => Promise<void>;
   clearError: () => void;
 }
@@ -30,10 +33,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<AuthError | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser);
+      if (firebaseUser) {
+        setIsAdmin(firebaseUser.email === ADMIN_EMAIL);
+      } else {
+        setIsAdmin(false);
+      }
       setLoading(false);
     });
     return () => unsubscribe();
@@ -47,6 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
       setUser(userCredential.user);
+      setIsAdmin(userCredential.user.email === ADMIN_EMAIL);
       return userCredential.user;
     } catch (e) {
       setError(e as AuthError);
@@ -62,6 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, pass);
       setUser(userCredential.user);
+      setIsAdmin(userCredential.user.email === ADMIN_EMAIL);
       return userCredential.user;
     } catch (e) {
       setError(e as AuthError);
@@ -78,6 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const result = await signInWithPopup(auth, provider);
       setUser(result.user);
+      setIsAdmin(result.user.email === ADMIN_EMAIL);
       return result.user;
     } catch (e) {
       setError(e as AuthError);
@@ -87,12 +99,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signOut = async (): Promise<void> => {
+  const signOutFunc = async (): Promise<void> => { // Renamed to avoid conflict with imported signOut
     setLoading(true);
     setError(null);
     try {
       await firebaseSignOut(auth);
       setUser(null);
+      setIsAdmin(false);
     } catch (e) {
       setError(e as AuthError);
     } finally {
@@ -104,10 +117,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     loading,
     error,
+    isAdmin,
     signUp,
     signIn,
-    signInWithGoogle, // Added
-    signOut,
+    signInWithGoogle,
+    signOut: signOutFunc, // Use the renamed function
     clearError,
   };
 
