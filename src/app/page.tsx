@@ -14,13 +14,16 @@ import {
 import { SafeImage } from '@/components/common/SafeImage';
 import Link from 'next/link';
 import { formatRatingNumber } from '@/lib/utils';
-import { Star } from 'lucide-react';
+import { Star, Edit } from 'lucide-react';
+import { GameSearchList } from '@/components/boardgame/game-search-list';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
 export default async function HomePage() {
   const featuredGames = await getFeaturedGamesAction();
-  const allGames = await getAllGamesAction();
+  const allGames = await getAllGamesAction(); // This will be used by GameSearchList
 
-  const topRatedGames = allGames
+  const topRatedGames = allGames // Calculate top rated from allGames fetched for the list below
     .filter(game => game.overallAverageRating !== null && game.overallAverageRating !== undefined)
     .sort((a, b) => (b.overallAverageRating ?? 0) - (a.overallAverageRating ?? 0))
     .slice(0, 10);
@@ -28,17 +31,23 @@ export default async function HomePage() {
   return (
     <div className="space-y-12">
       <section>
-        <div className="mb-6 text-center">
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground mb-2">
-            Esplora i Tuoi Giochi da Tavolo Preferiti
-          </h2>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+        <div className="mb-8 text-center">
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground mb-3">
+            Benvenuto su Morchiometro!
+          </h1>
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-6">
             Scopri, valuta e recensisci un mondo di avventure da tavolo.
           </p>
+          <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground text-lg px-8 py-6 rounded-lg shadow-md hover:shadow-lg transition-all duration-300">
+            <Link href="/rate-a-game/select-game">
+              <Edit className="mr-2 h-5 w-5" />
+              Valuta un Gioco
+            </Link>
+          </Button>
         </div>
 
         {featuredGames && featuredGames.length > 0 && (
-          <div className="mb-8">
+          <div className="mb-12">
             <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mb-6 text-left">
               In Evidenza
             </h2>
@@ -49,7 +58,7 @@ export default async function HomePage() {
                 </div>
               ))}
             </div>
-            <Separator className="my-8" />
+            <Separator className="my-10" />
           </div>
         )}
         
@@ -104,13 +113,14 @@ export default async function HomePage() {
                 </TableBody>
               </Table>
             </div>
+             <Separator className="my-10" />
           </section>
         )}
+
+        <GameSearchList initialGames={allGames} title="Tutti i Giochi nel Catalogo" />
       </section>
-      {/* Removed "Pronto a Tuffarti?" section */}
     </div>
   );
 }
 
 export const revalidate = 3600;
-

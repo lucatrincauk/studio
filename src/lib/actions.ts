@@ -25,6 +25,10 @@ import {
   startAfter,
   endBefore,
   limitToLast,
+  collectionGroup,
+  Timestamp,
+  or,
+  and,
 } from 'firebase/firestore';
 import { calculateCategoryAverages, calculateOverallCategoryAverage } from './utils';
 
@@ -341,7 +345,6 @@ export async function importAndRateBggGameAction(bggId: string): Promise<{ gameI
       const parsedBggData = await parseBggThingXmlToBoardGame(thingXml, numericBggId);
       
       if (parsedBggData.name === "Name Not Found in Details" || !parsedBggData.name || parsedBggData.name.startsWith("BGG ID")) {
-          console.error('Dettagli essenziali del gioco (nome) mancanti dalla risposta BGG per ID:', numericBggId);
           return { error: 'Dettagli essenziali del gioco (nome) mancanti dalla risposta BGG.' };
       }
 
@@ -389,7 +392,6 @@ export async function getGameDetails(gameId: string): Promise<BoardGame | null> 
     if (docSnap.exists()) {
       const data = docSnap.data();
       if (!data) {
-          console.error(`[GETGAMEDETAILS] Document data is null for gameId: "${gameId}" even though docSnap.exists() is true.`);
           return null;
       }
 
@@ -424,7 +426,7 @@ export async function getGameDetails(gameId: string): Promise<BoardGame | null> 
           };
         });
       } catch (reviewError) {
-        console.error(`[GETGAMEDETAILS] Error fetching reviews for gameId: "${gameId}"`, reviewError);
+        // Silently fail review fetching if needed, or log more verbosely
       }
         
       const overallAverageRating = reviews.length > 0 ? calculateOverallCategoryAverage(calculateCategoryAverages(reviews)!) : null;
@@ -447,11 +449,9 @@ export async function getGameDetails(gameId: string): Promise<BoardGame | null> 
       };
       return game;
     } else {
-      console.log(`[GETGAMEDETAILS] No document found for gameId: "${gameId}"`);
       return null;
     }
   } catch (error) {
-    console.error(`[GETGAMEDETAILS] Error fetching game details for gameId: "${gameId}"`, error);
     return null;
   }
 }
@@ -464,17 +464,14 @@ async function fetchWithRetry(url: string, retries = 3, delay = 2000, attempt = 
       if (response.status === 200) {
           const xmlText = await response.text();
            if ((!xmlText.includes('<items') && !xmlText.includes("<item ") && !xmlText.includes("<error>") && attempt < retries && !xmlText.includes("<boardgames") && !xmlText.includes("<boardgame ") && !xmlText.includes("<message>Your request for task processing has been accepted")) && !url.includes("/thing?")) { 
-              console.warn(`[BGG FETCH ATTEMPT ${attempt}] XML seems incomplete for collection, retrying...`);
               await new Promise(resolve => setTimeout(resolve, Math.min(delay * attempt, 6000))); 
               return fetchWithRetry(url, retries, delay, attempt + 1);
           }
           if(xmlText.includes("<error>")){
-              console.error(`[BGG FETCH ATTEMPT ${attempt}] BGG API returned an error in XML: ${xmlText.substring(0, 200)}`);
               throw new Error(`BGG API returned an error: ${xmlText.substring(0, 200)}`);
           }
           return xmlText;
       } else if (response.status === 202 && attempt < retries) {
-          console.warn(`[BGG FETCH ATTEMPT ${attempt}] Received 202 for ${url}, retrying in ${Math.min(delay * attempt, 6000)}ms...`);
           await new Promise(resolve => setTimeout(resolve, Math.min(delay * attempt, 6000))); 
           return fetchWithRetry(url, retries, delay, attempt + 1);
       } else if (response.status !== 200 && response.status !== 202) {
@@ -540,7 +537,6 @@ export async function getBoardGamesFromFirestoreAction(): Promise<BoardGame[] | 
                     };
                 });
             } catch (reviewError) {
-                 console.error(`Errore nel recupero delle recensioni per ${gameId} in getBoardGamesFromFirestoreAction:`, reviewError);
             }
 
             let overallAverageRating: number | null = null;
@@ -563,7 +559,7 @@ export async function getBoardGamesFromFirestoreAction(): Promise<BoardGame[] | 
                 minPlaytime: data.minPlaytime === undefined || data.minPlaytime === null ? null : data.minPlaytime,
                 maxPlaytime: data.maxPlaytime === undefined || data.maxPlaytime === null ? null : data.maxPlaytime,
                 averageWeight: data.averageWeight === undefined || data.averageWeight === null ? null : data.averageWeight,
-                reviews: [], // Keep reviews minimal for list views
+                reviews: [], 
                 overallAverageRating,
                 isPinned: data.isPinned || false,
             };
@@ -649,7 +645,6 @@ export async function syncBoardGamesToFirestoreAction(
 
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Si è verificato un errore sconosciuto durante la sincronizzazione del database.';
-        console.error("Errore in syncBoardGamesToFirestoreAction:", errorMessage);
         return { success: false, message: 'Sincronizzazione database fallita.', error: errorMessage };
     }
 }
@@ -695,7 +690,6 @@ export async function getAllReviewsAction(): Promise<AugmentedReview[]> {
     allAugmentedReviews.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     return allAugmentedReviews;
   } catch (error) {
-    console.error("Errore nel recupero di tutte le recensioni:", error);
     return []; 
   }
 }
@@ -713,7 +707,6 @@ export async function getAllUsersAction(): Promise<UserProfile[]> {
     });
     return users;
   } catch (error) {
-    console.error("Error fetching all user profiles:", error);
     return [];
   }
 }
@@ -734,7 +727,7 @@ export async function getUserDetailsAndReviewsAction(
       };
     }
   } catch (error) {
-    console.error(`Error fetching user profile for ${userId}:`, error);
+    // Silently fail
   }
 
   const allReviews = await getAllReviewsAction(); 
@@ -829,18 +822,19 @@ export async function getFeaturedGamesAction(): Promise<BoardGame[]> {
       }
     }
 
+    const maxRecentlyReviewed = 3;
     for (const game of recentlyReviewedGames) {
-      if (!featuredGameIds.has(game.id) && finalFeaturedGames.length < (pinnedGames.length + 3) ) { 
+      if (!featuredGameIds.has(game.id) && finalFeaturedGames.length < (pinnedGames.length + maxRecentlyReviewed) ) { 
         const { _latestReviewDate, ...gameToAdd } = game; 
         finalFeaturedGames.push(gameToAdd);
         featuredGameIds.add(game.id);
       }
+       if (finalFeaturedGames.length >= (pinnedGames.length + maxRecentlyReviewed)) break;
     }
     
     return finalFeaturedGames; 
 
   } catch (error) {
-    console.error("Errore nel recupero dei giochi in vetrina:", error);
     return [];
   }
 }
@@ -927,7 +921,7 @@ async function parseBggMultiThingXml(xmlText: string): Promise<Map<number, Parti
                 const parsedData = await parseBggThingXmlToBoardGame(singleItemXml, bggId);
                 parsedGamesMap.set(bggId, parsedData);
             } catch (e) {
-                console.error(`Error parsing individual item XML for BGG ID ${bggId} from multi-item response:`, e);
+                // Continue if one item fails
             }
         }
     }
@@ -1018,7 +1012,6 @@ export async function batchUpdateMissingBggDetailsAction(): Promise<{ success: b
 
             } catch (batchFetchError) {
                 const chunkErrorMsg = batchFetchError instanceof Error ? batchFetchError.message : String(batchFetchError);
-                console.error(`Impossibile recuperare i dettagli per il batch BGG IDs ${bggIdsInChunk.join(',')}:`, chunkErrorMsg);
                 erroredFetchCount += gameChunk.length; 
             }
         }
@@ -1057,8 +1050,93 @@ export async function batchUpdateMissingBggDetailsAction(): Promise<{ success: b
 
     } catch (error) {
         const errorMessage = String(error instanceof Error ? error.message : error);
-        console.error("Errore in batchUpdateMissingBggDetailsAction:", errorMessage);
         return { success: false, message: 'Recupero dettagli BGG per aggiornamento batch fallito.', error: errorMessage };
     }
 }
 
+// New action to search local games by name
+export async function searchLocalGamesByNameAction(term: string): Promise<BoardGame[] | { error: string }> {
+  if (!term || term.trim().length < 2) {
+    return []; // Or return { error: "Search term must be at least 2 characters." };
+  }
+  try {
+    const gamesRef = collection(db, FIRESTORE_COLLECTION_NAME);
+    const searchTermLower = term.toLowerCase();
+    
+    // Firestore doesn't support case-insensitive 'contains' directly.
+    // This query performs a 'greater than or equal to' and 'less than or equal to'
+    // for prefix matching, which is case-sensitive.
+    // For true case-insensitive contains, you'd usually need a third-party search service
+    // or denormalize a lowercase name field.
+    const q = query(
+      gamesRef,
+      where('name', '>=', term),
+      where('name', '<=', term + '\uf8ff'), // \uf8ff is a very high Unicode character
+      orderBy('name'),
+      limit(10) // Limit results for performance
+    );
+
+    const querySnapshot = await getDocs(q);
+    const games: BoardGame[] = [];
+
+    for (const docSnap of querySnapshot.docs) {
+      const data = docSnap.data();
+      const gameId = docSnap.id;
+
+      // Filter client-side for case-insensitivity if needed after prefix match
+      if (data.name.toLowerCase().includes(searchTermLower)) {
+        // For list display, we might not need full reviews, but overallAverageRating is useful
+        let overallAverageRating: number | null = data.overallAverageRating === undefined ? null : data.overallAverageRating;
+        if (overallAverageRating === null) { // If not pre-calculated, try to calculate on the fly (can be slow)
+             const reviewsSnapshot = await getDocs(query(collection(db, FIRESTORE_COLLECTION_NAME, gameId, 'reviews')));
+             if (!reviewsSnapshot.empty) {
+                const reviews = reviewsSnapshot.docs.map(rd => rd.data() as Review);
+                const catAvgs = calculateCategoryAverages(reviews);
+                if (catAvgs) overallAverageRating = calculateOverallCategoryAverage(catAvgs);
+             }
+        }
+
+        games.push({
+          id: gameId,
+          name: data.name,
+          coverArtUrl: data.coverArtUrl || `https://placehold.co/48x64.png?text=${encodeURIComponent(data.name?.substring(0,3) || 'N/A')}`,
+          yearPublished: data.yearPublished ?? null,
+          bggId: data.bggId || 0,
+          overallAverageRating: overallAverageRating,
+          reviews: [], // Keep reviews minimal for list views
+        } as BoardGame);
+      }
+    }
+    return games.filter(g => g.name.toLowerCase().includes(searchTermLower)).slice(0,10); // Final client-side filter and limit
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Errore sconosciuto.';
+    return { error: `Errore nella ricerca locale: ${errorMessage}` };
+  }
+}
+
+export async function getOrCreateGameForRatingAction(bggId: string): Promise<{ gameId: string } | { error: string }> {
+  const numericBggId = parseInt(bggId, 10);
+  if (isNaN(numericBggId)) {
+    return { error: 'Formato ID BGG non valido.' };
+  }
+  const firestoreGameId = `bgg-${bggId}`;
+  
+  try {
+    const gameDocRef = doc(db, FIRESTORE_COLLECTION_NAME, firestoreGameId);
+    const docSnap = await getDoc(gameDocRef);
+
+    if (docSnap.exists()) {
+      return { gameId: firestoreGameId };
+    } else {
+      // Game doesn't exist, so import it
+      const importResult = await importAndRateBggGameAction(bggId); // This already saves to DB
+      if ('error' in importResult) {
+        return { error: `Impossibile importare il gioco da BGG: ${importResult.error}` };
+      }
+      return { gameId: importResult.gameId };
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Errore sconosciuto.';
+    return { error: `Errore durante il recupero o la creazione del gioco: ${errorMessage}` };
+  }
+}
