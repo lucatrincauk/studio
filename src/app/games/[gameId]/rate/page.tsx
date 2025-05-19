@@ -10,7 +10,7 @@ import { Loader2, AlertCircle, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface GameRatePageParams {
   gameId: string;
@@ -26,6 +26,8 @@ export default function GameRatePage() {
   const [userReview, setUserReview] = useState<Review | undefined>(undefined);
   const [isLoadingGame, setIsLoadingGame] = useState(true);
   const [currentRatingFormStep, setCurrentRatingFormStep] = useState(1);
+  const cardRef = useRef<HTMLDivElement>(null);
+
 
   useEffect(() => {
     async function fetchGameData() {
@@ -56,6 +58,13 @@ export default function GameRatePage() {
       setUserReview(undefined);
     }
   }, [game, currentUser]);
+
+  useEffect(() => {
+    // Scroll to top of page on step change
+    if (typeof window !== "undefined") {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [currentRatingFormStep]);
 
 
   if (authLoading || isLoadingGame || game === undefined) {
@@ -107,7 +116,7 @@ export default function GameRatePage() {
       <Button variant="outline" size="sm" className="mb-6" onClick={() => router.back()}>
         <ArrowLeft className="mr-2 h-4 w-4" /> Torna al Gioco
       </Button>
-      <Card className="shadow-xl border border-border rounded-lg">
+      <Card ref={cardRef} className="shadow-xl border border-border rounded-lg">
         {currentRatingFormStep !== 5 && (
             <CardHeader>
                 <CardTitle className="text-2xl md:text-3xl">
@@ -134,3 +143,4 @@ export default function GameRatePage() {
 }
 
 export const dynamic = 'force-dynamic';
+
