@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useMemo, useTransition } from 'react'; // Added useTransition here
+import { useState, useEffect, useMemo, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { BoardGame, BggSearchResult } from '@/lib/types';
@@ -51,10 +51,10 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
   const { toast } = useToast();
 
   useEffect(() => {
-    setCurrentPage(1); // Reset to first page on new search
+    setCurrentPage(1); 
     const trimmedSearchTerm = searchTerm.toLowerCase().trim();
-    setBggSearchAttempted(false); // Reset BGG search attempt flag
-    setBggResults([]); // Clear previous BGG results
+    setBggSearchAttempted(false); 
+    setBggResults([]); 
 
     if (!trimmedSearchTerm) {
       setLocalFilteredGames(initialGames); 
@@ -73,7 +73,7 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
       direction = 'descending';
     }
     setSortConfig({ key, direction });
-    setCurrentPage(1); // Reset to first page on sort change
+    setCurrentPage(1); 
   };
 
   const sortedInitialGames = useMemo(() => {
@@ -164,6 +164,8 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
           title: 'Gioco Aggiunto!',
           description: 'Il gioco è stato aggiunto alla tua collezione.',
         });
+        // Consider using router.refresh() if you want to force a server-side data refresh
+        // For now, it navigates to the rate page.
         router.push(`/games/${result.gameId}/rate`);
       }
     });
@@ -186,12 +188,17 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
             <Info className="h-4 w-4 mx-auto mb-2 text-muted-foreground" />
             <AlertTitle className="mb-1 text-foreground">Nessun Gioco Trovato Localmente</AlertTitle>
             <AlertDescription className="mb-3 text-muted-foreground">
-            Nessun gioco corrispondente a "{searchTerm}" è stato trovato nella tua collezione.
+            Nessun gioco corrispondente a "{searchTerm}" è stato trovato nella collezione.
             </AlertDescription>
-            <Button onClick={handleManualBggSearch} disabled={isBggSearching}>
-                {isBggSearching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-                Cerca su BoardGameGeek
-            </Button>
+        </Alert>
+      )}
+      {games.length === 0 && !searchTerm.trim() && totalGamesCount === 0 && (
+         <Alert variant="default" className="max-w-lg mx-auto bg-secondary/30 border-secondary text-center">
+            <Info className="h-4 w-4 mx-auto mb-2 text-muted-foreground" />
+            <AlertTitle className="mb-1 text-foreground">Collezione Vuota</AlertTitle>
+            <AlertDescription className="mb-3 text-muted-foreground">
+                La tua collezione locale è vuota. Gli admin possono aggiungere giochi dalla sezione Admin.
+            </AlertDescription>
         </Alert>
       )}
       {games.length > 0 && (
@@ -271,34 +278,48 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
 
   return (
     <div className="space-y-8">
-      <div className="relative max-w-xl mx-auto">
-        <Search className="absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-        <Input
-          type="search"
-          placeholder="Cerca tra i tuoi giochi..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full rounded-lg bg-background py-3 pl-11 pr-4 text-base shadow-sm border border-input focus:ring-2 focus:ring-primary/50 focus:border-primary"
-          aria-label="Cerca un gioco da tavolo per nome nella collezione locale"
-        />
-      </div>
-
+      {/* Local Games Table or Empty State */}
       {(!searchTerm.trim() || localFilteredGames.length > 0) && (
         <LocalGamesTable games={paginatedGames} totalGamesCount={gamesToDisplayInTable.length} title="I Tuoi Giochi" />
       )}
 
-      {searchTerm.trim().length > 0 && localFilteredGames.length === 0 && !bggSearchAttempted && (
+      {searchTerm.trim().length > 0 && localFilteredGames.length === 0 && (
          <Alert variant="default" className="max-w-lg mx-auto bg-secondary/30 border-secondary text-center">
             <Info className="h-4 w-4 mx-auto mb-2 text-muted-foreground" />
             <AlertTitle className="mb-1 text-foreground">Nessun Gioco Trovato Localmente</AlertTitle>
             <AlertDescription className="mb-3 text-muted-foreground">
-                Nessun gioco corrispondente a "{searchTerm}" è stato trovato nella tua collezione.
+                Nessun gioco corrispondente a "{searchTerm}" è stato trovato nella collezione locale.
             </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Search Bar now below the local games table */}
+      <div className="relative max-w-xl mx-auto pt-8">
+        <Search className="absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+        <Input
+          type="search"
+          placeholder="Cerca un gioco per nome..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full rounded-lg bg-background py-3 pl-11 pr-4 text-base shadow-sm border border-input focus:ring-2 focus:ring-primary/50 focus:border-primary"
+          aria-label="Cerca un gioco per nome nella collezione locale"
+        />
+      </div>
+
+      {/* BGG Search Related UI (remains conditional and below search bar if needed) */}
+      {/* This section might be removed entirely if BGG search is only for admins now */}
+      {/* 
+        For now, I will comment out the BGG search related UI from the public page.
+        If BGG search is moved to admin, this entire section can be deleted later.
+      */}
+      {/*
+      {searchTerm.trim().length > 0 && localFilteredGames.length === 0 && !bggSearchAttempted && (
+         <div className="text-center mt-6">
             <Button onClick={handleManualBggSearch} disabled={isBggSearching}>
                 {isBggSearching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-                Cerca su BoardGameGeek
+                Cerca su BoardGameGeek per "{searchTerm}"
             </Button>
-        </Alert>
+        </div>
       )}
 
       {bggSearchAttempted && bggSearchError && (
@@ -361,7 +382,7 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
           <AlertDescription>Nessun gioco trovato su BoardGameGeek per "{searchTerm}".</AlertDescription>
         </Alert>
       )}
+      */}
     </div>
   );
 }
-
