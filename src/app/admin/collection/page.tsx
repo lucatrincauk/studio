@@ -3,11 +3,11 @@
 
 import type { BoardGame, BggSearchResult } from '@/lib/types';
 import { useState, useEffect, useTransition, useMemo, useCallback } from 'react';
-import { fetchBggUserCollectionAction, getBoardGamesFromFirestoreAction, syncBoardGamesToFirestoreAction, searchBggGamesAction, importAndRateBggGameAction } from '@/lib/actions';
+import { fetchBggUserCollectionAction, getBoardGamesFromFirestoreAction, syncBoardGamesToFirestoreAction, searchBggGamesAction, importAndRateBggGameAction, fetchAndUpdateBggGameDetailsAction } from '@/lib/actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, AlertCircle, Info, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, Pin, PinOff, Search as SearchIcon, PlusCircle } from 'lucide-react';
+import { Loader2, AlertCircle, Info, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, Pin, PinOff, Search as SearchIcon, PlusCircle, DownloadCloud } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { CollectionConfirmationDialog } from '@/components/collection/confirmation-dialog';
@@ -66,6 +66,11 @@ export default function AdminCollectionPage() {
   const [bggSearchError, setBggSearchError] = useState<string | null>(null);
   const [isImportingGameId, setIsImportingGameId] = useState<string | null>(null);
   const [isPendingImport, startImportTransition] = useTransition();
+
+  // State for fetching BGG details for a specific game
+  const [isFetchingDetailsFor, setIsFetchingDetailsFor] = useState<string | null>(null);
+  const [isPendingBggDetailsFetch, startBggDetailsFetchTransition] = useTransition();
+
 
   const { toast } = useToast();
   const router = useRouter();
@@ -240,13 +245,25 @@ export default function AdminCollectionPage() {
           title: 'Gioco Aggiunto!',
           description: 'Il gioco è stato aggiunto alla tua collezione.',
         });
-        await loadDbCollection(); // Refresh the main collection table
-        // Optionally clear BGG search results or redirect:
-        // setBggSearchResults([]);
+        await loadDbCollection(); 
+        // setBggSearchResults([]); // Optionally clear search results
         // setBggSearchTerm('');
-        // router.push(`/games/${result.gameId}/rate`); // Or redirect to game detail page
       }
       setIsImportingGameId(null);
+    });
+  };
+
+  const handleFetchGameDetailsFromBgg = (gameId: string, bggId: number) => {
+    setIsFetchingDetailsFor(gameId);
+    startBggDetailsFetchTransition(async () => {
+      const result = await fetchAndUpdateBggGameDetailsAction(bggId);
+      if (result.success) {
+        toast({ title: 'Dettagli Aggiornati', description: result.message });
+        await loadDbCollection();
+      } else {
+        toast({ title: 'Errore Aggiornamento Dettagli', description: result.error || 'Si è verificato un errore sconosciuto.', variant: 'destructive' });
+      }
+      setIsFetchingDetailsFor(null);
     });
   };
 
@@ -256,7 +273,7 @@ export default function AdminCollectionPage() {
       <Card className="shadow-lg border border-border rounded-lg">
         <CardHeader>
           <CardTitle className="text-2xl">Gestione Collezione Giochi (Admin)</CardTitle>
-          <CardDescription>Gestisci la collezione di giochi da tavolo sincronizzandola con BoardGameGeek e Firebase. Puoi anche fissare i giochi per la sezione "Vetrina" della homepage.</CardDescription>
+          <CardDescription>Gestisci la collezione di giochi da tavolo sincronizzandola con BoardGameGeek e Firebase. Puoi anche fissare i giochi per la sezione "Vetrina" della homepage e aggiornare i dettagli dei giochi da BGG.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-col sm:flex-row gap-4">
@@ -448,7 +465,7 @@ export default function AdminCollectionPage() {
                             <SortIcon columnKey="isPinned" />
                           </Button>
                         </TableHead>
-                        <TableHead className="text-right">BGG</TableHead>
+                        <TableHead className="text-right">Azioni</TableHead>
                     </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -493,11 +510,21 @@ export default function AdminCollectionPage() {
                                 title={game.isPinned ? "Rimuovi da Vetrina" : "Aggiungi a Vetrina"}
                                 className={`h-8 w-8 hover:bg-accent/20 ${game.isPinned ? 'text-accent' : 'text-muted-foreground/60 hover:text-accent'}`}
                             >
-                                {isPinToggling && <Loader2 className="h-4 w-4 animate-spin" />}
+                                {isPinToggling && isFetchingDetailsFor !== game.id && <Loader2 className="h-4 w-4 animate-spin" />}
                                 {!isPinToggling && (game.isPinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />)}
                             </Button>
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right space-x-1">
+                            <Button 
+                                variant="outline" 
+                                size="icon" 
+                                onClick={() => handleFetchGameDetailsFromBgg(game.id, game.bggId)}
+                                disabled={isPendingBggDetailsFetch && isFetchingDetailsFor === game.id}
+                                title="Aggiorna Dettagli da BGG"
+                                className="h-8 w-8"
+                            >
+                                {(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) ? <Loader2 className="h-4 w-4 animate-spin" /> : <DownloadCloud className="h-4 w-4" />}
+                            </Button>
                             <Button variant="outline" size="icon" asChild className="h-8 w-8">
                                 <a href={`https://boardgamegeek.com/boardgame/${game.bggId}`} target="_blank" rel="noopener noreferrer" title="Vedi su BGG">
                                     <ExternalLink className="h-4 w-4" />
@@ -524,4 +551,5 @@ export default function AdminCollectionPage() {
     </div>
   );
 }
+
 

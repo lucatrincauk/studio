@@ -388,7 +388,7 @@ export async function getGameDetails(gameId: string): Promise<BoardGame | null> 
       // console.log(`[GETGAMEDETAILS] Document found for gameId: "${gameId}"`);
       const data = docSnap.data();
       if (!data) {
-          console.error(`[GETGAMEDETAILS] Dati del documento non definiti per gameId: "${gameId}" nonostante esista.`);
+          // console.error(`[GETGAMEDETAILS] Dati del documento non definiti per gameId: "${gameId}" nonostante esista.`);
           return null;
       }
       // console.log(`[GETGAMEDETAILS] Game data fetched for gameId: "${gameId}"`, data);
@@ -497,14 +497,10 @@ async function fetchWithRetry(url: string, retries = 5, delay = 3000, attempt = 
 
 
 export async function fetchBggUserCollectionAction(username: string): Promise<BoardGame[] | { error: string }> {
-    // console.log(`[SERVER ACTION ENTRY] fetchBggUserCollectionAction called for username: ${username}`);
     try {
         const url = `${BGG_API_BASE_URL}/collection?username=${username}&own=1&excludesubtype=boardgameexpansion`;
-        // console.log(`[SERVER ACTION] Fetching BGG collection from URL: ${url}`);
         const collectionXml = await fetchWithRetry(url);
-        // console.log(`[SERVER ACTION] Received BGG Collection XML (first 500 chars): ${collectionXml.substring(0, 500)}`);
         const games = await parseBggCollectionXml(collectionXml);
-        // console.log(`[SERVER ACTION] Parsed ${games.length} games from BGG collection for ${username}`);
         return games;
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Si è verificato un errore sconosciuto durante il recupero della collezione BGG.';
@@ -597,6 +593,7 @@ export async function syncBoardGamesToFirestoreAction(
         const existingGamesMap = new Map<string, boolean>();
         if (gamesToAdd.length > 0) {
             const gameIdsToAdd = gamesToAdd.map(g => g.id);
+            // Firestore 'in' query supports up to 30 elements per query
             for (let i = 0; i < gameIdsToAdd.length; i += 30) {
                 const batchOfIds = gameIdsToAdd.slice(i, i + 30);
                 if (batchOfIds.length > 0) {
@@ -625,7 +622,7 @@ export async function syncBoardGamesToFirestoreAction(
                 maxPlayers: game.maxPlayers ?? null,
                 playingTime: game.playingTime ?? null,
                 description: game.description ?? "Nessuna descrizione disponibile.",
-                isPinned: existingGamesMap.get(game.id) || game.isPinned || false,
+                isPinned: existingGamesMap.get(game.id) || game.isPinned || false, // Preserve pinned status if game already exists
             };
             batch.set(gameRef, gameDataForFirestore, { merge: true }); 
             operationsCount++;
@@ -826,14 +823,19 @@ export async function getFeaturedGamesAction(): Promise<BoardGame[]> {
     }
 
     // Then add up to 3 most recently reviewed games that are not already pinned
+    // Make sure not to exceed a total of (pinned.length + 3) or a reasonable max (e.g. 6-8 total)
+    const maxRecentlyReviewedToAdd = 3;
+    let recentlyReviewedAddedCount = 0;
+
     for (const game of recentlyReviewedGames) {
-      if (finalFeaturedGames.length >= pinnedGames.length + 3) { // Ensure we add max 3 non-pinned
+      if (recentlyReviewedAddedCount >= maxRecentlyReviewedToAdd) {
           break;
       }
-      if (!featuredGameIds.has(game.id)) {
+      if (!featuredGameIds.has(game.id)) { // Only add if not already added as pinned
         const { _latestReviewDate, ...gameToAdd } = game; 
         finalFeaturedGames.push(gameToAdd);
         featuredGameIds.add(game.id);
+        recentlyReviewedAddedCount++;
       }
     }
     
@@ -854,4 +856,70 @@ export async function getAllGamesAction(): Promise<BoardGame[]> {
   return result;
 }
     
-    
+export async function fetchAndUpdateBggGameDetailsAction(bggId: number): Promise<{ success: boolean; message: string; error?: string }> {
+    if (!bggId || isNaN(bggId)) {
+        return { success: false, message: "ID BGG non valido fornito.", error: "ID BGG non valido" };
+    }
+
+    const firestoreGameId = `bgg-${bggId}`;
+
+    try {
+        const thingUrl = `${BGG_API_BASE_URL}/thing?id=${bggId}&stats=1`;
+        const thingXml = await fetchWithRetry(thingUrl);
+
+        if (!thingXml) {
+            return { success: false, message: "Impossibile recuperare i dettagli del gioco da BGG.", error: "Risposta BGG vuota" };
+        }
+
+        const parsedBggData = await parseBggThingXmlToBoardGame(thingXml, bggId);
+        
+        const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, firestoreGameId);
+        const docSnap = await getDoc(gameRef);
+
+        if (!docSnap.exists()) {
+            return { success: false, message: `Gioco con ID ${firestoreGameId} non trovato nel database.`, error: "Gioco non trovato nel DB" };
+        }
+
+        const updateData: Partial<BoardGame> = {};
+        if (parsedBggData.name && parsedBggData.name !== "Name Not Found in Details" && parsedBggData.name.trim() !== `BGG ID ${bggId}`.trim()) {
+            updateData.name = parsedBggData.name;
+        }
+        if (parsedBggData.description && parsedBggData.description.trim() !== "Nessuna descrizione disponibile." ) {
+            updateData.description = parsedBggData.description;
+        }
+        if (parsedBggData.coverArtUrl && !parsedBggData.coverArtUrl.includes('placehold.co')) { // Avoid overwriting with placeholder
+            updateData.coverArtUrl = parsedBggData.coverArtUrl;
+        }
+        if (parsedBggData.yearPublished !== undefined) {
+            updateData.yearPublished = parsedBggData.yearPublished;
+        }
+        if (parsedBggData.minPlayers !== undefined) {
+            updateData.minPlayers = parsedBggData.minPlayers;
+        }
+        if (parsedBggData.maxPlayers !== undefined) {
+            updateData.maxPlayers = parsedBggData.maxPlayers;
+        }
+        if (parsedBggData.playingTime !== undefined) {
+            updateData.playingTime = parsedBggData.playingTime;
+        }
+        // Note: bggId is already part of the game document and used as its identifier, no need to update.
+        // isPinned and reviews are managed separately and should not be overwritten here.
+
+        if (Object.keys(updateData).length > 0) {
+            await updateDoc(gameRef, updateData);
+        } else {
+             return { success: true, message: `Nessun nuovo dettaglio da aggiornare per ${parsedBggData.name || firestoreGameId} da BGG.` };
+        }
+        
+        revalidatePath('/admin/collection');
+        revalidatePath(`/games/${firestoreGameId}`);
+        revalidatePath('/');
+
+        return { success: true, message: `Dettagli per ${parsedBggData.name || firestoreGameId} aggiornati con successo da BGG.` };
+
+    } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Si è verificato un errore sconosciuto durante l\'aggiornamento dei dettagli del gioco.';
+        console.error(`Errore in fetchAndUpdateBggGameDetailsAction per BGG ID ${bggId}:`, errorMessage);
+        return { success: false, message: 'Aggiornamento dettagli fallito.', error: errorMessage };
+    }
+}
