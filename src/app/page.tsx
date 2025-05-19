@@ -22,8 +22,8 @@ export default async function HomePage() {
 
         {featuredGames && featuredGames.length > 0 && (
           <div className="mb-8">
-            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mb-6 text-center sm:text-left">
-              Vetrina {/* Changed title */}
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mb-6 text-left">
+              Vetrina
             </h2>
             <div className="flex space-x-4 overflow-x-auto pb-4 md:grid md:grid-cols-3 md:gap-4 md:space-x-0 md:pb-0 md:overflow-x-visible">
               {featuredGames.map((game, index) => (
@@ -44,4 +44,5 @@ export default async function HomePage() {
 }
 
 export const revalidate = 3600; 
+
 
