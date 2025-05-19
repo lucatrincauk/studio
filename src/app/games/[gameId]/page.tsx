@@ -291,7 +291,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           
           {currentUserReviewState && (
             <div className="mb-8">
-              <div className="flex flex-row justify-between items-center mb-4">
+              <div className="flex justify-between items-center mb-4">
                 <h3 className="text-xl font-semibold text-foreground flex-grow mr-2">La Tua Recensione</h3>
                 <div className="flex gap-2 flex-shrink-0">
                   <Button asChild size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90">
@@ -362,47 +362,49 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         </div>
 
         <div className="lg:col-span-1 space-y-8 sticky top-24 self-start">
-          <Card className="shadow-md border border-border rounded-lg">
-            <CardHeader>
-              <CardTitle className="text-xl flex items-center gap-2">
-                <Wand2 className="h-5 w-5 text-primary"/>
-                Riepilogo IA delle Recensioni
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Button
-                onClick={handleGenerateSummary}
-                disabled={isSummarizing || !game.reviews || game.reviews.length === 0}
-                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground mb-3 transition-colors"
-              >
-                {isSummarizing ? (
-                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generazione in corso...</>
-                ) : (
-                  'Genera Riepilogo'
+          {isAdmin && (
+            <Card className="shadow-md border border-border rounded-lg">
+              <CardHeader>
+                <CardTitle className="text-xl flex items-center gap-2">
+                  <Wand2 className="h-5 w-5 text-primary"/>
+                  Riepilogo IA delle Recensioni
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Button
+                  onClick={handleGenerateSummary}
+                  disabled={isSummarizing || !game.reviews || game.reviews.length === 0}
+                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground mb-3 transition-colors"
+                >
+                  {isSummarizing ? (
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generazione in corso...</>
+                  ) : (
+                    'Genera Riepilogo'
+                  )}
+                </Button>
+                {(!game.reviews || game.reviews.length === 0) && !isSummarizing && (
+                    <Alert variant="default" className="bg-secondary/30 border-secondary">
+                      <Info className="h-4 w-4 text-secondary-foreground" />
+                      <AlertDescription className="text-secondary-foreground">
+                        Aggiungi prima qualche recensione per generare un riepilogo IA.
+                      </AlertDescription>
+                    </Alert>
                 )}
-              </Button>
-              {(!game.reviews || game.reviews.length === 0) && !isSummarizing && (
-                   <Alert variant="default" className="bg-secondary/30 border-secondary">
-                    <Info className="h-4 w-4 text-secondary-foreground" />
-                    <AlertDescription className="text-secondary-foreground">
-                      Aggiungi prima qualche recensione per generare un riepilogo IA.
-                    </AlertDescription>
+                {summaryError && (
+                  <Alert variant="destructive" className="mt-3">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Errore nel Riepilogo</AlertTitle>
+                    <AlertDescription>{summaryError}</AlertDescription>
                   </Alert>
-              )}
-              {summaryError && (
-                <Alert variant="destructive" className="mt-3">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Errore nel Riepilogo</AlertTitle>
-                  <AlertDescription>{summaryError}</AlertDescription>
-                </Alert>
-              )}
-              {aiSummary && !summaryError && (
-                <div className="mt-3 p-4 bg-muted/50 rounded-md border text-sm text-foreground/90">
-                  <p className="italic leading-relaxed">{aiSummary.summary}</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                )}
+                {aiSummary && !summaryError && (
+                  <div className="mt-3 p-4 bg-muted/50 rounded-md border text-sm text-foreground/90">
+                    <p className="italic leading-relaxed">{aiSummary.summary}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
       </section>
     </div>
