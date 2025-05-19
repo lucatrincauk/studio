@@ -2,9 +2,8 @@
 'use client';
 
 import Link from 'next/link';
-// import Image from 'next/image'; // No longer using next/image for the logo
 import { Button } from '@/components/ui/button';
-import { LogOut, UserPlus, LogIn, MessagesSquare, Users2, ShieldCheck, UserCircle, Droplet } from 'lucide-react';
+import { LogOut, UserPlus, LogIn, MessagesSquare, Users2, ShieldCheck, UserCircle } from 'lucide-react'; // Removed Droplet
 import { useAuth } from '@/contexts/auth-context';
 import {
   DropdownMenu,
@@ -16,11 +15,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { AvatarImage } from '@radix-ui/react-avatar';
-
-const PoopIcon = () => (
-  <Droplet className="h-8 w-8 text-primary-foreground transform rotate-180" fill="currentColor" />
-);
-
 
 export function Header() {
   const { user, signOut, loading, isAdmin } = useAuth();
@@ -34,8 +28,8 @@ export function Header() {
     <header className="bg-primary text-primary-foreground sticky top-0 z-50 shadow-md">
       <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link href="/" className="flex items-center gap-2 transition-opacity hover:opacity-80">
-          {/* Using the PoopIcon component */}
-          <PoopIcon />
+          {/* Using the poop emoji directly */}
+          <span className="text-3xl" role="img" aria-label="logo">💩</span>
           <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Morchiometro</h1>
         </Link>
 
