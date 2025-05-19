@@ -37,12 +37,12 @@ const GAMES_PER_PAGE = 10;
 export function GameSearchList({ initialGames }: GameSearchListProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [localFilteredGames, setLocalFilteredGames] = useState<BoardGame[]>(initialGames);
-  // const [bggResults, setBggResults] = useState<BggSearchResult[]>([]);
-  // const [isBggSearching, startBggSearchTransition] = useTransition();
-  // const [isImportingGameId, setIsImportingGameId] = useState<string | null>(null);
-  // const [isPendingImport, startImportTransition] = useTransition();
-  // const [bggSearchError, setBggSearchError] = useState<string | null>(null);
-  // const [bggSearchAttempted, setBggSearchAttempted] = useState(false);
+  const [bggResults, setBggResults] = useState<BggSearchResult[]>([]);
+  const [isBggSearching, startBggSearchTransition] = useTransition();
+  const [isImportingGameId, setIsImportingGameId] = useState<string | null>(null);
+  const [isPendingImport, startImportTransition] = useTransition();
+  const [bggSearchError, setBggSearchError] = useState<string | null>(null);
+  const [bggSearchAttempted, setBggSearchAttempted] = useState(false);
   
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'overallAverageRating', direction: 'descending' });
   const [currentPage, setCurrentPage] = useState(1);
@@ -53,8 +53,8 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
   useEffect(() => {
     setCurrentPage(1); 
     const trimmedSearchTerm = searchTerm.toLowerCase().trim();
-    // setBggSearchAttempted(false); 
-    // setBggResults([]); 
+    setBggSearchAttempted(false); 
+    setBggResults([]); 
 
     if (!trimmedSearchTerm) {
       setLocalFilteredGames(initialGames); 
@@ -126,48 +126,48 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
     setCurrentPage((prev) => Math.max(prev - 1, 1));
   };
 
-  // const handleManualBggSearch = () => {
-  //   if (!searchTerm.trim()) {
-  //     setBggSearchError("Inserisci un termine di ricerca.");
-  //     return;
-  //   }
-  //   setBggSearchError(null);
-  //   setBggResults([]);
-  //   setBggSearchAttempted(true);
-  //   startBggSearchTransition(async () => {
-  //     const result = await searchBggGamesAction(searchTerm);
-  //     if ('error'in result) {
-  //       setBggSearchError(result.error);
-  //       toast({ title: 'Errore Ricerca BGG', description: result.error, variant: 'destructive' });
-  //     } else {
-  //       setBggResults(result);
-  //       if (result.length === 0) {
-  //         toast({ title: 'Nessun Risultato su BGG', description: `Nessun gioco trovato su BGG per "${searchTerm}".` });
-  //       }
-  //     }
-  //   });
-  // };
+  const handleManualBggSearch = () => {
+    if (!searchTerm.trim()) {
+      setBggSearchError("Inserisci un termine di ricerca.");
+      return;
+    }
+    setBggSearchError(null);
+    setBggResults([]);
+    setBggSearchAttempted(true);
+    startBggSearchTransition(async () => {
+      const result = await searchBggGamesAction(searchTerm);
+      if ('error'in result) {
+        setBggSearchError(result.error);
+        toast({ title: 'Errore Ricerca BGG', description: result.error, variant: 'destructive' });
+      } else {
+        setBggResults(result);
+        if (result.length === 0) {
+          toast({ title: 'Nessun Risultato su BGG', description: `Nessun gioco trovato su BGG per "${searchTerm}".` });
+        }
+      }
+    });
+  };
 
-  // const handleImportGame = async (bggId: string) => {
-  //   setIsImportingGameId(bggId);
-  //   startImportTransition(async () => {
-  //     const result = await importAndRateBggGameAction(bggId);
-  //     setIsImportingGameId(null);
-  //     if ('error' in result) {
-  //       toast({
-  //         title: 'Errore Importazione Gioco',
-  //         description: result.error,
-  //         variant: 'destructive',
-  //       });
-  //     } else {
-  //       toast({
-  //         title: 'Gioco Aggiunto!',
-  //         description: 'Il gioco è stato aggiunto alla tua collezione.',
-  //       });
-  //       router.push(`/games/${result.gameId}/rate`);
-  //     }
-  //   });
-  // };
+  const handleImportGame = async (bggId: string) => {
+    setIsImportingGameId(bggId);
+    startImportTransition(async () => {
+      const result = await importAndRateBggGameAction(bggId);
+      setIsImportingGameId(null);
+      if ('error' in result) {
+        toast({
+          title: 'Errore Importazione Gioco',
+          description: result.error,
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Gioco Aggiunto!',
+          description: 'Il gioco è stato aggiunto alla tua collezione.',
+        });
+        router.push(`/games/${result.gameId}/rate`);
+      }
+    });
+  };
 
   const SortIcon = ({ columnKey }: { columnKey: SortableKeys }) => {
     if (sortConfig.key !== columnKey) {
@@ -177,13 +177,11 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
   };
 
   const LocalGamesTable = ({ games, totalGamesCount, title }: { games: BoardGame[], totalGamesCount: number, title: string }) => (
-    <section className="mt-8"> {/* Added margin-top for spacing */}
+    <section className="mt-8"> 
       <h3 className="text-xl font-semibold mb-4 text-foreground">
         {title} ({totalGamesCount})
       </h3>
-
-      {/* Search Bar moved here */}
-      <div className="relative max-w-xl mx-auto mb-6">
+       <div className="relative max-w-xl mx-auto mb-6">
         <Search className="absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground pointer-events-none" />
         <Input
           type="search"
@@ -195,6 +193,7 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
         />
       </div>
 
+
       {games.length === 0 && searchTerm.trim().length > 0 && (
          <Alert variant="default" className="max-w-lg mx-auto bg-secondary/30 border-secondary text-center">
             <Info className="h-4 w-4 mx-auto mb-2 text-muted-foreground" />
@@ -202,6 +201,11 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
             <AlertDescription className="mb-3 text-muted-foreground">
             Nessun gioco corrispondente a "{searchTerm}" è stato trovato nella collezione.
             </AlertDescription>
+             {/* Button to search BGG, as per previous request. Keep this for now if it's still desired. */}
+            <Button onClick={handleManualBggSearch} disabled={isBggSearching}>
+              {isBggSearching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+              Cerca su BoardGameGeek per "{searchTerm}"
+            </Button>
         </Alert>
       )}
       {games.length === 0 && !searchTerm.trim() && totalGamesCount === 0 && (
@@ -290,18 +294,8 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
 
   return (
     <div className="space-y-8">
-      <LocalGamesTable games={paginatedGames} totalGamesCount={gamesToDisplayInTable.length} title="I Tuoi Giochi" />
+      <LocalGamesTable games={paginatedGames} totalGamesCount={gamesToDisplayInTable.length} title="Tutti i Giochi" />
 
-      {/* BGG Search Related UI - commented out for now */}
-      {/*
-      {searchTerm.trim().length > 0 && localFilteredGames.length === 0 && !bggSearchAttempted && (
-         <div className="text-center mt-6">
-            <Button onClick={handleManualBggSearch} disabled={isBggSearching}>
-                {isBggSearching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-                Cerca su BoardGameGeek per "{searchTerm}"
-            </Button>
-        </div>
-      )}
 
       {bggSearchAttempted && bggSearchError && (
         <Alert variant="destructive" className="max-w-lg mx-auto">
@@ -363,9 +357,6 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
           <AlertDescription>Nessun gioco trovato su BoardGameGeek per "{searchTerm}".</AlertDescription>
         </Alert>
       )}
-      */}
     </div>
   );
 }
-
-    
