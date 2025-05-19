@@ -31,45 +31,35 @@ interface SortConfig {
 
 const GAMES_PER_PAGE = 10;
 
-// Custom hook for debouncing
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
-
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedValue(value);
     }, delay);
-
     return () => {
       clearTimeout(handler);
     };
   }, [value, delay]);
-
   return debouncedValue;
 }
 
-const LocalGamesTable = ({ 
-  games, 
-  totalGamesCount, 
-  title,
+const LocalGamesTable = ({
+  games,
   sortConfig,
   handleSort,
   currentPage,
   totalPages,
   handlePrevPage,
-  handleNextPage,
-  isSearchActive // New prop to know if a search term is active
-}: { 
-  games: BoardGame[], 
-  totalGamesCount: number, 
-  title: string,
+  handleNextPage
+}: {
+  games: BoardGame[],
   sortConfig: SortConfig,
   handleSort: (key: SortableKeys) => void,
   currentPage: number,
   totalPages: number,
   handlePrevPage: () => void,
-  handleNextPage: () => void,
-  isSearchActive: boolean
+  handleNextPage: () => void
 }) => {
 
   const SortIcon = ({ columnKey }: { columnKey: SortableKeys }) => {
@@ -79,31 +69,9 @@ const LocalGamesTable = ({
     return sortConfig.direction === 'ascending' ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />;
   };
 
+  // No title or section wrapper here anymore, handled by parent
   return (
-    <section className="mt-8"> 
-      <h3 className="text-xl font-semibold mb-4 text-foreground">
-        {title} ({totalGamesCount})
-      </h3>
-      
-      {games.length === 0 && isSearchActive && (
-         <Alert variant="default" className="max-w-lg mx-auto bg-secondary/30 border-secondary text-center">
-            <Info className="h-4 w-4 mx-auto mb-2 text-muted-foreground" />
-            <AlertTitle className="mb-1 text-foreground">Nessun Gioco Trovato</AlertTitle>
-            <AlertDescription className="mb-3 text-muted-foreground">
-             Nessun gioco corrispondente al termine di ricerca è stato trovato nella collezione locale.
-            </AlertDescription>
-        </Alert>
-      )}
-      {games.length === 0 && !isSearchActive && totalGamesCount === 0 && (
-         <Alert variant="default" className="max-w-lg mx-auto bg-secondary/30 border-secondary text-center">
-            <Info className="h-4 w-4 mx-auto mb-2 text-muted-foreground" />
-            <AlertTitle className="mb-1 text-foreground">Collezione Vuota</AlertTitle>
-            <AlertDescription className="mb-3 text-muted-foreground">
-                La collezione locale è vuota. Puoi aggiungere giochi tramite la sezione Admin.
-            </AlertDescription>
-        </Alert>
-      )}
-
+    <>
       {games.length > 0 && (
         <div className="overflow-x-auto bg-card p-4 rounded-lg shadow-md border border-border">
           <Table>
@@ -176,25 +144,25 @@ const LocalGamesTable = ({
           )}
         </div>
       )}
-    </section>
+    </>
   );
 }
 
 
 export function GameSearchList({ initialGames }: GameSearchListProps) {
   const [searchTerm, setSearchTerm] = useState('');
-  const debouncedSearchTerm = useDebounce(searchTerm, 300); 
+  const debouncedSearchTerm = useDebounce(searchTerm, 300);
   const [localFilteredGames, setLocalFilteredGames] = useState<BoardGame[]>(initialGames);
-  
+
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'overallAverageRating', direction: 'descending' });
   const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
-    setCurrentPage(1); 
+    setCurrentPage(1);
     const trimmedSearchTerm = debouncedSearchTerm.toLowerCase().trim();
 
     if (!trimmedSearchTerm) {
-      setLocalFilteredGames([...initialGames]); 
+      setLocalFilteredGames([...initialGames]);
       return;
     }
 
@@ -210,10 +178,10 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
       direction = 'descending';
     }
     setSortConfig({ key, direction });
-    setCurrentPage(1); 
+    setCurrentPage(1);
   };
-  
-  const sortedGamesForTable = useMemo(() => {
+
+  const sortedAndFilteredGames = useMemo(() => {
     let itemsToDisplay = debouncedSearchTerm.trim().length > 0 ? [...localFilteredGames] : [...initialGames];
     itemsToDisplay.sort((a, b) => {
       if (sortConfig.key === 'name') {
@@ -229,12 +197,13 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
     });
     return itemsToDisplay;
   }, [initialGames, localFilteredGames, sortConfig, debouncedSearchTerm]);
-  
-  const totalPages = Math.ceil(sortedGamesForTable.length / GAMES_PER_PAGE);
+
   const paginatedGames = useMemo(() => {
     const startIndex = (currentPage - 1) * GAMES_PER_PAGE;
-    return sortedGamesForTable.slice(startIndex, startIndex + GAMES_PER_PAGE);
-  }, [currentPage, sortedGamesForTable]);
+    return sortedAndFilteredGames.slice(startIndex, startIndex + GAMES_PER_PAGE);
+  }, [currentPage, sortedAndFilteredGames]);
+
+  const totalPages = Math.ceil(sortedAndFilteredGames.length / GAMES_PER_PAGE);
 
   const handleNextPage = () => {
     setCurrentPage((prev) => Math.min(prev + 1, totalPages));
@@ -249,32 +218,49 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
   }, []);
 
   return (
-    <div className="space-y-8">
-       <div className="relative max-w-xl mx-auto mb-6">
+    <div className="space-y-6">
+      <h3 className="text-xl font-semibold text-foreground">
+        Tutti i Giochi ({sortedAndFilteredGames.length})
+      </h3>
+      <div className="relative max-w-xl mb-4">
         <Search className="absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground pointer-events-none" />
         <Input
           type="search"
-          placeholder="Cerca un gioco per nome..."
-          value={searchTerm} 
+          placeholder="Cerca nei tuoi giochi per nome..."
+          value={searchTerm}
           onChange={handleSearchInputChange}
           className="w-full rounded-lg bg-background py-3 pl-11 pr-4 text-base shadow-sm border border-input focus:ring-2 focus:ring-primary/50 focus:border-primary"
           aria-label="Cerca un gioco per nome nella collezione locale"
         />
       </div>
 
-      <LocalGamesTable 
-        games={paginatedGames} 
-        totalGamesCount={sortedGamesForTable.length} 
-        title="Tutti i Giochi"
-        sortConfig={sortConfig}
-        handleSort={handleSort}
-        currentPage={currentPage}
-        totalPages={totalPages}
-        handlePrevPage={handlePrevPage}
-        handleNextPage={handleNextPage}
-        isSearchActive={searchTerm.trim().length > 0} // Pass search status
-      />
+      {initialGames.length === 0 && !searchTerm.trim() ? (
+        <Alert variant="default" className="max-w-lg mx-auto bg-secondary/30 border-secondary text-center">
+          <Info className="h-4 w-4 mx-auto mb-2 text-muted-foreground" />
+          <AlertTitle className="mb-1 text-foreground">Collezione Vuota</AlertTitle>
+          <AlertDescription className="mb-3 text-muted-foreground">
+              La tua collezione locale è vuota. Puoi aggiungere giochi tramite la sezione Admin.
+          </AlertDescription>
+        </Alert>
+      ) : sortedAndFilteredGames.length === 0 && searchTerm.trim() ? (
+        <Alert variant="default" className="max-w-lg mx-auto bg-secondary/30 border-secondary text-center">
+            <Info className="h-4 w-4 mx-auto mb-2 text-muted-foreground" />
+            <AlertTitle className="mb-1 text-foreground">Nessun Gioco Trovato</AlertTitle>
+            <AlertDescription className="mb-3 text-muted-foreground">
+             Nessun gioco corrispondente al termine di ricerca "{searchTerm}" è stato trovato nella collezione locale.
+            </AlertDescription>
+        </Alert>
+      ) : (
+        <LocalGamesTable
+          games={paginatedGames}
+          sortConfig={sortConfig}
+          handleSort={handleSort}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          handlePrevPage={handlePrevPage}
+          handleNextPage={handleNextPage}
+        />
+      )}
     </div>
   );
 }
-
