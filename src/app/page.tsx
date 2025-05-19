@@ -9,10 +9,7 @@ export default async function HomePage() {
   const allGames = await getAllGamesAction();
   const featuredGames = await getFeaturedGamesAction();
 
-  const topRatedGames = allGames
-    .filter(game => game.overallAverageRating !== null && game.overallAverageRating !== undefined)
-    .sort((a, b) => (b.overallAverageRating ?? 0) - (a.overallAverageRating ?? 0))
-    .slice(0, 10);
+  // Top 10 logic removed from here
 
   return (
     <div className="space-y-12">
@@ -36,20 +33,6 @@ export default async function HomePage() {
                 <div key={game.id} className="w-40 flex-shrink-0 md:w-auto">
                   <GameCard game={game} variant="featured" priority={index < 3} />
                 </div>
-              ))}
-            </div>
-            <Separator className="my-8" />
-          </div>
-        )}
-
-        {topRatedGames && topRatedGames.length > 0 && (
-          <div className="mb-8">
-            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mb-6 text-left">
-              Top 10
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
-              {topRatedGames.map((game, index) => (
-                <GameCard game={game} key={game.id} priority={index < 4} />
               ))}
             </div>
             <Separator className="my-8" />

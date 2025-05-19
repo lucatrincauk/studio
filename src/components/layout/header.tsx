@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { LogOut, UserPlus, LogIn, MessagesSquare, Users2, ShieldCheck, UserCircle, Menu, GaugeCircle, BarChart3 } from 'lucide-react';
+import { LogOut, UserPlus, LogIn, MessagesSquare, Users2, ShieldCheck, UserCircle, Menu, TrendingUp } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import {
   DropdownMenu,
@@ -38,6 +38,15 @@ export function Header() {
 
   const navLinks = (
     <>
+      <SheetClose asChild>
+        <Link
+          href="/top-10"
+          className="flex items-center gap-1.5 text-sm font-medium transition-colors hover:bg-muted md:hover:bg-primary-foreground/10 md:text-primary-foreground rounded-md px-3 py-2"
+        >
+          <TrendingUp size={18} />
+          Top 10
+        </Link>
+      </SheetClose>
       <SheetClose asChild>
         <Link
           href="/users"
@@ -108,18 +117,26 @@ export function Header() {
       </DropdownMenu>
     ) : (
       <>
-        <Button variant="ghost" asChild className="text-sm font-medium transition-colors hover:bg-primary-foreground/10 hover:text-primary-foreground focus:outline-none focus:ring-2 focus:ring-accent rounded-md px-3 py-1.5">
-          <Link href="/signin">
+        <Link
+          href="/signin"
+          className={cn(
+            buttonVariants({ variant: 'ghost' }),
+            "text-sm font-medium transition-colors hover:bg-primary-foreground/10 hover:text-primary-foreground focus:outline-none focus:ring-2 focus:ring-accent rounded-md px-3 py-1.5"
+          )}
+        >
             <LogIn size={16} className="mr-1.5"/>
             Accedi
-          </Link>
-        </Button>
-        <Button variant="default" asChild size="sm" className="text-sm font-medium bg-accent text-accent-foreground hover:bg-accent/90 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-primary rounded-md">
-           <Link href="/signup">
+        </Link>
+        <Link
+           href="/signup"
+           className={cn(
+             buttonVariants({ variant: 'default', size: 'sm' }),
+             "text-sm font-medium bg-accent text-accent-foreground hover:bg-accent/90 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-primary rounded-md"
+            )}
+         >
              <UserPlus size={16} className="mr-1.5"/>
              Registrati
-           </Link>
-        </Button>
+        </Link>
       </>
     )
   );
@@ -208,7 +225,13 @@ export function Header() {
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-1">
           <ul className="flex items-center gap-1 sm:gap-2">
-            {/* Desktop navLinks are simpler, no SheetClose needed */}
+            <Link
+              href="/top-10"
+              className="flex items-center gap-1.5 text-sm font-medium transition-colors hover:bg-primary-foreground/10 text-primary-foreground rounded-md px-3 py-1.5"
+            >
+              <TrendingUp size={18} />
+              Top 10
+            </Link>
             <Link
               href="/users"
               className="flex items-center gap-1.5 text-sm font-medium transition-colors hover:bg-primary-foreground/10 text-primary-foreground rounded-md px-3 py-1.5"
