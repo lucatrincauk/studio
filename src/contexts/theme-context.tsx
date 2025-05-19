@@ -21,32 +21,36 @@ interface ThemeProviderProps {
 
 export function ThemeProvider({
   children,
-  defaultTheme: propDefaultTheme = 'light', // Use the prop for default
+  defaultTheme: propDefaultTheme = 'forest-mist', // Default matches SERVER_DEFAULT_THEME in layout
   storageKey = 'morchiometro-theme',
 }: ThemeProviderProps) {
   const [theme, setThemeState] = useState<Theme>(() => {
     if (typeof window !== 'undefined') {
       try {
         const storedTheme = window.localStorage.getItem(storageKey) as Theme | null;
-        // Ensure validThemes here matches the Theme type and NoFlashScript
         const validThemes: Theme[] = ['light', 'dark', 'violet-dream', 'energetic-coral', 'forest-mist'];
         if (storedTheme && validThemes.includes(storedTheme)) {
           return storedTheme;
         }
       } catch (e) {
-        // localStorage is not available
         console.error('Error reading theme from localStorage', e);
       }
     }
-    return propDefaultTheme; // Use the prop default theme here
+    return propDefaultTheme;
   });
 
   useEffect(() => {
     const root = window.document.documentElement;
-    // Ensure this list matches all possible theme class names and the Theme type
     const allThemeClasses: Theme[] = ['light', 'dark', 'violet-dream', 'energetic-coral', 'forest-mist'];
-    allThemeClasses.forEach(cls => root.classList.remove(cls));
-    root.classList.add(theme);
+    
+    // Remove all known theme classes first to ensure a clean state
+    allThemeClasses.forEach(cls => {
+      root.classList.remove(cls);
+    });
+    // Add the current theme from state
+    if (!root.classList.contains(theme)) {
+      root.classList.add(theme);
+    }
   }, [theme]);
 
   const setTheme = useCallback((newTheme: Theme) => {

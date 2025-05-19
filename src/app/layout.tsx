@@ -27,43 +27,31 @@ const SERVER_DEFAULT_THEME = 'forest-mist'; // Define default theme for server r
 const NoFlashScript = () => {
   const storageKey = "morchiometro-theme";
   // This defaultTheme in the script MUST match SERVER_DEFAULT_THEME and ThemeProvider's defaultTheme prop
-  const scriptDefaultTheme = "forest-mist";
+  const scriptDefaultTheme = SERVER_DEFAULT_THEME;
   // Ensure this list is exhaustive of all theme classes and matches ThemeProvider
   const validThemes = ['light', 'dark', 'violet-dream', 'energetic-coral', 'forest-mist'];
 
   const scriptContent = `
 (function() {
-  let themeToApply = '${scriptDefaultTheme}'; // Start with the script's default
   const docEl = document.documentElement;
   const localKey = '${storageKey}';
+  const defaultThemeForScript = '${scriptDefaultTheme}';
   const localThemes = ${JSON.stringify(validThemes)};
-  const serverRenderedClass = '${SERVER_DEFAULT_THEME}';
+  let themeToApply = defaultThemeForScript;
 
   try {
     const storedTheme = window.localStorage.getItem(localKey);
     if (storedTheme && localThemes.includes(storedTheme)) {
-      themeToApply = storedTheme; // Use stored theme if valid
+      themeToApply = storedTheme;
     }
-  } catch (e) {
-    // console.warn('Could not access localStorage for theme preference.');
-  }
+  } catch (e) { /* ignore */ }
 
-  // If the theme to apply is different from what the server rendered, adjust.
-  if (themeToApply !== serverRenderedClass) {
-    docEl.classList.remove(serverRenderedClass);
-    docEl.classList.add(themeToApply);
-  }
-  // Ensure no other theme classes linger and the correct one is applied
-  // This is a fallback / cleanup if the initial server-rendered class was somehow wrong or multiple were present.
+  // Remove all known theme classes first to ensure a clean state
   localThemes.forEach(function(t) {
-    if (t !== themeToApply) {
-      docEl.classList.remove(t);
-    }
+    docEl.classList.remove(t);
   });
-  // Final check to ensure the themeToApply is present if it wasn't the serverRenderedClass
-  if (!docEl.classList.contains(themeToApply)) {
-    docEl.classList.add(themeToApply);
-  }
+  // Add the chosen one
+  docEl.classList.add(themeToApply);
 })();
   `;
   return <script dangerouslySetInnerHTML={{ __html: scriptContent }} />;
