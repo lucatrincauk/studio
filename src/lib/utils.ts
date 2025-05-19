@@ -31,21 +31,21 @@ const RATING_WEIGHTS: Record<RatingCategory, number> = {
 
 export function calculateOverallCategoryAverage(rating: Rating): number {
   let weightedSum = 0;
-  let totalMaxPossibleScore = 0; 
+  let totalMaxPossibleScore = 0;
 
   (Object.keys(rating) as Array<keyof Rating>).forEach(key => {
     const weight = RATING_WEIGHTS[key];
     weightedSum += (rating[key] * weight);
-    totalMaxPossibleScore += (5 * weight); 
+    totalMaxPossibleScore += (5 * weight);
   });
 
   if (totalMaxPossibleScore === 0) return 0;
 
   const normalizedScore = weightedSum / totalMaxPossibleScore; // Score between 0 and 1
-  
+
   // Scale to 1-5 range for internal representation
-  const average = 1 + (normalizedScore * 4); 
-  return Math.round(average * 10) / 10; 
+  const average = 1 + (normalizedScore * 4);
+  return Math.round(average * 10) / 10;
 }
 
 
@@ -93,7 +93,7 @@ export function calculateGroupedCategoryAverages(reviews: Review[]): GroupedCate
   }
 
   const sectionsMeta: Array<{ title: string; keys: RatingCategory[] }> = [
-    { title: "Sentimenti", keys: ['excitedToReplay', 'mentallyStimulating', 'fun'] },
+    { title: "Sentimento", keys: ['excitedToReplay', 'mentallyStimulating', 'fun'] },
     { title: "Design del Gioco", keys: ['decisionDepth', 'replayability', 'luck', 'lengthDowntime'] },
     { title: "Estetica e Immersione", keys: ['graphicDesign', 'componentsThemeLore'] },
     { title: "Apprendimento e Logistica", keys: ['effortToLearn', 'setupTeardown'] },
@@ -101,22 +101,22 @@ export function calculateGroupedCategoryAverages(reviews: Review[]): GroupedCate
 
   const groupedAverages: SectionAverage[] = sectionsMeta.map(section => {
     let sectionWeightedSum = 0;
-    let sectionTotalMaxPossibleScore = 0; 
-    
+    let sectionTotalMaxPossibleScore = 0;
+
     const subRatings: SubRatingAverage[] = section.keys.map(key => {
-      const subCategoryAverage = individualSubCategoryAverages[key]; 
+      const subCategoryAverage = individualSubCategoryAverages[key];
       const weight = RATING_WEIGHTS[key];
-      
+
       sectionWeightedSum += (subCategoryAverage * weight);
       sectionTotalMaxPossibleScore += (5 * weight);
-      
-      return { name: RATING_CATEGORIES[key], average: subCategoryAverage }; 
+
+      return { name: RATING_CATEGORIES[key], average: subCategoryAverage };
     });
 
-    const normalizedSectionScore = sectionTotalMaxPossibleScore > 0 
+    const normalizedSectionScore = sectionTotalMaxPossibleScore > 0
       ? sectionWeightedSum / sectionTotalMaxPossibleScore
       : 0;
-    
+
     const sectionAverageValue = 1 + (normalizedSectionScore * 4); // Scale to 1-5
 
     return {
