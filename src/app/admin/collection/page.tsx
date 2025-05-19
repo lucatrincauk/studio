@@ -1,12 +1,13 @@
 
 'use client';
 
-import type { BoardGame } from '@/lib/types';
+import type { BoardGame, BggSearchResult } from '@/lib/types';
 import { useState, useEffect, useTransition, useMemo, useCallback } from 'react';
-import { fetchBggUserCollectionAction, getBoardGamesFromFirestoreAction, syncBoardGamesToFirestoreAction } from '@/lib/actions';
+import { fetchBggUserCollectionAction, getBoardGamesFromFirestoreAction, syncBoardGamesToFirestoreAction, searchBggGamesAction, importAndRateBggGameAction } from '@/lib/actions';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, AlertCircle, Info, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, Pin, PinOff } from 'lucide-react';
+import { Loader2, AlertCircle, Info, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, Pin, PinOff, Search as SearchIcon, PlusCircle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { CollectionConfirmationDialog } from '@/components/collection/confirmation-dialog';
@@ -22,7 +23,10 @@ import {
 } from "@/components/ui/table";
 import { db } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
-// import { revalidatePath } from 'next/cache'; // Removed: Cannot be used in Client Components
+import { Separator } from '@/components/ui/separator';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+
 
 const BGG_USERNAME = 'lctr01'; 
 
@@ -55,7 +59,16 @@ export default function AdminCollectionPage() {
   const [showConfirmationDialog, setShowConfirmationDialog] = useState(false);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'isPinned', direction: 'descending' });
 
+  // State for BGG Search
+  const [bggSearchTerm, setBggSearchTerm] = useState('');
+  const [bggSearchResults, setBggSearchResults] = useState<BggSearchResult[]>([]);
+  const [isBggSearching, startBggSearchTransition] = useTransition();
+  const [bggSearchError, setBggSearchError] = useState<string | null>(null);
+  const [isImportingGameId, setIsImportingGameId] = useState<string | null>(null);
+  const [isPendingImport, startImportTransition] = useTransition();
+
   const { toast } = useToast();
+  const router = useRouter();
 
   const loadDbCollection = useCallback(async () => {
     setIsLoadingDb(true);
@@ -144,13 +157,7 @@ export default function AdminCollectionPage() {
           isPinned: !currentPinStatus
         });
         toast({ title: 'Stato Pin Aggiornato', description: `Lo stato pin per il gioco è stato ${currentPinStatus ? 'rimosso' : 'aggiunto'}.`});
-        
-        // Revalidate paths - Removed as it's not for client components
-        // revalidatePath('/');
-        // revalidatePath('/admin/collection');
-        // revalidatePath(`/games/${gameId}`); 
-        
-        await loadDbCollection(); // Reload the collection to reflect changes
+        await loadDbCollection();
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Errore sconosciuto";
         toast({ title: 'Errore Aggiornamento Pin', description: `Impossibile aggiornare lo stato pin: ${errorMessage}`, variant: 'destructive'});
@@ -197,6 +204,52 @@ export default function AdminCollectionPage() {
     return sortConfig.direction === 'ascending' ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />;
   };
 
+  const handleBggGameSearch = () => {
+    if (!bggSearchTerm.trim()) {
+      setBggSearchError("Inserisci un termine di ricerca.");
+      return;
+    }
+    setBggSearchError(null);
+    setBggSearchResults([]);
+    startBggSearchTransition(async () => {
+      const result = await searchBggGamesAction(bggSearchTerm);
+      if ('error' in result) {
+        setBggSearchError(result.error);
+        toast({ title: 'Errore Ricerca BGG', description: result.error, variant: 'destructive' });
+      } else {
+        setBggSearchResults(result);
+        if (result.length === 0) {
+          toast({ title: 'Nessun Risultato', description: `Nessun gioco trovato su BGG per "${bggSearchTerm}".` });
+        }
+      }
+    });
+  };
+
+  const handleImportGameFromBgg = (bggId: string) => {
+    setIsImportingGameId(bggId);
+    startImportTransition(async () => {
+      const result = await importAndRateBggGameAction(bggId);
+      if ('error' in result) {
+        toast({
+          title: 'Errore Importazione Gioco',
+          description: result.error,
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Gioco Aggiunto!',
+          description: 'Il gioco è stato aggiunto alla tua collezione.',
+        });
+        await loadDbCollection(); // Refresh the main collection table
+        // Optionally clear BGG search results or redirect:
+        // setBggSearchResults([]);
+        // setBggSearchTerm('');
+        // router.push(`/games/${result.gameId}/rate`); // Or redirect to game detail page
+      }
+      setIsImportingGameId(null);
+    });
+  };
+
 
   return (
     <div className="space-y-8">
@@ -217,7 +270,7 @@ export default function AdminCollectionPage() {
               className="flex-1 bg-accent hover:bg-accent/90 text-accent-foreground"
             >
               {isDbSyncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Salva Modifiche nel DB
+              Salva Modifiche nel DB (da {BGG_USERNAME})
             </Button>
           </div>
           {error && (
@@ -233,7 +286,7 @@ export default function AdminCollectionPage() {
       {(gamesToAdd.length > 0 || gamesToRemove.length > 0) && bggFetchedCollection !== null && (
         <Card className="border-blue-500 bg-blue-500/10 shadow-md">
           <CardHeader>
-            <CardTitle className="text-xl text-blue-700">Modifiche in Sospeso</CardTitle>
+            <CardTitle className="text-xl text-blue-700">Modifiche in Sospeso (da {BGG_USERNAME})</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             {gamesToAdd.length > 0 && (
@@ -261,7 +314,89 @@ export default function AdminCollectionPage() {
           </CardContent>
         </Card>
       )}
+
+      <Separator />
+
+      <Card className="shadow-lg border border-border rounded-lg">
+        <CardHeader>
+          <CardTitle className="text-2xl">Aggiungi Gioco da BoardGameGeek</CardTitle>
+          <CardDescription>Cerca un gioco su BGG e aggiungilo alla collezione locale.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex gap-2">
+            <Input 
+              type="search"
+              placeholder="Cerca nome gioco su BGG..."
+              value={bggSearchTerm}
+              onChange={(e) => setBggSearchTerm(e.target.value)}
+              className="flex-grow"
+            />
+            <Button onClick={handleBggGameSearch} disabled={isBggSearching}>
+              {isBggSearching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <SearchIcon className="mr-2 h-4 w-4" />}
+              Cerca BGG
+            </Button>
+          </div>
+          {bggSearchError && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Errore Ricerca BGG</AlertTitle>
+              <AlertDescription>{bggSearchError}</AlertDescription>
+            </Alert>
+          )}
+          {bggSearchResults.length > 0 && (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome Gioco (BGG)</TableHead>
+                    <TableHead className="text-right">Azione</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {bggSearchResults.map(game => (
+                    <TableRow key={game.bggId}>
+                      <TableCell>
+                        {game.name}
+                        {game.yearPublished && ` (${game.yearPublished})`}
+                      </TableCell>
+                      <TableCell className="text-right space-x-2">
+                         <Button
+                            onClick={() => handleImportGameFromBgg(game.bggId)}
+                            disabled={isPendingImport && isImportingGameId === game.bggId}
+                            size="sm"
+                            className="bg-primary text-primary-foreground hover:bg-primary/90"
+                          >
+                            {(isPendingImport && isImportingGameId === game.bggId) ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                              <PlusCircle className="mr-2 h-4 w-4" />
+                            )}
+                            Aggiungi alla Collezione
+                          </Button>
+                          <Button variant="outline" size="sm" asChild>
+                            <a href={`https://boardgamegeek.com/boardgame/${game.bggId}`} target="_blank" rel="noopener noreferrer">
+                                Vedi su BGG <ExternalLink className="ml-2 h-3 w-3" />
+                            </a>
+                          </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+           {bggSearchResults.length === 0 && bggSearchTerm && !isBggSearching && !bggSearchError && (
+             <Alert variant="default" className="bg-secondary/30 border-secondary">
+                <Info className="h-4 w-4" />
+                <AlertTitle>Nessun Risultato</AlertTitle>
+                <AlertDescription>Nessun gioco trovato su BGG per "{bggSearchTerm}". Prova con un termine diverso.</AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
       
+      <Separator />
+
       <Card className="shadow-lg border border-border rounded-lg">
         <CardHeader>
             <CardTitle className="text-2xl">
@@ -275,7 +410,7 @@ export default function AdminCollectionPage() {
             <Alert>
             <Info className="h-4 w-4" />
             <AlertTitle>Collezione Vuota</AlertTitle>
-            <AlertDescription>La tua collezione nel database è vuota. Prova a sincronizzare con BGG per aggiungere giochi.</AlertDescription>
+            <AlertDescription>La tua collezione nel database è vuota. Prova a sincronizzare con BGG per aggiungere giochi, o aggiungi giochi individualmente dalla ricerca BGG qui sopra.</AlertDescription>
             </Alert>
         )}
         
@@ -333,8 +468,10 @@ export default function AdminCollectionPage() {
                             </div>
                         </TableCell>
                         <TableCell className="font-medium">
-                            {game.name || "Gioco Senza Nome"}
-                            {game.yearPublished && ` (${game.yearPublished})`}
+                            <Link href={`/games/${game.id}`} className="hover:text-primary hover:underline">
+                                {game.name || "Gioco Senza Nome"}
+                                {game.yearPublished && ` (${game.yearPublished})`}
+                            </Link>
                         </TableCell>
                         <TableCell className="hidden md:table-cell text-center">
                             {game.minPlayers}{game.maxPlayers && game.minPlayers !== game.maxPlayers ? `-${game.maxPlayers}` : ''}
@@ -387,3 +524,4 @@ export default function AdminCollectionPage() {
     </div>
   );
 }
+
