@@ -144,7 +144,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
   const confirmDeleteUserReview = async () => {
     setShowDeleteConfirmDialog(false);
-    if (!currentUser || !currentUserReviewState?.id) {
+    if (!currentUser || !currentUserReviewState?.id || !gameId) {
       toast({ title: "Errore", description: "Impossibile eliminare la recensione. Utente o recensione non trovati.", variant: "destructive" });
       return;
     }
@@ -176,6 +176,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           title: "Stato Vetrina Aggiornato",
           description: `Il gioco è stato ${!currentIsPinned ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
         });
+        // No revalidatePath here, rely on local state update and eventual cache update.
         await fetchGameData(); 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
@@ -294,7 +295,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-xl font-semibold text-foreground flex-grow mr-2">La Tua Recensione</h3>
                 <div className="flex gap-2 flex-shrink-0">
-                  <Button asChild size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90">
+                  <Button asChild size="sm"> {/* Changed from accent to default */}
                     <Link href={`/games/${gameId}/rate`}>
                       <Edit className="mr-0 sm:mr-2 h-4 w-4" />
                       <span className="hidden sm:inline">Modifica</span>
@@ -335,7 +336,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
               <CardDescription className="mb-4">
                 Aiuta gli altri condividendo la tua esperienza con questo gioco.
               </CardDescription>
-              <Button asChild className="w-full sm:w-auto bg-accent text-accent-foreground hover:bg-accent/90">
+              <Button asChild className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90">
                 <Link href={`/games/${gameId}/rate`}>
                   <Edit className="mr-2 h-4 w-4" />
                   Valuta questo Gioco
