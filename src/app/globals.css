@@ -199,45 +199,6 @@ body {
     --sidebar-border: 205 30% 20%;
     --sidebar-ring: 160 22% 48%;
   }
-
-  .verde-selva {
-    --background: 0 0% 93%; /* #EEEEEE - Mist White */
-    --foreground: 140 30% 20%; /* #224533 - Dark Forest Green */
-    --card: 0 0% 100%; /* White */
-    --card-foreground: 140 30% 20%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 140 30% 20%;
-    --primary: 140 30% 20%; /* Dark Forest Green */
-    --primary-foreground: 0 0% 98%; /* White */
-    --secondary: 140 15% 87%; /* #D8E2DE - Very Light Green-Gray */
-    --secondary-foreground: 140 30% 15%; /* Darker Green */
-    --muted: 140 10% 90%; /* #E3E8E5 - Even Lighter Green-Gray */
-    --muted-foreground: 140 25% 35%; /* #40624C - Muted Green */
-    --accent: 140 55% 45%; /* #39A76B - Vibrant Forest Green */
-    --accent-foreground: 0 0% 98%; /* White */
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 140 10% 80%; /* #C9D3CD - Light Green-Gray Border */
-    --input: 140 10% 80%; /* Light Green-Gray Input Background */
-    --ring: 140 55% 45%; /* Accent green for focus rings */
-    --radius: 0.5rem;
-
-    --chart-1: 140 55% 45%; /* accent */
-    --chart-2: 140 45% 55%; /* slightly lighter accent */
-    --chart-3: 140 60% 35%; /* darker, more saturated accent */
-    --chart-4: 140 30% 30%; /* darker primary */
-    --chart-5: 140 20% 50%; /* desaturated mid-green */
-
-    /* Sidebar variables for verde-selva */
-    --sidebar-background: 140 30% 15%; /* Darker version of primary/foreground */
-    --sidebar-foreground: 0 0% 90%; /* Light text */
-    --sidebar-primary: 140 55% 45%; /* Accent green for active/hover */
-    --sidebar-primary-foreground: 0 0% 98%; /* White text */
-    --sidebar-accent: 140 30% 20%; /* Slightly lighter than sidebar background */
-    --sidebar-accent-foreground: 0 0% 90%;
-    --sidebar-border: 140 30% 20%;
-    --sidebar-ring: 140 55% 45%;
-  }
 }
 
 @layer base {
