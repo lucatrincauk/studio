@@ -257,7 +257,8 @@ async function parseBggCollectionXml(xmlText: string): Promise<BoardGame[]> {
             playingTime,
             reviews: [], 
             description: 'Descrizione non disponibile dalla sincronizzazione della collezione BGG.', 
-            isPinned: false, // Default for new games from BGG
+            isPinned: false, 
+            overallAverageRating: null,
         });
     }
     return games;
@@ -378,22 +379,26 @@ export async function importAndRateBggGameAction(bggId: string): Promise<{ gameI
 
 
 export async function getGameDetails(gameId: string): Promise<BoardGame | null> {
+  // console.log(`[GETGAMEDETAILS ENTRY] Attempting to fetch gameId: "${gameId}"`);
   try {
     const gameDocRef = doc(db, FIRESTORE_COLLECTION_NAME, gameId);
     const docSnap = await getDoc(gameDocRef);
 
     if (docSnap.exists()) {
+      // console.log(`[GETGAMEDETAILS] Document found for gameId: "${gameId}"`);
       const data = docSnap.data();
       if (!data) {
           console.error(`[GETGAMEDETAILS] Dati del documento non definiti per gameId: "${gameId}" nonostante esista.`);
           return null;
       }
+      // console.log(`[GETGAMEDETAILS] Game data fetched for gameId: "${gameId}"`, data);
 
       let reviews: Review[] = [];
       try {
         const reviewsCollectionRef = collection(db, FIRESTORE_COLLECTION_NAME, gameId, 'reviews');
         const reviewsQuery = query(reviewsCollectionRef, orderBy("date", "desc"));
         const reviewsSnapshot = await getDocs(reviewsQuery);
+        // console.log(`[GETGAMEDETAILS] Fetched ${reviewsSnapshot.docs.length} reviews for gameId: "${gameId}"`);
         reviews = reviewsSnapshot.docs.map(reviewDoc => {
           const reviewData = reviewDoc.data();
           const rating: Rating = {
@@ -435,10 +440,12 @@ export async function getGameDetails(gameId: string): Promise<BoardGame | null> 
         playingTime: data.playingTime === undefined ? null : data.playingTime,
         reviews: reviews, 
         isPinned: data.isPinned || false,
+        overallAverageRating: null, // This will be calculated where needed
       };
+      // console.log(`[GETGAMEDETAILS] Successfully constructed game object for gameId: "${gameId}"`, game);
       return game;
     } else {
-      console.warn(`[GETGAMEDETAILS] Nessun documento trovato per gameId: "${gameId}"`);
+      // console.warn(`[GETGAMEDETAILS] Nessun documento trovato per gameId: "${gameId}"`);
       return null;
     }
   } catch (error) {
@@ -447,47 +454,39 @@ export async function getGameDetails(gameId: string): Promise<BoardGame | null> 
   }
 }
 
-
-export async function getAllGamesAction(): Promise<BoardGame[]> {
-  const result = await getBoardGamesFromFirestoreAction();
-  if ('error' in result) {
-    console.error("Errore in getAllGamesAction -> getBoardGamesFromFirestoreAction:", result.error);
-    return [];
-  }
-  return result;
-}
-
 async function fetchWithRetry(url: string, retries = 5, delay = 3000, attempt = 1): Promise<string> {
     try {
+        // console.log(`[BGG FETCH ATTEMPT ${attempt}] URL: ${url}`);
         const response = await fetch(url, { cache: 'no-store' }); 
-        // console.log(`[BGG FETCH ATTEMPT ${attempt}] URL: ${url}, Status: ${response.status}`);
+        // console.log(`[BGG FETCH ATTEMPT ${attempt}] Status: ${response.status}`);
 
         if (response.status === 200) {
             const xmlText = await response.text();
+            // console.log(`[BGG FETCH ATTEMPT ${attempt}] XML (first 2000 chars): ${xmlText.substring(0, 2000)}`);
             if (!xmlText.includes('<items') && !xmlText.includes("<item ") && !xmlText.includes("<error>") && attempt < retries) { 
-                 console.warn(`[BGG FETCH ATTEMPT ${attempt}] Ricevuto 200 ma XML sembra incompleto/non valido. Riprovo...`);
+                 // console.warn(`[BGG FETCH ATTEMPT ${attempt}] Ricevuto 200 ma XML sembra incompleto/non valido. Riprovo...`);
                  await new Promise(resolve => setTimeout(resolve, Math.min(delay * attempt, 10000))); 
                  return fetchWithRetry(url, retries, delay, attempt + 1);
             }
             if(xmlText.includes("<error>")){
-                console.error(`[BGG FETCH ATTEMPT ${attempt}] L'API BGG ha restituito un errore in XML: ${xmlText.substring(0, 500)}`);
+                // console.error(`[BGG FETCH ATTEMPT ${attempt}] L'API BGG ha restituito un errore in XML: ${xmlText.substring(0, 500)}`);
                 throw new Error(`L'API BGG ha restituito un errore: ${xmlText.substring(0, 200)}`);
             }
             return xmlText;
         } else if (response.status === 202 && attempt < retries) {
-            console.log(`[BGG FETCH ATTEMPT ${attempt}] Ricevuto 202 Accepted. Attendo e riprovo...`);
+            // console.log(`[BGG FETCH ATTEMPT ${attempt}] Ricevuto 202 Accepted. Attendo e riprovo...`);
             await new Promise(resolve => setTimeout(resolve, Math.min(delay * attempt, 10000))); 
             return fetchWithRetry(url, retries, delay, attempt + 1);
         } else if (response.status !== 200 && response.status !== 202) {
              const errorText = await response.text().catch(() => "Impossibile leggere il corpo della risposta d'errore");
-             console.error(`[BGG FETCH ATTEMPT ${attempt}] Errore API BGG: Status ${response.status}. Response: ${errorText.substring(0,200)}`);
+             // console.error(`[BGG FETCH ATTEMPT ${attempt}] Errore API BGG: Status ${response.status}. Response: ${errorText.substring(0,200)}`);
              throw new Error(`Errore API BGG: Status ${response.status}.`);
         } else { 
-            console.error(`[BGG FETCH ATTEMPT ${attempt}] Fallito dopo ${retries} tentativi (ultimo status: ${response.status}).`);
+            // console.error(`[BGG FETCH ATTEMPT ${attempt}] Fallito dopo ${retries} tentativi (ultimo status: ${response.status}).`);
             throw new Error(`L'API BGG non ha restituito uno stato di successo dopo ${retries} tentativi.`);
         }
     } catch (error) {
-        console.error(`[BGG FETCH ATTEMPT ${attempt}] Errore nel blocco catch:`, error);
+        // console.error(`[BGG FETCH ATTEMPT ${attempt}] Errore nel blocco catch:`, error);
         if (attempt < retries) {
             await new Promise(resolve => setTimeout(resolve, Math.min(delay * attempt, 10000)));
             return fetchWithRetry(url, retries, delay, attempt + 1);
@@ -498,14 +497,18 @@ async function fetchWithRetry(url: string, retries = 5, delay = 3000, attempt = 
 
 
 export async function fetchBggUserCollectionAction(username: string): Promise<BoardGame[] | { error: string }> {
+    // console.log(`[SERVER ACTION ENTRY] fetchBggUserCollectionAction called for username: ${username}`);
     try {
         const url = `${BGG_API_BASE_URL}/collection?username=${username}&own=1&excludesubtype=boardgameexpansion`;
+        // console.log(`[SERVER ACTION] Fetching BGG collection from URL: ${url}`);
         const collectionXml = await fetchWithRetry(url);
+        // console.log(`[SERVER ACTION] Received BGG Collection XML (first 500 chars): ${collectionXml.substring(0, 500)}`);
         const games = await parseBggCollectionXml(collectionXml);
+        // console.log(`[SERVER ACTION] Parsed ${games.length} games from BGG collection for ${username}`);
         return games;
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Si è verificato un errore sconosciuto durante il recupero della collezione BGG.';
-        console.error(`Errore in fetchBggUserCollectionAction per ${username}:`, errorMessage);
+        console.error(`[SERVER ACTION ERROR] fetchBggUserCollectionAction for ${username}:`, errorMessage);
         return { error: errorMessage };
     }
 }
@@ -790,7 +793,7 @@ export async function getFeaturedGamesAction(): Promise<BoardGame[]> {
         yearPublished: gameData.yearPublished === undefined ? null : gameData.yearPublished,
         minPlayers: gameData.minPlayers === undefined ? null : gameData.minPlayers,
         maxPlayers: gameData.maxPlayers === undefined ? null : gameData.maxPlayers,
-        playingTime: gameData.playingTime === undefined ? null : data.playingTime,
+        playingTime: gameData.playingTime === undefined ? null : gameData.playingTime,
         description: gameData.description || "Nessuna descrizione.",
         reviews: [], 
         overallAverageRating,
@@ -805,14 +808,15 @@ export async function getFeaturedGamesAction(): Promise<BoardGame[]> {
       .filter(game => game.isPinned)
       .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
 
-    const top3RecentlyReviewed = allGamesWithDetails
+    
+    const recentlyReviewedGames = allGamesWithDetails
       .filter(game => game._latestReviewDate !== null)
-      .sort((a, b) => b._latestReviewDate!.getTime() - a._latestReviewDate!.getTime())
-      .slice(0, 3);
+      .sort((a, b) => b._latestReviewDate!.getTime() - a._latestReviewDate!.getTime());
 
     const finalFeaturedGames: BoardGame[] = [];
     const featuredGameIds = new Set<string>();
 
+    // Add all pinned games first
     for (const game of pinnedGames) {
       if (!featuredGameIds.has(game.id)) {
         const { _latestReviewDate, ...gameToAdd } = game; // Remove temporary field
@@ -821,14 +825,18 @@ export async function getFeaturedGamesAction(): Promise<BoardGame[]> {
       }
     }
 
-    for (const game of top3RecentlyReviewed) {
+    // Then add up to 3 most recently reviewed games that are not already pinned
+    for (const game of recentlyReviewedGames) {
+      if (finalFeaturedGames.length >= pinnedGames.length + 3) { // Ensure we add max 3 non-pinned
+          break;
+      }
       if (!featuredGameIds.has(game.id)) {
-        const { _latestReviewDate, ...gameToAdd } = game; // Remove temporary field
+        const { _latestReviewDate, ...gameToAdd } = game; 
         finalFeaturedGames.push(gameToAdd);
-        // No need to add to featuredGameIds again, as we just check for presence
+        featuredGameIds.add(game.id);
       }
     }
-
+    
     return finalFeaturedGames;
 
   } catch (error) {
@@ -837,4 +845,13 @@ export async function getFeaturedGamesAction(): Promise<BoardGame[]> {
   }
 }
 
+export async function getAllGamesAction(): Promise<BoardGame[]> {
+  const result = await getBoardGamesFromFirestoreAction();
+  if ('error' in result) {
+    console.error("Errore in getAllGamesAction -> getBoardGamesFromFirestoreAction:", result.error);
+    return [];
+  }
+  return result;
+}
+    
     
