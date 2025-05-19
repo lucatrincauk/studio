@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { LogOut, UserPlus, LogIn, BarChart3, MessagesSquare, Users2, ShieldCheck, GaugeCircle } from 'lucide-react'; // Added GaugeCircle for new logo
+import { LogOut, UserPlus, LogIn, BarChart3, MessagesSquare, Users2, ShieldCheck, UserCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import {
   DropdownMenu,
@@ -29,8 +29,8 @@ export function Header() {
     <header className="bg-primary text-primary-foreground sticky top-0 z-50 shadow-md">
       <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link href="/" className="flex items-center gap-2 transition-opacity hover:opacity-80">
-          <BarChart3 className="h-8 w-8" /> {/* Changed from GaugeCircle */}
-          <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Morchiometro</h1> {/* Changed name */}
+          <BarChart3 className="h-8 w-8" />
+          <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Morchiometro</h1>
         </Link>
 
         <nav>
@@ -63,7 +63,7 @@ export function Header() {
                       <Avatar className="h-9 w-9">
                         <AvatarImage src={user.photoURL || undefined} alt={user.displayName || user.email || 'User Avatar'} />
                         <AvatarFallback className="bg-accent text-accent-foreground">
-                          {user.email ? user.email.substring(0, 1).toUpperCase() : 'U'}
+                          {user.displayName ? user.displayName.substring(0, 1).toUpperCase() : (user.email ? user.email.substring(0, 1).toUpperCase() : 'U')}
                         </AvatarFallback>
                       </Avatar>
                     </Button>
@@ -80,6 +80,12 @@ export function Header() {
                       </div>
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild className="cursor-pointer">
+                      <Link href="/profile">
+                        <UserCircle className="mr-2 h-4 w-4" />
+                        Mio Profilo
+                      </Link>
+                    </DropdownMenuItem>
                     {isAdmin && (
                       <DropdownMenuItem asChild className="cursor-pointer">
                         <Link href="/admin">

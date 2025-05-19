@@ -10,8 +10,10 @@ import {
   signOut as firebaseSignOut,
   GoogleAuthProvider,
   signInWithPopup,
+  updateProfile as firebaseUpdateProfile, // Import updateProfile
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import { toast } from '@/hooks/use-toast'; // Import toast
 
 const ADMIN_EMAIL = "lucatrinca.uk@gmail.com";
 
@@ -24,6 +26,7 @@ interface AuthContextType {
   signIn: (email: string, pass: string) => Promise<FirebaseUser | null>;
   signInWithGoogle: () => Promise<FirebaseUser | null>;
   signOut: () => Promise<void>;
+  updateUserProfile: (newName: string) => Promise<boolean>; // New method
   clearError: () => void;
 }
 
@@ -99,7 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signOutFunc = async (): Promise<void> => { // Renamed to avoid conflict with imported signOut
+  const signOutFunc = async (): Promise<void> => {
     setLoading(true);
     setError(null);
     try {
@@ -113,6 +116,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const updateUserProfile = async (newName: string): Promise<boolean> => {
+    if (!auth.currentUser) {
+      const noUserError = { code: 'auth/no-current-user', message: 'Nessun utente attualmente loggato per aggiornare il profilo.' } as AuthError;
+      setError(noUserError);
+      toast({ title: "Errore", description: noUserError.message, variant: "destructive" });
+      return false;
+    }
+    // Optimistically set loading for this specific operation, not global loading
+    // const [isUpdatingProfile, setIsUpdatingProfile] = useState(false); // This would need to be managed differently
+    // For now, we'll use the global loading, or you can add a specific one in the form.
+
+    setError(null);
+    try {
+      await firebaseUpdateProfile(auth.currentUser, { displayName: newName });
+      // Firebase Auth automatically updates auth.currentUser.
+      // onAuthStateChanged should pick this up, but to be safe and provide immediate feedback:
+      setUser({ ...auth.currentUser } as FirebaseUser); // Create a new object to trigger re-renders
+      toast({ title: "Profilo Aggiornato", description: "Il tuo nome visualizzato è stato aggiornato con successo." });
+      return true;
+    } catch (e) {
+      const updateError = e as AuthError;
+      setError(updateError);
+      toast({ title: "Errore Aggiornamento Profilo", description: updateError.message, variant: "destructive" });
+      return false;
+    }
+  };
+
+
   const value = {
     user,
     loading,
@@ -121,7 +152,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signUp,
     signIn,
     signInWithGoogle,
-    signOut: signOutFunc, // Use the renamed function
+    signOut: signOutFunc,
+    updateUserProfile, // Add new method
     clearError,
   };
 
