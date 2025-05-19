@@ -176,7 +176,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           title: "Stato Vetrina Aggiornato",
           description: `Il gioco è stato ${!currentIsPinned ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
         });
-        // No revalidatePath here, rely on local state update and eventual cache update.
+        
         await fetchGameData(); 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
@@ -295,10 +295,12 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-xl font-semibold text-foreground flex-grow mr-2">La Tua Recensione</h3>
                 <div className="flex gap-2 flex-shrink-0">
-                  <Button asChild size="sm"> {/* Changed from accent to default */}
+                  <Button asChild size="sm">
                     <Link href={`/games/${gameId}/rate`}>
-                      <Edit className="mr-0 sm:mr-2 h-4 w-4" />
-                      <span className="hidden sm:inline">Modifica</span>
+                      <span className="flex items-center">
+                        <Edit className="mr-0 sm:mr-2 h-4 w-4" />
+                        <span className="hidden sm:inline">Modifica</span>
+                      </span>
                     </Link>
                   </Button>
                   <AlertDialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
