@@ -1,16 +1,13 @@
 
 'use client';
 
-import { useState, useEffect, useMemo, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import type { BoardGame, BggSearchResult } from '@/lib/types';
+import type { BoardGame } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Loader2, AlertCircle, Info, ExternalLink, PlusCircle, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Search, Info, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { useToast } from '@/hooks/use-toast';
-// Removed: searchBggGamesAction, importAndRateBggGameAction from '@/lib/actions';
 import {
   Table,
   TableBody,
@@ -34,22 +31,39 @@ interface SortConfig {
 
 const GAMES_PER_PAGE = 10;
 
+// Custom hook for debouncing
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+
+
 export function GameSearchList({ initialGames }: GameSearchListProps) {
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearchTerm = useDebounce(searchTerm, 300); // 300ms delay
   const [localFilteredGames, setLocalFilteredGames] = useState<BoardGame[]>(initialGames);
   
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'overallAverageRating', direction: 'descending' });
   const [currentPage, setCurrentPage] = useState(1);
   
-  const router = useRouter();
-  const { toast } = useToast();
 
   useEffect(() => {
     setCurrentPage(1); 
-    const trimmedSearchTerm = searchTerm.toLowerCase().trim();
+    const trimmedSearchTerm = debouncedSearchTerm.toLowerCase().trim();
 
     if (!trimmedSearchTerm) {
-      setLocalFilteredGames(initialGames); 
+      setLocalFilteredGames([...initialGames]); // Use a copy to ensure re-render if initialGames ref is stable
       return;
     }
 
@@ -57,7 +71,7 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
       (game.name || '').toLowerCase().includes(trimmedSearchTerm)
     );
     setLocalFilteredGames(filtered);
-  }, [searchTerm, initialGames]);
+  }, [debouncedSearchTerm, initialGames]); // Depend on debouncedSearchTerm
 
   const handleSort = (key: SortableKeys) => {
     let direction: 'ascending' | 'descending' = 'ascending';
@@ -69,7 +83,7 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
   };
 
   const sortedInitialGames = useMemo(() => {
-    let items = [...initialGames];
+    let items = [...initialGames]; // Use a copy
     items.sort((a, b) => {
       if (sortConfig.key === 'name') {
         const nameA = a.name || '';
@@ -86,7 +100,7 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
   }, [initialGames, sortConfig]);
 
   const sortedLocalFilteredGames = useMemo(() => {
-    let items = [...localFilteredGames];
+    let items = [...localFilteredGames]; // Use a copy
     items.sort((a, b) => {
       if (sortConfig.key === 'name') {
         const nameA = a.name || '';
@@ -101,8 +115,8 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
     });
     return items;
   }, [localFilteredGames, sortConfig]);
-
-  const gamesToDisplayInTable = searchTerm.trim().length > 0 ? sortedLocalFilteredGames : sortedInitialGames;
+  
+  const gamesToDisplayInTable = debouncedSearchTerm.trim().length > 0 ? sortedLocalFilteredGames : sortedInitialGames;
   
   const totalPages = Math.ceil(gamesToDisplayInTable.length / GAMES_PER_PAGE);
   const paginatedGames = useMemo(() => {
@@ -127,7 +141,7 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
 
   const LocalGamesTable = ({ games, totalGamesCount, title }: { games: BoardGame[], totalGamesCount: number, title: string }) => (
     <section className="mt-8"> 
-      <h3 className="text-xl font-semibold mb-4 text-foreground">
+      <h3 className="text-xl font-semibold mb-2 text-foreground">
         {title} ({totalGamesCount})
       </h3>
        <div className="relative max-w-xl mx-auto mb-6">
@@ -135,29 +149,29 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
         <Input
           type="search"
           placeholder="Cerca un gioco per nome..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          value={searchTerm} // Input value still updates immediately
+          onChange={(e) => setSearchTerm(e.target.value)} // setSearchTerm updates immediately
           className="w-full rounded-lg bg-background py-3 pl-11 pr-4 text-base shadow-sm border border-input focus:ring-2 focus:ring-primary/50 focus:border-primary"
           aria-label="Cerca un gioco per nome nella collezione locale"
         />
       </div>
 
 
-      {games.length === 0 && searchTerm.trim().length > 0 && (
+      {games.length === 0 && debouncedSearchTerm.trim().length > 0 && (
          <Alert variant="default" className="max-w-lg mx-auto bg-secondary/30 border-secondary text-center">
             <Info className="h-4 w-4 mx-auto mb-2 text-muted-foreground" />
             <AlertTitle className="mb-1 text-foreground">Nessun Gioco Trovato</AlertTitle>
             <AlertDescription className="mb-3 text-muted-foreground">
-            Nessun gioco corrispondente a "{searchTerm}" è stato trovato nella collezione locale.
+            Nessun gioco corrispondente a "{debouncedSearchTerm}" è stato trovato nella collezione locale.
             </AlertDescription>
         </Alert>
       )}
-      {games.length === 0 && !searchTerm.trim() && totalGamesCount === 0 && (
+      {games.length === 0 && !debouncedSearchTerm.trim() && totalGamesCount === 0 && (
          <Alert variant="default" className="max-w-lg mx-auto bg-secondary/30 border-secondary text-center">
             <Info className="h-4 w-4 mx-auto mb-2 text-muted-foreground" />
             <AlertTitle className="mb-1 text-foreground">Collezione Vuota</AlertTitle>
             <AlertDescription className="mb-3 text-muted-foreground">
-                La collezione locale è vuota.
+                La collezione locale è vuota. Puoi aggiungere giochi tramite la sezione Admin.
             </AlertDescription>
         </Alert>
       )}
