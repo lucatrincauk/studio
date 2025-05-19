@@ -9,7 +9,7 @@ import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, Brain, Tag, ExternalLink, Weight } from 'lucide-react'; // Added Weight
+import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, Brain, ExternalLink, Weight } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { summarizeReviews } from '@/ai/flows/summarize-reviews';
@@ -221,6 +221,17 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                         {isPinToggling ? <Loader2 className="h-5 w-5 animate-spin" /> : (currentIsPinned ? <PinOff className="h-5 w-5" /> : <Pin className="h-5 w-5" />)}
                     </Button>
                   )}
+                  {game.bggId && (
+                    <a
+                      href={`https://boardgamegeek.com/boardgame/${game.bggId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Vedi su BoardGameGeek"
+                      className="inline-flex items-center text-primary hover:text-primary/80 focus:outline-none focus:ring-2 focus:ring-ring rounded-md p-1 ml-1"
+                    >
+                      <ExternalLink size={20} className="h-5 w-5" />
+                    </a>
+                  )}
                 </div>
               {globalGameAverage !== null && (
                 <div className="flex-shrink-0 bg-primary text-primary-foreground rounded-full px-4 py-2 text-xl font-bold shadow-md">
@@ -276,25 +287,9 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
               ) : null}
               {game.averageWeight !== null && typeof game.averageWeight === 'number' && (
                  <div className="flex items-center gap-2">
-                  <Weight size={16} className="text-primary/80" /> {/* Changed Brain to Weight */}
+                  <Weight size={16} className="text-primary/80" />
                   <span className="hidden sm:inline">Complessità:</span>
                   <span>{formatRatingNumber(game.averageWeight)} / 5</span>
-                </div>
-              )}
-              {game.bggId && (
-                <div className="flex items-center gap-2">
-                  <Tag size={16} className="text-primary/80" />
-                  <span className="hidden sm:inline">BGG ID:</span>
-                  <span>
-                    <a 
-                      href={`https://boardgamegeek.com/boardgame/${game.bggId}`} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center text-primary hover:underline"
-                    >
-                      {game.bggId} <ExternalLink size={12} className="ml-1" />
-                    </a>
-                  </span>
                 </div>
               )}
             </div>
@@ -458,3 +453,4 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
+
