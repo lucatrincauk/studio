@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useTransition } from 'react';
@@ -7,15 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Search, Info, Loader2, Edit, Star } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { SafeImage } from '@/components/common/SafeImage';
+import { GameCard } from '@/components/boardgame/game-card'; // Import GameCard
 import { searchLocalGamesByNameAction } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { formatRatingNumber } from '@/lib/utils';
@@ -61,7 +54,8 @@ export function GameRatingSelector() {
       } else {
         setLocalResults(result);
         if (result.length === 0) {
-          toast({ title: "Nessun Gioco Trovato", description: `Nessun gioco trovato nella collezione per "${debouncedSearchTerm}".` });
+          // Toast for no results can be annoying if user is still typing, consider removing or making less intrusive
+          // toast({ title: "Nessun Gioco Trovato", description: `Nessun gioco trovato nella collezione per "${debouncedSearchTerm}".` });
         }
       }
     });
@@ -99,56 +93,17 @@ export function GameRatingSelector() {
 
       {!isLoadingLocal && localResults.length > 0 && (
         <div className="space-y-3">
-          <h3 className="text-lg font-semibold">Giochi Trovati nella Collezione:</h3>
-          <div className="overflow-x-auto bg-card p-4 rounded-lg shadow-sm border border-border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[60px] sm:w-[80px]">Copertina</TableHead>
-                  <TableHead>Nome Gioco</TableHead>
-                  <TableHead className="text-center">Voto Medio</TableHead>
-                  <TableHead className="text-right">Azione</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {localResults.map(game => (
-                  <TableRow key={game.id}>
-                    <TableCell>
-                      <div className="relative w-10 h-14 sm:w-12 sm:h-16 rounded overflow-hidden shadow-sm">
-                        <SafeImage
-                          src={game.coverArtUrl}
-                          fallbackSrc={`https://placehold.co/48x64.png?text=${encodeURIComponent(game.name?.substring(0,3) || 'N/A')}`}
-                          alt={`${game.name || 'Gioco'} copertina`}
-                          fill
-                          sizes="(max-width: 640px) 40px, 48px"
-                          className="object-cover"
-                          data-ai-hint="board game mini"
-                        />
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {game.name || "Gioco Senza Nome"}
-                      {game.yearPublished && ` (${game.yearPublished})`}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {game.overallAverageRating !== null && typeof game.overallAverageRating === 'number' ? (
-                        <span className="font-semibold text-primary flex items-center justify-center gap-1">
-                           <Star className="h-4 w-4 text-accent fill-accent" /> 
-                          {formatRatingNumber(game.overallAverageRating * 2)}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button onClick={() => router.push(`/games/${game.id}/rate`)} size="sm">
-                        <Edit className="mr-2 h-4 w-4" /> Valuta
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+          <h3 className="text-lg font-semibold text-foreground">Giochi Trovati nella Collezione ({localResults.length}):</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            {localResults.map((game, index) => (
+              <GameCard
+                game={game}
+                key={game.id}
+                variant="featured"
+                linkTarget="rate"
+                priority={index < 3} // Prioritize loading images for the first few cards
+              />
+            ))}
           </div>
         </div>
       )}
@@ -165,3 +120,4 @@ export function GameRatingSelector() {
     </div>
   );
 }
+
