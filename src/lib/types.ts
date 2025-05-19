@@ -18,7 +18,7 @@ export const RATING_CATEGORIES: Record<RatingCategory, string> = {
   fun: 'Fattore Divertimento',
   decisionDepth: 'Profondità Decisionale',
   replayability: 'Varietà e Rigiocabilità',
-  luck: 'Assenza di Fortuna', // Changed
+  luck: 'Assenza di Fortuna',
   lengthDowntime: 'Durata',
   graphicDesign: 'Grafica e Componenti',
   componentsThemeLore: 'Tema e Ambientazione',
@@ -62,10 +62,10 @@ export interface BoardGame {
   coverArtUrl: string;
   description?: string;
   reviews: Review[];
-  yearPublished?: number | null; // Allow null
-  minPlayers?: number | null; // Allow null
-  maxPlayers?: number | null; // Allow null
-  playingTime?: number | null; // Allow null
+  yearPublished?: number | null;
+  minPlayers?: number | null;
+  maxPlayers?: number | null;
+  playingTime?: number | null;
   bggId: number;
 }
 
@@ -87,6 +87,7 @@ export interface SubRatingAverage {
 }
 export interface SectionAverage {
   sectionTitle: string;
+  iconName?: string; // Added for icons
   sectionAverage: number;
   subRatings: SubRatingAverage[];
 }
@@ -97,3 +98,4 @@ export interface UserProfile {
   name: string;
   photoURL?: string | null;
 }
+

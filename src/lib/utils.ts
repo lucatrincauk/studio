@@ -92,11 +92,11 @@ export function calculateGroupedCategoryAverages(reviews: Review[]): GroupedCate
     return null;
   }
 
-  const sectionsMeta: Array<{ title: string; keys: RatingCategory[] }> = [
-    { title: "Sentimento", keys: ['excitedToReplay', 'mentallyStimulating', 'fun'] },
-    { title: "Design del Gioco", keys: ['decisionDepth', 'replayability', 'luck', 'lengthDowntime'] },
-    { title: "Estetica e Immersione", keys: ['graphicDesign', 'componentsThemeLore'] },
-    { title: "Apprendimento e Logistica", keys: ['effortToLearn', 'setupTeardown'] },
+  const sectionsMeta: Array<{ title: string; keys: RatingCategory[], iconName: string }> = [
+    { title: "Sentimento", keys: ['excitedToReplay', 'mentallyStimulating', 'fun'], iconName: "Smile" },
+    { title: "Design del Gioco", keys: ['decisionDepth', 'replayability', 'luck', 'lengthDowntime'], iconName: "Puzzle" },
+    { title: "Estetica e Immersione", keys: ['graphicDesign', 'componentsThemeLore'], iconName: "Palette" },
+    { title: "Apprendimento e Logistica", keys: ['effortToLearn', 'setupTeardown'], iconName: "ClipboardList" },
   ];
 
   const groupedAverages: SectionAverage[] = sectionsMeta.map(section => {
@@ -121,6 +121,7 @@ export function calculateGroupedCategoryAverages(reviews: Review[]): GroupedCate
 
     return {
       sectionTitle: section.title,
+      iconName: section.iconName,
       sectionAverage: Math.round(sectionAverageValue * 10) / 10,
       subRatings,
     };
@@ -131,11 +132,10 @@ export function calculateGroupedCategoryAverages(reviews: Review[]): GroupedCate
 
 
 export function formatReviewDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString('it-IT', { // Changed to it-IT for Italian date format
+  return new Date(dateString).toLocaleDateString('it-IT', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
   });
 }
-
 
