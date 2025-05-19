@@ -37,7 +37,7 @@ export default async function Top10Page() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
               {topRatedGames.map((game, index) => (
-                <GameCard game={game} key={game.id} priority={index < 4} />
+                <GameCard game={game} key={game.id} variant="featured" priority={index < 4} />
               ))}
             </div>
           )}
@@ -48,3 +48,4 @@ export default async function Top10Page() {
 }
 
 export const revalidate = 3600; // Revalidate every hour
+
