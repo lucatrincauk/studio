@@ -3,7 +3,7 @@ import Link from 'next/link';
 import type { BoardGame } from '@/lib/types';
 import { Card, CardContent, CardFooter, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Users, Clock, CalendarDays } from 'lucide-react';
+import { Users, Clock, CalendarDays, Star } from 'lucide-react'; // Added Star
 import { SafeImage } from '@/components/common/SafeImage';
 import { formatRatingNumber } from '@/lib/utils';
 
@@ -28,14 +28,14 @@ export function GameCard({ game, variant = 'default', priority = false }: GameCa
             className="object-cover group-hover:scale-105 transition-transform duration-300"
             data-ai-hint="board game cover"
             priority={priority}
-            sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, 33vw"
+            sizes="(max-width: 767px) 50vw, 33vw" // Updated sizes for 2 cols on mobile, 3 on md+
           />
-          <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/70 via-black/40 to-transparent p-3">
-            <h3 className="text-primary-foreground font-semibold text-base leading-tight drop-shadow-sm line-clamp-2">
+          <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/80 via-black/50 to-transparent p-2 sm:p-3">
+            <h3 className="text-primary-foreground font-semibold text-sm sm:text-base leading-tight drop-shadow-sm line-clamp-2">
               {game.name} {game.yearPublished && <span className="text-xs opacity-80">({game.yearPublished})</span>}
             </h3>
             {game.overallAverageRating !== null && typeof game.overallAverageRating === 'number' && (
-              <p className="text-sm font-bold text-accent drop-shadow-sm">
+              <p className="text-xs sm:text-sm font-bold text-accent drop-shadow-sm">
                 {formatRatingNumber(game.overallAverageRating * 2)}
               </p>
             )}
@@ -54,7 +54,7 @@ export function GameCard({ game, variant = 'default', priority = false }: GameCa
           alt={`${game.name || 'Gioco'} copertina`}
           fallbackSrc={fallbackSrc}
           fill
-          sizes="(max-width: 767px) 33vw, 40vw" // Adjusted sizes for default card
+          sizes="(max-width: 767px) 33vw, 40vw" 
           className="object-cover rounded-l-lg"
           data-ai-hint={`board game ${game.name?.split(' ')[0]?.toLowerCase() || 'generic'}`}
           priority={priority}
@@ -71,6 +71,7 @@ export function GameCard({ game, variant = 'default', priority = false }: GameCa
             </CardTitle>
             {game.overallAverageRating !== null && typeof game.overallAverageRating === 'number' && (
               <div className="text-lg sm:text-xl font-bold text-primary flex items-center gap-1 flex-shrink-0">
+                <Star className="h-4 w-4 text-accent fill-accent" /> 
                 {formatRatingNumber(game.overallAverageRating * 2)}
               </div>
             )}
@@ -95,3 +96,4 @@ export function GameCard({ game, variant = 'default', priority = false }: GameCa
     </Card>
   );
 }
+

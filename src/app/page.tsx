@@ -10,22 +10,21 @@ export default async function HomePage() {
 
   return (
     <div className="space-y-12">
-      {featuredGames && featuredGames.length > 0 && (
-        <section>
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mb-6 text-center sm:text-left">
-            Ultimi Giochi Valutati
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-            {featuredGames.map((game, index) => (
-              <GameCard key={game.id} game={game} variant="featured" priority={index < 3} />
-            ))}
-          </div>
-        </section>
-      )}
-      
-      {featuredGames && featuredGames.length > 0 && <Separator className="my-8" />}
-
       <section>
+        {featuredGames && featuredGames.length > 0 && (
+          <div className="mb-8"> {/* Added mb-8 for spacing */}
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mb-6 text-center sm:text-left">
+              Ultimi Giochi Valutati
+            </h2>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4"> {/* Changed grid and gap */}
+              {featuredGames.map((game, index) => (
+                <GameCard key={game.id} game={game} variant="featured" priority={index < 3} />
+              ))}
+            </div>
+            <Separator className="my-8" /> {/* Separator after featured games */}
+          </div>
+        )}
+        
         <div className="mb-6 text-center">
           <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground mb-2">
             Esplora i Tuoi Giochi da Tavolo Preferiti
@@ -49,3 +48,4 @@ export default async function HomePage() {
 
 // Revalidate this page periodically or on demand when new games are added
 export const revalidate = 3600; // Revalidate every hour
+
