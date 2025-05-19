@@ -82,43 +82,6 @@ body {
     --sidebar-ring: 55 99% 65%;
   }
 
-  .ocean {
-    --background: 210 50% 20%; /* Deep Blue */
-    --foreground: 180 30% 95%; /* Light Cyan/Off-white */
-    --card: 210 50% 25%; /* Slightly Lighter Blue */
-    --card-foreground: 180 30% 95%;
-    --popover: 210 50% 25%;
-    --popover-foreground: 180 30% 95%;
-    --primary: 170 70% 45%; /* Vibrant Teal/Cyan */
-    --primary-foreground: 210 50% 10%; /* Dark text on primary */
-    --secondary: 210 30% 35%; /* Muted Blue-Gray */
-    --secondary-foreground: 180 30% 95%;
-    --muted: 210 30% 30%; /* Darker Muted Blue-Gray */
-    --muted-foreground: 210 30% 70%;
-    --accent: 15 90% 60%; /* Bright Coral/Orange */
-    --accent-foreground: 15 50% 10%; /* Dark text on accent */
-    --destructive: 0 70% 50%; /* Adjusted destructive */
-    --destructive-foreground: 0 0% 98%;
-    --border: 210 40% 30%; /* Muted border */
-    --input: 210 40% 30%; /* Muted input */
-    --ring: 170 70% 45%; /* Primary color for focus rings */
-    --chart-1: 170 60% 55%;
-    --chart-2: 20 80% 65%;
-    --chart-3: 200 50% 50%;
-    --chart-4: 160 70% 40%;
-    --chart-5: 0 0% 70%; /* Neutral gray for contrast */
-    
-    /* Ocean Sidebar variables */
-    --sidebar-background: 210 55% 15%;
-    --sidebar-foreground: 180 30% 90%;
-    --sidebar-primary: 15 90% 60%; /* Accent Coral */
-    --sidebar-primary-foreground: 15 50% 10%;
-    --sidebar-accent: 210 50% 22%;
-    --sidebar-accent-foreground: 180 30% 90%;
-    --sidebar-border: 210 40% 28%;
-    --sidebar-ring: 15 90% 60%;
-  }
-
   .violet-dream {
     --background: 267 38% 93%; /* #EDE6F5 Soft lilac-gray */
     --foreground: 266 40% 18%; /* #2A1D42 Intense eggplant */
@@ -234,6 +197,45 @@ body {
     --sidebar-accent-foreground: 227 28% 20%; /* Dark text on orange */
     --sidebar-border: 227 28% 35%;
     --sidebar-ring: 39 90% 75%;
+  }
+
+  .graphite-aqua {
+    --background: 240 17% 97%; /* #F4F4F9 Mist White */
+    --foreground: 204 25% 25%; /* #2F4550 Deep Slate Blue */
+    --card: 0 0% 100%; /* White */
+    --card-foreground: 204 25% 25%; /* Deep Slate Blue */
+    --popover: 0 0% 100%;
+    --popover-foreground: 204 25% 25%;
+    --primary: 0 0% 0%; /* #000000 Pure Black */
+    --primary-foreground: 0 0% 98%; /* White text on primary */
+    --secondary: 203 19% 42%; /* #586F7C Steel Blue */
+    --secondary-foreground: 0 0% 98%; /* White text on secondary */
+    --muted: 203 20% 75%; /* Lighter Steel Blue for muted elements */
+    --muted-foreground: 204 25% 25%; /* Deep Slate Blue text on muted */
+    --accent: 177 32% 82%; /* #B8DBD9 Soft Aqua */
+    --accent-foreground: 204 25% 25%; /* Deep Slate Blue text on accent */
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 203 20% 88%; /* Lighter grey-blue for borders */
+    --input: 0 0% 100%; /* White input background on Mist White */
+    --ring: 177 32% 70%; /* Darker Soft Aqua for focus rings */
+    --radius: 0.5rem;
+
+    --chart-1: 203 19% 42%; /* Steel Blue */
+    --chart-2: 177 32% 65%; /* Darker Soft Aqua */
+    --chart-3: 204 25% 35%; /* Darker Deep Slate Blue */
+    --chart-4: 0 0% 20%;   /* Dark Grey */
+    --chart-5: 203 20% 55%; /* Mid Steel Blue */
+
+    /* Sidebar variables for graphite-aqua */
+    --sidebar-background: 204 25% 15%; /* Darker Deep Slate Blue */
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: 177 32% 82%; /* Soft Aqua for active/hover */
+    --sidebar-primary-foreground: 204 25% 20%; /* Darker text for primary */
+    --sidebar-accent: 203 19% 30%; /* Mid Steel Blue for sidebar accent */
+    --sidebar-accent-foreground: 0 0% 95%;
+    --sidebar-border: 203 19% 30%;
+    --sidebar-ring: 177 32% 82%;
   }
 
 }
