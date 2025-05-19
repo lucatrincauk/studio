@@ -15,15 +15,15 @@ import { SafeImage } from '@/components/common/SafeImage';
 import Link from 'next/link';
 import { formatRatingNumber } from '@/lib/utils';
 import { Star, Edit } from 'lucide-react';
-import { GameSearchList } from '@/components/boardgame/game-search-list';
+// Removed GameSearchList import as it's no longer used here
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
 export default async function HomePage() {
   const featuredGames = await getFeaturedGamesAction();
-  const allGames = await getAllGamesAction(); // This will be used by GameSearchList
+  const allGames = await getAllGamesAction(); 
 
-  const topRatedGames = allGames // Calculate top rated from allGames fetched for the list below
+  const topRatedGames = allGames 
     .filter(game => game.overallAverageRating !== null && game.overallAverageRating !== undefined)
     .sort((a, b) => (b.overallAverageRating ?? 0) - (a.overallAverageRating ?? 0))
     .slice(0, 10);
@@ -117,7 +117,7 @@ export default async function HomePage() {
           </section>
         )}
 
-        <GameSearchList initialGames={allGames} title="Tutti i Giochi nel Catalogo" />
+        {/* Removed GameSearchList component from here */}
       </section>
     </div>
   );
