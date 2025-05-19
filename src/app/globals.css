@@ -199,43 +199,43 @@ body {
     --sidebar-ring: 39 90% 75%;
   }
 
-  .graphite-aqua {
-    --background: 240 17% 97%; /* #F4F4F9 Mist White */
-    --foreground: 204 25% 25%; /* #2F4550 Deep Slate Blue */
+  .coral-slate {
+    --background: 0 0% 93%; /* #EEEEEE */
+    --foreground: 207 35% 26%; /* #2A4759 */
     --card: 0 0% 100%; /* White */
-    --card-foreground: 204 25% 25%; /* Deep Slate Blue */
+    --card-foreground: 207 35% 26%;
     --popover: 0 0% 100%;
-    --popover-foreground: 204 25% 25%;
-    --primary: 0 0% 0%; /* #000000 Pure Black */
-    --primary-foreground: 0 0% 98%; /* White text on primary */
-    --secondary: 203 19% 42%; /* #586F7C Steel Blue */
-    --secondary-foreground: 0 0% 98%; /* White text on secondary */
-    --muted: 203 20% 75%; /* Lighter Steel Blue for muted elements */
-    --muted-foreground: 204 25% 25%; /* Deep Slate Blue text on muted */
-    --accent: 177 32% 82%; /* #B8DBD9 Soft Aqua */
-    --accent-foreground: 204 25% 25%; /* Deep Slate Blue text on accent */
+    --popover-foreground: 207 35% 26%;
+    --primary: 207 35% 26%; /* #2A4759 */
+    --primary-foreground: 0 0% 98%; /* White */
+    --secondary: 0 0% 87%; /* #DDDDDD */
+    --secondary-foreground: 207 35% 20%; /* Darker blue for text on light gray */
+    --muted: 0 0% 90%; /* Lighter than secondary */
+    --muted-foreground: 207 35% 35%;
+    --accent: 19 90% 71%; /* #F79B72 */
+    --accent-foreground: 207 35% 26%; /* Dark blue text on coral for contrast */
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 203 20% 88%; /* Lighter grey-blue for borders */
-    --input: 0 0% 100%; /* White input background on Mist White */
-    --ring: 177 32% 70%; /* Darker Soft Aqua for focus rings */
+    --border: 0 0% 80%; /* Darker than secondary for more visible borders */
+    --input: 0 0% 100%; /* White input background */
+    --ring: 19 90% 71%; /* Coral for focus rings */
     --radius: 0.5rem;
 
-    --chart-1: 203 19% 42%; /* Steel Blue */
-    --chart-2: 177 32% 65%; /* Darker Soft Aqua */
-    --chart-3: 204 25% 35%; /* Darker Deep Slate Blue */
-    --chart-4: 0 0% 20%;   /* Dark Grey */
-    --chart-5: 203 20% 55%; /* Mid Steel Blue */
+    --chart-1: 19 90% 71%; /* Coral */
+    --chart-2: 207 35% 40%; /* Mid Slate Blue */
+    --chart-3: 19 80% 60%; /* Darker Coral */
+    --chart-4: 207 35% 55%; /* Lighter Slate Blue */
+    --chart-5: 0 0% 65%; /* Medium Gray */
 
-    /* Sidebar variables for graphite-aqua */
-    --sidebar-background: 204 25% 15%; /* Darker Deep Slate Blue */
-    --sidebar-foreground: 0 0% 95%;
-    --sidebar-primary: 177 32% 82%; /* Soft Aqua for active/hover */
-    --sidebar-primary-foreground: 204 25% 20%; /* Darker text for primary */
-    --sidebar-accent: 203 19% 30%; /* Mid Steel Blue for sidebar accent */
-    --sidebar-accent-foreground: 0 0% 95%;
-    --sidebar-border: 203 19% 30%;
-    --sidebar-ring: 177 32% 82%;
+    /* Sidebar variables for coral-slate */
+    --sidebar-background: 207 35% 18%; /* Darker version of primary */
+    --sidebar-foreground: 0 0% 90%; /* Light text */
+    --sidebar-primary: 19 90% 71%; /* Coral for active/hover */
+    --sidebar-primary-foreground: 207 35% 15%; /* Very dark blue for text on coral */
+    --sidebar-accent: 207 35% 22%; /* Slightly lighter than sidebar background */
+    --sidebar-accent-foreground: 0 0% 90%;
+    --sidebar-border: 207 35% 22%;
+    --sidebar-ring: 19 90% 71%;
   }
 
 }

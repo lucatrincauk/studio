@@ -24,7 +24,7 @@ export function ThemeSwitcher() {
       <CardContent>
         <RadioGroup
           value={theme}
-          onValueChange={(value) => setTheme(value as 'light' | 'dark' | 'violet-dream' | 'energetic-coral' | 'indigo-sunset' | 'graphite-aqua')}
+          onValueChange={(value) => setTheme(value as 'light' | 'dark' | 'violet-dream' | 'energetic-coral' | 'indigo-sunset' | 'coral-slate')}
           className="space-y-2"
         >
           <div className="flex items-center space-x-2">
@@ -48,8 +48,8 @@ export function ThemeSwitcher() {
             <Label htmlFor="theme-indigo-sunset" className="cursor-pointer">Indaco Tramonto</Label>
           </div>
           <div className="flex items-center space-x-2">
-            <RadioGroupItem value="graphite-aqua" id="theme-graphite-aqua" />
-            <Label htmlFor="theme-graphite-aqua" className="cursor-pointer">Grafite Acqua</Label>
+            <RadioGroupItem value="coral-slate" id="theme-coral-slate" />
+            <Label htmlFor="theme-coral-slate" className="cursor-pointer">Corallo Ardesia</Label>
           </div>
         </RadioGroup>
       </CardContent>
