@@ -11,14 +11,17 @@ interface GameCardProps {
   game: BoardGame;
   variant?: 'default' | 'featured';
   priority?: boolean;
+  linkTarget?: 'detail' | 'rate'; // New prop
 }
 
-export function GameCard({ game, variant = 'default', priority = false }: GameCardProps) {
+export function GameCard({ game, variant = 'default', priority = false, linkTarget = 'detail' }: GameCardProps) {
   const fallbackSrc = `https://placehold.co/200x300.png?text=${encodeURIComponent(game.name?.substring(0,10) || 'N/A')}`;
+  
+  const baseHref = linkTarget === 'rate' ? `/games/${game.id}/rate` : `/games/${game.id}`;
 
   if (variant === 'featured') {
     return (
-      <Link href={`/games/${game.id}`} className="block group h-full">
+      <Link href={baseHref} className="block group h-full">
         <Card className="relative overflow-hidden shadow-lg transition-all duration-300 ease-in-out hover:shadow-xl rounded-lg border border-border group-hover:border-primary/50 aspect-[3/4] h-full">
           <SafeImage
             src={game.coverArtUrl}
@@ -67,19 +70,19 @@ export function GameCard({ game, variant = 'default', priority = false }: GameCa
         <div>
           <div className="flex justify-between items-start mb-1.5">
             <CardTitle className="text-base sm:text-lg leading-tight font-semibold group-hover:text-primary transition-colors flex-1 mr-2">
-              <Link href={`/games/${game.id}`} className="hover:underline focus:outline-none focus:ring-2 focus:ring-ring rounded">
+              <Link href={baseHref} className="hover:underline focus:outline-none focus:ring-2 focus:ring-ring rounded">
                 {game.name}
+                {game.yearPublished && ` (${game.yearPublished})`}
               </Link>
             </CardTitle>
             {game.overallAverageRating !== null && typeof game.overallAverageRating === 'number' && (
               <div className="text-lg sm:text-xl font-bold text-primary flex items-center gap-1 flex-shrink-0">
                 <Star className="h-4 w-4 text-accent fill-accent" /> 
-                {formatRatingNumber(game.overallAverageRating * 2)}
+                {formatRatingNumber((game.overallAverageRating ?? 0) * 2)}
               </div>
             )}
           </div>
            <div className="text-xs text-muted-foreground space-y-0.5 mb-2">
-                {game.yearPublished && <div className="flex items-center gap-1"><CalendarDays size={12}/> {game.yearPublished}</div>}
                 {(game.minPlayers || game.maxPlayers) && (
                   <div className="flex items-center gap-1"><Users size={12}/>
                     {game.minPlayers}{game.maxPlayers && game.minPlayers !== game.maxPlayers ? `-${game.maxPlayers}` : ''} Giocatori
