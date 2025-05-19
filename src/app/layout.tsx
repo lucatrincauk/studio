@@ -22,13 +22,11 @@ export const metadata: Metadata = {
   description: 'Valuta e recensisci i tuoi giochi da tavolo preferiti.',
 };
 
-const SERVER_DEFAULT_THEME = 'forest-mist'; // Define default theme for server rendering
+const SERVER_DEFAULT_THEME = 'forest-mist'; 
 
 const NoFlashScript = () => {
   const storageKey = "morchiometro-theme";
-  // This defaultTheme in the script MUST match SERVER_DEFAULT_THEME and ThemeProvider's defaultTheme prop
   const scriptDefaultTheme = SERVER_DEFAULT_THEME;
-  // Ensure this list is exhaustive of all theme classes and matches ThemeProvider
   const validThemes = ['light', 'dark', 'violet-dream', 'energetic-coral', 'forest-mist'];
 
   const scriptContent = `
@@ -46,11 +44,9 @@ const NoFlashScript = () => {
     }
   } catch (e) { /* ignore */ }
 
-  // Remove all known theme classes first to ensure a clean state
   localThemes.forEach(function(t) {
     docEl.classList.remove(t);
   });
-  // Add the chosen one
   docEl.classList.add(themeToApply);
 })();
   `;
@@ -77,7 +73,7 @@ export default function RootLayout({
             </main>
             <Toaster />
             <footer className="py-6 text-center text-sm text-muted-foreground">
-              © {new Date().getFullYear()} Morchiometro. Tutti i diritti riservati.
+              © {new Date().getFullYear()} Morchiometro.
             </footer>
           </AuthProvider>
         </ThemeProvider>
