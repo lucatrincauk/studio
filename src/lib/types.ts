@@ -18,7 +18,7 @@ export const RATING_CATEGORIES: Record<RatingCategory, string> = {
   fun: 'Fattore Divertimento',
   decisionDepth: 'Profondità Decisionale',
   replayability: 'Varietà e Rigiocabilità',
-  luck: 'Assenza di fortuna', // Changed
+  luck: 'Assenza di Fortuna', // Changed
   lengthDowntime: 'Durata',
   graphicDesign: 'Grafica e Componenti',
   componentsThemeLore: 'Tema e Ambientazione',
