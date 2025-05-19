@@ -1,7 +1,7 @@
 
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-import type { BoardGame, Review, Rating, RatingCategory } from "./types";
+import type { Review, Rating, RatingCategory, GroupedCategoryAverages, SectionAverage, SubRatingAverage } from "./types";
 import { RATING_CATEGORIES } from "./types";
 
 export function cn(...inputs: ClassValue[]) {
@@ -31,19 +31,21 @@ const RATING_WEIGHTS: Record<RatingCategory, number> = {
 
 export function calculateOverallCategoryAverage(rating: Rating): number {
   let weightedSum = 0;
-  let totalWeightFactor = 0; // Sum of all weights
+  let totalMaxPossibleScore = 0; 
 
   (Object.keys(rating) as Array<keyof Rating>).forEach(key => {
     const weight = RATING_WEIGHTS[key];
     weightedSum += (rating[key] * weight);
-    totalWeightFactor += weight;
+    totalMaxPossibleScore += (5 * weight); 
   });
 
-  if (totalWeightFactor === 0) return 0;
+  if (totalMaxPossibleScore === 0) return 0;
 
-  // The average is now on a 1-5 scale, reflecting the weighted influence
-  const average = weightedSum / totalWeightFactor;
-  return Math.round(average * 10) / 10; // Keep it on 1-5 scale, rounded
+  const normalizedScore = weightedSum / totalMaxPossibleScore; // Score between 0 and 1
+  
+  // Scale to 1-5 range for internal representation
+  const average = 1 + (normalizedScore * 4); 
+  return Math.round(average * 10) / 10; 
 }
 
 
@@ -69,7 +71,6 @@ export function calculateCategoryAverages(reviews: Review[]): Rating | null {
 
   reviews.forEach(review => {
     (Object.keys(sumOfRatings) as Array<keyof Rating>).forEach(key => {
-      // Ensure review.rating[key] exists and is a number, default to 0 if not
       const ratingValue = typeof review.rating[key] === 'number' ? review.rating[key] : 0;
       sumOfRatings[key] += ratingValue;
     });
@@ -83,17 +84,6 @@ export function calculateCategoryAverages(reviews: Review[]): Rating | null {
   return averageRatings;
 }
 
-export interface SubRatingAverage {
-  name: string;
-  average: number; // This will be the unweighted average for display
-}
-export interface SectionAverage {
-  sectionTitle: string;
-  sectionAverage: number; // This will be the weighted average for the section trigger
-  subRatings: SubRatingAverage[];
-}
-export type GroupedCategoryAverages = SectionAverage[];
-
 
 export function calculateGroupedCategoryAverages(reviews: Review[]): GroupedCategoryAverages | null {
   const individualSubCategoryAverages = calculateCategoryAverages(reviews);
@@ -103,34 +93,35 @@ export function calculateGroupedCategoryAverages(reviews: Review[]): GroupedCate
   }
 
   const sectionsMeta: Array<{ title: string; keys: RatingCategory[] }> = [
-    { title: "Sentiments", keys: ['excitedToReplay', 'mentallyStimulating', 'fun'] },
-    { title: "Game Design", keys: ['decisionDepth', 'replayability', 'luck', 'lengthDowntime'] },
-    { title: "Aesthetics & Immersion", keys: ['graphicDesign', 'componentsThemeLore'] },
-    { title: "Learning & Logistics", keys: ['effortToLearn', 'setupTeardown'] },
+    { title: "Sentimenti", keys: ['excitedToReplay', 'mentallyStimulating', 'fun'] },
+    { title: "Design del Gioco", keys: ['decisionDepth', 'replayability', 'luck', 'lengthDowntime'] },
+    { title: "Estetica e Immersione", keys: ['graphicDesign', 'componentsThemeLore'] },
+    { title: "Apprendimento e Logistica", keys: ['effortToLearn', 'setupTeardown'] },
   ];
 
-  const groupedAverages: GroupedCategoryAverages = sectionsMeta.map(section => {
+  const groupedAverages: SectionAverage[] = sectionsMeta.map(section => {
     let sectionWeightedSum = 0;
-    let sectionTotalWeightFactor = 0; // Sum of weights for this section
+    let sectionTotalMaxPossibleScore = 0; 
     
     const subRatings: SubRatingAverage[] = section.keys.map(key => {
-      const subCategoryAverage = individualSubCategoryAverages[key]; // Raw average (1-5)
+      const subCategoryAverage = individualSubCategoryAverages[key]; 
       const weight = RATING_WEIGHTS[key];
       
       sectionWeightedSum += (subCategoryAverage * weight);
-      sectionTotalWeightFactor += weight;
+      sectionTotalMaxPossibleScore += (5 * weight);
       
-      return { name: RATING_CATEGORIES[key], average: subCategoryAverage }; // Store raw average for detail display
+      return { name: RATING_CATEGORIES[key], average: subCategoryAverage }; 
     });
 
-    // Calculate the weighted average for the section, on a 1-5 scale
-    const sectionAverageValue = sectionTotalWeightFactor > 0 
-      ? Math.round((sectionWeightedSum / sectionTotalWeightFactor) * 10) / 10 
+    const normalizedSectionScore = sectionTotalMaxPossibleScore > 0 
+      ? sectionWeightedSum / sectionTotalMaxPossibleScore
       : 0;
+    
+    const sectionAverageValue = 1 + (normalizedSectionScore * 4); // Scale to 1-5
 
     return {
       sectionTitle: section.title,
-      sectionAverage: sectionAverageValue,
+      sectionAverage: Math.round(sectionAverageValue * 10) / 10,
       subRatings,
     };
   });
@@ -140,9 +131,10 @@ export function calculateGroupedCategoryAverages(reviews: Review[]): GroupedCate
 
 
 export function formatReviewDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString('en-US', {
+  return new Date(dateString).toLocaleDateString('it-IT', { // Changed to it-IT for Italian date format
     year: 'numeric',
     month: 'long',
     day: 'numeric',
   });
 }
+
