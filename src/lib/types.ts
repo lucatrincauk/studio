@@ -19,10 +19,10 @@ export const RATING_CATEGORIES: Record<RatingCategory, string> = {
   decisionDepth: 'Profondità Decisionale',
   replayability: 'Rigiocabilità',
   luck: 'Fattore Fortuna',
-  lengthDowntime: 'Durata', // Changed from 'Ottimizzazione Durata e Tempi Morti'
+  lengthDowntime: 'Durata',
   graphicDesign: 'Grafica e Componenti',
   componentsThemeLore: 'Tema e Ambientazione',
-  effortToLearn: 'Facilità di apprendimento',
+  effortToLearn: 'Facilità di Apprendimento',
   setupTeardown: 'Preparazione e Riordino',
 };
 
@@ -97,6 +97,7 @@ export interface UserProfile {
   name: string;
   photoURL?: string | null;
 }
+
 
 
 
