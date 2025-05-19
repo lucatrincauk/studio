@@ -9,7 +9,7 @@ import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, Brain, Tag, ExternalLink } from 'lucide-react'; // Removed BookOpen
+import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, Brain, Tag, ExternalLink } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { summarizeReviews } from '@/ai/flows/summarize-reviews';
@@ -202,7 +202,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     <div className="space-y-10">
       <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
         <div className="flex flex-col md:flex-row">
-          <div className="flex-1 p-6 space-y-4 order-1 md:order-1">
+          {/* Main content: Title, Score, Game Details, Ratings Accordion */}
+          <div className="flex-1 p-6 space-y-4 order-1">
             <div className="flex justify-between items-start mb-2">
                 <div className="flex items-center gap-2 flex-1 mr-4">
                   <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">{game.name}</h1>
@@ -226,6 +227,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
               )}
             </div>
             
+            {/* Mobile Image - Below title */}
             <div className="md:hidden my-4 max-w-[240px] mx-auto">
               <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
                 <SafeImage
@@ -241,7 +243,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
               </div>
             </div>
             
-            <div className="text-sm text-muted-foreground space-y-1.5 pt-1">
+            {/* Game Metadata Section */}
+            <div className="text-sm text-muted-foreground space-y-1.5 pt-1 grid grid-cols-1 md:grid-cols-2 md:gap-x-6 md:gap-y-2">
               {game.yearPublished && (
                 <div className="flex items-center gap-2">
                   <CalendarDays size={16} className="text-primary/80" />
@@ -301,6 +304,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             </div>
           </div>
 
+          {/* Desktop Image - Right column */}
           <div className="hidden md:block md:w-1/4 p-6 flex-shrink-0 self-start order-2">
             <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
               <SafeImage
@@ -448,3 +452,4 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
+
