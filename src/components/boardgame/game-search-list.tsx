@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Search, Loader2, AlertCircle, Info, ExternalLink, PlusCircle, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
-import { searchBggGamesAction, importAndRateBggGameAction } from '@/lib/actions';
+// Removed: searchBggGamesAction, importAndRateBggGameAction from '@/lib/actions';
 import {
   Table,
   TableBody,
@@ -37,12 +37,6 @@ const GAMES_PER_PAGE = 10;
 export function GameSearchList({ initialGames }: GameSearchListProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [localFilteredGames, setLocalFilteredGames] = useState<BoardGame[]>(initialGames);
-  const [bggResults, setBggResults] = useState<BggSearchResult[]>([]);
-  const [isBggSearching, startBggSearchTransition] = useTransition();
-  const [isImportingGameId, setIsImportingGameId] = useState<string | null>(null);
-  const [isPendingImport, startImportTransition] = useTransition();
-  const [bggSearchError, setBggSearchError] = useState<string | null>(null);
-  const [bggSearchAttempted, setBggSearchAttempted] = useState(false);
   
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'overallAverageRating', direction: 'descending' });
   const [currentPage, setCurrentPage] = useState(1);
@@ -53,8 +47,6 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
   useEffect(() => {
     setCurrentPage(1); 
     const trimmedSearchTerm = searchTerm.toLowerCase().trim();
-    setBggSearchAttempted(false); 
-    setBggResults([]); 
 
     if (!trimmedSearchTerm) {
       setLocalFilteredGames(initialGames); 
@@ -126,49 +118,6 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
     setCurrentPage((prev) => Math.max(prev - 1, 1));
   };
 
-  const handleManualBggSearch = () => {
-    if (!searchTerm.trim()) {
-      setBggSearchError("Inserisci un termine di ricerca.");
-      return;
-    }
-    setBggSearchError(null);
-    setBggResults([]);
-    setBggSearchAttempted(true);
-    startBggSearchTransition(async () => {
-      const result = await searchBggGamesAction(searchTerm);
-      if ('error'in result) {
-        setBggSearchError(result.error);
-        toast({ title: 'Errore Ricerca BGG', description: result.error, variant: 'destructive' });
-      } else {
-        setBggResults(result);
-        if (result.length === 0) {
-          toast({ title: 'Nessun Risultato su BGG', description: `Nessun gioco trovato su BGG per "${searchTerm}".` });
-        }
-      }
-    });
-  };
-
-  const handleImportGame = async (bggId: string) => {
-    setIsImportingGameId(bggId);
-    startImportTransition(async () => {
-      const result = await importAndRateBggGameAction(bggId);
-      setIsImportingGameId(null);
-      if ('error' in result) {
-        toast({
-          title: 'Errore Importazione Gioco',
-          description: result.error,
-          variant: 'destructive',
-        });
-      } else {
-        toast({
-          title: 'Gioco Aggiunto!',
-          description: 'Il gioco è stato aggiunto alla tua collezione.',
-        });
-        router.push(`/games/${result.gameId}/rate`);
-      }
-    });
-  };
-
   const SortIcon = ({ columnKey }: { columnKey: SortableKeys }) => {
     if (sortConfig.key !== columnKey) {
       return <ArrowUpDown className="ml-2 h-4 w-4 text-muted-foreground/50" />;
@@ -197,15 +146,10 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
       {games.length === 0 && searchTerm.trim().length > 0 && (
          <Alert variant="default" className="max-w-lg mx-auto bg-secondary/30 border-secondary text-center">
             <Info className="h-4 w-4 mx-auto mb-2 text-muted-foreground" />
-            <AlertTitle className="mb-1 text-foreground">Nessun Gioco Trovato Localmente</AlertTitle>
+            <AlertTitle className="mb-1 text-foreground">Nessun Gioco Trovato</AlertTitle>
             <AlertDescription className="mb-3 text-muted-foreground">
-            Nessun gioco corrispondente a "{searchTerm}" è stato trovato nella collezione.
+            Nessun gioco corrispondente a "{searchTerm}" è stato trovato nella collezione locale.
             </AlertDescription>
-             {/* Button to search BGG, as per previous request. Keep this for now if it's still desired. */}
-            <Button onClick={handleManualBggSearch} disabled={isBggSearching}>
-              {isBggSearching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-              Cerca su BoardGameGeek per "{searchTerm}"
-            </Button>
         </Alert>
       )}
       {games.length === 0 && !searchTerm.trim() && totalGamesCount === 0 && (
@@ -213,7 +157,7 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
             <Info className="h-4 w-4 mx-auto mb-2 text-muted-foreground" />
             <AlertTitle className="mb-1 text-foreground">Collezione Vuota</AlertTitle>
             <AlertDescription className="mb-3 text-muted-foreground">
-                La tua collezione locale è vuota. Gli admin possono aggiungere giochi dalla sezione Admin.
+                La collezione locale è vuota.
             </AlertDescription>
         </Alert>
       )}
@@ -295,68 +239,7 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
   return (
     <div className="space-y-8">
       <LocalGamesTable games={paginatedGames} totalGamesCount={gamesToDisplayInTable.length} title="Tutti i Giochi" />
-
-
-      {bggSearchAttempted && bggSearchError && (
-        <Alert variant="destructive" className="max-w-lg mx-auto">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Errore Ricerca BGG</AlertTitle>
-          <AlertDescription>{bggSearchError}</AlertDescription>
-        </Alert>
-      )}
-
-      {bggSearchAttempted && !bggSearchError && bggResults.length > 0 && (
-        <section>
-          <h3 className="text-xl font-semibold mb-4 text-foreground">Risultati da BoardGameGeek ({bggResults.length})</h3>
-          <div className="overflow-x-auto bg-card p-4 rounded-lg shadow-md border border-border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome Gioco (BGG)</TableHead>
-                  <TableHead className="text-right">Azione</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {bggResults.map(game => (
-                  <TableRow key={game.bggId}>
-                    <TableCell>
-                      {game.name}
-                      {game.yearPublished && ` (${game.yearPublished})`}
-                    </TableCell>
-                    <TableCell className="text-right space-x-2">
-                      <Button
-                        onClick={() => handleImportGame(game.bggId)}
-                        disabled={isPendingImport && isImportingGameId === game.bggId}
-                        size="sm"
-                        className="bg-primary text-primary-foreground hover:bg-primary/90"
-                      >
-                        {(isPendingImport && isImportingGameId === game.bggId) ? (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        ) : (
-                          <PlusCircle className="mr-2 h-4 w-4" />
-                        )}
-                        Aggiungi e Valuta
-                      </Button>
-                      <Button variant="outline" size="sm" asChild>
-                        <a href={`https://boardgamegeek.com/boardgame/${game.bggId}`} target="_blank" rel="noopener noreferrer">
-                            Vedi su BGG <ExternalLink className="ml-2 h-3 w-3" />
-                        </a>
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </section>
-      )}
-      {bggSearchAttempted && !bggSearchError && bggResults.length === 0 && !isBggSearching && (
-        <Alert variant="default" className="max-w-lg mx-auto bg-secondary/30 border-secondary">
-          <Info className="h-4 w-4" />
-          <AlertTitle>Nessun Risultato su BGG</AlertTitle>
-          <AlertDescription>Nessun gioco trovato su BoardGameGeek per "{searchTerm}".</AlertDescription>
-        </Alert>
-      )}
     </div>
   );
 }
+
