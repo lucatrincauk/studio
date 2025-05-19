@@ -209,7 +209,7 @@ async function parseBggCollectionXml(xmlText: string): Promise<BoardGame[]> {
                 name = decodeHtmlEntities(anyNameMatch[1].trim());
             }
         }
-        if (!name) {
+         if (!name) {
             name = `BGG Gioco ID ${bggId}`; 
         }
 
@@ -276,7 +276,7 @@ export async function searchBggGamesAction(searchTerm: string): Promise<BggSearc
         const searchXml = await searchResponseFetch.text();
         const basicResults = await parseBggSearchXml(searchXml);
 
-        if (basicResults.length === 0) return [];
+        if (!Array.isArray(basicResults) || basicResults.length === 0) return [];
         const limitedResults = basicResults.slice(0, 10);
 
         const enrichedResultsPromises = limitedResults.map(async (item) => {
@@ -464,7 +464,6 @@ async function fetchWithRetry(url: string, retries = 5, delay = 3000, attempt = 
 
         if (response.status === 200) {
             const xmlText = await response.text();
-            // console.log(`[BGG FETCH ATTEMPT ${attempt}] Received 200 OK. XML (first 2000 chars): `, xmlText.substring(0, 2000));
             if (!xmlText.includes('<items') && !xmlText.includes("<item ") && !xmlText.includes("<error>") && attempt < retries) { 
                  console.warn(`[BGG FETCH ATTEMPT ${attempt}] Ricevuto 200 ma XML sembra incompleto/non valido. Riprovo...`);
                  await new Promise(resolve => setTimeout(resolve, Math.min(delay * attempt, 10000))); 
@@ -499,14 +498,10 @@ async function fetchWithRetry(url: string, retries = 5, delay = 3000, attempt = 
 
 
 export async function fetchBggUserCollectionAction(username: string): Promise<BoardGame[] | { error: string }> {
-    // console.log(`[SERVER ACTION ENTRY] fetchBggUserCollectionAction called for username: ${username}`);
     try {
         const url = `${BGG_API_BASE_URL}/collection?username=${username}&own=1&excludesubtype=boardgameexpansion`;
-        // console.log(`[SERVER ACTION] Fetching BGG collection from URL: ${url}`);
         const collectionXml = await fetchWithRetry(url);
-        // console.log(`[SERVER ACTION] Received XML for ${username}, length: ${collectionXml.length}. Parsing...`);
         const games = await parseBggCollectionXml(collectionXml);
-        // console.log(`[SERVER ACTION] Parsed ${games.length} games for ${username}.`);
         return games;
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Si è verificato un errore sconosciuto durante il recupero della collezione BGG.';
@@ -554,6 +549,7 @@ export async function getBoardGamesFromFirestoreAction(): Promise<BoardGame[] | 
                     };
                 });
             } catch (reviewError) {
+                 console.error(`Errore nel recupero delle recensioni per ${gameId} in getBoardGamesFromFirestoreAction:`, reviewError);
             }
 
             let overallAverageRating: number | null = null;
@@ -574,7 +570,7 @@ export async function getBoardGamesFromFirestoreAction(): Promise<BoardGame[] | 
                 maxPlayers: data.maxPlayers === undefined ? null : data.maxPlayers,
                 playingTime: data.playingTime === undefined ? null : data.playingTime,
                 description: data.description || "Nessuna descrizione.",
-                reviews: [], 
+                reviews: [], // Keep reviews empty for list view performance
                 overallAverageRating,
                 isPinned: data.isPinned || false,
             };
@@ -595,10 +591,8 @@ export async function syncBoardGamesToFirestoreAction(
     let operationsCount = 0;
 
     try {
-        // Fetch existing games to preserve their 'isPinned' status
         const existingGamesMap = new Map<string, boolean>();
         if (gamesToAdd.length > 0) {
-            // Firestore 'in' query limit is 30 items. If gamesToAdd is larger, batch the queries.
             const gameIdsToAdd = gamesToAdd.map(g => g.id);
             for (let i = 0; i < gameIdsToAdd.length; i += 30) {
                 const batchOfIds = gameIdsToAdd.slice(i, i + 30);
@@ -628,7 +622,7 @@ export async function syncBoardGamesToFirestoreAction(
                 maxPlayers: game.maxPlayers ?? null,
                 playingTime: game.playingTime ?? null,
                 description: game.description ?? "Nessuna descrizione disponibile.",
-                isPinned: existingGamesMap.get(game.id) || game.isPinned || false, // Preserve existing or default to false
+                isPinned: existingGamesMap.get(game.id) || game.isPinned || false,
             };
             batch.set(gameRef, gameDataForFirestore, { merge: true }); 
             operationsCount++;
@@ -744,90 +738,103 @@ export async function getUserDetailsAndReviewsAction(
 export async function getFeaturedGamesAction(): Promise<BoardGame[]> {
   try {
     const gamesCollectionRef = collection(db, FIRESTORE_COLLECTION_NAME);
-
-    // 1. Fetch pinned games
-    const pinnedGamesQuery = query(gamesCollectionRef, where("isPinned", "==", true));
-    const pinnedGamesSnapshot = await getDocs(pinnedGamesQuery);
-    const pinnedGamesPromises = pinnedGamesSnapshot.docs.map(async (docSnap) => {
-        const data = docSnap.data();
-        const reviewsSnapshot = await getDocs(collection(db, FIRESTORE_COLLECTION_NAME, docSnap.id, 'reviews'));
-        const reviews: Review[] = reviewsSnapshot.docs.map(reviewDoc => reviewDoc.data() as Review); 
-        const categoryAvgs = calculateCategoryAverages(reviews);
-        const overallAverageRating = categoryAvgs ? calculateOverallCategoryAverage(categoryAvgs) : null;
-        return {
-            id: docSnap.id,
-            ...data,
-            reviews: [], 
-            overallAverageRating,
-            isPinned: data.isPinned || false,
-        } as BoardGame;
-    });
-    let pinnedGames = await Promise.all(pinnedGamesPromises);
-    // Sort pinned games by name
-    pinnedGames.sort((a,b) => (a.name || "").localeCompare(b.name || ""));
-
-
-    const pinnedGameIds = new Set(pinnedGames.map(g => g.id));
-
-    // 2. Fetch recently reviewed games (excluding pinned ones)
     const allGamesSnapshot = await getDocs(gamesCollectionRef);
-    const gamesWithLatestReviewDate: Array<{
-      gameData: BoardGame; 
-      latestReviewDate: string | null;
-    }> = [];
 
-    for (const gameDoc of allGamesSnapshot.docs) {
-      if (pinnedGameIds.has(gameDoc.id)) {
-        continue; 
-      }
-      const gameData = gameDoc.data();
-      const reviewsQuery = query(
-        collection(db, FIRESTORE_COLLECTION_NAME, gameDoc.id, 'reviews'),
-        orderBy('date', 'desc'),
-        limit(1)
-      );
-      const latestReviewSnapshot = await getDocs(reviewsQuery);
+    type GameWithLatestReview = BoardGame & { _latestReviewDate: Date | null };
+
+    const allGamesWithDetailsPromises = allGamesSnapshot.docs.map(async (docSnap) => {
+      const gameData = docSnap.data();
+      const gameId = docSnap.id;
+
+      const reviewsSnapshot = await getDocs(collection(db, FIRESTORE_COLLECTION_NAME, gameId, 'reviews'));
+      const reviews: Review[] = reviewsSnapshot.docs.map(reviewDocSnap => {
+        const reviewData = reviewDocSnap.data();
+        const rating: Rating = {
+          excitedToReplay: reviewData.rating?.excitedToReplay || 0,
+          mentallyStimulating: reviewData.rating?.mentallyStimulating || 0,
+          fun: reviewData.rating?.fun || 0,
+          decisionDepth: reviewData.rating?.decisionDepth || 0,
+          replayability: reviewData.rating?.replayability || 0,
+          luck: reviewData.rating?.luck || 0,
+          lengthDowntime: reviewData.rating?.lengthDowntime || 0,
+          graphicDesign: reviewData.rating?.graphicDesign || 0,
+          componentsThemeLore: reviewData.rating?.componentsThemeLore || 0,
+          effortToLearn: reviewData.rating?.effortToLearn || 0,
+          setupTeardown: reviewData.rating?.setupTeardown || 0,
+        };
+        return {
+          id: reviewDocSnap.id,
+          author: reviewData.author || 'Autore Sconosciuto',
+          userId: reviewData.userId || 'unknown_user_id',
+          authorPhotoURL: reviewData.authorPhotoURL || null,
+          rating: rating,
+          comment: reviewData.comment || '',
+          date: reviewData.date || new Date().toISOString(),
+        };
+      });
+
+      const categoryAvgs = calculateCategoryAverages(reviews);
+      const overallAverageRating = categoryAvgs ? calculateOverallCategoryAverage(categoryAvgs) : null;
+
       let latestReviewDate: string | null = null;
-      if (!latestReviewSnapshot.empty) {
-        latestReviewDate = latestReviewSnapshot.docs[0].data().date as string;
+      if (reviews.length > 0) {
+        reviews.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        latestReviewDate = reviews[0].date;
       }
 
-      if (latestReviewDate) { 
-        const reviewsSnapshot = await getDocs(collection(db, FIRESTORE_COLLECTION_NAME, gameDoc.id, 'reviews'));
-        const reviews: Review[] = reviewsSnapshot.docs.map(reviewDoc => reviewDoc.data() as Review);
-        const categoryAvgs = calculateCategoryAverages(reviews);
-        const overallAverageRating = categoryAvgs ? calculateOverallCategoryAverage(categoryAvgs) : null;
-        
-        gamesWithLatestReviewDate.push({
-          gameData: {
-            id: gameDoc.id,
-            name: gameData.name || "Gioco Senza Nome",
-            coverArtUrl: gameData.coverArtUrl || `https://placehold.co/200x300.png?text=N/A`,
-            bggId: gameData.bggId || 0,
-            yearPublished: gameData.yearPublished,
-            minPlayers: gameData.minPlayers,
-            maxPlayers: gameData.maxPlayers,
-            playingTime: gameData.playingTime,
-            description: gameData.description,
-            reviews: [],
-            overallAverageRating,
-            isPinned: gameData.isPinned || false,
-          },
-          latestReviewDate
-        });
+      return {
+        id: gameId,
+        name: gameData.name || "Gioco Senza Nome",
+        coverArtUrl: gameData.coverArtUrl || `https://placehold.co/200x300.png?text=N/A`,
+        bggId: gameData.bggId || 0,
+        yearPublished: gameData.yearPublished === undefined ? null : gameData.yearPublished,
+        minPlayers: gameData.minPlayers === undefined ? null : gameData.minPlayers,
+        maxPlayers: gameData.maxPlayers === undefined ? null : gameData.maxPlayers,
+        playingTime: gameData.playingTime === undefined ? null : data.playingTime,
+        description: gameData.description || "Nessuna descrizione.",
+        reviews: [], 
+        overallAverageRating,
+        isPinned: gameData.isPinned || false,
+        _latestReviewDate: latestReviewDate ? new Date(latestReviewDate) : null,
+      } as GameWithLatestReview;
+    });
+
+    const allGamesWithDetails = await Promise.all(allGamesWithDetailsPromises);
+
+    const pinnedGames = allGamesWithDetails
+      .filter(game => game.isPinned)
+      .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+
+    const top3RecentlyReviewed = allGamesWithDetails
+      .filter(game => game._latestReviewDate !== null)
+      .sort((a, b) => b._latestReviewDate!.getTime() - a._latestReviewDate!.getTime())
+      .slice(0, 3);
+
+    const finalFeaturedGames: BoardGame[] = [];
+    const featuredGameIds = new Set<string>();
+
+    for (const game of pinnedGames) {
+      if (!featuredGameIds.has(game.id)) {
+        const { _latestReviewDate, ...gameToAdd } = game; // Remove temporary field
+        finalFeaturedGames.push(gameToAdd);
+        featuredGameIds.add(game.id);
       }
     }
 
-    const sortedRecentGames = gamesWithLatestReviewDate
-      .sort((a, b) => new Date(b.latestReviewDate!).getTime() - new Date(a.latestReviewDate!).getTime());
+    for (const game of top3RecentlyReviewed) {
+      if (!featuredGameIds.has(game.id)) {
+        const { _latestReviewDate, ...gameToAdd } = game; // Remove temporary field
+        finalFeaturedGames.push(gameToAdd);
+        // No need to add to featuredGameIds again, as we just check for presence
+      }
+    }
 
-    const recentGamesLimit = Math.max(0, 5 - pinnedGames.length); // Ensure we get up to 5 total games
-    const recentGames = sortedRecentGames.slice(0, recentGamesLimit).map(item => item.gameData);
-    
-    return [...pinnedGames, ...recentGames];
+    return finalFeaturedGames;
 
   } catch (error) {
     console.error("Errore nel recupero dei giochi in vetrina:", error);
     return [];
   }
 }
+
+    
