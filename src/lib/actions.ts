@@ -388,6 +388,7 @@ export async function getGameDetails(gameId: string): Promise<BoardGame | null> 
     if (docSnap.exists()) {
       const data = docSnap.data();
       if (!data) {
+          console.error(`[GETGAMEDETAILS] Document data is null for gameId: "${gameId}" even though docSnap.exists() is true.`);
           return null;
       }
 
@@ -432,19 +433,20 @@ export async function getGameDetails(gameId: string): Promise<BoardGame | null> 
         name: data.name || `Gioco ${gameId} (DB)`, 
         coverArtUrl: data.coverArtUrl || `https://placehold.co/400x600.png?text=${encodeURIComponent(data.name || gameId || 'N/A')}`, 
         bggId: typeof data.bggId === 'number' ? data.bggId : 0,
-        yearPublished: data.yearPublished === undefined ? null : data.yearPublished,
-        minPlayers: data.minPlayers === undefined ? null : data.minPlayers,
-        maxPlayers: data.maxPlayers === undefined ? null : data.maxPlayers,
-        playingTime: data.playingTime === undefined ? null : data.playingTime,
-        minPlaytime: data.minPlaytime === undefined ? null : data.minPlaytime,
-        maxPlaytime: data.maxPlaytime === undefined ? null : data.maxPlaytime,
-        averageWeight: data.averageWeight === undefined ? null : data.averageWeight,
+        yearPublished: data.yearPublished === undefined || data.yearPublished === null ? null : data.yearPublished,
+        minPlayers: data.minPlayers === undefined || data.minPlayers === null ? null : data.minPlayers,
+        maxPlayers: data.maxPlayers === undefined || data.maxPlayers === null ? null : data.maxPlayers,
+        playingTime: data.playingTime === undefined || data.playingTime === null ? null : data.playingTime,
+        minPlaytime: data.minPlaytime === undefined || data.minPlaytime === null ? null : data.minPlaytime,
+        maxPlaytime: data.maxPlaytime === undefined || data.maxPlaytime === null ? null : data.maxPlaytime,
+        averageWeight: data.averageWeight === undefined || data.averageWeight === null ? null : data.averageWeight,
         reviews: reviews,
         isPinned: data.isPinned || false,
         overallAverageRating, 
       };
       return game;
     } else {
+      console.log(`[GETGAMEDETAILS] No document found for gameId: "${gameId}"`);
       return null;
     }
   } catch (error) {
@@ -454,36 +456,39 @@ export async function getGameDetails(gameId: string): Promise<BoardGame | null> 
 }
 
 async function fetchWithRetry(url: string, retries = 3, delay = 2000, attempt = 1): Promise<string> {
-    try {
-        const response = await fetch(url, { cache: 'no-store' });
-        
-        if (response.status === 200) {
-            const xmlText = await response.text();
-             if (!xmlText.includes('<items') && !xmlText.includes("<item ") && !xmlText.includes("<error>") && attempt < retries && !xmlText.includes("<boardgames") && !xmlText.includes("<boardgame ") && !xmlText.includes("<message>Your request for task processing has been accepted")) { 
-                console.warn(`[BGG FETCH ATTEMPT ${attempt}] XML seems incomplete or not collection/thing data, retrying...`);
-                await new Promise(resolve => setTimeout(resolve, Math.min(delay * attempt, 6000))); 
-                return fetchWithRetry(url, retries, delay, attempt + 1);
-            }
-            if(xmlText.includes("<error>")){
-                console.error(`[BGG FETCH ATTEMPT ${attempt}] BGG API returned an error in XML: ${xmlText.substring(0, 200)}`);
-                throw new Error(`BGG API returned an error: ${xmlText.substring(0, 200)}`);
-            }
-            return xmlText;
-        } else if (response.status === 202 && attempt < retries) {
-            console.warn(`[BGG FETCH ATTEMPT ${attempt}] Received 202, retrying in ${Math.min(delay * attempt, 6000)}ms...`);
-            await new Promise(resolve => setTimeout(resolve, Math.min(delay * attempt, 6000))); 
-            return fetchWithRetry(url, retries, delay, attempt + 1);
-        } else if (response.status !== 200 && response.status !== 202) {
-            throw new Error(`BGG API Error: Status ${response.status} for URL ${url}.`);
-        } else { 
-            throw new Error(`BGG API did not return success status after ${retries} retries for URL ${url}. Final status: ${response.status}`);
-        }
-    } catch (error) {
-        if (error instanceof Error && error.message.startsWith("BGG API Error:")) {
-            throw error; 
-        }
-        throw new Error(`Network or unexpected error fetching BGG data for ${url}: ${error instanceof Error ? error.message : String(error)}`);
-    }
+  // console.log(`[BGG FETCH ATTEMPT ${attempt}] Fetching URL: ${url}`);
+  try {
+      const response = await fetch(url, { cache: 'no-store' });
+      // console.log(`[BGG FETCH ATTEMPT ${attempt}] Status: ${response.status} for URL: ${url}`);
+      
+      if (response.status === 200) {
+          const xmlText = await response.text();
+          if ((!xmlText.includes('<items') && !xmlText.includes("<item ") && !xmlText.includes("<error>") && attempt < retries && !xmlText.includes("<boardgames") && !xmlText.includes("<boardgame ") && !xmlText.includes("<message>Your request for task processing has been accepted")) && !url.includes("/thing?")) { 
+              // console.warn(`[BGG FETCH ATTEMPT ${attempt}] XML seems incomplete for collection, retrying...`);
+              await new Promise(resolve => setTimeout(resolve, Math.min(delay * attempt, 6000))); 
+              return fetchWithRetry(url, retries, delay, attempt + 1);
+          }
+          if(xmlText.includes("<error>")){
+              console.error(`[BGG FETCH ATTEMPT ${attempt}] BGG API returned an error in XML: ${xmlText.substring(0, 200)}`);
+              throw new Error(`BGG API returned an error: ${xmlText.substring(0, 200)}`);
+          }
+          // console.log(`[BGG FETCH ATTEMPT ${attempt}] Success for URL: ${url}. XML (first 2000 chars): \n${xmlText.substring(0,2000)}`);
+          return xmlText;
+      } else if (response.status === 202 && attempt < retries) {
+          // console.warn(`[BGG FETCH ATTEMPT ${attempt}] Received 202, retrying in ${Math.min(delay * attempt, 6000)}ms...`);
+          await new Promise(resolve => setTimeout(resolve, Math.min(delay * attempt, 6000))); 
+          return fetchWithRetry(url, retries, delay, attempt + 1);
+      } else if (response.status !== 200 && response.status !== 202) {
+          throw new Error(`BGG API Error: Status ${response.status} for URL ${url}.`);
+      } else { 
+          throw new Error(`BGG API did not return success status after ${retries} retries for URL ${url}. Final status: ${response.status}`);
+      }
+  } catch (error) {
+      if (error instanceof Error && error.message.startsWith("BGG API Error:")) {
+          throw error; 
+      }
+      throw new Error(`Network or unexpected error fetching BGG data for ${url}: ${error instanceof Error ? error.message : String(error)}`);
+  }
 }
 
 export async function fetchBggUserCollectionAction(username: string): Promise<BoardGame[] | { error: string }> {
@@ -552,13 +557,13 @@ export async function getBoardGamesFromFirestoreAction(): Promise<BoardGame[] | 
                 bggId: data.bggId || 0,
                 name: data.name || "Gioco Senza Nome",
                 coverArtUrl: data.coverArtUrl || `https://placehold.co/100x150.png?text=No+Image`,
-                yearPublished: data.yearPublished === undefined ? null : data.yearPublished,
-                minPlayers: data.minPlayers === undefined ? null : data.minPlayers,
-                maxPlayers: data.maxPlayers === undefined ? null : data.maxPlayers,
-                playingTime: data.playingTime === undefined ? null : data.playingTime,
-                minPlaytime: data.minPlaytime === undefined ? null : data.minPlaytime,
-                maxPlaytime: data.maxPlaytime === undefined ? null : data.maxPlaytime,
-                averageWeight: data.averageWeight === undefined ? null : data.averageWeight,
+                yearPublished: data.yearPublished === undefined || data.yearPublished === null ? null : data.yearPublished,
+                minPlayers: data.minPlayers === undefined || data.minPlayers === null ? null : data.minPlayers,
+                maxPlayers: data.maxPlayers === undefined || data.maxPlayers === null ? null : data.maxPlayers,
+                playingTime: data.playingTime === undefined || data.playingTime === null ? null : data.playingTime,
+                minPlaytime: data.minPlaytime === undefined || data.minPlaytime === null ? null : data.minPlaytime,
+                maxPlaytime: data.maxPlaytime === undefined || data.maxPlaytime === null ? null : data.maxPlaytime,
+                averageWeight: data.averageWeight === undefined || data.averageWeight === null ? null : data.averageWeight,
                 reviews: [], 
                 overallAverageRating,
                 isPinned: data.isPinned || false,
@@ -1058,9 +1063,9 @@ export async function batchUpdateMissingBggDetailsAction(): Promise<{ success: b
 
 
 export interface FetchPaginatedGamesParams {
-  pageParam?: QueryDocumentSnapshot<DocumentData> | null; // Document snapshot for cursor
+  pageParam?: QueryDocumentSnapshot<DocumentData> | null; 
   limitNum?: number;
-  sortKey?: 'name' | 'overallAverageRating'; // overallAverageRating sort is client-side for now
+  sortKey?: 'name' | 'overallAverageRating'; 
   sortDirection?: 'asc' | 'desc';
   searchTerm?: string;
   direction?: 'next' | 'prev';
@@ -1079,12 +1084,11 @@ export async function fetchPaginatedGamesAction({
   prevPageParam: QueryDocumentSnapshot<DocumentData> | null;
   totalGames: number;
 }> {
+  console.log('[SERVER ACTION] fetchPaginatedGamesAction called with params:', { pageParamId: pageParam?.id, limitNum, sortKey, sortDirection, searchTerm, direction });
   try {
     const gamesCollection = collection(db, FIRESTORE_COLLECTION_NAME);
     let q: Query = gamesCollection;
 
-    // Search term (basic name filtering)
-    // For more advanced search, consider a dedicated search service like Algolia/Typesense
     if (searchTerm) {
        q = query(q, 
         where('name', '>=', searchTerm),
@@ -1092,41 +1096,53 @@ export async function fetchPaginatedGamesAction({
       );
     }
     
-    // Always apply a base sort by name for consistent pagination if primary sort is different or not effective
+    // Firestore requires the orderBy field to be the first field in inequality filters
+    // If searchTerm is present, name is already used in where.
+    // If not, and sortKey is name, it's fine.
+    // If not, and sortKey is different, we might need to adjust if we were doing server-side rating sort.
+    // For now, name sorting is primary on server.
     q = query(q, orderBy('name', sortDirection === 'asc' ? 'asc' : 'desc'));
 
 
-    const totalGamesSnapshot = await getCountFromServer(query(gamesCollection, ...(searchTerm ? [where('name', '>=', searchTerm), where('name', '<=', searchTerm + '\uf8ff')] : [])));
+    const totalGamesQuery = searchTerm ? 
+        query(gamesCollection, where('name', '>=', searchTerm), where('name', '<=', searchTerm + '\uf8ff'))
+        : gamesCollection;
+    const totalGamesSnapshot = await getCountFromServer(totalGamesQuery);
     const totalGames = totalGamesSnapshot.data().count;
+    console.log(`[SERVER ACTION] Total games matching search "${searchTerm}": ${totalGames}`);
 
     if (pageParam) {
       if (direction === 'next') {
         q = query(q, startAfter(pageParam));
       } else {
-        // For 'prev', we need to reverse order, limitToLast, then reverse results
-        // This is more complex and might require storing both first and last visible for robust bidirectional paging
-        // For simplicity, this example might not perfectly handle 'prev' with dynamic sorting other than name
-         q = query(q, orderBy('name', sortDirection === 'desc' ? 'asc' : 'desc')); // Reverse order for endBefore
          q = query(q, endBefore(pageParam), limitToLast(limitNum));
       }
     }
     
-    if (direction === 'next' || !pageParam) {
+    if (direction === 'next' || !pageParam) { // Apply limit for initial load and next page
         q = query(q, limit(limitNum));
     }
 
 
     const documentSnapshots = await getDocs(q);
+    console.log(`[SERVER ACTION] Fetched ${documentSnapshots.docs.length} game documents for current page.`);
     
+    // TEMPORARILY SIMPLIFIED: Skip review fetching for now to isolate game document fetching
     let gamesPromises = documentSnapshots.docs.map(async (docSnap) => {
       const data = docSnap.data();
       const gameId = docSnap.id;
-      let reviews: Review[] = [];
+      // console.log(`[SERVER ACTION] Processing game doc: ${gameId}, Data:`, data); // Log individual game data
+
+      // TEMPORARY: Set overallAverageRating to null, reviews to []
+      const overallAverageRating = null;
+      const reviews: Review[] = [];
+      /*
+      // LATER: Re-enable review fetching and average calculation
       try {
         const reviewsSnapshot = await getDocs(query(collection(db, FIRESTORE_COLLECTION_NAME, gameId, 'reviews')));
         reviews = reviewsSnapshot.docs.map(reviewDoc => {
           const reviewData = reviewDoc.data();
-          const rating: Rating = {
+          const rating: Rating = { // Ensure all fields are present
             excitedToReplay: reviewData.rating?.excitedToReplay || 0,
             mentallyStimulating: reviewData.rating?.mentallyStimulating || 0,
             fun: reviewData.rating?.fun || 0,
@@ -1141,11 +1157,15 @@ export async function fetchPaginatedGamesAction({
           };
           return { id: reviewDoc.id, ...reviewData, rating } as Review;
         });
-      } catch (e) { console.error("Error fetching reviews for game " + gameId, e); }
+        const categoryAvgs = calculateCategoryAverages(reviews);
+        overallAverageRating = categoryAvgs ? calculateOverallCategoryAverage(categoryAvgs) : null;
+      } catch (e) { 
+        console.error("Error fetching or processing reviews for game " + gameId, e);
+        overallAverageRating = null; // Default if error
+        reviews = [];
+      }
+      */
       
-      const categoryAvgs = calculateCategoryAverages(reviews);
-      const overallAverageRating = categoryAvgs ? calculateOverallCategoryAverage(categoryAvgs) : null;
-
       return {
         id: gameId,
         name: data.name || "Gioco Senza Nome",
@@ -1159,39 +1179,29 @@ export async function fetchPaginatedGamesAction({
         averageWeight: data.averageWeight ?? null,
         bggId: data.bggId || 0,
         reviews: [], // Keep reviews minimal for list views
-        overallAverageRating,
+        overallAverageRating, // Will be null due to temporary simplification
         isPinned: data.isPinned || false,
       } as BoardGame;
     });
 
     let games = await Promise.all(gamesPromises);
     
-    if (direction === 'prev' && pageParam) {
-        games = games.reverse(); // Ensure correct order for 'prev' page
+    if (direction === 'prev' && pageParam && documentSnapshots.docs.length > 0) { // Check if docs exist before reversing
+        games = games.reverse(); 
     }
-
-    // Client-side sort by overallAverageRating if requested, as Firestore can't sort by calculated fields directly
-    // This only sorts the current page, not the entire dataset.
-    if (sortKey === 'overallAverageRating') {
-      games.sort((a, b) => {
-        const valA = a.overallAverageRating ?? (sortDirection === 'asc' ? Infinity : -Infinity);
-        const valB = b.overallAverageRating ?? (sortDirection === 'asc' ? Infinity : -Infinity);
-        return sortDirection === 'asc' ? valA - valB : valB - valA;
-      });
-    }
-
-    const newNextPageParam = documentSnapshots.docs.length === limitNum ? documentSnapshots.docs[documentSnapshots.docs.length - 1] : null;
+    
+    const newNextPageParam = documentSnapshots.docs.length === limitNum && documentSnapshots.docs.length > 0 ? documentSnapshots.docs[documentSnapshots.docs.length - 1] : null;
     const newPrevPageParam = pageParam && documentSnapshots.docs.length > 0 ? documentSnapshots.docs[0] : null;
 
-
+    console.log(`[SERVER ACTION] Returning ${games.length} games. Next cursor: ${newNextPageParam?.id}, Prev cursor: ${newPrevPageParam?.id}, Total games: ${totalGames}`);
     return {
       games,
       nextPageParam: newNextPageParam,
-      prevPageParam: newPrevPageParam, // This needs more robust logic for true cursor based 'prev'
+      prevPageParam: newPrevPageParam, 
       totalGames,
     };
   } catch (error) {
-    console.error("Error fetching paginated games:", error);
+    console.error("[SERVER ACTION] Error in fetchPaginatedGamesAction:", error);
     return { games: [], nextPageParam: null, prevPageParam: null, totalGames: 0 };
   }
 }

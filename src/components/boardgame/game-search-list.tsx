@@ -73,7 +73,7 @@ const LocalGamesTable = ({
     return sortConfig.direction === 'asc' ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />;
   };
   
-  if (isLoading && games.length === 0) {
+  if (isLoading && games.length === 0 && totalGamesCount === 0) { // Show loading only if we expect games or are fetching total
     return (
       <div className="flex justify-center items-center py-10">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -91,8 +91,8 @@ const LocalGamesTable = ({
             </AlertTitle>
             <AlertDescription className="mb-3 text-muted-foreground">
               {currentSearchTerm 
-                ? `Nessun gioco corrispondente alla ricerca "${currentSearchTerm}" è stato trovato nella collezione locale.`
-                : "La tua collezione locale è vuota. Gli admin possono aggiungere giochi tramite la sezione Admin."
+                ? `Nessun gioco corrispondente alla ricerca "${currentSearchTerm}" è stato trovato.`
+                : "La collezione locale è vuota. Gli admin possono aggiungere giochi tramite la sezione Admin."
               }
             </AlertDescription>
         </Alert>
@@ -185,60 +185,74 @@ export function GameSearchList() {
   const [totalGames, setTotalGames] = useState(0);
   const [isLoading, startDataFetchTransition] = useTransition();
   
-  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'asc' });
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'overallAverageRating', direction: 'desc' });
   
   const [pageCursors, setPageCursors] = useState<(QueryDocumentSnapshot<DocumentData> | null)[]>([null]);
 
-  // Effect to reset pagination state when search term or sort config changes
+  // Effect to reset pagination when search or sort config changes
   useEffect(() => {
+    console.log('[CLIENT] Search term or sort config changed. Resetting page.');
     setCurrentPage(1);
     setPageCursors([null]); 
   }, [debouncedSearchTerm, sortConfig]);
 
-  // Effect to fetch data
+  // Effect to fetch data when page, search, or sort changes
   useEffect(() => {
-    startDataFetchTransition(async () => {
-      const cursorForPageFetch = pageCursors[currentPage - 1] || null;
-      
-      const params: FetchPaginatedGamesParams = {
-        pageParam: cursorForPageFetch,
-        limitNum: GAMES_PER_PAGE,
-        sortKey: sortConfig.key,
-        sortDirection: sortConfig.direction,
-        searchTerm: debouncedSearchTerm,
-        direction: 'next', 
-      };
+    const fetchGames = async () => {
+      console.log('[CLIENT] Attempting to fetch games. Params:', { currentPage, sortConfig, debouncedSearchTerm, cursorId: pageCursors[currentPage - 1]?.id });
+      startDataFetchTransition(async () => {
+        const cursorForPageFetch = pageCursors[currentPage - 1] || null;
+        
+        const params: FetchPaginatedGamesParams = {
+          pageParam: cursorForPageFetch,
+          limitNum: GAMES_PER_PAGE,
+          sortKey: sortConfig.key,
+          sortDirection: sortConfig.direction,
+          searchTerm: debouncedSearchTerm,
+          direction: 'next', 
+        };
 
-      const result = await fetchPaginatedGamesAction(params);
-      setGames(result.games);
-      setTotalGames(result.totalGames);
+        const result = await fetchPaginatedGamesAction(params);
+        console.log('[CLIENT] Received result from fetchPaginatedGamesAction:', result);
 
-      if (result.nextPageParam) {
-        setPageCursors(prev => {
-          const newCursors = [...prev];
-          while (newCursors.length <= currentPage) {
-            newCursors.push(null);
-          }
-          if (!newCursors[currentPage] || newCursors[currentPage]?.id !== result.nextPageParam?.id) {
-             newCursors[currentPage] = result.nextPageParam;
-             return newCursors;
-          }
-          return prev;
-        });
-      } else {
-         setPageCursors(prev => {
-            if (prev.length > currentPage && prev[currentPage] !== null) {
-               const newCursors = [...prev];
-               newCursors[currentPage] = null;
-               return newCursors;
+        if (result && Array.isArray(result.games)) {
+          console.log('[CLIENT] Setting games state with:', result.games);
+          setGames(result.games);
+          console.log('[CLIENT] Setting totalGames state with:', result.totalGames);
+          setTotalGames(result.totalGames);
+
+          setPageCursors(prevCursors => {
+            const newCursors = [...prevCursors];
+            // Ensure the array is long enough
+            while (newCursors.length <= currentPage) {
+              newCursors.push(null);
             }
-            return prev;
-         });
-      }
-    });
-  // Removed pageCursors from dependency array to simplify and potentially avoid loops.
-  // The effect will read the latest pageCursors via closure when triggered by other dependencies.
-  }, [currentPage, debouncedSearchTerm, sortConfig, startDataFetchTransition]); 
+            // Update the cursor for the *next* page
+            if (result.nextPageParam) {
+              if (!newCursors[currentPage] || newCursors[currentPage]?.id !== result.nextPageParam?.id) {
+                 newCursors[currentPage] = result.nextPageParam;
+                 console.log('[CLIENT] Updated next page cursor:', newCursors);
+                 return newCursors;
+              }
+            } else { // No next page, so ensure the cursor for the next page is null
+                if (newCursors[currentPage] !== null) {
+                    newCursors[currentPage] = null;
+                    console.log('[CLIENT] Cleared next page cursor (no next page):', newCursors);
+                    return newCursors;
+                }
+            }
+            console.log('[CLIENT] Page cursors unchanged or already up-to-date:', prevCursors);
+            return prevCursors; // Return previous state if no change
+          });
+        } else {
+          console.error('[CLIENT] Invalid result from fetchPaginatedGamesAction or result.games is not an array:', result);
+          setGames([]);
+          setTotalGames(0);
+        }
+      });
+    };
+    fetchGames();
+  }, [currentPage, debouncedSearchTerm, sortConfig, startDataFetchTransition]); // pageCursors removed to break potential loops
 
 
   const handleSort = useCallback((key: SortableKeys) => {
@@ -270,6 +284,7 @@ export function GameSearchList() {
   }, []);
   
   const clientSortedGames = useMemo(() => {
+    // Server-side sorting handles 'name'. Client-side for 'overallAverageRating' on the current page's data.
     if (sortConfig.key === 'overallAverageRating' && games.length > 0) {
       return [...games].sort((a, b) => {
         const valA = a.overallAverageRating ?? (sortConfig.direction === 'asc' ? Infinity : -Infinity);
@@ -277,8 +292,11 @@ export function GameSearchList() {
         return sortConfig.direction === 'asc' ? valA - valB : valB - valA;
       });
     }
-    return games;
+    return games; // Already sorted by name on server, or no rating sort needed
   }, [games, sortConfig]);
+
+  console.log('[CLIENT] Rendering GameSearchList. Games state:', games, 'Total games state:', totalGames, 'isLoading:', isLoading);
+  console.log('[CLIENT] clientSortedGames for table:', clientSortedGames);
 
 
   return (
