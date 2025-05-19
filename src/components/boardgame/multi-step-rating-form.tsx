@@ -38,8 +38,8 @@ const stepCategories: (keyof RatingFormValues)[][] = [
 ];
 
 const categoryDescriptions: Record<RatingCategory, string> = {
-  excitedToReplay: "Quanto ti ha fatto ragionare e elaborare strategie questo gioco?",
-  mentallyStimulating: "Quanto questo gioco ti fa pensare, risolvere problemi o elaborare strategie?",
+  excitedToReplay: "Quanto ti entusiasma l’idea di rigiocare questo gioco?",
+  mentallyStimulating: "Quanto ti ha fatto ragionare e elaborare strategie questo gioco?",
   fun: "In generale, quanto è stata piacevole e divertente l'esperienza di gioco?",
   decisionDepth: "Quanto sono significative e incisive le scelte che fai durante il gioco?",
   replayability: "Quanto il gioco offre esperienze variegate in più partite?",
@@ -218,7 +218,7 @@ export function MultiStepRatingForm({
             userId: currentUser.uid,
             authorPhotoURL: currentUser.photoURL || null,
             rating: currentRatings,
-            comment: '', // Comment is empty now
+            comment: '', 
             date: new Date().toISOString(),
           };
           setGroupedAveragesForSummary(calculateGroupedCategoryAverages([tempReviewForSummary]));
@@ -241,7 +241,7 @@ export function MultiStepRatingForm({
     if (currentStep === 2) return "Design del Gioco";
     if (currentStep === 3) return "Estetica e Immersione";
     if (currentStep === 4) return "Apprendimento e Logistica";
-    if (currentStep === 5) return "Riepilogo Tue Valutazioni";
+    // Step 5 doesn't need a generic step title in this specific header
     return "Passo della Recensione";
   };
 
@@ -258,9 +258,9 @@ export function MultiStepRatingForm({
 
   return (
     <Form {...form}>
-      <form>
+      <form> {/* Removed onSubmit from here */}
         {currentStep <= totalInputSteps && (
-          <div className="mb-4">
+          <div className="mb-4"> {/* Reduced mb-6 to mb-4 */}
             <div className="flex justify-between items-center">
               <h3 className="text-xl font-semibold">{getCurrentStepTitle()} - Passo {currentStep} / {totalInputSteps}</h3>
             </div>
@@ -407,7 +407,7 @@ export function MultiStepRatingForm({
                 <GroupedRatingsDisplay
                     groupedAverages={groupedAveragesForSummary}
                     noRatingsMessage="Impossibile caricare il riepilogo. Per favore, prova a inviare di nuovo."
-                    defaultOpenSections={['Sentimento','Design del Gioco','Estetica e Immersione','Apprendimento e Logistica']} // Open all by default
+                    defaultOpenSections={['Sentimento','Design del Gioco','Estetica e Immersione','Apprendimento e Logistica']}
                  />
             </div>
           )}
@@ -419,8 +419,8 @@ export function MultiStepRatingForm({
             </div>
         )}
 
-        <div className={`flex ${currentStep > 1 && currentStep <= totalInputSteps ? 'justify-between' : 'justify-end'} items-center pt-4 border-t mt-6`}>
-          {currentStep > 1 && currentStep <= totalInputSteps && (
+        <div className={`flex ${currentStep > 1 && currentStep < 5 ? 'justify-between' : 'justify-end'} items-center pt-4 border-t mt-6`}>
+          {currentStep > 1 && currentStep < 5 && (
             <Button
               type="button"
               variant="outline"
@@ -435,16 +435,16 @@ export function MultiStepRatingForm({
             <Button type="button" onClick={handleNext} disabled={isSubmitting} className="bg-primary hover:bg-primary/90 text-primary-foreground">
               Avanti
             </Button>
-          ) : currentStep === totalInputSteps ? (
+          ) : currentStep === totalInputSteps ? ( // This is Step 4
             <Button
-              type="button"
-              onClick={handleStep4Submit}
+              type="button" // Changed from submit
+              onClick={form.handleSubmit(handleStep4Submit)} // Submit handled by button click
               disabled={isSubmitting}
               className="bg-accent hover:bg-accent/90 text-accent-foreground"
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> {existingReview ? 'Aggiornamento...' : 'Invio...'}
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> {existingReview ? 'Aggiornamento...' : 'Invio Recensione...'}
                 </>
               ) : (
                 existingReview ? 'Aggiorna Recensione' : 'Invia Recensione'
@@ -454,7 +454,7 @@ export function MultiStepRatingForm({
              <Button
                 type="button"
                 onClick={() => {
-                  form.reset(defaultFormValues); // Reset form on finishing
+                  form.reset(defaultFormValues);
                   onReviewSubmitted();
                 }}
                 className="bg-primary hover:bg-primary/90 text-primary-foreground"
@@ -467,3 +467,5 @@ export function MultiStepRatingForm({
     </Form>
   );
 }
+
+    
