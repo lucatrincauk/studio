@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useTransition } from 'react';
@@ -6,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import type { BoardGame } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Info, Loader2, Edit } from 'lucide-react';
+import { Search, Info, Loader2, Edit, Star } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   Table,
@@ -19,6 +18,7 @@ import {
 import { SafeImage } from '@/components/common/SafeImage';
 import { searchLocalGamesByNameAction } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
+import { formatRatingNumber } from '@/lib/utils';
 
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
@@ -106,6 +106,7 @@ export function GameRatingSelector() {
                 <TableRow>
                   <TableHead className="w-[60px] sm:w-[80px]">Copertina</TableHead>
                   <TableHead>Nome Gioco</TableHead>
+                  <TableHead className="text-center">Voto Medio</TableHead>
                   <TableHead className="text-right">Azione</TableHead>
                 </TableRow>
               </TableHeader>
@@ -128,6 +129,16 @@ export function GameRatingSelector() {
                     <TableCell className="font-medium">
                       {game.name || "Gioco Senza Nome"}
                       {game.yearPublished && ` (${game.yearPublished})`}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {game.overallAverageRating !== null && typeof game.overallAverageRating === 'number' ? (
+                        <span className="font-semibold text-primary flex items-center justify-center gap-1">
+                           <Star className="h-4 w-4 text-accent fill-accent" /> 
+                          {formatRatingNumber(game.overallAverageRating * 2)}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
                       <Button onClick={() => router.push(`/games/${game.id}/rate`)} size="sm">
@@ -154,4 +165,3 @@ export function GameRatingSelector() {
     </div>
   );
 }
-
