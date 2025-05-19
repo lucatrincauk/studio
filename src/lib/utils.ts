@@ -3,6 +3,8 @@ import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import type { Review, Rating, RatingCategory, GroupedCategoryAverages, SectionAverage, SubRatingAverage } from "./types";
 import { RATING_CATEGORIES } from "./types";
+import { formatDistanceToNow } from 'date-fns';
+import { it } from 'date-fns/locale';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -132,10 +134,15 @@ export function calculateGroupedCategoryAverages(reviews: Review[]): GroupedCate
 
 
 export function formatReviewDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString('it-IT', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
+  try {
+    return formatDistanceToNow(new Date(dateString), { addSuffix: true, locale: it });
+  } catch (error) {
+    console.error("Error formatting date:", error);
+    // Fallback to a simple date format if something goes wrong
+    const d = new Date(dateString);
+    if (isNaN(d.getTime())) {
+      return "Data non valida";
+    }
+    return d.toLocaleDateString('it-IT');
+  }
 }
-
