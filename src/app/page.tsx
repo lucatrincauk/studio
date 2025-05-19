@@ -15,9 +15,9 @@ export default async function HomePage() {
           <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mb-6 text-center sm:text-left">
             Ultimi Giochi Valutati
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {featuredGames.map(game => (
-              <GameCard key={game.id} game={game} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+            {featuredGames.map((game, index) => (
+              <GameCard key={game.id} game={game} variant="featured" priority={index < 3} />
             ))}
           </div>
         </section>
@@ -49,4 +49,3 @@ export default async function HomePage() {
 
 // Revalidate this page periodically or on demand when new games are added
 export const revalidate = 3600; // Revalidate every hour
-
