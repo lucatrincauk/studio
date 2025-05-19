@@ -9,7 +9,7 @@ import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, Brain, ExternalLink, Weight, Tag } from 'lucide-react';
+import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, Brain, ExternalLink, Weight } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { summarizeReviews } from '@/ai/flows/summarize-reviews';
@@ -160,13 +160,12 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         await updateDoc(gameRef, {
           isPinned: newPinStatus
         });
-        setCurrentIsPinned(newPinStatus); // Optimistic update
+        setCurrentIsPinned(newPinStatus); 
         toast({
           title: "Stato Vetrina Aggiornato",
           description: `Il gioco è stato ${newPinStatus ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
         });
-        // No revalidatePath here, local state update and eventual cache update is enough for this page
-        await fetchGameData(); // Re-fetch to ensure consistency if needed elsewhere sooner
+        await fetchGameData(); 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({
@@ -174,7 +173,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `Impossibile aggiornare lo stato vetrina: ${errorMessage}`,
           variant: "destructive",
         });
-        setCurrentIsPinned(!newPinStatus); // Revert optimistic update on error
+        setCurrentIsPinned(!newPinStatus); 
       }
     });
   };
@@ -207,10 +206,21 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     <div className="space-y-10">
       <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
         <div className="flex flex-col md:flex-row">
-          <div className="flex-1 p-6 space-y-4 md:order-1"> {/* Desktop: text first */}
+          <div className="flex-1 p-6 space-y-4 md:order-1"> 
             <div className="flex justify-between items-start mb-2">
                 <div className="flex items-center gap-2 flex-1 mr-4">
                   <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">{game.name}</h1>
+                  {game.bggId && (
+                    <a
+                      href={`https://boardgamegeek.com/boardgame/${game.bggId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Vedi su BoardGameGeek"
+                      className="inline-flex items-center text-primary hover:text-primary/80 focus:outline-none focus:ring-2 focus:ring-ring rounded-md p-0.5" // Reduced padding for tighter fit
+                    >
+                      <ExternalLink size={16} className="h-4 w-4" /> {/* Made icon smaller */}
+                    </a>
+                  )}
                   {isAdmin && !isLoadingGame && game && (
                     <Button
                         variant="ghost"
@@ -223,26 +233,14 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                         {isPinToggling ? <Loader2 className="h-5 w-5 animate-spin" /> : (currentIsPinned ? <PinOff className="h-5 w-5" /> : <Pin className="h-5 w-5" />)}
                     </Button>
                   )}
-                  {game.bggId && (
-                    <a
-                      href={`https://boardgamegeek.com/boardgame/${game.bggId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      title="Vedi su BoardGameGeek"
-                      className="inline-flex items-center text-primary hover:text-primary/80 focus:outline-none focus:ring-2 focus:ring-ring rounded-md p-1 ml-1"
-                    >
-                      <ExternalLink size={20} className="h-5 w-5" />
-                    </a>
-                  )}
                 </div>
               {globalGameAverage !== null && (
-                 <span className="flex-shrink-0 text-primary text-3xl font-bold">
+                 <span className="text-primary text-3xl font-bold">
                     {formatRatingNumber(globalGameAverage * 2)}
                  </span>
               )}
             </div>
             
-            {/* Mobile Image - Below title */}
             <div className="md:hidden my-4 max-w-[240px] mx-auto">
               <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
                 <SafeImage
@@ -258,7 +256,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
               </div>
             </div>
             
-            {/* Game Metadata Section */}
             <div className="text-sm text-muted-foreground space-y-1.5 pt-1 grid grid-cols-2 gap-x-4 gap-y-2">
               {game.yearPublished && (
                 <div className="flex items-center gap-2">
@@ -307,8 +304,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             </div>
           </div>
 
-          {/* Desktop Image - Right column */}
-          <div className="hidden md:block md:w-1/4 p-6 flex-shrink-0 self-start md:order-2"> {/* Desktop: image second */}
+          <div className="hidden md:block md:w-1/4 p-6 flex-shrink-0 self-start md:order-2"> 
             <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
               <SafeImage
                 src={game.coverArtUrl}
