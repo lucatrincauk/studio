@@ -19,7 +19,7 @@ export default function SelectGameToRatePage() {
         <CardHeader>
           <CardTitle className="text-2xl md:text-3xl">Scegli il Gioco da Valutare</CardTitle>
           <CardDescription>
-            Cerca un gioco nella nostra collezione o aggiungine uno nuovo da BoardGameGeek per valutarlo.
+            Cerca un gioco nella nostra collezione per valutarlo. Se non lo trovi, un admin può aggiungerlo dalla sezione di gestione collezione.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -29,3 +29,4 @@ export default function SelectGameToRatePage() {
     </div>
   );
 }
+

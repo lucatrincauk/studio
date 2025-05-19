@@ -3,10 +3,10 @@
 
 import { useState, useEffect, useMemo, useCallback, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import type { BoardGame, BggSearchResult } from '@/lib/types';
+import type { BoardGame } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Info, Loader2, PlusCircle, ExternalLink, Edit } from 'lucide-react';
+import { Search, Info, Loader2, Edit } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   Table,
@@ -17,8 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { SafeImage } from '@/components/common/SafeImage';
-import { formatRatingNumber } from '@/lib/utils';
-import { searchLocalGamesByNameAction, searchBggGamesAction, getOrCreateGameForRatingAction } from '@/lib/actions';
+import { searchLocalGamesByNameAction } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 
 function useDebounce<T>(value: T, delay: number): T {
@@ -45,75 +44,29 @@ export function GameRatingSelector() {
   const [isLoadingLocal, startLocalSearchTransition] = useTransition();
   const [localSearchError, setLocalSearchError] = useState<string | null>(null);
 
-  const [bggResults, setBggResults] = useState<BggSearchResult[]>([]);
-  const [isLoadingBgg, startBggSearchTransition] = useTransition();
-  const [bggSearchError, setBggSearchError] = useState<string | null>(null);
-  const [showBggSearchButton, setShowBggSearchButton] = useState(false);
-
-  const [isProcessingGame, setIsProcessingGame] = useState<string | null>(null); // Store BGG ID being processed
-
   useEffect(() => {
     if (debouncedSearchTerm.length < 2) {
       setLocalResults([]);
-      setBggResults([]);
-      setShowBggSearchButton(false);
       setLocalSearchError(null);
-      setBggSearchError(null);
       return;
     }
 
     setLocalSearchError(null);
-    setBggResults([]); // Clear BGG results when local search term changes
-    setShowBggSearchButton(false);
-
     startLocalSearchTransition(async () => {
       const result = await searchLocalGamesByNameAction(debouncedSearchTerm);
       if ('error' in result) {
         setLocalSearchError(result.error);
+        toast({ title: "Errore Ricerca Locale", description: result.error, variant: "destructive" });
         setLocalResults([]);
-        setShowBggSearchButton(true); // Offer BGG search even if local search errors out
       } else {
         setLocalResults(result);
         if (result.length === 0) {
-          setShowBggSearchButton(true);
+          toast({ title: "Nessun Gioco Trovato", description: `Nessun gioco trovato nella collezione per "${debouncedSearchTerm}".` });
         }
       }
     });
-  }, [debouncedSearchTerm]);
+  }, [debouncedSearchTerm, toast]);
 
-  const handleSearchBgg = () => {
-    if (debouncedSearchTerm.length < 2) {
-      setBggSearchError("Inserisci almeno 2 caratteri per cercare su BGG.");
-      return;
-    }
-    setBggSearchError(null);
-    setShowBggSearchButton(false); // Hide button once search is initiated
-
-    startBggSearchTransition(async () => {
-      const result = await searchBggGamesAction(debouncedSearchTerm);
-      if ('error'in result) {
-        setBggSearchError(result.error);
-        setBggResults([]);
-      } else {
-        setBggResults(result);
-        if (result.length === 0) {
-          toast({ title: "Nessun Risultato BGG", description: `Nessun gioco trovato su BGG per "${debouncedSearchTerm}".` });
-        }
-      }
-    });
-  };
-
-  const handleRateGame = async (bggId: string) => {
-    setIsProcessingGame(bggId);
-    const result = await getOrCreateGameForRatingAction(bggId);
-    if ('error' in result) {
-      toast({ title: "Errore", description: result.error, variant: "destructive" });
-      setIsProcessingGame(null);
-    } else {
-      router.push(`/games/${result.gameId}/rate`);
-      // setIsProcessingGame(null); // Navigation will unmount or re-render
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -188,78 +141,17 @@ export function GameRatingSelector() {
           </div>
         </div>
       )}
-
-      {showBggSearchButton && !isLoadingLocal && debouncedSearchTerm.length >= 2 && (
-        <div className="text-center py-4">
-          <p className="text-muted-foreground mb-3">
-            Nessun gioco trovato nella collezione locale per "{debouncedSearchTerm}".
-          </p>
-          <Button onClick={handleSearchBgg} disabled={isLoadingBgg} className="bg-secondary hover:bg-secondary/90 text-secondary-foreground">
-            {isLoadingBgg ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" /> }
-            Cerca su BoardGameGeek
-          </Button>
-        </div>
-      )}
-
-      {isLoadingBgg && (
-        <div className="flex justify-center items-center py-4">
-          <Loader2 className="h-6 w-6 animate-spin text-primary" />
-          <span className="ml-2 text-muted-foreground">Ricerca su BoardGameGeek...</span>
-        </div>
-      )}
-
-      {bggSearchError && !isLoadingBgg && (
-         <Alert variant="destructive">
-          <Info className="h-4 w-4" />
-          <AlertTitle>Errore Ricerca BGG</AlertTitle>
-          <AlertDescription>{bggSearchError}</AlertDescription>
+      
+      {!isLoadingLocal && localResults.length === 0 && debouncedSearchTerm.length >= 2 && !localSearchError && (
+        <Alert variant="default" className="bg-secondary/30 border-secondary">
+            <Info className="h-4 w-4" />
+            <AlertTitle>Nessun Gioco Trovato</AlertTitle>
+            <AlertDescription>
+              Nessun gioco trovato nella collezione locale per "{debouncedSearchTerm}". Un admin può aggiungerlo tramite la sezione Admin.
+            </AlertDescription>
         </Alert>
-      )}
-
-      {!isLoadingBgg && bggResults.length > 0 && (
-         <div className="space-y-3 mt-6">
-          <h3 className="text-lg font-semibold">Risultati da BoardGameGeek:</h3>
-           <div className="overflow-x-auto bg-card p-4 rounded-lg shadow-sm border border-border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome Gioco (BGG)</TableHead>
-                  <TableHead className="text-right">Azione</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {bggResults.map(game => (
-                  <TableRow key={game.bggId}>
-                    <TableCell>
-                      {game.name}
-                      {game.yearPublished && ` (${game.yearPublished})`}
-                    </TableCell>
-                    <TableCell className="text-right space-x-2">
-                       <Button
-                          onClick={() => handleRateGame(game.bggId)}
-                          disabled={isProcessingGame === game.bggId}
-                          size="sm"
-                        >
-                          {(isProcessingGame === game.bggId) ? (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          ) : (
-                            <Edit className="mr-2 h-4 w-4" />
-                          )}
-                          Valuta Questo
-                        </Button>
-                        <Button variant="outline" size="sm" asChild>
-                          <a href={`https://boardgamegeek.com/boardgame/${game.bggId}`} target="_blank" rel="noopener noreferrer">
-                              Vedi su BGG <ExternalLink className="ml-2 h-3 w-3" />
-                          </a>
-                        </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </div>
       )}
     </div>
   );
 }
+
