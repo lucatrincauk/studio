@@ -43,10 +43,10 @@ const categoryDescriptions: Record<RatingCategory, string> = {
   fun: "In generale, quanto è stata piacevole e divertente l'esperienza di gioco?",
   decisionDepth: "Quanto sono state significative e incisive le scelte che hai fatto durante il gioco?",
   replayability: "Quanto diversa ed entusiasmante potrebbe essere la prossima partita?",
-  luck: "Quanto poco il caso o la casualità influenzano l'esito del gioco?", // Changed
+  luck: "Quanto poco il caso o la casualità influenzano l'esito del gioco?", 
   lengthDowntime: "Quanto è appropriata la durata del gioco per la sua profondità e quanto è coinvolgente quando non è il tuo turno?",
   graphicDesign: "Quanto è visivamente accattivante l'artwork, l'iconografia e il layout generale del gioco?",
-  componentsThemeLore: "Quanto bene i componenti fisici, il tema e la storia migliorano l'esperienza?",
+  componentsThemeLore: "Come valuti l'ambientazione e l'applicazione del tema al gioco?",
   effortToLearn: "Quanto è facile o difficile capire le regole e iniziare a giocare?",
   setupTeardown: "Quanto è veloce e semplice preparare il gioco e rimetterlo a posto?",
 };
@@ -257,9 +257,9 @@ export function MultiStepRatingForm({
 
   return (
     <Form {...form}>
-      <form>
+      <form> {/* Removed space-y-8 */}
         {currentStep <= totalInputSteps && (
-          <div className="mb-4">
+          <div className="mb-4"> {/* Changed from mb-6 */}
             <div className="flex justify-between items-center">
               <h3 className="text-xl font-semibold">{getCurrentStepTitle()} - Passo {currentStep} / {totalInputSteps}</h3>
             </div>
@@ -288,7 +288,7 @@ export function MultiStepRatingForm({
         )}
 
 
-        <div className="min-h-[240px] sm:min-h-[280px]">
+        <div className="min-h-[240px] sm:min-h-[280px]"> {/* Reduced min-h */}
           {currentStep === 1 && (
             <div className="space-y-6 animate-fadeIn">
               {(stepCategories[0] as RatingCategory[]).map((fieldName) => (
@@ -418,8 +418,8 @@ export function MultiStepRatingForm({
             </div>
         )}
 
-        <div className={`flex ${currentStep > 1 && currentStep < (totalInputSteps + 1) ? 'justify-between' : 'justify-end'} items-center pt-4 border-t mt-6`}>
-          {currentStep > 1 && currentStep < (totalInputSteps + 1) && (
+        <div className={`flex ${currentStep > 1 && currentStep <= totalInputSteps ? 'justify-between' : 'justify-end'} items-center pt-4 border-t mt-6`}>
+          {currentStep > 1 && currentStep <= totalInputSteps && (
             <Button
               type="button"
               variant="outline"
