@@ -31,11 +31,19 @@ export function GameCard({ game }: GameCardProps) {
 
       <div className="flex flex-col flex-grow p-3 sm:p-4 justify-between overflow-y-auto">
         <div>
-          <CardTitle className="text-base sm:text-lg mb-1.5 leading-tight font-semibold group-hover:text-primary transition-colors">
-            <Link href={`/games/${game.id}`} className="hover:underline focus:outline-none focus:ring-2 focus:ring-ring rounded">
-              {game.name}
-            </Link>
-          </CardTitle>
+          <div className="flex justify-between items-start mb-1.5">
+            <CardTitle className="text-base sm:text-lg leading-tight font-semibold group-hover:text-primary transition-colors flex-1 mr-2">
+              <Link href={`/games/${game.id}`} className="hover:underline focus:outline-none focus:ring-2 focus:ring-ring rounded">
+                {game.name}
+              </Link>
+            </CardTitle>
+            {game.overallAverageRating !== null && typeof game.overallAverageRating === 'number' && (
+              <div className="text-lg sm:text-xl font-bold text-primary flex items-center gap-1 flex-shrink-0">
+                {/* <Star size={16} className="fill-primary text-primary" />  Optional: keep star or remove */}
+                {formatRatingNumber(game.overallAverageRating * 2)}
+              </div>
+            )}
+          </div>
            <div className="text-xs text-muted-foreground space-y-0.5 mb-2">
                 {game.yearPublished && <div className="flex items-center gap-1"><CalendarDays size={12}/> {game.yearPublished}</div>}
                 {(game.minPlayers || game.maxPlayers) && (
@@ -47,14 +55,8 @@ export function GameCard({ game }: GameCardProps) {
             </div>
         </div>
 
-        <CardFooter className="p-0 mt-auto flex flex-col items-start sm:flex-row sm:justify-between sm:items-center gap-2">
-          {game.overallAverageRating !== null && typeof game.overallAverageRating === 'number' && (
-            <div className="text-sm font-semibold text-primary flex items-center gap-1">
-              <Star size={14} className="fill-primary text-primary" /> 
-              {formatRatingNumber(game.overallAverageRating * 2)}
-            </div>
-          )}
-          <Button asChild variant="default" size="sm" className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-xs sm:text-sm sm:ml-auto">
+        <CardFooter className="p-0 mt-auto flex justify-end">
+          <Button asChild variant="default" size="sm" className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-xs sm:text-sm">
             <Link href={`/games/${game.id}`}>Vedi Dettagli</Link>
           </Button>
         </CardFooter>
