@@ -3,7 +3,7 @@ import { getFeaturedGamesAction, getAllGamesAction } from '@/lib/actions';
 import { GameCard } from '@/components/boardgame/game-card';
 import { Separator } from '@/components/ui/separator';
 import type { BoardGame } from '@/lib/types';
-import { Star, Edit, TrendingUp } from 'lucide-react'; // Added TrendingUp
+import { Star, Edit, TrendingUp } from 'lucide-react'; 
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { formatRatingNumber } from '@/lib/utils';
@@ -42,7 +42,8 @@ export default async function HomePage() {
 
         {featuredGames && featuredGames.length > 0 && (
           <div className="mb-12">
-            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mb-6 text-left">
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mb-6 text-left flex items-center gap-2">
+              <Star className="h-7 w-7 text-primary" /> 
               In Evidenza
             </h2>
             <div className="flex space-x-4 overflow-x-auto pb-4 md:grid md:grid-cols-3 md:gap-4 md:space-x-0 md:pb-0 md:overflow-x-visible">
