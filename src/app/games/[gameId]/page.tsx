@@ -9,7 +9,7 @@ import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, Brain, Tag, ExternalLink } from 'lucide-react';
+import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, Brain, Tag, ExternalLink, Weight } from 'lucide-react'; // Added Weight
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { summarizeReviews } from '@/ai/flows/summarize-reviews';
@@ -274,9 +274,9 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                   </span>
                 </div>
               ) : null}
-              {game.averageWeight !== null && game.averageWeight !== undefined && (
+              {game.averageWeight !== null && typeof game.averageWeight === 'number' && (
                  <div className="flex items-center gap-2">
-                  <Brain size={16} className="text-primary/80" />
+                  <Weight size={16} className="text-primary/80" /> {/* Changed Brain to Weight */}
                   <span className="hidden sm:inline">Complessità:</span>
                   <span>{formatRatingNumber(game.averageWeight)} / 5</span>
                 </div>
@@ -301,12 +301,12 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
             <div className="mt-4 space-y-1 md:border-t-0 border-t border-border pt-4 md:pt-0">
               <h3 className="text-lg font-semibold text-foreground mb-3">Valutazioni Medie dei Giocatori:</h3>
-              <GroupedRatingsDisplay 
-                groupedAverages={groupedCategoryAverages} 
-                isLoading={isLoadingGame}
-                noRatingsMessage="Nessuna valutazione per calcolare le medie."
-                defaultOpenSections={['Sentimento']}
-              />
+                <GroupedRatingsDisplay
+                    groupedAverages={groupedCategoryAverages}
+                    noRatingsMessage="Nessuna valutazione per calcolare le medie."
+                    isLoading={isLoadingGame}
+                    defaultOpenSections={['Sentimento']}
+                />
             </div>
           </div>
 
@@ -333,7 +333,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
         <div className="lg:col-span-2 space-y-8">
           
-           {/* "Manage Your Review" / "Rate this Game" section moved here */}
           {currentUser && !authLoading && (
             userReview ? (
               <div className="mb-8">
