@@ -2,11 +2,11 @@
 'use client';
 
 import type { BoardGame } from '@/lib/types';
-import { useState, useEffect, useTransition, useMemo } from 'react';
-import { fetchBggUserCollectionAction, getBoardGamesFromFirestoreAction, syncBoardGamesToFirestoreAction } from '@/lib/actions';
+import { useState, useEffect, useTransition, useMemo, useCallback } from 'react';
+import { fetchBggUserCollectionAction, getBoardGamesFromFirestoreAction, syncBoardGamesToFirestoreAction, togglePinGameAction } from '@/lib/actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, AlertCircle, Info, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Loader2, AlertCircle, Info, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, Pin, PinOff } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { CollectionConfirmationDialog } from '@/components/collection/confirmation-dialog';
@@ -21,15 +21,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-const BGG_USERNAME = 'lctr01'; // Hardcoded for now
+const BGG_USERNAME = 'lctr01'; 
 
-type SortableKeys = 'name' | 'overallAverageRating';
+type SortableKeys = 'name' | 'overallAverageRating' | 'isPinned';
 interface SortConfig {
   key: SortableKeys;
   direction: 'ascending' | 'descending';
 }
 
-// Helper function to compare game arrays based on their IDs
 function areGameArraysEqual(arr1: BoardGame[], arr2: BoardGame[]): boolean {
   if (arr1.length !== arr2.length) return false;
   const ids1 = arr1.map(g => g.id).sort();
@@ -45,16 +44,17 @@ export default function AdminCollectionPage() {
   const [gamesToRemove, setGamesToRemove] = useState<BoardGame[]>([]);
   
   const [isLoadingDb, setIsLoadingDb] = useState(true);
-  const [isLoadingBgg, startBggFetchTransition] = useTransition();
-  const [isSyncingDb, startDbSyncTransition] = useTransition();
+  const [isBggFetching, startBggFetchTransition] = useTransition();
+  const [isDbSyncing, startDbSyncTransition] = useTransition();
+  const [isPinToggling, startPinToggleTransition] = useTransition();
   
   const [error, setError] = useState<string | null>(null);
   const [showConfirmationDialog, setShowConfirmationDialog] = useState(false);
-  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'ascending' });
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'isPinned', direction: 'descending' });
 
   const { toast } = useToast();
 
-  const loadDbCollection = async () => {
+  const loadDbCollection = useCallback(async () => {
     setIsLoadingDb(true);
     setError(null);
     const result = await getBoardGamesFromFirestoreAction();
@@ -63,14 +63,14 @@ export default function AdminCollectionPage() {
       setDbCollection([]);
       toast({ title: 'Errore Caricamento DB', description: result.error, variant: 'destructive'});
     } else {
-      setDbCollection(result); // Initial sort will be applied by useMemo
+      setDbCollection(result);
     }
     setIsLoadingDb(false);
-  };
+  }, [toast]);
 
   useEffect(() => {
     loadDbCollection();
-  }, []);
+  }, [loadDbCollection]);
 
   useEffect(() => {
     let newGamesToAdd: BoardGame[] = [];
@@ -103,7 +103,7 @@ export default function AdminCollectionPage() {
         toast({ title: 'Errore Sincronizzazione BGG', description: result.error, variant: 'destructive' });
         setBggFetchedCollection([]); 
       } else {
-        setBggFetchedCollection(result); // Initial sort will be applied by useMemo
+        setBggFetchedCollection(result); 
         toast({ title: 'Collezione BGG Caricata', description: `Trovati ${result.length} giochi posseduti per ${BGG_USERNAME}. Controlla le modifiche in sospeso qui sotto.` });
       }
     });
@@ -133,6 +133,18 @@ export default function AdminCollectionPage() {
     });
   };
 
+  const handleTogglePin = (gameId: string, currentPinStatus: boolean) => {
+    startPinToggleTransition(async () => {
+      const result = await togglePinGameAction(gameId, currentPinStatus);
+      if (result.success) {
+        toast({ title: 'Stato Pin Aggiornato', description: `Lo stato pin per il gioco è stato ${currentPinStatus ? 'rimosso' : 'aggiunto'}.`});
+        await loadDbCollection(); // Reload to reflect changes
+      } else {
+        toast({ title: 'Errore Aggiornamento Pin', description: result.error || 'Si è verificato un errore sconosciuto.', variant: 'destructive'});
+      }
+    });
+  };
+
   const handleSort = (key: SortableKeys) => {
     let direction: 'ascending' | 'descending' = 'ascending';
     if (sortConfig.key === key && sortConfig.direction === 'ascending') {
@@ -152,6 +164,10 @@ export default function AdminCollectionPage() {
         const ratingA = a.overallAverageRating === null || a.overallAverageRating === undefined ? (sortConfig.direction === 'ascending' ? Infinity : -Infinity) : a.overallAverageRating;
         const ratingB = b.overallAverageRating === null || b.overallAverageRating === undefined ? (sortConfig.direction === 'ascending' ? Infinity : -Infinity) : b.overallAverageRating;
         return sortConfig.direction === 'ascending' ? ratingA - ratingB : ratingB - ratingA;
+      } else if (sortConfig.key === 'isPinned') {
+        const pinnedA = a.isPinned ? 1 : 0;
+        const pinnedB = b.isPinned ? 1 : 0;
+        return sortConfig.direction === 'ascending' ? pinnedA - pinnedB : pinnedB - pinnedA;
       }
       return 0;
     });
@@ -173,20 +189,20 @@ export default function AdminCollectionPage() {
       <Card className="shadow-lg border border-border rounded-lg">
         <CardHeader>
           <CardTitle className="text-2xl">Gestione Collezione Giochi (Admin)</CardTitle>
-          <CardDescription>Gestisci la collezione di giochi da tavolo sincronizzandola con BoardGameGeek e Firebase.</CardDescription>
+          <CardDescription>Gestisci la collezione di giochi da tavolo sincronizzandola con BoardGameGeek e Firebase. Puoi anche fissare i giochi per la sezione "Vetrina" della homepage.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-col sm:flex-row gap-4">
-            <Button onClick={handleFetchBggCollection} disabled={isLoadingBgg} className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground">
-              {isLoadingBgg ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            <Button onClick={handleFetchBggCollection} disabled={isBggFetching} className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground">
+              {isBggFetching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Sincronizza con BGG (Utente: {BGG_USERNAME})
             </Button>
             <Button 
               onClick={handleSyncToDb} 
-              disabled={isSyncingDb || isLoadingBgg || (gamesToAdd.length === 0 && gamesToRemove.length === 0 && bggFetchedCollection !== null) }
+              disabled={isDbSyncing || isBggFetching || (gamesToAdd.length === 0 && gamesToRemove.length === 0 && bggFetchedCollection !== null) }
               className="flex-1 bg-accent hover:bg-accent/90 text-accent-foreground"
             >
-              {isSyncingDb ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {isDbSyncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Salva Modifiche nel DB
             </Button>
           </div>
@@ -249,7 +265,7 @@ export default function AdminCollectionPage() {
             </Alert>
         )}
         
-        {!isLoadingDb && sortedDisplayedCollection.length === 0 && bggFetchedCollection && !isLoadingBgg && (
+        {!isLoadingDb && sortedDisplayedCollection.length === 0 && bggFetchedCollection && !isBggFetching && (
             <Alert>
             <Info className="h-4 w-4" />
             <AlertTitle>Collezione BGG Vuota o Non Trovata</AlertTitle>
@@ -275,6 +291,12 @@ export default function AdminCollectionPage() {
                            <Button variant="ghost" onClick={() => handleSort('overallAverageRating')} className="px-1">
                             Voto
                             <SortIcon columnKey="overallAverageRating" />
+                          </Button>
+                        </TableHead>
+                        <TableHead className="text-center">
+                           <Button variant="ghost" onClick={() => handleSort('isPinned')} className="px-1">
+                            Vetrina
+                            <SortIcon columnKey="isPinned" />
                           </Button>
                         </TableHead>
                         <TableHead className="text-right">BGG</TableHead>
@@ -311,6 +333,19 @@ export default function AdminCollectionPage() {
                             '-'
                             )}
                         </TableCell>
+                        <TableCell className="text-center">
+                            <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                onClick={() => handleTogglePin(game.id, game.isPinned || false)}
+                                disabled={isPinToggling}
+                                title={game.isPinned ? "Rimuovi da Vetrina" : "Aggiungi a Vetrina"}
+                                className={`h-8 w-8 hover:bg-accent/20 ${game.isPinned ? 'text-accent' : 'text-muted-foreground/60 hover:text-accent'}`}
+                            >
+                                {isPinToggling && <Loader2 className="h-4 w-4 animate-spin" />}
+                                {!isPinToggling && (game.isPinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />)}
+                            </Button>
+                        </TableCell>
                         <TableCell className="text-right">
                             <Button variant="outline" size="icon" asChild className="h-8 w-8">
                                 <a href={`https://boardgamegeek.com/boardgame/${game.bggId}`} target="_blank" rel="noopener noreferrer" title="Vedi su BGG">
@@ -333,8 +368,9 @@ export default function AdminCollectionPage() {
         onConfirm={confirmSyncToDb}
         gamesToAdd={gamesToAdd}
         gamesToRemove={gamesToRemove}
-        isSyncing={isSyncingDb}
+        isSyncing={isDbSyncing}
       />
     </div>
   );
 }
+

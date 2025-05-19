@@ -18,11 +18,11 @@ export const RATING_CATEGORIES: Record<RatingCategory, string> = {
   fun: 'Fattore Divertimento',
   decisionDepth: 'Profondità Decisionale',
   replayability: 'Varietà e Rigiocabilità',
-  luck: 'Assenza di Fortuna', // Capitalized F
+  luck: 'Assenza di Fortuna',
   lengthDowntime: 'Durata',
   graphicDesign: 'Grafica e Componenti',
   componentsThemeLore: 'Tema e Ambientazione',
-  effortToLearn: 'Facilità di Apprendimento', // Corrected capitalization
+  effortToLearn: 'Facilità di Apprendimento',
   setupTeardown: 'Preparazione e Riordino',
 };
 
@@ -67,7 +67,8 @@ export interface BoardGame {
   maxPlayers?: number | null;
   playingTime?: number | null;
   bggId: number;
-  overallAverageRating?: number | null; // Added for overall game average score
+  overallAverageRating?: number | null;
+  isPinned?: boolean; // Added for Vetrina
 }
 
 export interface AiSummary {
@@ -99,3 +100,4 @@ export interface UserProfile {
   name: string;
   photoURL?: string | null;
 }
+

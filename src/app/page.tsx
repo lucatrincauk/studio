@@ -6,7 +6,7 @@ import { Separator } from '@/components/ui/separator';
 
 export default async function HomePage() {
   const allGames = await getAllGamesAction();
-  const featuredGames = await getFeaturedGamesAction();
+  const featuredGames = await getFeaturedGamesAction(); // Now returns pinned + recent
 
   return (
     <div className="space-y-12">
@@ -23,7 +23,7 @@ export default async function HomePage() {
         {featuredGames && featuredGames.length > 0 && (
           <div className="mb-8">
             <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mb-6 text-center sm:text-left">
-              Ultimi Giochi Valutati
+              Vetrina {/* Changed title */}
             </h2>
             <div className="flex space-x-4 overflow-x-auto pb-4 md:grid md:grid-cols-3 md:gap-4 md:space-x-0 md:pb-0 md:overflow-x-visible">
               {featuredGames.map((game, index) => (
@@ -39,15 +39,9 @@ export default async function HomePage() {
         <GameSearchList initialGames={allGames} /> 
         
       </section>
-      {/* 
-        Future enhancements:
-        - "Add New Game" button/modal which could use a simplified version of BGG fetch
-        - Pagination if the list of games becomes very long
-      */}
     </div>
   );
 }
 
-// Revalidate this page periodically or on demand when new games are added
-export const revalidate = 3600; // Revalidate every hour
+export const revalidate = 3600; 
 
