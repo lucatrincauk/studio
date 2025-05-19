@@ -1,6 +1,5 @@
 
 import { getFeaturedGamesAction } from '@/lib/actions'; 
-import { GameSearchList } from '@/components/boardgame/game-search-list';
 import { GameCard } from '@/components/boardgame/game-card';
 import { Separator } from '@/components/ui/separator';
 import type { BoardGame } from '@/lib/types';
@@ -16,7 +15,7 @@ export default async function HomePage() {
             Esplora i Tuoi Giochi da Tavolo Preferiti
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Scopri, valuta e recensisci un mondo di avventure da tavolo. Usa la ricerca qui sotto per trovare un gioco specifico.
+            Scopri, valuta e recensisci un mondo di avventure da tavolo.
           </p>
         </div>
 
@@ -36,11 +35,20 @@ export default async function HomePage() {
           </div>
         )}
         
-        <GameSearchList /> 
+        {/* GameSearchList removed from here */}
         
+      </section>
+      <section className="text-center">
+        <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mb-4">
+          Pronto a Tuffarti?
+        </h2>
+        <p className="text-lg text-muted-foreground max-w-xl mx-auto">
+          Inizia esplorando il nostro <a href="/all-games" className="text-primary hover:underline">catalogo completo</a> o dai un'occhiata ai giochi <a href="/top-10" className="text-primary hover:underline">Top 10</a>!
+        </p>
       </section>
     </div>
   );
 }
 
 export const revalidate = 3600;
+

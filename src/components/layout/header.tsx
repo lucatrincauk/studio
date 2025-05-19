@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { LogOut, UserPlus, LogIn, MessagesSquare, Users2, ShieldCheck, UserCircle, Menu, TrendingUp } from 'lucide-react';
+import { LogOut, UserPlus, LogIn, MessagesSquare, Users2, ShieldCheck, UserCircle, Menu, TrendingUp, GaugeCircle, Library } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import {
   DropdownMenu,
@@ -45,6 +45,15 @@ export function Header() {
         >
           <TrendingUp size={18} />
           Top 10
+        </Link>
+      </SheetClose>
+      <SheetClose asChild>
+        <Link
+          href="/all-games"
+          className="flex items-center gap-1.5 text-sm font-medium transition-colors hover:bg-muted md:hover:bg-primary-foreground/10 md:text-primary-foreground rounded-md px-3 py-2"
+        >
+          <Library size={18} />
+          Catalogo
         </Link>
       </SheetClose>
       <SheetClose asChild>
@@ -231,6 +240,13 @@ export function Header() {
             >
               <TrendingUp size={18} />
               Top 10
+            </Link>
+             <Link
+              href="/all-games"
+              className="flex items-center gap-1.5 text-sm font-medium transition-colors hover:bg-primary-foreground/10 text-primary-foreground rounded-md px-3 py-1.5"
+            >
+              <Library size={18} />
+              Catalogo
             </Link>
             <Link
               href="/users"

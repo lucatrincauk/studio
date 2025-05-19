@@ -371,6 +371,7 @@ export async function importAndRateBggGameAction(bggId: string): Promise<{ gameI
       revalidatePath('/');
       revalidatePath(`/games/${existingGameId}`);
       revalidatePath('/admin/collection');
+      revalidatePath('/all-games');
       return { gameId: existingGameId };
 
   } catch (error) {
@@ -456,15 +457,14 @@ export async function getGameDetails(gameId: string): Promise<BoardGame | null> 
 }
 
 async function fetchWithRetry(url: string, retries = 3, delay = 2000, attempt = 1): Promise<string> {
-  // console.log(`[BGG FETCH ATTEMPT ${attempt}] Fetching URL: ${url}`);
+  
   try {
       const response = await fetch(url, { cache: 'no-store' });
-      // console.log(`[BGG FETCH ATTEMPT ${attempt}] Status: ${response.status} for URL: ${url}`);
       
       if (response.status === 200) {
           const xmlText = await response.text();
-          if ((!xmlText.includes('<items') && !xmlText.includes("<item ") && !xmlText.includes("<error>") && attempt < retries && !xmlText.includes("<boardgames") && !xmlText.includes("<boardgame ") && !xmlText.includes("<message>Your request for task processing has been accepted")) && !url.includes("/thing?")) { 
-              // console.warn(`[BGG FETCH ATTEMPT ${attempt}] XML seems incomplete for collection, retrying...`);
+           if ((!xmlText.includes('<items') && !xmlText.includes("<item ") && !xmlText.includes("<error>") && attempt < retries && !xmlText.includes("<boardgames") && !xmlText.includes("<boardgame ") && !xmlText.includes("<message>Your request for task processing has been accepted")) && !url.includes("/thing?")) { 
+              console.warn(`[BGG FETCH ATTEMPT ${attempt}] XML seems incomplete for collection, retrying...`);
               await new Promise(resolve => setTimeout(resolve, Math.min(delay * attempt, 6000))); 
               return fetchWithRetry(url, retries, delay, attempt + 1);
           }
@@ -472,10 +472,9 @@ async function fetchWithRetry(url: string, retries = 3, delay = 2000, attempt = 
               console.error(`[BGG FETCH ATTEMPT ${attempt}] BGG API returned an error in XML: ${xmlText.substring(0, 200)}`);
               throw new Error(`BGG API returned an error: ${xmlText.substring(0, 200)}`);
           }
-          // console.log(`[BGG FETCH ATTEMPT ${attempt}] Success for URL: ${url}. XML (first 2000 chars): \n${xmlText.substring(0,2000)}`);
           return xmlText;
       } else if (response.status === 202 && attempt < retries) {
-          // console.warn(`[BGG FETCH ATTEMPT ${attempt}] Received 202, retrying in ${Math.min(delay * attempt, 6000)}ms...`);
+          console.warn(`[BGG FETCH ATTEMPT ${attempt}] Received 202 for ${url}, retrying in ${Math.min(delay * attempt, 6000)}ms...`);
           await new Promise(resolve => setTimeout(resolve, Math.min(delay * attempt, 6000))); 
           return fetchWithRetry(url, retries, delay, attempt + 1);
       } else if (response.status !== 200 && response.status !== 202) {
@@ -564,7 +563,7 @@ export async function getBoardGamesFromFirestoreAction(): Promise<BoardGame[] | 
                 minPlaytime: data.minPlaytime === undefined || data.minPlaytime === null ? null : data.minPlaytime,
                 maxPlaytime: data.maxPlaytime === undefined || data.maxPlaytime === null ? null : data.maxPlaytime,
                 averageWeight: data.averageWeight === undefined || data.averageWeight === null ? null : data.averageWeight,
-                reviews: [], 
+                reviews: [], // Keep reviews minimal for list views
                 overallAverageRating,
                 isPinned: data.isPinned || false,
             };
@@ -645,6 +644,7 @@ export async function syncBoardGamesToFirestoreAction(
 
         revalidatePath('/admin/collection');
         revalidatePath('/');
+        revalidatePath('/all-games');
         return { success: true, message: `Sincronizzazione completata. ${gamesToAdd.length} giochi aggiunti/aggiornati, ${gamesToRemove.length} giochi rimossi.` };
 
     } catch (error) {
@@ -1052,6 +1052,7 @@ export async function batchUpdateMissingBggDetailsAction(): Promise<{ success: b
 
         revalidatePath('/admin/collection');
         revalidatePath('/');
+        revalidatePath('/all-games');
         return { success: true, message, gamesToUpdateClientSide };
 
     } catch (error) {
@@ -1061,147 +1062,3 @@ export async function batchUpdateMissingBggDetailsAction(): Promise<{ success: b
     }
 }
 
-
-export interface FetchPaginatedGamesParams {
-  pageParam?: QueryDocumentSnapshot<DocumentData> | null; 
-  limitNum?: number;
-  sortKey?: 'name' | 'overallAverageRating'; 
-  sortDirection?: 'asc' | 'desc';
-  searchTerm?: string;
-  direction?: 'next' | 'prev';
-}
-
-export async function fetchPaginatedGamesAction({
-  pageParam = null,
-  limitNum = 10,
-  sortKey = 'name',
-  sortDirection = 'asc',
-  searchTerm = '',
-  direction = 'next',
-}: FetchPaginatedGamesParams): Promise<{
-  games: BoardGame[];
-  nextPageParam: QueryDocumentSnapshot<DocumentData> | null;
-  prevPageParam: QueryDocumentSnapshot<DocumentData> | null;
-  totalGames: number;
-}> {
-  console.log('[SERVER ACTION] fetchPaginatedGamesAction called with params:', { pageParamId: pageParam?.id, limitNum, sortKey, sortDirection, searchTerm, direction });
-  try {
-    const gamesCollection = collection(db, FIRESTORE_COLLECTION_NAME);
-    let q: Query = gamesCollection;
-
-    if (searchTerm) {
-       q = query(q, 
-        where('name', '>=', searchTerm),
-        where('name', '<=', searchTerm + '\uf8ff')
-      );
-    }
-    
-    // Firestore requires the orderBy field to be the first field in inequality filters
-    // If searchTerm is present, name is already used in where.
-    // If not, and sortKey is name, it's fine.
-    // If not, and sortKey is different, we might need to adjust if we were doing server-side rating sort.
-    // For now, name sorting is primary on server.
-    q = query(q, orderBy('name', sortDirection === 'asc' ? 'asc' : 'desc'));
-
-
-    const totalGamesQuery = searchTerm ? 
-        query(gamesCollection, where('name', '>=', searchTerm), where('name', '<=', searchTerm + '\uf8ff'))
-        : gamesCollection;
-    const totalGamesSnapshot = await getCountFromServer(totalGamesQuery);
-    const totalGames = totalGamesSnapshot.data().count;
-    console.log(`[SERVER ACTION] Total games matching search "${searchTerm}": ${totalGames}`);
-
-    if (pageParam) {
-      if (direction === 'next') {
-        q = query(q, startAfter(pageParam));
-      } else {
-         q = query(q, endBefore(pageParam), limitToLast(limitNum));
-      }
-    }
-    
-    if (direction === 'next' || !pageParam) { // Apply limit for initial load and next page
-        q = query(q, limit(limitNum));
-    }
-
-
-    const documentSnapshots = await getDocs(q);
-    console.log(`[SERVER ACTION] Fetched ${documentSnapshots.docs.length} game documents for current page.`);
-    
-    // TEMPORARILY SIMPLIFIED: Skip review fetching for now to isolate game document fetching
-    let gamesPromises = documentSnapshots.docs.map(async (docSnap) => {
-      const data = docSnap.data();
-      const gameId = docSnap.id;
-      // console.log(`[SERVER ACTION] Processing game doc: ${gameId}, Data:`, data); // Log individual game data
-
-      // TEMPORARY: Set overallAverageRating to null, reviews to []
-      const overallAverageRating = null;
-      const reviews: Review[] = [];
-      /*
-      // LATER: Re-enable review fetching and average calculation
-      try {
-        const reviewsSnapshot = await getDocs(query(collection(db, FIRESTORE_COLLECTION_NAME, gameId, 'reviews')));
-        reviews = reviewsSnapshot.docs.map(reviewDoc => {
-          const reviewData = reviewDoc.data();
-          const rating: Rating = { // Ensure all fields are present
-            excitedToReplay: reviewData.rating?.excitedToReplay || 0,
-            mentallyStimulating: reviewData.rating?.mentallyStimulating || 0,
-            fun: reviewData.rating?.fun || 0,
-            decisionDepth: reviewData.rating?.decisionDepth || 0,
-            replayability: reviewData.rating?.replayability || 0,
-            luck: reviewData.rating?.luck || 0,
-            lengthDowntime: reviewData.rating?.lengthDowntime || 0,
-            graphicDesign: reviewData.rating?.graphicDesign || 0,
-            componentsThemeLore: reviewData.rating?.componentsThemeLore || 0,
-            effortToLearn: reviewData.rating?.effortToLearn || 0,
-            setupTeardown: reviewData.rating?.setupTeardown || 0,
-          };
-          return { id: reviewDoc.id, ...reviewData, rating } as Review;
-        });
-        const categoryAvgs = calculateCategoryAverages(reviews);
-        overallAverageRating = categoryAvgs ? calculateOverallCategoryAverage(categoryAvgs) : null;
-      } catch (e) { 
-        console.error("Error fetching or processing reviews for game " + gameId, e);
-        overallAverageRating = null; // Default if error
-        reviews = [];
-      }
-      */
-      
-      return {
-        id: gameId,
-        name: data.name || "Gioco Senza Nome",
-        coverArtUrl: data.coverArtUrl || `https://placehold.co/100x150.png?text=N/A`,
-        yearPublished: data.yearPublished ?? null,
-        minPlayers: data.minPlayers ?? null,
-        maxPlayers: data.maxPlayers ?? null,
-        playingTime: data.playingTime ?? null,
-        minPlaytime: data.minPlaytime ?? null,
-        maxPlaytime: data.maxPlaytime ?? null,
-        averageWeight: data.averageWeight ?? null,
-        bggId: data.bggId || 0,
-        reviews: [], // Keep reviews minimal for list views
-        overallAverageRating, // Will be null due to temporary simplification
-        isPinned: data.isPinned || false,
-      } as BoardGame;
-    });
-
-    let games = await Promise.all(gamesPromises);
-    
-    if (direction === 'prev' && pageParam && documentSnapshots.docs.length > 0) { // Check if docs exist before reversing
-        games = games.reverse(); 
-    }
-    
-    const newNextPageParam = documentSnapshots.docs.length === limitNum && documentSnapshots.docs.length > 0 ? documentSnapshots.docs[documentSnapshots.docs.length - 1] : null;
-    const newPrevPageParam = pageParam && documentSnapshots.docs.length > 0 ? documentSnapshots.docs[0] : null;
-
-    console.log(`[SERVER ACTION] Returning ${games.length} games. Next cursor: ${newNextPageParam?.id}, Prev cursor: ${newPrevPageParam?.id}, Total games: ${totalGames}`);
-    return {
-      games,
-      nextPageParam: newNextPageParam,
-      prevPageParam: newPrevPageParam, 
-      totalGames,
-    };
-  } catch (error) {
-    console.error("[SERVER ACTION] Error in fetchPaginatedGamesAction:", error);
-    return { games: [], nextPageParam: null, prevPageParam: null, totalGames: 0 };
-  }
-}

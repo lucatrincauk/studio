@@ -1,12 +1,12 @@
 
 'use client';
 
-import { useState, useEffect, useMemo, useCallback, useTransition } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import type { BoardGame } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Info, ArrowUpDown, ArrowUp, ArrowDown, Loader2 } from 'lucide-react';
+import { Search, Info, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   Table,
@@ -18,8 +18,6 @@ import {
 } from "@/components/ui/table";
 import { SafeImage } from '@/components/common/SafeImage';
 import { formatRatingNumber } from '@/lib/utils';
-import { fetchPaginatedGamesAction, type FetchPaginatedGamesParams } from '@/lib/actions';
-import type { DocumentData, QueryDocumentSnapshot } from 'firebase/firestore';
 
 type SortableKeys = 'name' | 'overallAverageRating';
 interface SortConfig {
@@ -50,9 +48,8 @@ const LocalGamesTable = ({
   totalPages,
   handlePrevPage,
   handleNextPage,
-  isLoading,
-  totalGamesCount,
-  currentSearchTerm
+  currentSearchTerm,
+  totalGamesCount
 }: {
   games: BoardGame[],
   sortConfig: SortConfig,
@@ -61,9 +58,8 @@ const LocalGamesTable = ({
   totalPages: number,
   handlePrevPage: () => void,
   handleNextPage: () => void,
-  isLoading: boolean;
-  totalGamesCount: number;
   currentSearchTerm: string;
+  totalGamesCount: number;
 }) => {
 
   const SortIcon = ({ columnKey }: { columnKey: SortableKeys }) => {
@@ -73,16 +69,7 @@ const LocalGamesTable = ({
     return sortConfig.direction === 'asc' ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />;
   };
   
-  if (isLoading && games.length === 0 && totalGamesCount === 0) { // Show loading only if we expect games or are fetching total
-    return (
-      <div className="flex justify-center items-center py-10">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <span className="ml-2 text-muted-foreground">Caricamento giochi...</span>
-      </div>
-    );
-  }
-
-  if (games.length === 0 && !isLoading) {
+  if (games.length === 0) {
      return (
         <Alert variant="default" className="max-w-lg mx-auto bg-secondary/30 border-secondary text-center">
             <Info className="h-4 w-4 mx-auto mb-2 text-muted-foreground" />
@@ -91,7 +78,7 @@ const LocalGamesTable = ({
             </AlertTitle>
             <AlertDescription className="mb-3 text-muted-foreground">
               {currentSearchTerm 
-                ? `Nessun gioco corrispondente alla ricerca "${currentSearchTerm}" è stato trovato.`
+                ? `Nessun gioco corrispondente alla ricerca "${currentSearchTerm}" è stato trovato nella collezione locale.`
                 : "La collezione locale è vuota. Gli admin possono aggiungere giochi tramite la sezione Admin."
               }
             </AlertDescription>
@@ -159,13 +146,13 @@ const LocalGamesTable = ({
           </Table>
           {totalPages > 1 && (
             <div className="flex items-center justify-between mt-4">
-              <Button onClick={handlePrevPage} disabled={currentPage === 1 || isLoading}>
+              <Button onClick={handlePrevPage} disabled={currentPage === 1}>
                 Precedente
               </Button>
               <span className="text-sm text-muted-foreground">
                 Pagina {currentPage} di {totalPages}
               </span>
-              <Button onClick={handleNextPage} disabled={currentPage === totalPages || isLoading}>
+              <Button onClick={handleNextPage} disabled={currentPage === totalPages}>
                 Successiva
               </Button>
             </div>
@@ -176,84 +163,51 @@ const LocalGamesTable = ({
 }
 
 
-export function GameSearchList() {
+interface GameSearchListProps {
+  initialGames: BoardGame[];
+  title?: string;
+}
+
+export function GameSearchList({ initialGames, title = "Tutti i Giochi" }: GameSearchListProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearchTerm = useDebounce(searchTerm, 300); 
-
-  const [games, setGames] = useState<BoardGame[]>([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalGames, setTotalGames] = useState(0);
-  const [isLoading, startDataFetchTransition] = useTransition();
-  
+  const [localFilteredGames, setLocalFilteredGames] = useState<BoardGame[]>(initialGames);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'overallAverageRating', direction: 'desc' });
-  
-  const [pageCursors, setPageCursors] = useState<(QueryDocumentSnapshot<DocumentData> | null)[]>([null]);
+  const [currentPage, setCurrentPage] = useState(1);
 
-  // Effect to reset pagination when search or sort config changes
   useEffect(() => {
-    console.log('[CLIENT] Search term or sort config changed. Resetting page.');
-    setCurrentPage(1);
-    setPageCursors([null]); 
-  }, [debouncedSearchTerm, sortConfig]);
+    let filtered = initialGames;
+    if (debouncedSearchTerm) {
+      filtered = initialGames.filter(game =>
+        game.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
+      );
+    }
+    setLocalFilteredGames(filtered);
+    setCurrentPage(1); // Reset to first page on new search/filter
+  }, [debouncedSearchTerm, initialGames]);
 
-  // Effect to fetch data when page, search, or sort changes
-  useEffect(() => {
-    const fetchGames = async () => {
-      console.log('[CLIENT] Attempting to fetch games. Params:', { currentPage, sortConfig, debouncedSearchTerm, cursorId: pageCursors[currentPage - 1]?.id });
-      startDataFetchTransition(async () => {
-        const cursorForPageFetch = pageCursors[currentPage - 1] || null;
-        
-        const params: FetchPaginatedGamesParams = {
-          pageParam: cursorForPageFetch,
-          limitNum: GAMES_PER_PAGE,
-          sortKey: sortConfig.key,
-          sortDirection: sortConfig.direction,
-          searchTerm: debouncedSearchTerm,
-          direction: 'next', 
-        };
+  const sortedLocalGames = useMemo(() => {
+    const sortableItems = [...localFilteredGames];
+    sortableItems.sort((a, b) => {
+      if (sortConfig.key === 'name') {
+        const nameA = a.name || '';
+        const nameB = b.name || '';
+        return sortConfig.direction === 'asc' ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+      } else if (sortConfig.key === 'overallAverageRating') {
+        const ratingA = a.overallAverageRating === null || a.overallAverageRating === undefined ? (sortConfig.direction === 'asc' ? Infinity : -Infinity) : a.overallAverageRating;
+        const ratingB = b.overallAverageRating === null || b.overallAverageRating === undefined ? (sortConfig.direction === 'asc' ? Infinity : -Infinity) : b.overallAverageRating;
+        return sortConfig.direction === 'asc' ? ratingA - ratingB : ratingB - ratingA;
+      }
+      return 0;
+    });
+    return sortableItems;
+  }, [localFilteredGames, sortConfig]);
 
-        const result = await fetchPaginatedGamesAction(params);
-        console.log('[CLIENT] Received result from fetchPaginatedGamesAction:', result);
-
-        if (result && Array.isArray(result.games)) {
-          console.log('[CLIENT] Setting games state with:', result.games);
-          setGames(result.games);
-          console.log('[CLIENT] Setting totalGames state with:', result.totalGames);
-          setTotalGames(result.totalGames);
-
-          setPageCursors(prevCursors => {
-            const newCursors = [...prevCursors];
-            // Ensure the array is long enough
-            while (newCursors.length <= currentPage) {
-              newCursors.push(null);
-            }
-            // Update the cursor for the *next* page
-            if (result.nextPageParam) {
-              if (!newCursors[currentPage] || newCursors[currentPage]?.id !== result.nextPageParam?.id) {
-                 newCursors[currentPage] = result.nextPageParam;
-                 console.log('[CLIENT] Updated next page cursor:', newCursors);
-                 return newCursors;
-              }
-            } else { // No next page, so ensure the cursor for the next page is null
-                if (newCursors[currentPage] !== null) {
-                    newCursors[currentPage] = null;
-                    console.log('[CLIENT] Cleared next page cursor (no next page):', newCursors);
-                    return newCursors;
-                }
-            }
-            console.log('[CLIENT] Page cursors unchanged or already up-to-date:', prevCursors);
-            return prevCursors; // Return previous state if no change
-          });
-        } else {
-          console.error('[CLIENT] Invalid result from fetchPaginatedGamesAction or result.games is not an array:', result);
-          setGames([]);
-          setTotalGames(0);
-        }
-      });
-    };
-    fetchGames();
-  }, [currentPage, debouncedSearchTerm, sortConfig, startDataFetchTransition]); // pageCursors removed to break potential loops
-
+  const totalPages = Math.ceil(sortedLocalGames.length / GAMES_PER_PAGE);
+  const paginatedGames = useMemo(() => {
+    const startIndex = (currentPage - 1) * GAMES_PER_PAGE;
+    return sortedLocalGames.slice(startIndex, startIndex + GAMES_PER_PAGE);
+  }, [sortedLocalGames, currentPage]);
 
   const handleSort = useCallback((key: SortableKeys) => {
     setSortConfig(prevSortConfig => {
@@ -263,10 +217,9 @@ export function GameSearchList() {
       }
       return { key, direction }; 
     });
+    setCurrentPage(1); // Reset to first page on sort change
   }, []);
   
-  const totalPages = totalGames > 0 ? Math.ceil(totalGames / GAMES_PER_PAGE) : 1;
-
   const handleNextPage = useCallback(() => {
     if (currentPage < totalPages) {
       setCurrentPage(prev => prev + 1);
@@ -283,26 +236,10 @@ export function GameSearchList() {
     setSearchTerm(e.target.value);
   }, []);
   
-  const clientSortedGames = useMemo(() => {
-    // Server-side sorting handles 'name'. Client-side for 'overallAverageRating' on the current page's data.
-    if (sortConfig.key === 'overallAverageRating' && games.length > 0) {
-      return [...games].sort((a, b) => {
-        const valA = a.overallAverageRating ?? (sortConfig.direction === 'asc' ? Infinity : -Infinity);
-        const valB = b.overallAverageRating ?? (sortConfig.direction === 'asc' ? Infinity : -Infinity);
-        return sortConfig.direction === 'asc' ? valA - valB : valB - valA;
-      });
-    }
-    return games; // Already sorted by name on server, or no rating sort needed
-  }, [games, sortConfig]);
-
-  console.log('[CLIENT] Rendering GameSearchList. Games state:', games, 'Total games state:', totalGames, 'isLoading:', isLoading);
-  console.log('[CLIENT] clientSortedGames for table:', clientSortedGames);
-
-
   return (
     <div className="space-y-6">
       <h3 className="text-xl font-semibold text-foreground">
-        Tutti i Giochi ({totalGames})
+        {title} ({initialGames.length})
       </h3>
       <div className="relative max-w-xl mb-4">
         <Search className="absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground pointer-events-none" />
@@ -316,18 +253,16 @@ export function GameSearchList() {
         />
       </div>
       <LocalGamesTable
-        games={clientSortedGames}
+        games={paginatedGames}
         sortConfig={sortConfig}
         handleSort={handleSort}
         currentPage={currentPage}
         totalPages={totalPages}
         handlePrevPage={handlePrevPage}
         handleNextPage={handleNextPage}
-        isLoading={isLoading}
-        totalGamesCount={totalGames}
         currentSearchTerm={debouncedSearchTerm}
+        totalGamesCount={sortedLocalGames.length}
       />
     </div>
   );
 }
-
