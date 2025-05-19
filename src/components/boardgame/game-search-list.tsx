@@ -176,7 +176,7 @@ const LocalGamesTable = ({
 
 export function GameSearchList() {
   const [searchTerm, setSearchTerm] = useState('');
-  const debouncedSearchTerm = useDebounce(searchTerm, 500); // Increased debounce
+  const debouncedSearchTerm = useDebounce(searchTerm, 300); 
 
   const [games, setGames] = useState<BoardGame[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -185,101 +185,105 @@ export function GameSearchList() {
   
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'asc' });
   
-  // Store pagination cursors (document snapshots)
   const [pageCursors, setPageCursors] = useState<(QueryDocumentSnapshot<DocumentData> | null)[]>([null]);
 
+  // Effect to reset pagination state when search term or sort config changes
+  useEffect(() => {
+    setCurrentPage(1);
+    setPageCursors([null]); // This will trigger the data fetching effect below.
+  }, [debouncedSearchTerm, sortConfig]);
 
-  const fetchGamesForPage = useCallback(async (page: number, currentSortConfig: SortConfig, currentSearchTerm: string) => {
+  // Effect to fetch data
+  useEffect(() => {
     startDataFetchTransition(async () => {
-      const params: FetchPaginatedGamesParams = {
-        pageParam: pageCursors[page -1] || null, // Use cursor for page > 1
-        limitNum: GAMES_PER_PAGE,
-        sortKey: currentSortConfig.key,
-        sortDirection: currentSortConfig.direction,
-        searchTerm: currentSearchTerm,
-        direction: 'next', // Simplified: always fetch 'next' based on cursor
-      };
+      const cursorForPageFetch = pageCursors[currentPage - 1] || null;
       
-      // If page is 1, we don't need a cursor
-      if (page === 1) {
-        params.pageParam = null;
-      }
+      const params: FetchPaginatedGamesParams = {
+        pageParam: cursorForPageFetch,
+        limitNum: GAMES_PER_PAGE,
+        sortKey: sortConfig.key,
+        sortDirection: sortConfig.direction,
+        searchTerm: debouncedSearchTerm,
+        direction: 'next',
+      };
 
       const result = await fetchPaginatedGamesAction(params);
       setGames(result.games);
       setTotalGames(result.totalGames);
 
+      // Update cursors for the *next* page
       if (result.nextPageParam) {
-        setPageCursors(prevCursors => {
-          const newCursors = [...prevCursors];
-          newCursors[page] = result.nextPageParam; // Store cursor for the *next* page
-          return newCursors;
+        setPageCursors(prev => {
+          const newCursors = [...prev];
+          while (newCursors.length <= currentPage) {
+            newCursors.push(null);
+          }
+          // Only update if the cursor is new or different to prevent potential loops
+          if (!newCursors[currentPage] || newCursors[currentPage]?.id !== result.nextPageParam?.id) {
+             newCursors[currentPage] = result.nextPageParam; // Cursor for page (currentPage + 1) is at index `currentPage`
+             return newCursors;
+          }
+          return prev;
         });
+      } else {
+         // If no next page, ensure cursor for 'next' slot is null
+         setPageCursors(prev => {
+            if (prev.length > currentPage && prev[currentPage] !== null) {
+               const newCursors = [...prev];
+               newCursors[currentPage] = null;
+               return newCursors;
+            }
+            return prev;
+         });
       }
     });
-  }, [pageCursors]); // pageCursors dependency is important
+  // `pageCursors` is included as a dependency. The conditional updates to `setPageCursors`
+  // (returning `prev` if data is identical) are crucial to prevent infinite loops.
+  // eslint-disable-next-line react-hooks/exhaustive-deps 
+  }, [currentPage, debouncedSearchTerm, sortConfig, pageCursors, startDataFetchTransition]); 
 
 
-  useEffect(() => {
-    setCurrentPage(1); // Reset to page 1 on search term or sort change
-    setPageCursors([null]); // Reset cursors
-    fetchGamesForPage(1, sortConfig, debouncedSearchTerm);
-  }, [debouncedSearchTerm, sortConfig, fetchGamesForPage]);
+  const handleSort = useCallback((key: SortableKeys) => {
+    setSortConfig(prevSortConfig => {
+      let direction: 'asc' | 'desc' = 'asc';
+      if (prevSortConfig.key === key && prevSortConfig.direction === 'asc') {
+        direction = 'desc';
+      }
+      // Resetting currentPage and pageCursors is handled by the useEffect watching sortConfig
+      return { key, direction }; 
+    });
+  }, []);
   
-  useEffect(() => {
-     // Fetch data for the current page if it's not the first page and cursors/sort/search haven't changed it
-     // This handles direct page changes via pagination buttons.
-    if (currentPage > 1 || (currentPage === 1 && games.length === 0 && totalGames > 0)) { // Also fetch if page 1 is empty but should have games
-        fetchGamesForPage(currentPage, sortConfig, debouncedSearchTerm);
-    }
-  }, [currentPage, fetchGamesForPage, sortConfig, debouncedSearchTerm, games.length, totalGames]);
+  const totalPages = totalGames > 0 ? Math.ceil(totalGames / GAMES_PER_PAGE) : 1;
 
-
-  const handleSort = (key: SortableKeys) => {
-    let direction: 'asc' | 'desc' = 'asc';
-    if (sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc';
-    }
-    setSortConfig({ key, direction });
-    // Fetching will be triggered by useEffect watching sortConfig
-  };
-  
-  const totalPages = Math.ceil(totalGames / GAMES_PER_PAGE);
-
-  const handleNextPage = () => {
+  const handleNextPage = useCallback(() => {
     if (currentPage < totalPages) {
       setCurrentPage(prev => prev + 1);
     }
-  };
+  }, [currentPage, totalPages]);
 
-  const handlePrevPage = () => {
+  const handlePrevPage = useCallback(() => {
     if (currentPage > 1) {
-       // To go previous, we need to refetch from the cursor of page - 2 to get to page - 1
-       // This simplified example might just refetch page 1 then allow next page clicks,
-       // or you'd need more complex cursor logic for true bidirectional pagination with startAfter/endBefore.
-       // For now, a simple decrement and relying on useEffect logic might work if cursors are stored.
-       // However, a more robust 'prev' would use endBefore and limitToLast, then reverse.
-       // For simplicity here, going "previous" will re-fetch from a potentially earlier cursor if available.
-       // The most straightforward way if only 'next' cursors are stored is to reset to page 1 on 'prev' if not page 1.
-       // Or, better, rely on the useEffect to fetch the correct data for the new `currentPage`
       setCurrentPage(prev => prev - 1);
     }
-  };
+  }, [currentPage]);
 
   const handleSearchInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
+    // Resetting currentPage and pageCursors is handled by the useEffect watching debouncedSearchTerm
   }, []);
   
-  // Client-side sorting for overallAverageRating (applied only to the current page)
   const clientSortedGames = useMemo(() => {
-    if (sortConfig.key === 'overallAverageRating') {
+    // Server-side sorting for 'name' is primary.
+    // Client-side sorting for 'overallAverageRating' is applied to the current page's data.
+    if (sortConfig.key === 'overallAverageRating' && games.length > 0) {
       return [...games].sort((a, b) => {
         const ratingA = a.overallAverageRating ?? (sortConfig.direction === 'asc' ? Infinity : -Infinity);
         const ratingB = b.overallAverageRating ?? (sortConfig.direction === 'asc' ? Infinity : -Infinity);
         return sortConfig.direction === 'asc' ? ratingA - ratingB : ratingB - ratingA;
       });
     }
-    return games; // For name sort, server already handled it.
+    return games; // For name sort, server already handled it for the fetched page.
   }, [games, sortConfig]);
 
 
