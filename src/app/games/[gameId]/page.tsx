@@ -210,15 +210,15 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             <div className="flex justify-between items-start mb-2">
                 <div className="flex items-center gap-2 flex-1 mr-4">
                   <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">{game.name}</h1>
-                  {game.bggId && (
+                   {game.bggId && (
                     <a
                       href={`https://boardgamegeek.com/boardgame/${game.bggId}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       title="Vedi su BoardGameGeek"
-                      className="inline-flex items-center text-primary hover:text-primary/80 focus:outline-none focus:ring-2 focus:ring-ring rounded-md p-0.5" // Reduced padding for tighter fit
+                      className="inline-flex items-center text-primary hover:text-primary/80 focus:outline-none focus:ring-2 focus:ring-ring rounded-md p-0.5"
                     >
-                      <ExternalLink size={16} className="h-4 w-4" /> {/* Made icon smaller */}
+                      <ExternalLink size={16} className="h-4 w-4" />
                     </a>
                   )}
                   {isAdmin && !isLoadingGame && game && (
@@ -234,11 +234,9 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                     </Button>
                   )}
                 </div>
-              {globalGameAverage !== null && (
-                 <span className="text-primary text-3xl font-bold">
-                    {formatRatingNumber(globalGameAverage * 2)}
-                 </span>
-              )}
+               <span className="text-primary text-3xl font-bold">
+                  {globalGameAverage !== null ? formatRatingNumber(globalGameAverage * 2) : '-'}
+               </span>
             </div>
             
             <div className="md:hidden my-4 max-w-[240px] mx-auto">
@@ -294,7 +292,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             </div>
 
             <div className="mt-4 space-y-1 md:border-t-0 border-t border-border pt-4 md:pt-0">
-              <h3 className="text-lg font-semibold text-foreground mb-3">Valutazioni Medie dei Giocatori:</h3>
+              <h3 className="text-lg font-semibold text-foreground mb-3">Valutazione Media:</h3>
                 <GroupedRatingsDisplay
                     groupedAverages={groupedCategoryAverages}
                     noRatingsMessage="Nessuna valutazione per calcolare le medie."
@@ -333,7 +331,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                   <h3 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h3>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <Button asChild size="sm">
-                      <Link href={`/games/${gameId}/rate`}>
+                     <Link href={`/games/${gameId}/rate`}>
                         <span className="flex items-center">
                            <Edit className="mr-0 sm:mr-2 h-4 w-4" />
                            <span className="hidden sm:inline">Modifica</span>
@@ -394,12 +392,14 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                   </Alert>
             )}
           
-          <div>
-            <h2 className="text-2xl font-semibold text-foreground mb-6">
-                {userReview ? `Altre Recensioni (${remainingReviews.length})` : `Recensioni dei Giocatori (${game.reviews.length})`}
-            </h2>
-            <ReviewList reviews={remainingReviews} />
-          </div>
+          {(!userReview || remainingReviews.length > 0) && (
+            <div>
+              <h2 className="text-2xl font-semibold text-foreground mb-6">
+                  {userReview ? `Altre Recensioni (${remainingReviews.length})` : `Recensioni dei Giocatori (${game.reviews.length})`}
+              </h2>
+              <ReviewList reviews={remainingReviews} />
+            </div>
+          )}
         </div>
 
         <div className="lg:col-span-1 space-y-8 sticky top-24 self-start">
