@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import type { BoardGame } from '@/lib/types';
 import { Input } from '@/components/ui/input';
@@ -48,89 +48,29 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
-
-export function GameSearchList({ initialGames }: GameSearchListProps) {
-  const [searchTerm, setSearchTerm] = useState('');
-  const debouncedSearchTerm = useDebounce(searchTerm, 300); // 300ms delay
-  const [localFilteredGames, setLocalFilteredGames] = useState<BoardGame[]>(initialGames);
-  
-  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'overallAverageRating', direction: 'descending' });
-  const [currentPage, setCurrentPage] = useState(1);
-  
-
-  useEffect(() => {
-    setCurrentPage(1); 
-    const trimmedSearchTerm = debouncedSearchTerm.toLowerCase().trim();
-
-    if (!trimmedSearchTerm) {
-      setLocalFilteredGames([...initialGames]); // Use a copy to ensure re-render if initialGames ref is stable
-      return;
-    }
-
-    const filtered = initialGames.filter(game =>
-      (game.name || '').toLowerCase().includes(trimmedSearchTerm)
-    );
-    setLocalFilteredGames(filtered);
-  }, [debouncedSearchTerm, initialGames]); // Depend on debouncedSearchTerm
-
-  const handleSort = (key: SortableKeys) => {
-    let direction: 'ascending' | 'descending' = 'ascending';
-    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
-      direction = 'descending';
-    }
-    setSortConfig({ key, direction });
-    setCurrentPage(1); 
-  };
-
-  const sortedInitialGames = useMemo(() => {
-    let items = [...initialGames]; // Use a copy
-    items.sort((a, b) => {
-      if (sortConfig.key === 'name') {
-        const nameA = a.name || '';
-        const nameB = b.name || '';
-        return sortConfig.direction === 'ascending' ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
-      } else if (sortConfig.key === 'overallAverageRating') {
-        const ratingA = a.overallAverageRating === null || a.overallAverageRating === undefined ? (sortConfig.direction === 'ascending' ? Infinity : -Infinity) : a.overallAverageRating;
-        const ratingB = b.overallAverageRating === null || b.overallAverageRating === undefined ? (sortConfig.direction === 'ascending' ? Infinity : -Infinity) : b.overallAverageRating;
-        return sortConfig.direction === 'ascending' ? ratingA - ratingB : ratingB - ratingA;
-      }
-      return 0;
-    });
-    return items;
-  }, [initialGames, sortConfig]);
-
-  const sortedLocalFilteredGames = useMemo(() => {
-    let items = [...localFilteredGames]; // Use a copy
-    items.sort((a, b) => {
-      if (sortConfig.key === 'name') {
-        const nameA = a.name || '';
-        const nameB = b.name || '';
-        return sortConfig.direction === 'ascending' ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
-      } else if (sortConfig.key === 'overallAverageRating') {
-        const ratingA = a.overallAverageRating === null || a.overallAverageRating === undefined ? (sortConfig.direction === 'ascending' ? Infinity : -Infinity) : a.overallAverageRating;
-        const ratingB = b.overallAverageRating === null || b.overallAverageRating === undefined ? (sortConfig.direction === 'ascending' ? Infinity : -Infinity) : b.overallAverageRating;
-        return sortConfig.direction === 'ascending' ? ratingA - ratingB : ratingB - ratingA;
-      }
-      return 0;
-    });
-    return items;
-  }, [localFilteredGames, sortConfig]);
-  
-  const gamesToDisplayInTable = debouncedSearchTerm.trim().length > 0 ? sortedLocalFilteredGames : sortedInitialGames;
-  
-  const totalPages = Math.ceil(gamesToDisplayInTable.length / GAMES_PER_PAGE);
-  const paginatedGames = useMemo(() => {
-    const startIndex = (currentPage - 1) * GAMES_PER_PAGE;
-    return gamesToDisplayInTable.slice(startIndex, startIndex + GAMES_PER_PAGE);
-  }, [currentPage, gamesToDisplayInTable]);
-
-  const handleNextPage = () => {
-    setCurrentPage((prev) => Math.min(prev + 1, totalPages));
-  };
-
-  const handlePrevPage = () => {
-    setCurrentPage((prev) => Math.max(prev - 1, 1));
-  };
+// Define LocalGamesTable outside GameSearchList or use React.memo if kept inside (but better outside)
+// For this fix, moving input out is key. Table definition can stay inside if it's not causing issues itself.
+const LocalGamesTable = ({ 
+  games, 
+  totalGamesCount, 
+  title,
+  sortConfig,
+  handleSort,
+  currentPage,
+  totalPages,
+  handlePrevPage,
+  handleNextPage
+}: { 
+  games: BoardGame[], 
+  totalGamesCount: number, 
+  title: string,
+  sortConfig: SortConfig,
+  handleSort: (key: SortableKeys) => void,
+  currentPage: number,
+  totalPages: number,
+  handlePrevPage: () => void,
+  handleNextPage: () => void
+}) => {
 
   const SortIcon = ({ columnKey }: { columnKey: SortableKeys }) => {
     if (sortConfig.key !== columnKey) {
@@ -139,34 +79,22 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
     return sortConfig.direction === 'ascending' ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />;
   };
 
-  const LocalGamesTable = ({ games, totalGamesCount, title }: { games: BoardGame[], totalGamesCount: number, title: string }) => (
+  return (
     <section className="mt-8"> 
-      <h3 className="text-xl font-semibold mb-2 text-foreground">
+      <h3 className="text-xl font-semibold mb-4 text-foreground"> {/* Increased mb for spacing with search bar */}
         {title} ({totalGamesCount})
       </h3>
-       <div className="relative max-w-xl mx-auto mb-6">
-        <Search className="absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-        <Input
-          type="search"
-          placeholder="Cerca un gioco per nome..."
-          value={searchTerm} // Input value still updates immediately
-          onChange={(e) => setSearchTerm(e.target.value)} // setSearchTerm updates immediately
-          className="w-full rounded-lg bg-background py-3 pl-11 pr-4 text-base shadow-sm border border-input focus:ring-2 focus:ring-primary/50 focus:border-primary"
-          aria-label="Cerca un gioco per nome nella collezione locale"
-        />
-      </div>
-
-
-      {games.length === 0 && debouncedSearchTerm.trim().length > 0 && (
+      
+      {games.length === 0 && totalGamesCount > 0 && ( // This condition implies a search yielded no local results from a non-empty collection
          <Alert variant="default" className="max-w-lg mx-auto bg-secondary/30 border-secondary text-center">
             <Info className="h-4 w-4 mx-auto mb-2 text-muted-foreground" />
             <AlertTitle className="mb-1 text-foreground">Nessun Gioco Trovato</AlertTitle>
             <AlertDescription className="mb-3 text-muted-foreground">
-            Nessun gioco corrispondente a "{debouncedSearchTerm}" è stato trovato nella collezione locale.
+             Nessun gioco corrispondente al termine di ricerca è stato trovato nella collezione locale.
             </AlertDescription>
         </Alert>
       )}
-      {games.length === 0 && !debouncedSearchTerm.trim() && totalGamesCount === 0 && (
+      {games.length === 0 && totalGamesCount === 0 && ( // This condition implies the initial collection is empty
          <Alert variant="default" className="max-w-lg mx-auto bg-secondary/30 border-secondary text-center">
             <Info className="h-4 w-4 mx-auto mb-2 text-muted-foreground" />
             <AlertTitle className="mb-1 text-foreground">Collezione Vuota</AlertTitle>
@@ -175,6 +103,7 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
             </AlertDescription>
         </Alert>
       )}
+
       {games.length > 0 && (
         <div className="overflow-x-auto bg-card p-4 rounded-lg shadow-md border border-border">
           <Table>
@@ -249,11 +178,101 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
       )}
     </section>
   );
+}
+
+
+export function GameSearchList({ initialGames }: GameSearchListProps) {
+  const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearchTerm = useDebounce(searchTerm, 300); 
+  const [localFilteredGames, setLocalFilteredGames] = useState<BoardGame[]>(initialGames);
+  
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'overallAverageRating', direction: 'descending' });
+  const [currentPage, setCurrentPage] = useState(1);
+
+  useEffect(() => {
+    setCurrentPage(1); 
+    const trimmedSearchTerm = debouncedSearchTerm.toLowerCase().trim();
+
+    if (!trimmedSearchTerm) {
+      setLocalFilteredGames([...initialGames]); 
+      return;
+    }
+
+    const filtered = initialGames.filter(game =>
+      (game.name || '').toLowerCase().includes(trimmedSearchTerm)
+    );
+    setLocalFilteredGames(filtered);
+  }, [debouncedSearchTerm, initialGames]);
+
+  const handleSort = (key: SortableKeys) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+    setCurrentPage(1); 
+  };
+  
+  const sortedGamesForTable = useMemo(() => {
+    let itemsToDisplay = debouncedSearchTerm.trim().length > 0 ? [...localFilteredGames] : [...initialGames];
+    itemsToDisplay.sort((a, b) => {
+      if (sortConfig.key === 'name') {
+        const nameA = a.name || '';
+        const nameB = b.name || '';
+        return sortConfig.direction === 'ascending' ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+      } else if (sortConfig.key === 'overallAverageRating') {
+        const ratingA = a.overallAverageRating === null || a.overallAverageRating === undefined ? (sortConfig.direction === 'ascending' ? Infinity : -Infinity) : a.overallAverageRating;
+        const ratingB = b.overallAverageRating === null || b.overallAverageRating === undefined ? (sortConfig.direction === 'ascending' ? Infinity : -Infinity) : b.overallAverageRating;
+        return sortConfig.direction === 'ascending' ? ratingA - ratingB : ratingB - ratingA;
+      }
+      return 0;
+    });
+    return itemsToDisplay;
+  }, [initialGames, localFilteredGames, sortConfig, debouncedSearchTerm]);
+  
+  const totalPages = Math.ceil(sortedGamesForTable.length / GAMES_PER_PAGE);
+  const paginatedGames = useMemo(() => {
+    const startIndex = (currentPage - 1) * GAMES_PER_PAGE;
+    return sortedGamesForTable.slice(startIndex, startIndex + GAMES_PER_PAGE);
+  }, [currentPage, sortedGamesForTable]);
+
+  const handleNextPage = () => {
+    setCurrentPage((prev) => Math.min(prev + 1, totalPages));
+  };
+
+  const handlePrevPage = () => {
+    setCurrentPage((prev) => Math.max(prev - 1, 1));
+  };
+
+  const handleSearchInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+  }, []);
 
   return (
     <div className="space-y-8">
-      <LocalGamesTable games={paginatedGames} totalGamesCount={gamesToDisplayInTable.length} title="Tutti i Giochi" />
+       <div className="relative max-w-xl mx-auto mb-6"> {/* Search input is now part of GameSearchList directly */}
+        <Search className="absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+        <Input
+          type="search"
+          placeholder="Cerca un gioco per nome..."
+          value={searchTerm} 
+          onChange={handleSearchInputChange}
+          className="w-full rounded-lg bg-background py-3 pl-11 pr-4 text-base shadow-sm border border-input focus:ring-2 focus:ring-primary/50 focus:border-primary"
+          aria-label="Cerca un gioco per nome nella collezione locale"
+        />
+      </div>
+
+      <LocalGamesTable 
+        games={paginatedGames} 
+        totalGamesCount={sortedGamesForTable.length} 
+        title="Tutti i Giochi"
+        sortConfig={sortConfig}
+        handleSort={handleSort}
+        currentPage={currentPage}
+        totalPages={totalPages}
+        handlePrevPage={handlePrevPage}
+        handleNextPage={handleNextPage}
+      />
     </div>
   );
 }
-
