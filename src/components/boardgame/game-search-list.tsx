@@ -37,12 +37,12 @@ const GAMES_PER_PAGE = 10;
 export function GameSearchList({ initialGames }: GameSearchListProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [localFilteredGames, setLocalFilteredGames] = useState<BoardGame[]>(initialGames);
-  const [bggResults, setBggResults] = useState<BggSearchResult[]>([]);
-  const [isBggSearching, startBggSearchTransition] = useTransition();
-  const [isImportingGameId, setIsImportingGameId] = useState<string | null>(null);
-  const [isPendingImport, startImportTransition] = useTransition();
-  const [bggSearchError, setBggSearchError] = useState<string | null>(null);
-  const [bggSearchAttempted, setBggSearchAttempted] = useState(false);
+  // const [bggResults, setBggResults] = useState<BggSearchResult[]>([]);
+  // const [isBggSearching, startBggSearchTransition] = useTransition();
+  // const [isImportingGameId, setIsImportingGameId] = useState<string | null>(null);
+  // const [isPendingImport, startImportTransition] = useTransition();
+  // const [bggSearchError, setBggSearchError] = useState<string | null>(null);
+  // const [bggSearchAttempted, setBggSearchAttempted] = useState(false);
   
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'overallAverageRating', direction: 'descending' });
   const [currentPage, setCurrentPage] = useState(1);
@@ -53,8 +53,8 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
   useEffect(() => {
     setCurrentPage(1); 
     const trimmedSearchTerm = searchTerm.toLowerCase().trim();
-    setBggSearchAttempted(false); 
-    setBggResults([]); 
+    // setBggSearchAttempted(false); 
+    // setBggResults([]); 
 
     if (!trimmedSearchTerm) {
       setLocalFilteredGames(initialGames); 
@@ -126,50 +126,48 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
     setCurrentPage((prev) => Math.max(prev - 1, 1));
   };
 
-  const handleManualBggSearch = () => {
-    if (!searchTerm.trim()) {
-      setBggSearchError("Inserisci un termine di ricerca.");
-      return;
-    }
-    setBggSearchError(null);
-    setBggResults([]);
-    setBggSearchAttempted(true);
-    startBggSearchTransition(async () => {
-      const result = await searchBggGamesAction(searchTerm);
-      if ('error'in result) {
-        setBggSearchError(result.error);
-        toast({ title: 'Errore Ricerca BGG', description: result.error, variant: 'destructive' });
-      } else {
-        setBggResults(result);
-        if (result.length === 0) {
-          toast({ title: 'Nessun Risultato su BGG', description: `Nessun gioco trovato su BGG per "${searchTerm}".` });
-        }
-      }
-    });
-  };
+  // const handleManualBggSearch = () => {
+  //   if (!searchTerm.trim()) {
+  //     setBggSearchError("Inserisci un termine di ricerca.");
+  //     return;
+  //   }
+  //   setBggSearchError(null);
+  //   setBggResults([]);
+  //   setBggSearchAttempted(true);
+  //   startBggSearchTransition(async () => {
+  //     const result = await searchBggGamesAction(searchTerm);
+  //     if ('error'in result) {
+  //       setBggSearchError(result.error);
+  //       toast({ title: 'Errore Ricerca BGG', description: result.error, variant: 'destructive' });
+  //     } else {
+  //       setBggResults(result);
+  //       if (result.length === 0) {
+  //         toast({ title: 'Nessun Risultato su BGG', description: `Nessun gioco trovato su BGG per "${searchTerm}".` });
+  //       }
+  //     }
+  //   });
+  // };
 
-  const handleImportGame = async (bggId: string) => {
-    setIsImportingGameId(bggId);
-    startImportTransition(async () => {
-      const result = await importAndRateBggGameAction(bggId);
-      setIsImportingGameId(null);
-      if ('error' in result) {
-        toast({
-          title: 'Errore Importazione Gioco',
-          description: result.error,
-          variant: 'destructive',
-        });
-      } else {
-        toast({
-          title: 'Gioco Aggiunto!',
-          description: 'Il gioco è stato aggiunto alla tua collezione.',
-        });
-        // Consider using router.refresh() if you want to force a server-side data refresh
-        // For now, it navigates to the rate page.
-        router.push(`/games/${result.gameId}/rate`);
-      }
-    });
-  };
+  // const handleImportGame = async (bggId: string) => {
+  //   setIsImportingGameId(bggId);
+  //   startImportTransition(async () => {
+  //     const result = await importAndRateBggGameAction(bggId);
+  //     setIsImportingGameId(null);
+  //     if ('error' in result) {
+  //       toast({
+  //         title: 'Errore Importazione Gioco',
+  //         description: result.error,
+  //         variant: 'destructive',
+  //       });
+  //     } else {
+  //       toast({
+  //         title: 'Gioco Aggiunto!',
+  //         description: 'Il gioco è stato aggiunto alla tua collezione.',
+  //       });
+  //       router.push(`/games/${result.gameId}/rate`);
+  //     }
+  //   });
+  // };
 
   const SortIcon = ({ columnKey }: { columnKey: SortableKeys }) => {
     if (sortConfig.key !== columnKey) {
@@ -179,11 +177,25 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
   };
 
   const LocalGamesTable = ({ games, totalGamesCount, title }: { games: BoardGame[], totalGamesCount: number, title: string }) => (
-    <section>
+    <section className="mt-8"> {/* Added margin-top for spacing */}
       <h3 className="text-xl font-semibold mb-4 text-foreground">
         {title} ({totalGamesCount})
       </h3>
-      {games.length === 0 && searchTerm.trim().length > 0 && !bggSearchAttempted && (
+
+      {/* Search Bar moved here */}
+      <div className="relative max-w-xl mx-auto mb-6">
+        <Search className="absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+        <Input
+          type="search"
+          placeholder="Cerca un gioco per nome..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full rounded-lg bg-background py-3 pl-11 pr-4 text-base shadow-sm border border-input focus:ring-2 focus:ring-primary/50 focus:border-primary"
+          aria-label="Cerca un gioco per nome nella collezione locale"
+        />
+      </div>
+
+      {games.length === 0 && searchTerm.trim().length > 0 && (
          <Alert variant="default" className="max-w-lg mx-auto bg-secondary/30 border-secondary text-center">
             <Info className="h-4 w-4 mx-auto mb-2 text-muted-foreground" />
             <AlertTitle className="mb-1 text-foreground">Nessun Gioco Trovato Localmente</AlertTitle>
@@ -278,40 +290,9 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
 
   return (
     <div className="space-y-8">
-      {/* Local Games Table or Empty State */}
-      {(!searchTerm.trim() || localFilteredGames.length > 0) && (
-        <LocalGamesTable games={paginatedGames} totalGamesCount={gamesToDisplayInTable.length} title="I Tuoi Giochi" />
-      )}
+      <LocalGamesTable games={paginatedGames} totalGamesCount={gamesToDisplayInTable.length} title="I Tuoi Giochi" />
 
-      {searchTerm.trim().length > 0 && localFilteredGames.length === 0 && (
-         <Alert variant="default" className="max-w-lg mx-auto bg-secondary/30 border-secondary text-center">
-            <Info className="h-4 w-4 mx-auto mb-2 text-muted-foreground" />
-            <AlertTitle className="mb-1 text-foreground">Nessun Gioco Trovato Localmente</AlertTitle>
-            <AlertDescription className="mb-3 text-muted-foreground">
-                Nessun gioco corrispondente a "{searchTerm}" è stato trovato nella collezione locale.
-            </AlertDescription>
-        </Alert>
-      )}
-
-      {/* Search Bar now below the local games table */}
-      <div className="relative max-w-xl mx-auto pt-8">
-        <Search className="absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-        <Input
-          type="search"
-          placeholder="Cerca un gioco per nome..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full rounded-lg bg-background py-3 pl-11 pr-4 text-base shadow-sm border border-input focus:ring-2 focus:ring-primary/50 focus:border-primary"
-          aria-label="Cerca un gioco per nome nella collezione locale"
-        />
-      </div>
-
-      {/* BGG Search Related UI (remains conditional and below search bar if needed) */}
-      {/* This section might be removed entirely if BGG search is only for admins now */}
-      {/* 
-        For now, I will comment out the BGG search related UI from the public page.
-        If BGG search is moved to admin, this entire section can be deleted later.
-      */}
+      {/* BGG Search Related UI - commented out for now */}
       {/*
       {searchTerm.trim().length > 0 && localFilteredGames.length === 0 && !bggSearchAttempted && (
          <div className="text-center mt-6">
@@ -386,3 +367,5 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
     </div>
   );
 }
+
+    
