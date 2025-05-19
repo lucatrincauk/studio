@@ -3,13 +3,6 @@ import { getAllGamesAction, getFeaturedGamesAction } from '@/lib/actions';
 import { GameSearchList } from '@/components/boardgame/game-search-list';
 import { GameCard } from '@/components/boardgame/game-card';
 import { Separator } from '@/components/ui/separator';
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
-} from "@/components/ui/carousel";
 
 export default async function HomePage() {
   const allGames = await getAllGamesAction();
@@ -32,29 +25,14 @@ export default async function HomePage() {
             <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mb-6 text-left">
               In Evidenza
             </h2>
-            <Carousel
-              opts={{
-                align: "start",
-                loop: featuredGames.length > 1, // Loop only if more than one item
-              }}
-              className="w-full max-w-xs sm:max-w-md md:max-w-lg lg:max-w-xl mx-auto"
-            >
-              <CarouselContent>
-                {featuredGames.map((game, index) => (
-                  <CarouselItem key={game.id} className="basis-full">
-                    <div className="p-1"> {/* Padding for CarouselItem content */}
-                      <GameCard game={game} variant="featured" priority={index < 3} />
-                    </div>
-                  </CarouselItem>
-                ))}
-              </CarouselContent>
-              {featuredGames.length > 1 && (
-                <>
-                  <CarouselPrevious className="hidden sm:flex" />
-                  <CarouselNext className="hidden sm:flex" />
-                </>
-              )}
-            </Carousel>
+            {/* Reverted to flexbox/grid layout for featured games */}
+            <div className="flex space-x-4 overflow-x-auto pb-4 md:grid md:grid-cols-3 md:gap-4 md:space-x-0 md:pb-0 md:overflow-x-visible">
+              {featuredGames.map((game, index) => (
+                <div key={game.id} className="w-40 flex-shrink-0 md:w-auto">
+                  <GameCard game={game} variant="featured" priority={index < 3} />
+                </div>
+              ))}
+            </div>
             <Separator className="my-8" />
           </div>
         )}
@@ -66,4 +44,4 @@ export default async function HomePage() {
   );
 }
 
-export const revalidate = 3600; 
+export const revalidate = 3600;
