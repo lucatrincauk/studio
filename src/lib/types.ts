@@ -19,7 +19,7 @@ export const RATING_CATEGORIES: Record<RatingCategory, string> = {
   decisionDepth: 'Profondità Decisionale',
   replayability: 'Rigiocabilità',
   luck: 'Fattore Fortuna',
-  lengthDowntime: 'Durata e Tempi Morti',
+  lengthDowntime: 'Ottimizzazione Durata e Tempi Morti', // Changed
   graphicDesign: 'Grafica e Componenti',
   componentsThemeLore: 'Tema e Ambientazione',
   effortToLearn: 'Facilità di apprendimento',
@@ -97,6 +97,7 @@ export interface UserProfile {
   name: string;
   photoURL?: string | null;
 }
+
 
 
 
