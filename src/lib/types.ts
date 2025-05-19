@@ -23,7 +23,7 @@ export const RATING_CATEGORIES: Record<RatingCategory, string> = {
   graphicDesign: 'Grafica e Componenti',
   componentsThemeLore: 'Tema e Ambientazione',
   effortToLearn: 'Facilità di Apprendimento',
-  setupTeardown: 'Preparazione e Riordino',
+  setupTeardown: 'Preparazione e Ripristino', // Changed here
 };
 
 export interface Rating {
@@ -60,7 +60,7 @@ export interface BoardGame {
   id: string;
   name: string;
   coverArtUrl: string;
-  reviews: Review[];
+  reviews: Review[]; // Typically empty for list views, populated for detail views
   yearPublished?: number | null;
   minPlayers?: number | null;
   maxPlayers?: number | null;
