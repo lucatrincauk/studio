@@ -13,16 +13,16 @@ export type RatingCategory =
   | 'setupTeardown';
 
 export const RATING_CATEGORIES: Record<RatingCategory, string> = {
-  excitedToReplay: 'Voglia di Rigiocarci',
+  excitedToReplay: 'Entusiasmo nel Rigiocare',
   mentallyStimulating: 'Stimolazione Mentale',
   fun: 'Fattore Divertimento',
   decisionDepth: 'Profondità Decisionale',
   replayability: 'Rigiocabilità',
   luck: 'Fattore Fortuna',
   lengthDowntime: 'Durata e Tempi Morti',
-  graphicDesign: 'Design Grafico',
+  graphicDesign: 'Grafica e Componenti', // Changed
   componentsThemeLore: 'Componenti, Tema e Ambientazione',
-  effortToLearn: 'Facilità di apprendimento', // Changed
+  effortToLearn: 'Facilità di apprendimento',
   setupTeardown: 'Preparazione e Riordino',
 };
 
@@ -97,4 +97,5 @@ export interface UserProfile {
   name: string;
   photoURL?: string | null;
 }
+
 
