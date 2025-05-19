@@ -6,14 +6,20 @@ import { useState, useEffect, useTransition } from 'react';
 import { fetchBggUserCollectionAction, getBoardGamesFromFirestoreAction, syncBoardGamesToFirestoreAction } from '@/lib/actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, AlertCircle, Info, Star } from 'lucide-react';
+import { Loader2, AlertCircle, Info, Star, Users, Clock, CalendarDays, ExternalLink } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { CollectionConfirmationDialog } from '@/components/collection/confirmation-dialog';
 import { SafeImage } from '@/components/common/SafeImage';
-import { Users, Clock, CalendarDays } from 'lucide-react';
 import { formatRatingNumber } from '@/lib/utils';
-
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 const BGG_USERNAME = 'lctr01'; // Hardcoded for now
 
@@ -187,69 +193,89 @@ export default function AdminCollectionPage() {
         </Card>
       )}
       
-      <h2 className="text-2xl font-semibold mt-8 mb-4">
-        {displaySource} ({displayedCollection.length} giochi)
-      </h2>
-      {isLoadingDb && !bggFetchedCollection && <div className="flex justify-center py-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /> <span className="ml-2">Caricamento collezione DB...</span></div>}
-      
-      {!isLoadingDb && displayedCollection.length === 0 && !bggFetchedCollection && (
-        <Alert>
-          <Info className="h-4 w-4" />
-          <AlertTitle>Collezione Vuota</AlertTitle>
-          <AlertDescription>La tua collezione nel database è vuota. Prova a sincronizzare con BGG per aggiungere giochi.</AlertDescription>
-        </Alert>
-      )}
-      
-      {!isLoadingDb && displayedCollection.length === 0 && bggFetchedCollection && !isLoadingBgg && (
-         <Alert>
-          <Info className="h-4 w-4" />
-          <AlertTitle>Collezione BGG Vuota o Non Trovata</AlertTitle>
-          <AlertDescription>Nessun gioco posseduto trovato per l'utente BGG "{BGG_USERNAME}" o si è verificato un problema durante il caricamento.</AlertDescription>
-        </Alert>
-      )}
+      <Card className="shadow-lg border border-border rounded-lg">
+        <CardHeader>
+            <CardTitle className="text-2xl">
+            {displaySource} ({displayedCollection.length} giochi)
+            </CardTitle>
+        </CardHeader>
+        <CardContent>
+        {isLoadingDb && !bggFetchedCollection && <div className="flex justify-center py-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /> <span className="ml-2">Caricamento collezione DB...</span></div>}
+        
+        {!isLoadingDb && displayedCollection.length === 0 && !bggFetchedCollection && (
+            <Alert>
+            <Info className="h-4 w-4" />
+            <AlertTitle>Collezione Vuota</AlertTitle>
+            <AlertDescription>La tua collezione nel database è vuota. Prova a sincronizzare con BGG per aggiungere giochi.</AlertDescription>
+            </Alert>
+        )}
+        
+        {!isLoadingDb && displayedCollection.length === 0 && bggFetchedCollection && !isLoadingBgg && (
+            <Alert>
+            <Info className="h-4 w-4" />
+            <AlertTitle>Collezione BGG Vuota o Non Trovata</AlertTitle>
+            <AlertDescription>Nessun gioco posseduto trovato per l'utente BGG "{BGG_USERNAME}" o si è verificato un problema durante il caricamento.</AlertDescription>
+            </Alert>
+        )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-        {displayedCollection.map(game => (
-          <Card key={game.id} className="flex flex-col overflow-hidden shadow-md transition-all duration-300 ease-in-out hover:shadow-lg h-full rounded-lg border border-border">
-            <CardHeader className="p-0">
-              <div className="relative w-full h-48">
-                <SafeImage
-                  src={game.coverArtUrl}
-                  fallbackSrc={`https://placehold.co/200x300.png?text=${encodeURIComponent(game.name?.substring(0,10) || 'N/A')}`}
-                  alt={`${game.name || 'Gioco'} copertina`}
-                  fill
-                  sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                  className="object-cover rounded-t-lg"
-                  data-ai-hint={`board game ${game.name?.split(' ')[0]?.toLowerCase() || 'generic'}`}
-                />
-              </div>
-            </CardHeader>
-            <CardContent className="p-3 flex-grow">
-              <CardTitle className="text-md font-semibold leading-tight mb-1">{game.name || "Gioco Senza Nome"}</CardTitle>
-              <div className="text-xs text-muted-foreground space-y-0.5">
-                {game.yearPublished && <div className="flex items-center gap-1"><CalendarDays size={12}/> {game.yearPublished}</div>}
-                {(game.minPlayers || game.maxPlayers) && (
-                  <div className="flex items-center gap-1"><Users size={12}/> 
-                    {game.minPlayers}{game.maxPlayers && game.minPlayers !== game.maxPlayers ? `-${game.maxPlayers}` : ''} Giocatori
-                  </div>
-                )}
-                {game.playingTime && <div className="flex items-center gap-1"><Clock size={12}/> {game.playingTime} min</div>}
-              </div>
-              {game.overallAverageRating !== null && typeof game.overallAverageRating === 'number' && (
-                <div className="mt-2 text-sm font-semibold text-primary flex items-center gap-1">
-                  <Star size={14} className="fill-primary text-primary" />
-                  Voto Globale: {formatRatingNumber(game.overallAverageRating * 2)}
-                </div>
-              )}
-            </CardContent>
-             <CardFooter className="p-3 pt-1">
-                <Button variant="link" size="sm" className="p-0 h-auto text-xs" asChild>
-                    <a href={`https://boardgamegeek.com/boardgame/${game.bggId}`} target="_blank" rel="noopener noreferrer">Vedi su BGG</a>
-                </Button>
-            </CardFooter>
-          </Card>
-        ))}
-      </div>
+        {displayedCollection.length > 0 && (
+            <div className="overflow-x-auto">
+                <Table>
+                    <TableHeader>
+                    <TableRow>
+                        <TableHead className="w-[80px]">Copertina</TableHead>
+                        <TableHead>Nome</TableHead>
+                        <TableHead className="hidden sm:table-cell text-center">Anno</TableHead>
+                        <TableHead className="hidden md:table-cell text-center">Giocatori</TableHead>
+                        <TableHead className="hidden md:table-cell text-center">Durata</TableHead>
+                        <TableHead className="text-center">Voto</TableHead>
+                        <TableHead className="text-right">BGG</TableHead>
+                    </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                    {displayedCollection.map(game => (
+                        <TableRow key={game.id}>
+                        <TableCell>
+                            <div className="relative w-12 h-16 sm:w-16 sm:h-20 rounded overflow-hidden">
+                            <SafeImage
+                                src={game.coverArtUrl}
+                                fallbackSrc={`https://placehold.co/64x80.png?text=${encodeURIComponent(game.name?.substring(0,3) || 'N/A')}`}
+                                alt={`${game.name || 'Gioco'} copertina`}
+                                fill
+                                sizes="(max-width: 640px) 48px, 64px"
+                                className="object-cover"
+                                data-ai-hint={`board game ${game.name?.split(' ')[0]?.toLowerCase() || 'mini'}`}
+                            />
+                            </div>
+                        </TableCell>
+                        <TableCell className="font-medium">{game.name || "Gioco Senza Nome"}</TableCell>
+                        <TableCell className="hidden sm:table-cell text-center">{game.yearPublished || '-'}</TableCell>
+                        <TableCell className="hidden md:table-cell text-center">
+                            {game.minPlayers}{game.maxPlayers && game.minPlayers !== game.maxPlayers ? `-${game.maxPlayers}` : ''}
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell text-center">{game.playingTime ? `${game.playingTime} min` : '-'}</TableCell>
+                        <TableCell className="text-center">
+                            {game.overallAverageRating !== null && typeof game.overallAverageRating === 'number' ? (
+                            <span className="font-semibold text-primary">{formatRatingNumber(game.overallAverageRating * 2)}</span>
+                            ) : (
+                            '-'
+                            )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                            <Button variant="outline" size="icon" asChild className="h-8 w-8">
+                                <a href={`https://boardgamegeek.com/boardgame/${game.bggId}`} target="_blank" rel="noopener noreferrer" title="Vedi su BGG">
+                                    <ExternalLink className="h-4 w-4" />
+                                </a>
+                            </Button>
+                        </TableCell>
+                        </TableRow>
+                    ))}
+                    </TableBody>
+                </Table>
+            </div>
+        )}
+        </CardContent>
+      </Card>
 
       <CollectionConfirmationDialog
         isOpen={showConfirmationDialog}
