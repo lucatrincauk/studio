@@ -1,13 +1,13 @@
 
 'use client';
 
-import { useEffect, useState, useTransition, useCallback, use } from 'react'; // Added 'use'
+import { useEffect, useState, useTransition, useCallback, use } from 'react';
 import Link from 'next/link';
 import { getGameDetails } from '@/lib/actions';
 import type { BoardGame, AiSummary, Review, Rating, GroupedCategoryAverages } from '@/lib/types';
 import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -18,7 +18,6 @@ import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-di
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { doc, deleteDoc, updateDoc } from 'firebase/firestore';
-// import { revalidatePath } from 'next/cache'; // Removed as it's not for client components
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,16 +31,17 @@ import {
 } from "@/components/ui/alert-dialog";
 import { SafeImage } from '@/components/common/SafeImage';
 import { Progress } from '@/components/ui/progress';
+import { ReviewItem } from '@/components/boardgame/review-item';
 
 
 interface GameDetailPageProps {
-  params: Promise<{ // Updated params to be a Promise
+  params: Promise<{
     gameId: string;
   }>;
 }
 
 export default function GameDetailPage({ params }: GameDetailPageProps) {
-  const resolvedParams = use(params); // Use React.use to unwrap the promise
+  const resolvedParams = use(params);
   const { gameId } = resolvedParams;
 
   const { user: currentUser, loading: authLoading, isAdmin } = useAuth();
@@ -53,7 +53,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
   const [isSummarizing, startSummaryTransition] = useTransition();
   const [summaryError, setSummaryError] = useState<string | null>(null);
 
-  const [userReview, setUserReview] = useState<Review | undefined>(undefined);
+  const [currentUserReviewState, setCurrentUserReviewState] = useState<Review | undefined>(undefined);
+  const [remainingReviews, setRemainingReviews] = useState<Review[]>([]);
   const [groupedCategoryAverages, setGroupedCategoryAverages] = useState<GroupedCategoryAverages | null>(null);
   const [globalGameAverage, setGlobalGameAverage] = useState<number | null>(null);
   const [userOverallScore, setUserOverallScore] = useState<number | null>(null);
@@ -71,19 +72,22 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     setGame(gameData);
     if (gameData) {
       setCurrentIsPinned(gameData.isPinned || false);
+      
       let foundUserReview: Review | undefined = undefined;
       if (currentUser && !authLoading) {
         foundUserReview = gameData.reviews.find(r => r.userId === currentUser.uid);
-        setUserReview(foundUserReview);
-        if (foundUserReview) {
-          setUserOverallScore(calculateOverallCategoryAverage(foundUserReview.rating));
-        } else {
-          setUserOverallScore(null);
-        }
-      } else if (!currentUser && !authLoading) {
-        setUserReview(undefined);
-        setUserOverallScore(null);
       }
+      // This state is now set in the useEffect below
+      // setCurrentUserReviewState(foundUserReview); 
+
+      if (foundUserReview) {
+        setUserOverallScore(calculateOverallCategoryAverage(foundUserReview.rating));
+        // setRemainingReviews(gameData.reviews.filter(r => r.id !== foundUserReview!.id)); // This is also set in useEffect
+      } else {
+        setUserOverallScore(null);
+        // setRemainingReviews(gameData.reviews); // This is also set in useEffect
+      }
+      
       setGroupedCategoryAverages(calculateGroupedCategoryAverages(gameData.reviews));
       
       const flatCategoryAverages = calculateCategoryAverages(gameData.reviews);
@@ -91,7 +95,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
     } else {
       setCurrentIsPinned(false);
-      setUserReview(undefined);
+      setCurrentUserReviewState(undefined);
+      setRemainingReviews([]);
       setGroupedCategoryAverages(null);
       setGlobalGameAverage(null);
       setUserOverallScore(null);
@@ -104,24 +109,27 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
   }, [fetchGameData]);
 
   useEffect(() => {
-    if (game && currentUser && !authLoading && !userReview) {
-        const foundReview = game.reviews.find(r => r.userId === currentUser.uid);
-        if (foundReview) {
-          setUserReview(foundReview);
-          setUserOverallScore(calculateOverallCategoryAverage(foundReview.rating));
-        } else {
-           setUserOverallScore(null);
+    if (game && game.reviews) {
+        let foundReview: Review | undefined = undefined;
+        if (currentUser && !authLoading) {
+            foundReview = game.reviews.find(r => r.userId === currentUser.uid);
         }
-    }
-    if (game && !currentUser && !authLoading && userReview) {
-        setUserReview(undefined); 
+        setCurrentUserReviewState(foundReview);
+
+        if (foundReview) {
+            setRemainingReviews(game.reviews.filter(r => r.id !== foundReview!.id));
+            setUserOverallScore(calculateOverallCategoryAverage(foundReview.rating));
+        } else {
+            setRemainingReviews(game.reviews);
+            setUserOverallScore(null);
+        }
+    } else if (!game) { // Ensure states are cleared if game becomes null
+        setCurrentUserReviewState(undefined);
+        setRemainingReviews([]);
         setUserOverallScore(null);
     }
-     if (!currentUser && !authLoading) { 
-      setUserReview(undefined);
-      setUserOverallScore(null);
-    }
-  }, [currentUser, authLoading, game, userReview]);
+  }, [game, currentUser, authLoading]);
+
 
   useEffect(() => {
     if (game) {
@@ -152,18 +160,16 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
   const confirmDeleteUserReview = async () => {
     setShowDeleteConfirmDialog(false);
-    if (!currentUser || !userReview?.id) {
+    if (!currentUser || !currentUserReviewState?.id) {
       toast({ title: "Errore", description: "Impossibile eliminare la recensione. Utente o recensione non trovati.", variant: "destructive" });
       return;
     }
 
     startDeleteReviewTransition(async () => {
       try {
-        const reviewDocRef = doc(db, "boardgames_collection", gameId, 'reviews', userReview.id);
+        const reviewDocRef = doc(db, "boardgames_collection", gameId, 'reviews', currentUserReviewState.id);
         await deleteDoc(reviewDocRef);
         toast({ title: "Recensione Eliminata", description: "La tua recensione è stata eliminata con successo." });
-        setUserReview(undefined); 
-        setUserOverallScore(null);
         await fetchGameData(); 
       } catch (error) {
         console.error("Errore durante l'eliminazione della recensione da Firestore:", error);
@@ -181,11 +187,12 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         await updateDoc(gameRef, {
           isPinned: !currentIsPinned
         });
-        setCurrentIsPinned(!currentIsPinned); // Optimistic update for immediate UI feedback
+        setCurrentIsPinned(!currentIsPinned);
         toast({
           title: "Stato Vetrina Aggiornato",
           description: `Il gioco è stato ${!currentIsPinned ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
         });
+        // No revalidatePath needed here as this is client-side logic, game data will be refreshed if needed by fetchGameData
         await fetchGameData(); // Re-fetch to ensure full consistency
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
@@ -227,7 +234,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     <div className="space-y-10">
       <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
         <div className="flex flex-col md:flex-row">
-          {/* Text content - takes full width on mobile, or remaining width on desktop */}
           <div className="flex-1 p-6 space-y-4 order-1 md:order-1">
             <div className="flex justify-between items-start mb-4">
                 <div className="flex items-center gap-2 flex-1 mr-4">
@@ -252,7 +258,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
               )}
             </div>
             
-            {/* Image for mobile - shown below title/score */}
             <div className="md:hidden my-4 max-w-[240px] mx-auto">
               <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
                 <SafeImage
@@ -279,7 +284,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             </div>
           </div>
 
-          {/* Image for desktop - shown on the right */}
           <div className="hidden md:block md:w-1/4 p-6 flex-shrink-0 self-start order-2">
             <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
               <SafeImage
@@ -304,27 +308,27 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           <div className="p-6 border border-border rounded-lg shadow-md bg-card">
             <div className="flex justify-between items-center mb-1">
                 <h3 className="text-xl font-semibold text-foreground">
-                {userReview ? "Gestisci la Tua Recensione" : "Condividi la Tua Opinione"}
+                {currentUserReviewState ? "Gestisci la Tua Recensione" : "Condividi la Tua Opinione"}
                 </h3>
-                {userReview && userOverallScore !== null && (
+                {currentUserReviewState && userOverallScore !== null && (
                     <span className="text-2xl font-bold text-primary">
                         {formatRatingNumber(userOverallScore * 2)}
                     </span>
                 )}
             </div>
-            <p className="text-muted-foreground mb-4">
-              {userReview
+            <CardDescription className="mb-4"> {/* Changed to CardDescription for consistency */}
+              {currentUserReviewState
                 ? "Hai già valutato questo gioco. Puoi modificare o eliminare le tue valutazioni qui sotto."
                 : "Aiuta gli altri condividendo la tua esperienza con questo gioco."}
-            </p>
+            </CardDescription>
             <div className="flex flex-col sm:flex-row gap-2">
               <Button asChild className="w-full sm:w-auto bg-accent text-accent-foreground hover:bg-accent/90">
                 <Link href={`/games/${gameId}/rate`}>
                   <Edit className="mr-2 h-4 w-4" />
-                  {userReview ? "Modifica la Tua Recensione" : "Valuta questo Gioco"}
+                  {currentUserReviewState ? "Modifica la Tua Recensione" : "Valuta questo Gioco"}
                 </Link>
               </Button>
-              {userReview && (
+              {currentUserReviewState && (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button variant="destructive" className="w-full sm:w-auto" disabled={isDeletingReview}>
@@ -361,9 +365,19 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
           <Separator className="my-4" />
 
+          {currentUserReviewState && (
+            <div className="mb-8">
+              <h3 className="text-xl font-semibold text-foreground mb-4">La Tua Recensione</h3>
+              <ReviewItem review={currentUserReviewState} />
+              <Separator className="my-6" />
+            </div>
+          )}
+          
           <div>
-            <h2 className="text-2xl font-semibold text-foreground mb-6">Recensioni dei Giocatori ({game.reviews.length})</h2>
-            <ReviewList reviews={game.reviews} currentUser={currentUser} gameId={game.id} onReviewDeleted={fetchGameData}/>
+            <h2 className="text-2xl font-semibold text-foreground mb-6">
+                {currentUserReviewState ? `Altre Recensioni (${remainingReviews.length})` : `Recensioni dei Giocatori (${game.reviews.length})`}
+            </h2>
+            <ReviewList reviews={remainingReviews} />
           </div>
         </div>
 
@@ -414,4 +428,3 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
-

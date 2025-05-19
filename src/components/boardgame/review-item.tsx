@@ -18,7 +18,7 @@ export function ReviewItem({ review }: ReviewItemProps) {
   const overallReviewRating = calculateOverallCategoryAverage(review.rating);
 
   const groupedAveragesForReview = useMemo(() => {
-    return calculateGroupedCategoryAverages([review]);
+    return calculateGroupedCategoryAverages([review]); // Pass as an array for the utility function
   }, [review]);
 
   const getAuthorInitial = () => {
@@ -59,7 +59,7 @@ export function ReviewItem({ review }: ReviewItemProps) {
         )}
         <GroupedRatingsDisplay
             groupedAverages={groupedAveragesForReview}
-            noRatingsMessage="No detailed ratings provided for this review."
+            noRatingsMessage="Nessuna valutazione dettagliata per questa recensione."
             defaultOpenSections={[]}
         />
       </CardContent>
