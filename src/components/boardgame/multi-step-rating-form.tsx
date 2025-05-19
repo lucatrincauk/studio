@@ -38,11 +38,11 @@ const stepCategories: (keyof RatingFormValues)[][] = [
 ];
 
 const categoryDescriptions: Record<RatingCategory, string> = {
-  excitedToReplay: "Quanto ti entusiasma l’idea di rigiocare questo gioco?",
-  mentallyStimulating: "Quanto ti fa pensare, elaborare strategie o risolvere problemi questo gioco?",
+  excitedToReplay: "Quanto ti ha fatto ragionare e elaborare strategie questo gioco?",
+  mentallyStimulating: "Quanto questo gioco ti fa pensare, risolvere problemi o elaborare strategie?",
   fun: "In generale, quanto è stata piacevole e divertente l'esperienza di gioco?",
   decisionDepth: "Quanto sono significative e incisive le scelte che fai durante il gioco?",
-  replayability: "Quanto offre il gioco esperienze variegate in più partite?",
+  replayability: "Quanto il gioco offre esperienze variegate in più partite?",
   luck: "Quanto il caso o la casualità influenzano l'esito del gioco?",
   lengthDowntime: "Quanto è appropriata la durata del gioco per la sua profondità e quanto è coinvolgente quando non è il tuo turno?",
   graphicDesign: "Quanto è visivamente accattivante l'artwork, l'iconografia e il layout generale del gioco?",
@@ -274,7 +274,7 @@ export function MultiStepRatingForm({
             <CardHeader className="px-0 pt-0 pb-6">
                 <div className="flex justify-between items-center mb-1">
                     <CardTitle className="text-2xl md:text-3xl text-left">
-                        {getCurrentStepTitle()}
+                        Riepilogo Tue Valutazioni
                     </CardTitle>
                     {yourOverallAverage !== null && (
                         <span className="text-2xl font-bold text-primary whitespace-nowrap">
