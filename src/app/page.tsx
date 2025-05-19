@@ -15,9 +15,7 @@ import { SafeImage } from '@/components/common/SafeImage';
 import Link from 'next/link';
 import { formatRatingNumber } from '@/lib/utils';
 import { Star, Edit } from 'lucide-react';
-// Removed GameSearchList import as it's no longer used here
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
 export default async function HomePage() {
   const featuredGames = await getFeaturedGamesAction();
@@ -116,8 +114,6 @@ export default async function HomePage() {
              <Separator className="my-10" />
           </section>
         )}
-
-        {/* Removed GameSearchList component from here */}
       </section>
     </div>
   );

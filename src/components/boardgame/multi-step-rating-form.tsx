@@ -5,8 +5,8 @@ import { useState, useEffect, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
-import type { RatingCategory, Review, Rating as RatingType, GroupedCategoryAverages } from '@/lib/types';
-import { RATING_CATEGORIES } from '@/lib/types';
+import type { Review, Rating as RatingType } from '@/lib/types';
+import { RATING_CATEGORIES, type RatingCategory } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, AlertCircle, CheckCircle, Smile, Puzzle, Palette, ClipboardList } from 'lucide-react';
 import { reviewFormSchema, type RatingFormValues } from '@/lib/validators';
@@ -14,11 +14,11 @@ import type { User as FirebaseUser } from 'firebase/auth';
 import { CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Slider } from '@/components/ui/slider';
-import { calculateOverallCategoryAverage, formatRatingNumber, calculateGroupedCategoryAverages } from '@/lib/utils';
+import { calculateOverallCategoryAverage, calculateGroupedCategoryAverages, calculateCategoryAverages, formatRatingNumber } from '@/lib/utils';
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
-
 import { db } from '@/lib/firebase';
-import { collection, addDoc, doc, updateDoc, query, where, getDocs, limit, getDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc, query, where, getDocs, limit, getDoc, writeBatch } from 'firebase/firestore';
+import { Separator } from '../ui/separator';
 
 interface MultiStepRatingFormProps {
   gameId: string;
@@ -29,12 +29,14 @@ interface MultiStepRatingFormProps {
   onStepChange: (step: number) => void;
 }
 
-const totalInputSteps = 4;
+const totalInputSteps = 4; // Total steps for actual input
+const totalDisplaySteps = 5; // Including summary step
+
 const stepCategories: (keyof RatingFormValues)[][] = [
-  ['excitedToReplay', 'mentallyStimulating', 'fun'],
-  ['decisionDepth', 'replayability', 'luck', 'lengthDowntime'],
-  ['graphicDesign', 'componentsThemeLore'],
-  ['effortToLearn', 'setupTeardown'],
+  ['excitedToReplay', 'mentallyStimulating', 'fun'], // Step 1: Sentimento
+  ['decisionDepth', 'replayability', 'luck', 'lengthDowntime'], // Step 2: Design del Gioco
+  ['graphicDesign', 'componentsThemeLore'], // Step 3: Estetica e Immersione
+  ['effortToLearn', 'setupTeardown'], // Step 4: Apprendimento e Logistica
 ];
 
 const categoryDescriptions: Record<RatingCategory, string> = {
@@ -60,7 +62,6 @@ const StepIcon = ({ step }: { step: number }) => {
     default: return null;
   }
 };
-
 
 export function MultiStepRatingForm({
   gameId,
@@ -97,23 +98,33 @@ export function MultiStepRatingForm({
 
   useEffect(() => {
     if (existingReview) {
-      form.reset({
-        excitedToReplay: existingReview.rating.excitedToReplay,
-        mentallyStimulating: existingReview.rating.mentallyStimulating,
-        fun: existingReview.rating.fun,
-        decisionDepth: existingReview.rating.decisionDepth,
-        replayability: existingReview.rating.replayability,
-        luck: existingReview.rating.luck,
-        lengthDowntime: existingReview.rating.lengthDowntime,
-        graphicDesign: existingReview.rating.graphicDesign,
-        componentsThemeLore: existingReview.rating.componentsThemeLore,
-        effortToLearn: existingReview.rating.effortToLearn,
-        setupTeardown: existingReview.rating.setupTeardown,
-      });
+      form.reset(existingReview.rating);
     } else {
       form.reset(defaultFormValues);
     }
-  }, [existingReview, form]);
+  }, [existingReview, form]); // Removed defaultFormValues from deps as it's constant
+
+  const updateGameOverallRating = async () => {
+    try {
+      const reviewsCollectionRef = collection(db, "boardgames_collection", gameId, 'reviews');
+      const reviewsSnapshot = await getDocs(reviewsCollectionRef);
+      const allReviewsForGame: Review[] = reviewsSnapshot.docs.map(docSnap => {
+        const data = docSnap.data();
+        return { id: docSnap.id, ...data } as Review;
+      });
+
+      const categoryAvgs = calculateCategoryAverages(allReviewsForGame);
+      const newOverallAverage = categoryAvgs ? calculateOverallCategoryAverage(categoryAvgs) : null;
+      
+      const gameDocRef = doc(db, "boardgames_collection", gameId);
+      await updateDoc(gameDocRef, {
+        overallAverageRating: newOverallAverage
+      });
+    } catch (error) {
+      console.error("Error updating game's overall average rating:", error);
+      // Non-critical error, so we don't block the UI
+    }
+  };
 
   const processSubmitAndStay = async (data: RatingFormValues): Promise<boolean> => {
     setFormError(null);
@@ -121,15 +132,14 @@ export function MultiStepRatingForm({
 
     const rating: RatingType = { ...data };
     const reviewAuthor = currentUser.displayName || 'Anonimo';
-    const reviewComment = "";
     const authorPhotoURL = currentUser.photoURL || null;
 
-    const newReviewData: Omit<Review, 'id'> = {
+    const reviewDataToSave: Omit<Review, 'id'> = {
       author: reviewAuthor,
       userId: currentUser.uid,
       authorPhotoURL: authorPhotoURL,
       rating,
-      comment: reviewComment,
+      comment: "", // Comments removed from form
       date: new Date().toISOString(),
     };
 
@@ -153,27 +163,23 @@ export function MultiStepRatingForm({
            setFormError("Recensione non trovata o non hai i permessi per modificarla.");
            return false;
         }
-        await updateDoc(reviewDocRef, newReviewData);
+        await updateDoc(reviewDocRef, reviewDataToSave);
         toast({ title: "Successo!", description: "Recensione aggiornata con successo!", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
       } else {
         const existingReviewQuery = query(reviewsCollectionRef, where("userId", "==", currentUser.uid), limit(1));
         const existingReviewSnapshot = await getDocs(existingReviewQuery);
 
-        if (!existingReviewSnapshot.empty && !existingReview) {
-          toast({ title: "Già Recensito", description: "Hai già inviato una recensione per questo gioco. Modifica invece la tua recensione esistente.", variant: "destructive" });
-          setFormError("Hai già inviato una recensione per questo gioco. Per favore, modifica quella esistente.");
-          return false;
-        } else if (!existingReviewSnapshot.empty && existingReview?.id !== existingReviewSnapshot.docs[0].id){
+        if (!existingReviewSnapshot.empty) {
+           toast({ title: "Già Recensito", description: "Hai già inviato una recensione. Questa è stata aggiornata.", variant: "default" });
            const reviewToUpdateRef = existingReviewSnapshot.docs[0].ref;
-           await updateDoc(reviewToUpdateRef, newReviewData);
-           toast({ title: "Recensione Aggiornata", description: "La tua recensione esistente per questo gioco è stata aggiornata.", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
-        }
-         else {
-          await addDoc(reviewsCollectionRef, newReviewData);
+           await updateDoc(reviewToUpdateRef, reviewDataToSave);
+        } else {
+          await addDoc(reviewsCollectionRef, reviewDataToSave);
           toast({ title: "Successo!", description: "Recensione inviata con successo!", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
         }
       }
       submissionSuccess = true;
+      await updateGameOverallRating(); // Update game's overall rating
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
       toast({ title: "Errore", description: `Impossibile inviare la recensione: ${errorMessage}`, variant: "destructive" });
@@ -223,7 +229,7 @@ export function MultiStepRatingForm({
         if (submissionSuccessful) {
           const currentRatings = form.getValues();
           const tempReviewForSummary: Review = {
-            id: 'summary',
+            id: 'summary', // Temporary ID for local calculation
             author: currentUser.displayName || 'Anonimo',
             userId: currentUser.uid,
             authorPhotoURL: currentUser.photoURL || null,
@@ -232,7 +238,7 @@ export function MultiStepRatingForm({
             date: new Date().toISOString(),
           };
           setGroupedAveragesForSummary(calculateGroupedCategoryAverages([tempReviewForSummary]));
-          onStepChange(totalInputSteps + 1);
+          onStepChange(totalDisplaySteps); // Go to summary step
         }
       });
     } else {
@@ -251,7 +257,7 @@ export function MultiStepRatingForm({
     if (currentStep === 2) return "Design del Gioco";
     if (currentStep === 3) return "Estetica e Immersione";
     if (currentStep === 4) return "Apprendimento e Logistica";
-    return "Passo della Recensione";
+    return "Riepilogo Valutazione"; // For Step 5
   };
 
   const getCurrentStepDescription = () => {
@@ -259,16 +265,17 @@ export function MultiStepRatingForm({
     if (currentStep === 2) return "Come valuteresti le meccaniche e la struttura di base?";
     if (currentStep === 3) return "Valuta l'aspetto visivo e gli elementi tematici del gioco.";
     if (currentStep === 4) return "Quanto è facile imparare, preparare e rimettere a posto il gioco?";
+    if (currentStep === 5) return "La tua recensione è stata salvata. Ecco un riepilogo:";
     return "";
   }
-
+  
   const yourOverallAverage = calculateOverallCategoryAverage(form.getValues());
 
   return (
     <Form {...form}>
-      <form>
-        {currentStep <= totalInputSteps && (
-          <div className="mb-4">
+      <form className="space-y-6"> {/* Reduced space-y-8 to space-y-6 */}
+        {currentStep !== totalDisplaySteps && (
+          <div className="mb-4"> {/* Reduced mb-6 to mb-4 */}
             <div className="flex justify-between items-center">
               <h3 className="text-xl font-semibold flex items-center">
                 <StepIcon step={currentStep} />
@@ -280,27 +287,26 @@ export function MultiStepRatingForm({
             )}
           </div>
         )}
-
-         {currentStep === 5 && (
+        
+        {currentStep === totalDisplaySteps && (
              <CardHeader className="px-0 pt-0 pb-6">
                 <div className="flex justify-between items-center mb-1">
                     <CardTitle className="text-2xl md:text-3xl text-left">
-                        Riepilogo Valutazione
+                       Riepilogo Valutazione
                     </CardTitle>
                     {yourOverallAverage !== null && (
-                        <span className="text-2xl font-bold text-primary whitespace-nowrap">
+                        <span className="text-primary text-3xl font-bold whitespace-nowrap"> {/* Made score more prominent */}
                             {formatRatingNumber(yourOverallAverage * 2)}
                         </span>
                     )}
                 </div>
-                 <CardDescription className="text-left text-sm text-muted-foreground">
+                <CardDescription className="text-left text-sm text-muted-foreground">
                    La tua recensione è stata salvata. Ecco un riepilogo:
                 </CardDescription>
             </CardHeader>
         )}
 
-
-        <div className="min-h-[240px] sm:min-h-[280px]">
+        <div className="min-h-[240px] sm:min-h-[280px]"> {/* Reduced min-h */}
           {currentStep === 1 && (
             <div className="space-y-6 animate-fadeIn">
               {(stepCategories[0] as RatingCategory[]).map((fieldName) => (
@@ -413,7 +419,7 @@ export function MultiStepRatingForm({
             </div>
           )}
 
-          {currentStep === 5 && (
+          {currentStep === totalDisplaySteps && ( // Step 5: Summary
             <div className="animate-fadeIn">
                 <GroupedRatingsDisplay
                     groupedAverages={groupedAveragesForSummary}
@@ -430,8 +436,8 @@ export function MultiStepRatingForm({
             </div>
         )}
 
-        <div className={`flex ${currentStep > 1 && currentStep <= totalInputSteps ? 'justify-between' : 'justify-end'} items-center pt-4 border-t mt-6`}>
-          {currentStep > 1 && currentStep <= totalInputSteps && (
+        <div className={`flex ${currentStep > 1 && currentStep < totalDisplaySteps ? 'justify-between' : 'justify-end'} items-center pt-4 border-t mt-6`}>
+          {currentStep > 1 && currentStep < totalDisplaySteps && ( // Show "Previous" for steps 2, 3, 4
             <Button
               type="button"
               variant="outline"
@@ -442,11 +448,11 @@ export function MultiStepRatingForm({
             </Button>
           )}
 
-          {currentStep < totalInputSteps ? (
+          {currentStep < totalInputSteps ? ( // "Next" for steps 1, 2, 3
             <Button type="button" onClick={handleNext} disabled={isSubmitting} className="bg-primary hover:bg-primary/90 text-primary-foreground">
               Avanti
             </Button>
-          ) : currentStep === totalInputSteps ? (
+          ) : currentStep === totalInputSteps ? ( // "Submit" for step 4
             <Button
               type="button"
               onClick={handleStep4Submit}
@@ -461,7 +467,7 @@ export function MultiStepRatingForm({
                 existingReview ? 'Aggiorna Recensione' : 'Invia Recensione'
               )}
             </Button>
-          ) : (
+          ) : ( // "Finish" for step 5 (summary)
              <Button
                 type="button"
                 onClick={() => {
