@@ -3,7 +3,7 @@ import { getFeaturedGamesAction, getAllGamesAction } from '@/lib/actions';
 import { GameCard } from '@/components/boardgame/game-card';
 import { Separator } from '@/components/ui/separator';
 import type { BoardGame } from '@/lib/types';
-import { Star, Edit } from 'lucide-react';
+import { Star, Edit, TrendingUp } from 'lucide-react'; // Added TrendingUp
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { formatRatingNumber } from '@/lib/utils';
@@ -58,8 +58,9 @@ export default async function HomePage() {
         
         {topRatedGames.length > 0 && (
           <section className="mb-12">
-            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mb-6 text-left">
-              Top 10 Giochi Valutati
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mb-6 text-left flex items-center gap-2">
+              <TrendingUp className="h-7 w-7 text-primary" />
+              Top 10
             </h2>
             <div className="space-y-4">
               {topRatedGames.map((game, index) => (
@@ -83,7 +84,7 @@ export default async function HomePage() {
                         </p>
                       )}
                     </Link>
-                    {game.overallAverageRating !== null && (
+                    {game.overallAverageRating !== null && typeof game.overallAverageRating === 'number' && (
                       <p className="text-xl sm:text-2xl font-bold text-primary ml-4 flex-shrink-0">
                         {formatRatingNumber(game.overallAverageRating * 2)}
                       </p>
