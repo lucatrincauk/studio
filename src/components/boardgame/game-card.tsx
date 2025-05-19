@@ -3,7 +3,7 @@ import Link from 'next/link';
 import type { BoardGame } from '@/lib/types';
 import { Card, CardContent, CardFooter, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Users, Clock, CalendarDays, Star } from 'lucide-react'; // Added Star
+import { Users, Clock, CalendarDays, Star } from 'lucide-react';
 import { SafeImage } from '@/components/common/SafeImage';
 import { formatRatingNumber } from '@/lib/utils';
 
@@ -28,17 +28,19 @@ export function GameCard({ game, variant = 'default', priority = false }: GameCa
             className="object-cover group-hover:scale-105 transition-transform duration-300"
             data-ai-hint="board game cover"
             priority={priority}
-            sizes="(max-width: 767px) 160px, 33vw" // Updated for mobile fixed width
+            sizes="(max-width: 767px) 160px, 33vw"
           />
-          <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/80 via-black/50 to-transparent p-2 sm:p-3">
-            <h3 className="text-primary-foreground font-semibold text-sm sm:text-base leading-tight drop-shadow-sm line-clamp-2">
-              {game.name} {game.yearPublished && <span className="text-xs opacity-80">({game.yearPublished})</span>}
-            </h3>
-            {game.overallAverageRating !== null && typeof game.overallAverageRating === 'number' && (
-              <p className="text-xs sm:text-sm font-bold text-accent drop-shadow-sm">
-                {formatRatingNumber(game.overallAverageRating * 2)}
-              </p>
-            )}
+          <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/60 via-black/25 to-transparent p-2 sm:p-3">
+            <div className="flex justify-between items-end">
+              <h3 className="text-primary-foreground font-semibold text-base leading-tight drop-shadow-sm line-clamp-2 mr-2">
+                {game.name}
+              </h3>
+              {game.overallAverageRating !== null && typeof game.overallAverageRating === 'number' && (
+                <p className="text-lg font-bold text-accent drop-shadow-sm whitespace-nowrap">
+                  {formatRatingNumber(game.overallAverageRating * 2)}
+                </p>
+              )}
+            </div>
           </div>
         </Card>
       </Link>
