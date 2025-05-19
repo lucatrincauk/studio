@@ -7,10 +7,15 @@ import { Star, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { formatRatingNumber } from '@/lib/utils';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Info } from 'lucide-react';
+
 
 export default async function HomePage() {
-  const featuredGames = await getFeaturedGamesAction();
-  const allGames = await getAllGamesAction(); 
+  const featuredGamesPromise = getFeaturedGamesAction();
+  const allGamesPromise = getAllGamesAction(); 
+
+  const [featuredGames, allGames] = await Promise.all([featuredGamesPromise, allGamesPromise]);
 
   const topRatedGames = allGames 
     .filter(game => game.overallAverageRating !== null && game.overallAverageRating !== undefined)
@@ -56,14 +61,52 @@ export default async function HomePage() {
             <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mb-6 text-left">
               Top 10 Giochi Valutati
             </h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            <div className="space-y-4">
               {topRatedGames.map((game, index) => (
-                <GameCard game={game} key={game.id} variant="featured" priority={index < 5} />
+                <div key={game.id} className="flex items-center gap-x-3 sm:gap-x-4 p-3 rounded-lg hover:bg-muted/50 transition-colors border border-border">
+                  <div className="flex-shrink-0">
+                    <span className="text-xl sm:text-2xl font-bold text-primary w-8 sm:w-10 flex items-center justify-center">
+                      {index + 1}.
+                    </span>
+                  </div>
+                  <div className="w-24 h-32 sm:w-28 sm:h-36 md:w-32 md:h-40 flex-shrink-0"> 
+                    <GameCard game={game} variant="featured" priority={index < 5} />
+                  </div>
+                  <div className="flex-grow min-w-0 ml-2 sm:ml-3">
+                    <Link href={`/games/${game.id}`} className="group">
+                      <h3 className="text-md sm:text-lg font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-2 hover:underline">
+                        {game.name}
+                      </h3>
+                      {game.yearPublished && (
+                        <p className="text-xs sm:text-sm text-muted-foreground">
+                          ({game.yearPublished})
+                        </p>
+                      )}
+                      {/* Score is on the GameCard overlay, but if needed for text readers or alternative display: */}
+                      {/* game.overallAverageRating !== null && (
+                        <p className="text-sm text-primary font-semibold mt-1">
+                          Voto: {formatRatingNumber(game.overallAverageRating * 2)}
+                        </p>
+                      )*/}
+                    </Link>
+                  </div>
+                </div>
               ))}
             </div>
              <Separator className="my-10" />
           </section>
         )}
+
+        {topRatedGames.length === 0 && featuredGames.length === 0 && (
+           <Alert variant="default" className="mt-8 bg-secondary/30 border-secondary">
+              <Info className="h-4 w-4" />
+              <AlertTitle>Catalogo in Costruzione!</AlertTitle>
+              <AlertDescription>
+                Non ci sono ancora giochi in evidenza o nella top 10. Inizia ad aggiungere giochi e valutazioni!
+              </AlertDescription>
+            </Alert>
+        )}
+
       </section>
     </div>
   );
