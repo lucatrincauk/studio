@@ -3,11 +3,11 @@
 
 import type { BoardGame, BggSearchResult } from '@/lib/types';
 import { useState, useEffect, useTransition, useMemo, useCallback } from 'react';
-import { fetchBggUserCollectionAction, getBoardGamesFromFirestoreAction, syncBoardGamesToFirestoreAction, searchBggGamesAction, importAndRateBggGameAction, fetchAndUpdateBggGameDetailsAction } from '@/lib/actions';
+import { fetchBggUserCollectionAction, getBoardGamesFromFirestoreAction, syncBoardGamesToFirestoreAction, searchBggGamesAction, importAndRateBggGameAction, fetchAndUpdateBggGameDetailsAction, batchUpdateMissingBggDetailsAction } from '@/lib/actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, AlertCircle, Info, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, Pin, PinOff, Search as SearchIcon, PlusCircle, DownloadCloud } from 'lucide-react';
+import { Loader2, AlertCircle, Info, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, Pin, PinOff, Search as SearchIcon, PlusCircle, DownloadCloud, DatabaseZap } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { CollectionConfirmationDialog } from '@/components/collection/confirmation-dialog';
@@ -22,14 +22,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { db } from '@/lib/firebase';
-import { doc, updateDoc, getDoc } from 'firebase/firestore'; // Added getDoc
+import { doc, updateDoc, getDoc } from 'firebase/firestore'; 
 import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 
 const BGG_USERNAME = 'lctr01'; 
-const FIRESTORE_COLLECTION_NAME = 'boardgames_collection'; // Added this constant
+const FIRESTORE_COLLECTION_NAME = 'boardgames_collection'; 
 
 type SortableKeys = 'name' | 'overallAverageRating' | 'isPinned';
 interface SortConfig {
@@ -71,6 +71,9 @@ export default function AdminCollectionPage() {
   // State for fetching BGG details for a specific game
   const [isFetchingDetailsFor, setIsFetchingDetailsFor] = useState<string | null>(null);
   const [isPendingBggDetailsFetch, startBggDetailsFetchTransition] = useTransition();
+
+  // State for batch updating missing BGG details
+  const [isBatchUpdating, startBatchUpdateTransition] = useTransition();
 
 
   const { toast } = useToast();
@@ -158,7 +161,7 @@ export default function AdminCollectionPage() {
   const handleTogglePin = (gameId: string, currentPinStatus: boolean) => {
     startPinToggleTransition(async () => {
       try {
-        const gameRef = doc(db, "boardgames_collection", gameId);
+        const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, gameId);
         await updateDoc(gameRef, {
           isPinned: !currentPinStatus
         });
@@ -247,8 +250,6 @@ export default function AdminCollectionPage() {
           description: 'Il gioco è stato aggiunto alla tua collezione.',
         });
         await loadDbCollection(); 
-        // setBggSearchResults([]); // Optionally clear search results
-        // setBggSearchTerm('');
       }
       setIsImportingGameId(null);
     });
@@ -284,12 +285,23 @@ export default function AdminCollectionPage() {
         await updateDoc(gameRef, bggFetchResult.updateData);
         toast({ title: 'Dettagli Aggiornati', description: `Dettagli per ${docSnap.data()?.name || firestoreGameId} aggiornati con successo.` });
         await loadDbCollection();
-        // router.revalidate(); // Consider revalidating paths if needed for other pages
       } catch (dbError) {
         const errorMessage = dbError instanceof Error ? dbError.message : "Errore sconosciuto durante l'aggiornamento del DB.";
         toast({ title: 'Errore Aggiornamento Database', description: errorMessage, variant: 'destructive' });
       } finally {
         setIsFetchingDetailsFor(null);
+      }
+    });
+  };
+
+  const handleBatchUpdateMissingDetails = () => {
+    startBatchUpdateTransition(async () => {
+      const result = await batchUpdateMissingBggDetailsAction();
+      if (result.success) {
+        toast({ title: 'Aggiornamento Batch Completato', description: result.message });
+        await loadDbCollection();
+      } else {
+        toast({ title: 'Errore Aggiornamento Batch', description: result.error || 'Si è verificato un errore sconosciuto.', variant: 'destructive' });
       }
     });
   };
@@ -303,18 +315,26 @@ export default function AdminCollectionPage() {
           <CardDescription>Gestisci la collezione di giochi da tavolo sincronizzandola con BoardGameGeek e Firebase. Puoi anche fissare i giochi per la sezione "Vetrina" della homepage e aggiornare i dettagli dei giochi da BGG.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <Button onClick={handleFetchBggCollection} disabled={isBggFetching} className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <Button onClick={handleFetchBggCollection} disabled={isBggFetching} className="bg-primary hover:bg-primary/90 text-primary-foreground">
               {isBggFetching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Sincronizza con BGG (Utente: {BGG_USERNAME})
+              Sincronizza con BGG ({BGG_USERNAME})
             </Button>
             <Button 
               onClick={handleSyncToDb} 
               disabled={isDbSyncing || isBggFetching || (gamesToAdd.length === 0 && gamesToRemove.length === 0 && bggFetchedCollection !== null) }
-              className="flex-1 bg-accent hover:bg-accent/90 text-accent-foreground"
+              className="bg-accent hover:bg-accent/90 text-accent-foreground"
             >
               {isDbSyncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Salva Modifiche nel DB (da {BGG_USERNAME})
+              Salva Modifiche nel DB (da BGG)
+            </Button>
+             <Button 
+              onClick={handleBatchUpdateMissingDetails} 
+              disabled={isBatchUpdating}
+              className="bg-secondary hover:bg-secondary/90 text-secondary-foreground"
+            >
+              {isBatchUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DatabaseZap className="mr-2 h-4 w-4" />}
+              Arricchisci Dati Mancanti
             </Button>
           </div>
           {error && (
@@ -578,3 +598,4 @@ export default function AdminCollectionPage() {
     </div>
   );
 }
+
