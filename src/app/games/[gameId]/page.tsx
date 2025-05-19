@@ -246,24 +246,26 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             </div>
             
             {/* Game Metadata Section */}
-            <div className="text-sm text-muted-foreground space-y-1.5 pt-1 grid grid-cols-1 md:grid-cols-2 md:gap-x-6 md:gap-y-2">
+            <div className="text-sm text-muted-foreground space-y-1.5 pt-1 grid grid-cols-2 gap-x-4 gap-y-2">
               {game.yearPublished && (
                 <div className="flex items-center gap-2">
                   <CalendarDays size={16} className="text-primary/80" />
-                  <span>Anno: {game.yearPublished}</span>
+                  <span className="hidden sm:inline">Anno:</span>
+                  <span>{game.yearPublished}</span>
                 </div>
               )}
               {(game.minPlayers || game.maxPlayers) && (
                 <div className="flex items-center gap-2">
                   <Users size={16} className="text-primary/80" />
-                  <span>Giocatori: {game.minPlayers}{game.maxPlayers && game.minPlayers !== game.maxPlayers ? `-${game.maxPlayers}` : ''}</span>
+                   <span className="hidden sm:inline">Giocatori:</span>
+                  <span>{game.minPlayers}{game.maxPlayers && game.minPlayers !== game.maxPlayers ? `-${game.maxPlayers}` : ''}</span>
                 </div>
               )}
               { (game.minPlaytime && game.maxPlaytime) || game.playingTime ? (
                 <div className="flex items-center gap-2">
                   <Clock size={16} className="text-primary/80" />
+                  <span className="hidden sm:inline">Durata:</span>
                   <span>
-                    Durata: {' '}
                     {game.minPlaytime && game.maxPlaytime ? 
                       (game.minPlaytime === game.maxPlaytime ? `${game.minPlaytime} min` : `${game.minPlaytime} - ${game.maxPlaytime} min`)
                       : (game.playingTime ? `${game.playingTime} min` : 'N/D')
@@ -275,13 +277,15 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
               {game.averageWeight !== null && game.averageWeight !== undefined && (
                  <div className="flex items-center gap-2">
                   <Brain size={16} className="text-primary/80" />
-                  <span>Complessità: {formatRatingNumber(game.averageWeight)} / 5</span>
+                  <span className="hidden sm:inline">Complessità:</span>
+                  <span>{formatRatingNumber(game.averageWeight)} / 5</span>
                 </div>
               )}
               {game.bggId && (
                 <div className="flex items-center gap-2">
                   <Tag size={16} className="text-primary/80" />
-                  <span>BGG ID: {' '}
+                  <span className="hidden sm:inline">BGG ID:</span>
+                  <span>
                     <a 
                       href={`https://boardgamegeek.com/boardgame/${game.bggId}`} 
                       target="_blank" 
@@ -455,4 +459,3 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
-
