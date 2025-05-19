@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { SafeImage } from '@/components/common/SafeImage';
 import { ReviewItem } from '@/components/boardgame/review-item';
+import { Progress } from '@/components/ui/progress';
 
 
 interface GameDetailPageProps {
@@ -52,7 +53,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
   const [isSummarizing, startSummaryTransition] = useTransition();
   const [summaryError, setSummaryError] = useState<string | null>(null);
 
-  const [currentUserReview, setCurrentUserReview] = useState<Review | undefined>(undefined);
+  const [userReview, setUserReview] = useState<Review | undefined>(undefined);
   const [remainingReviews, setRemainingReviews] = useState<Review[]>([]);
   const [groupedCategoryAverages, setGroupedCategoryAverages] = useState<GroupedCategoryAverages | null>(null);
   const [globalGameAverage, setGlobalGameAverage] = useState<number | null>(null);
@@ -75,18 +76,21 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       if (currentUser && !authLoading) {
         foundUserReview = gameData.reviews.find(r => r.userId === currentUser.uid);
       }
-      setCurrentUserReview(foundUserReview);
+      setUserReview(foundUserReview);
       
       setRemainingReviews(gameData.reviews.filter(r => r.id !== foundUserReview?.id));
       
-      setGroupedCategoryAverages(calculateGroupedCategoryAverages(gameData.reviews));
-      
-      const flatCategoryAverages = calculateCategoryAverages(gameData.reviews);
-      setGlobalGameAverage(flatCategoryAverages ? calculateOverallCategoryAverage(flatCategoryAverages) : null);
-
+      const categoryAvgs = calculateCategoryAverages(gameData.reviews);
+      if (categoryAvgs) {
+        setGroupedCategoryAverages(calculateGroupedCategoryAverages(gameData.reviews));
+        setGlobalGameAverage(calculateOverallCategoryAverage(categoryAvgs));
+      } else {
+        setGroupedCategoryAverages(null);
+        setGlobalGameAverage(null);
+      }
     } else {
       setCurrentIsPinned(false);
-      setCurrentUserReview(undefined);
+      setUserReview(undefined);
       setRemainingReviews([]);
       setGroupedCategoryAverages(null);
       setGlobalGameAverage(null);
@@ -128,19 +132,18 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
   const confirmDeleteUserReview = async () => {
     setShowDeleteConfirmDialog(false);
-    if (!currentUser || !currentUserReview?.id || !gameId) {
+    if (!currentUser || !userReview?.id || !gameId) {
       toast({ title: "Errore", description: "Impossibile eliminare la recensione. Utente o recensione non trovati.", variant: "destructive" });
       return;
     }
 
     startDeleteReviewTransition(async () => {
       try {
-        const reviewDocRef = doc(db, "boardgames_collection", gameId, 'reviews', currentUserReview.id);
+        const reviewDocRef = doc(db, "boardgames_collection", gameId, 'reviews', userReview.id);
         await deleteDoc(reviewDocRef);
         toast({ title: "Recensione Eliminata", description: "La tua recensione è stata eliminata con successo." });
         await fetchGameData(); 
       } catch (error) {
-        console.error("Errore durante l'eliminazione della recensione da Firestore:", error);
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({ title: "Errore", description: `Impossibile eliminare la recensione: ${errorMessage}`, variant: "destructive" });
       }
@@ -162,8 +165,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `Il gioco è stato ${newPinStatus ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
         });
         
-        // No revalidatePath here, local state and subsequent data fetches will handle UI updates.
-        await fetchGameData(); // Re-fetch game data to reflect the change universally if needed elsewhere
+        await fetchGameData();
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({
@@ -171,7 +173,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `Impossibile aggiornare lo stato vetrina: ${errorMessage}`,
           variant: "destructive",
         });
-        console.error("Errore durante l'aggiornamento dello stato pin del gioco:", error);
       }
     });
   };
@@ -204,7 +205,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     <div className="space-y-10">
       <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
         <div className="flex flex-col md:flex-row">
-          <div className="flex-1 p-6 space-y-4 order-1">
+          <div className="flex-1 p-6 space-y-4 md:order-1"> {/* Desktop: text first */}
             <div className="flex justify-between items-start mb-2">
                 <div className="flex items-center gap-2 flex-1 mr-4">
                   <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">{game.name}</h1>
@@ -222,10 +223,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                   )}
                 </div>
               {globalGameAverage !== null && (
-                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-md flex-shrink-0">
-                  <span className="text-xl sm:text-2xl font-bold">
-                    {formatRatingNumber(globalGameAverage * 2)}
-                  </span>
+                <div className="flex-shrink-0 bg-primary text-primary-foreground rounded-full px-4 py-2 text-xl font-bold shadow-md">
+                  {formatRatingNumber(globalGameAverage * 2)}
                 </div>
               )}
             </div>
@@ -308,7 +307,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           </div>
 
           {/* Desktop Image - Right column */}
-          <div className="hidden md:block md:w-1/4 p-6 flex-shrink-0 self-start order-2">
+          <div className="hidden md:block md:w-1/4 p-6 flex-shrink-0 self-start md:order-2"> {/* Desktop: image second */}
             <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
               <SafeImage
                 src={game.coverArtUrl}
@@ -330,63 +329,64 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
         <div className="lg:col-span-2 space-y-8">
           
-          {currentUserReview && (
-            <div className="mb-8">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-semibold text-foreground flex-grow mr-2">La Tua Recensione</h3>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <Button asChild size="sm">
-                     <Link href={`/games/${gameId}/rate`}>
-                      <span className="flex items-center">
-                        <Edit className="mr-0 sm:mr-2 h-4 w-4" />
-                        <span className="hidden sm:inline">Modifica</span>
-                      </span>
-                    </Link>
-                  </Button>
-                  <AlertDialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="destructive" size="sm" disabled={isDeletingReview}>
+           {/* "Manage Your Review" / "Rate this Game" section moved here */}
+          {currentUser && !authLoading && (
+            userReview ? (
+              <div className="mb-8">
+                <div className="flex justify-between items-center mb-4 flex-wrap">
+                  <h3 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h3>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <Button asChild size="sm">
+                      <Link href={`/games/${gameId}/rate`}>
                         <span className="flex items-center">
-                          {isDeletingReview ? <Loader2 className="mr-0 sm:mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-0 sm:mr-2 h-4 w-4" />}
-                          <span className="hidden sm:inline">Elimina</span>
+                           <Edit className="mr-0 sm:mr-2 h-4 w-4" />
+                           <span className="hidden sm:inline">Modifica</span>
                         </span>
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Sei sicuro?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Questa azione non può essere annullata. Eliminerà permanentemente la tua recensione per {game.name}.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Annulla</AlertDialogCancel>
-                        <AlertDialogAction onClick={confirmDeleteUserReview} className="bg-destructive hover:bg-destructive/90">
-                          {isDeletingReview ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Conferma Eliminazione" }
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                      </Link>
+                    </Button>
+                    <AlertDialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="destructive" size="sm" disabled={isDeletingReview}>
+                           <span className="flex items-center">
+                            {isDeletingReview ? <Loader2 className="mr-0 sm:mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-0 sm:mr-2 h-4 w-4" />}
+                             <span className="hidden sm:inline">Elimina</span>
+                           </span>
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Sei sicuro?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Questa azione non può essere annullata. Eliminerà permanentemente la tua recensione per {game.name}.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Annulla</AlertDialogCancel>
+                          <AlertDialogAction onClick={confirmDeleteUserReview} className="bg-destructive hover:bg-destructive/90">
+                            {isDeletingReview ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Conferma Eliminazione" }
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 </div>
+                <ReviewItem review={userReview} />
+                <Separator className="my-6" />
               </div>
-              <ReviewItem review={currentUserReview} />
-              <Separator className="my-6" />
-            </div>
-          )}
-          
-          {!currentUserReview && currentUser && (
-            <div className="p-6 border border-border rounded-lg shadow-md bg-card">
-              <h3 className="text-xl font-semibold text-foreground mb-1">Condividi la Tua Opinione</h3>
-              <CardDescription className="mb-4">
-                Aiuta gli altri condividendo la tua esperienza con questo gioco.
-              </CardDescription>
-              <Button asChild className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90">
-                <Link href={`/games/${gameId}/rate`}>
-                  <Edit className="mr-2 h-4 w-4" />
-                  Valuta questo Gioco
-                </Link>
-              </Button>
-            </div>
+            ) : (
+              <Card className="p-6 border border-border rounded-lg shadow-md bg-card">
+                <CardTitle className="text-xl font-semibold text-foreground mb-1">Condividi la Tua Opinione</CardTitle>
+                <CardDescription className="mb-4">
+                  Aiuta gli altri condividendo la tua esperienza con questo gioco.
+                </CardDescription>
+                <Button asChild className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90">
+                  <Link href={`/games/${gameId}/rate`}>
+                    <Edit className="mr-2 h-4 w-4" />
+                    Valuta questo Gioco
+                  </Link>
+                </Button>
+              </Card>
+            )
           )}
 
            {!currentUser && !authLoading && (
@@ -400,7 +400,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           
           <div>
             <h2 className="text-2xl font-semibold text-foreground mb-6">
-                {currentUserReview ? `Altre Recensioni (${remainingReviews.length})` : `Recensioni dei Giocatori (${game.reviews.length})`}
+                {userReview ? `Altre Recensioni (${remainingReviews.length})` : `Recensioni dei Giocatori (${game.reviews.length})`}
             </h2>
             <ReviewList reviews={remainingReviews} />
           </div>
