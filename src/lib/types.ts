@@ -22,7 +22,7 @@ export const RATING_CATEGORIES: Record<RatingCategory, string> = {
   lengthDowntime: 'Durata e Tempi Morti',
   graphicDesign: 'Design Grafico',
   componentsThemeLore: 'Componenti, Tema e Ambientazione',
-  effortToLearn: 'Impegno per Imparare',
+  effortToLearn: 'Facilità di apprendimento', // Changed
   setupTeardown: 'Preparazione e Riordino',
 };
 
@@ -97,3 +97,4 @@ export interface UserProfile {
   name: string;
   photoURL?: string | null;
 }
+
