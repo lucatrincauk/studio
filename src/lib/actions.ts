@@ -90,7 +90,7 @@ async function parseBggThingXmlToBoardGame(xmlText: string, bggIdInput: number):
     }
     gameData.coverArtUrl = coverArt || `https://placehold.co/400x600.png?text=${encodeURIComponent(gameData.name || 'Game')}`;
 
-    const yearPublishedMatch = /<yearpublished value="(\d+)"\/>/.exec(xmlText);
+    const yearPublishedMatch = /<yearpublished\s+value="(\d+)"(?:[^>]*)\/?>/i.exec(xmlText);
     if (yearPublishedMatch && yearPublishedMatch[1]) {
         gameData.yearPublished = parseInt(yearPublishedMatch[1], 10);
     }
@@ -104,20 +104,12 @@ async function parseBggThingXmlToBoardGame(xmlText: string, bggIdInput: number):
         return null;
     };
 
-    gameData.minPlayers = parseNumericValue(/<minplayers value="(\d+)"\/>/, xmlText);
-    gameData.maxPlayers = parseNumericValue(/<maxplayers value="(\d+)"\/>/, xmlText);
-    gameData.playingTime = parseNumericValue(/<playingtime value="(\d+)"\/>/, xmlText);
-    gameData.minPlaytime = parseNumericValue(/<minplaytime value="(\d+)"\/>/, xmlText);
-    gameData.maxPlaytime = parseNumericValue(/<maxplaytime value="(\d+)"\/>/, xmlText);
-    gameData.averageWeight = parseNumericValue(/<statistics(?:[^>]*)?>[\s\S]*?<ratings(?:[^>]*)?>[\s\S]*?<averageweight value="([\d.]+)"\/>[\s\S]*?<\/ratings>[\s\S]*?<\/statistics>/m, xmlText, true);
-    
-    // If only playingtime is available, use it for min/max as a fallback.
-    if (gameData.playingTime != null && gameData.minPlaytime == null) { // use != null to check for both null and undefined
-        gameData.minPlaytime = gameData.playingTime;
-    }
-    if (gameData.playingTime != null && gameData.maxPlaytime == null) {
-        gameData.maxPlaytime = gameData.playingTime;
-    }
+    gameData.minPlayers = parseNumericValue(/<minplayers\s+value="(\d+)"(?:[^>]*)\/?>/i, xmlText);
+    gameData.maxPlayers = parseNumericValue(/<maxplayers\s+value="(\d+)"(?:[^>]*)\/?>/i, xmlText);
+    gameData.playingTime = parseNumericValue(/<playingtime\s+value="(\d+)"(?:[^>]*)\/?>/i, xmlText);
+    gameData.minPlaytime = parseNumericValue(/<minplaytime\s+value="(\d+)"(?:[^>]*)\/?>/i, xmlText);
+    gameData.maxPlaytime = parseNumericValue(/<maxplaytime\s+value="(\d+)"(?:[^>]*)\/?>/i, xmlText);
+    gameData.averageWeight = parseNumericValue(/<averageweight\s+value="([\d\.]+)"(?:[^>]*)\/?>/i, xmlText, true);
     
     console.log('[BGG PARSED DATA FROM THING] MinPlayers:', gameData.minPlayers, 
                 'MaxPlayers:', gameData.maxPlayers,
@@ -125,7 +117,15 @@ async function parseBggThingXmlToBoardGame(xmlText: string, bggIdInput: number):
                 'MinPlaytime:', gameData.minPlaytime, 
                 'MaxPlaytime:', gameData.maxPlaytime, 
                 'AverageWeight:', gameData.averageWeight);
-
+    
+    // If only playingtime is available, use it for min/max as a fallback.
+    if (gameData.playingTime != null && gameData.minPlaytime == null) { 
+        gameData.minPlaytime = gameData.playingTime;
+    }
+    if (gameData.playingTime != null && gameData.maxPlaytime == null) {
+        gameData.maxPlaytime = gameData.playingTime;
+    }
+    
     return gameData;
 }
 
@@ -181,7 +181,7 @@ async function parseBggSearchXml(xmlText: string): Promise<Omit<BggSearchResult,
 
 
         let yearPublished: number | undefined;
-        const yearMatch = /<yearpublished value="(\d+)"\/>/.exec(itemContent);
+        const yearMatch = /<yearpublished\s+value="(\d+)"(?:[^>]*)\/?>/i.exec(itemContent);
         if (yearMatch && yearMatch[1]) {
             yearPublished = parseInt(yearMatch[1], 10);
         }
@@ -204,7 +204,7 @@ async function parseBggCollectionXml(xmlText: string): Promise<BoardGame[]> {
         }
 
         const itemContent = itemMatch[2];
-        const subtypeMatch = /<subtype\s+value="boardgame"\s*\/>/i.exec(itemContent) || /subtype="boardgame"/i.exec(itemMatch[0]);
+        const subtypeMatch = /<subtype\s+value="boardgame"\s*\/?>/i.exec(itemContent) || /subtype="boardgame"/i.exec(itemMatch[0]);
         if (!subtypeMatch) {
             continue;
         }
@@ -267,9 +267,9 @@ async function parseBggCollectionXml(xmlText: string): Promise<BoardGame[]> {
             minPlayers,
             maxPlayers,
             playingTime,
-            minPlaytime: playingTime ?? null, // Default minPlaytime to playingTime from collection, ensure it's null if playingTime is undefined
-            maxPlaytime: playingTime ?? null, // Default maxPlaytime to playingTime from collection, ensure it's null if playingTime is undefined
-            averageWeight: null,    // Not available in collection XML
+            minPlaytime: playingTime ?? null, 
+            maxPlaytime: playingTime ?? null, 
+            averageWeight: null,    
             reviews: [],
             description: 'Descrizione non disponibile dalla sincronizzazione della collezione BGG.',
             isPinned: false,
@@ -398,26 +398,22 @@ export async function importAndRateBggGameAction(bggId: string): Promise<{ gameI
 
 
 export async function getGameDetails(gameId: string): Promise<BoardGame | null> {
-  // console.log(`[GETGAMEDETAILS ENTRY] Attempting to fetch gameId: "${gameId}"`);
   try {
     const gameDocRef = doc(db, FIRESTORE_COLLECTION_NAME, gameId);
     const docSnap = await getDoc(gameDocRef);
 
     if (docSnap.exists()) {
-      // console.log(`[GETGAMEDETAILS] Document found for gameId: "${gameId}"`);
       const data = docSnap.data();
       if (!data) {
           console.error(`[GETGAMEDETAILS] Dati del documento non definiti per gameId: "${gameId}" nonostante esista.`);
           return null;
       }
-      // console.log(`[GETGAMEDETAILS] Game data fetched for gameId: "${gameId}"`, data);
 
       let reviews: Review[] = [];
       try {
         const reviewsCollectionRef = collection(db, FIRESTORE_COLLECTION_NAME, gameId, 'reviews');
         const reviewsQuery = query(reviewsCollectionRef, orderBy("date", "desc"));
         const reviewsSnapshot = await getDocs(reviewsQuery);
-        // console.log(`[GETGAMEDETAILS] Fetched ${reviewsSnapshot.docs.length} reviews for gameId: "${gameId}"`);
         reviews = reviewsSnapshot.docs.map(reviewDoc => {
           const reviewData = reviewDoc.data();
           const rating: Rating = {
@@ -449,9 +445,9 @@ export async function getGameDetails(gameId: string): Promise<BoardGame | null> 
 
       const game: BoardGame = {
         id: gameId,
-        name: data.name || "Gioco Senza Nome (DB)",
-        coverArtUrl: data.coverArtUrl || `https://placehold.co/400x600.png?text=${encodeURIComponent(data.name || 'N/A')}`,
-        bggId: typeof data.bggId === 'number' ? data.bggId : 0,
+        name: data.name || `Gioco ${gameId} (DB)`, // Fallback if name is missing
+        coverArtUrl: data.coverArtUrl || `https://placehold.co/400x600.png?text=${encodeURIComponent(data.name || gameId || 'N/A')}`, // Fallback for cover art
+        bggId: typeof data.bggId === 'number' ? data.bggId : 0, // Fallback for bggId
         description: data.description || "Nessuna descrizione disponibile.",
         yearPublished: data.yearPublished === undefined ? null : data.yearPublished,
         minPlayers: data.minPlayers === undefined ? null : data.minPlayers,
@@ -464,10 +460,8 @@ export async function getGameDetails(gameId: string): Promise<BoardGame | null> 
         isPinned: data.isPinned || false,
         overallAverageRating: null, 
       };
-      // console.log(`[GETGAMEDETAILS] Successfully constructed game object for gameId: "${gameId}"`, game);
       return game;
     } else {
-      // console.warn(`[GETGAMEDETAILS] Nessun documento trovato per gameId: "${gameId}"`);
       return null;
     }
   } catch (error) {
@@ -477,14 +471,13 @@ export async function getGameDetails(gameId: string): Promise<BoardGame | null> 
 }
 
 async function fetchWithRetry(url: string, retries = 3, delay = 2000, attempt = 1): Promise<string> {
-    console.log(`[BGG FETCH ATTEMPT ${attempt}] URL: ${url}`);
+    console.log(`[BGG FETCH ATTEMPT ${attempt}] URL: ${url}, Status: (pending)`);
     const response = await fetch(url, { cache: 'no-store' });
-    console.log(`[BGG FETCH ATTEMPT ${attempt}] Status: ${response.status}`);
+    console.log(`[BGG FETCH ATTEMPT ${attempt}] URL: ${url}, Status: ${response.status}`);
 
     if (response.status === 200) {
         const xmlText = await response.text();
-        // console.log(`[BGG FETCH ATTEMPT ${attempt}] XML (first 2000 chars): ${xmlText.substring(0, 2000)}`);
-        if (!xmlText.includes('<items') && !xmlText.includes("<item ") && !xmlText.includes("<error>") && attempt < retries && !xmlText.includes("<boardgames") && !xmlText.includes("<boardgame ")) { // Added check for <boardgame for /thing response
+        if (!xmlText.includes('<items') && !xmlText.includes("<item ") && !xmlText.includes("<error>") && attempt < retries && !xmlText.includes("<boardgames") && !xmlText.includes("<boardgame ")) { 
              console.warn(`[BGG FETCH ATTEMPT ${attempt}] Received 200 but XML seems incomplete/invalid. Retrying for URL: ${url}`);
              await new Promise(resolve => setTimeout(resolve, Math.min(delay * attempt, 6000)));
              return fetchWithRetry(url, retries, delay, attempt + 1);
@@ -517,7 +510,6 @@ export async function fetchBggUserCollectionAction(username: string): Promise<Bo
         return games;
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Si è verificato un errore sconosciuto durante il recupero della collezione BGG.';
-        console.error(`[SERVER ACTION ERROR] fetchBggUserCollectionAction for ${username}:`, errorMessage);
         return { error: errorMessage };
     }
 }
@@ -637,7 +629,7 @@ export async function syncBoardGamesToFirestoreAction(
             const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
             const existingData = existingGamesMap.get(game.id);
 
-            const gameDataForFirestore: Partial<BoardGame> = { // Ensure it's Partial<BoardGame>
+            const gameDataForFirestore: Partial<BoardGame> = { 
                 bggId: game.bggId,
                 name: game.name || "Unknown Name",
                 coverArtUrl: game.coverArtUrl || `https://placehold.co/100x150.png?text=No+Image`,
@@ -897,7 +889,7 @@ export async function fetchAndUpdateBggGameDetailsAction(bggId: number): Promise
         }
 
         const parsedBggData = await parseBggThingXmlToBoardGame(thingXml, bggId);
-        console.log('[FETCH/UPDATE] Parsed BGG Data from action:', JSON.stringify(parsedBggData));
+        console.log('[FETCH/UPDATE ACTION] Parsed BGG Data:', JSON.stringify(parsedBggData));
         
         const updateData: Partial<BoardGame> = {};
         if (parsedBggData.name && parsedBggData.name !== "Name Not Found in Details" && parsedBggData.name !== "Unknown Name" && !parsedBggData.name.startsWith("BGG ID")) {
@@ -909,7 +901,7 @@ export async function fetchAndUpdateBggGameDetailsAction(bggId: number): Promise
         if (parsedBggData.coverArtUrl && !parsedBggData.coverArtUrl.includes('placehold.co')) { 
             updateData.coverArtUrl = parsedBggData.coverArtUrl;
         }
-        if (parsedBggData.yearPublished != null) { // Check for not null/undefined
+        if (parsedBggData.yearPublished != null) { 
             updateData.yearPublished = parsedBggData.yearPublished;
         }
         if (parsedBggData.minPlayers != null) {
@@ -931,7 +923,7 @@ export async function fetchAndUpdateBggGameDetailsAction(bggId: number): Promise
             updateData.averageWeight = parsedBggData.averageWeight;
         }
 
-        console.log('[FETCH/UPDATE] Constructed updateData:', JSON.stringify(updateData));
+        console.log('[FETCH/UPDATE ACTION] Constructed updateData:', JSON.stringify(updateData));
 
         if (Object.keys(updateData).length === 0) {
              return { success: true, message: `Nessun nuovo dettaglio da aggiornare per ${parsedBggData.name || `BGG ID ${bggId}`} da BGG.`, updateData: {} };
@@ -949,3 +941,4 @@ export async function fetchAndUpdateBggGameDetailsAction(bggId: number): Promise
         return { success: false, message: 'Recupero dettagli BGG fallito.', error: errorMessage };
     }
 }
+
