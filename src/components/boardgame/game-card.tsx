@@ -18,7 +18,7 @@ export function GameCard({ game, variant = 'default', priority = false }: GameCa
 
   if (variant === 'featured') {
     return (
-      <Link href={`/games/${game.id}`} className="block group">
+      <Link href={`/games/${game.id}`} className="block group h-full">
         <Card className="relative overflow-hidden shadow-lg transition-all duration-300 ease-in-out hover:shadow-xl rounded-lg border border-border group-hover:border-primary/50 aspect-[3/4] h-full">
           <SafeImage
             src={game.coverArtUrl}
@@ -28,7 +28,7 @@ export function GameCard({ game, variant = 'default', priority = false }: GameCa
             className="object-cover group-hover:scale-105 transition-transform duration-300"
             data-ai-hint="board game cover"
             priority={priority}
-            sizes="(max-width: 767px) 50vw, 33vw" // Updated sizes for 2 cols on mobile, 3 on md+
+            sizes="(max-width: 767px) 160px, 33vw" // Updated for mobile fixed width
           />
           <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/80 via-black/50 to-transparent p-2 sm:p-3">
             <h3 className="text-primary-foreground font-semibold text-sm sm:text-base leading-tight drop-shadow-sm line-clamp-2">
@@ -96,4 +96,3 @@ export function GameCard({ game, variant = 'default', priority = false }: GameCa
     </Card>
   );
 }
-
