@@ -8,10 +8,10 @@ import { Button } from '@/components/ui/button';
 import type { RatingCategory, Review, Rating as RatingType, GroupedCategoryAverages } from '@/lib/types';
 import { RATING_CATEGORIES } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, AlertCircle, CheckCircle } from 'lucide-react';
+import { Loader2, AlertCircle, CheckCircle, Smile, Puzzle, Palette, ClipboardList } from 'lucide-react';
 import { reviewFormSchema, type RatingFormValues } from '@/lib/validators';
 import type { User as FirebaseUser } from 'firebase/auth';
-import { CardHeader, CardTitle, CardDescription } from '@/components/ui/card'; // Card related imports
+import { CardHeader, CardTitle, CardDescription } from '@/components/ui/card'; 
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Slider } from '@/components/ui/slider';
 import { calculateOverallCategoryAverage, formatRatingNumber, calculateGroupedCategoryAverages } from '@/lib/utils';
@@ -29,7 +29,7 @@ interface MultiStepRatingFormProps {
   onStepChange: (step: number) => void;
 }
 
-const totalInputSteps = 4; // Number of steps where user inputs ratings
+const totalInputSteps = 4; 
 const stepCategories: (keyof RatingFormValues)[][] = [
   ['excitedToReplay', 'mentallyStimulating', 'fun'],
   ['decisionDepth', 'replayability', 'luck', 'lengthDowntime'],
@@ -49,6 +49,16 @@ const categoryDescriptions: Record<RatingCategory, string> = {
   componentsThemeLore: "Come valuti l'ambientazione e l'applicazione del tema al gioco?",
   effortToLearn: "Quanto è facile o difficile capire le regole e iniziare a giocare?",
   setupTeardown: "Quanto è veloce e semplice preparare il gioco e rimetterlo a posto?",
+};
+
+const StepIcon = ({ step }: { step: number }) => {
+  switch (step) {
+    case 1: return <Smile className="mr-2 h-5 w-5 text-primary" />;
+    case 2: return <Puzzle className="mr-2 h-5 w-5 text-primary" />;
+    case 3: return <Palette className="mr-2 h-5 w-5 text-primary" />;
+    case 4: return <ClipboardList className="mr-2 h-5 w-5 text-primary" />;
+    default: return null;
+  }
 };
 
 
@@ -249,7 +259,6 @@ export function MultiStepRatingForm({
     if (currentStep === 2) return "Come valuteresti le meccaniche e la struttura di base?";
     if (currentStep === 3) return "Valuta l'aspetto visivo e gli elementi tematici del gioco.";
     if (currentStep === 4) return "Quanto è facile imparare, preparare e rimettere a posto il gioco?";
-    if (currentStep === 5) return "La tua recensione è stata salvata. Ecco un riepilogo:";
     return "";
   }
   
@@ -257,11 +266,14 @@ export function MultiStepRatingForm({
 
   return (
     <Form {...form}>
-      <form> {/* Removed space-y-8 */}
+      <form> 
         {currentStep <= totalInputSteps && (
-          <div className="mb-4"> {/* Changed from mb-6 */}
+          <div className="mb-4">
             <div className="flex justify-between items-center">
-              <h3 className="text-xl font-semibold">{getCurrentStepTitle()} - Passo {currentStep} / {totalInputSteps}</h3>
+              <h3 className="text-xl font-semibold flex items-center">
+                <StepIcon step={currentStep} />
+                {getCurrentStepTitle()} - Passo {currentStep} / {totalInputSteps}
+              </h3>
             </div>
             {getCurrentStepDescription() && (
               <p className="text-sm text-muted-foreground mt-1">{getCurrentStepDescription()}</p>
@@ -270,7 +282,7 @@ export function MultiStepRatingForm({
         )}
 
          {currentStep === 5 && (
-            <CardHeader className="px-0 pt-0 pb-6">
+             <CardHeader className="px-0 pt-0 pb-6">
                 <div className="flex justify-between items-center mb-1">
                     <CardTitle className="text-2xl md:text-3xl text-left">
                         Riepilogo Valutazione
@@ -281,14 +293,14 @@ export function MultiStepRatingForm({
                         </span>
                     )}
                 </div>
-                 <CardDescription className="text-left text-sm text-muted-foreground">
-                    {getCurrentStepDescription()}
+                <CardDescription className="text-left text-sm text-muted-foreground">
+                   La tua recensione è stata salvata. Ecco un riepilogo:
                 </CardDescription>
             </CardHeader>
         )}
 
 
-        <div className="min-h-[240px] sm:min-h-[280px]"> {/* Reduced min-h */}
+        <div className="min-h-[240px] sm:min-h-[280px]">
           {currentStep === 1 && (
             <div className="space-y-6 animate-fadeIn">
               {(stepCategories[0] as RatingCategory[]).map((fieldName) => (
@@ -437,7 +449,7 @@ export function MultiStepRatingForm({
           ) : currentStep === totalInputSteps ? ( 
             <Button
               type="button"
-              onClick={form.handleSubmit(handleStep4Submit)}
+              onClick={handleStep4Submit}
               disabled={isSubmitting}
               className="bg-accent hover:bg-accent/90 text-accent-foreground"
             >
@@ -466,3 +478,4 @@ export function MultiStepRatingForm({
     </Form>
   );
 }
+
