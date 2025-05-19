@@ -57,7 +57,6 @@ async function parseRankFromThingXml(xmlText: string): Promise<number> {
 }
 
 async function parseBggThingXmlToBoardGame(xmlText: string, bggIdInput: number): Promise<Partial<BoardGame>> {
-    console.log('[BGG THING XML PARSE] Raw XML for BGG ID:', bggIdInput, '\n', xmlText.substring(0, 4000));
     const gameData: Partial<BoardGame> = { bggId: bggIdInput };
 
     const nameMatches = Array.from(xmlText.matchAll(/<name\s+type="(primary|alternate)"(?:[^>]*)value="([^"]+)"(?:[^>]*)?\/>/g));
@@ -109,14 +108,7 @@ async function parseBggThingXmlToBoardGame(xmlText: string, bggIdInput: number):
     gameData.playingTime = parseNumericValue(/<playingtime\s+value="(\d+)"(?:[^>]*)\/?>/i, xmlText);
     gameData.minPlaytime = parseNumericValue(/<minplaytime\s+value="(\d+)"(?:[^>]*)\/?>/i, xmlText);
     gameData.maxPlaytime = parseNumericValue(/<maxplaytime\s+value="(\d+)"(?:[^>]*)\/?>/i, xmlText);
-    gameData.averageWeight = parseNumericValue(/<averageweight\s+value="([\d\.]+)"(?:[^>]*)\/?>/i, xmlText, true);
-    
-    console.log('[BGG PARSED DATA FROM THING] MinPlayers:', gameData.minPlayers, 
-                'MaxPlayers:', gameData.maxPlayers,
-                'PlayingTime:', gameData.playingTime,
-                'MinPlaytime:', gameData.minPlaytime, 
-                'MaxPlaytime:', gameData.maxPlaytime, 
-                'AverageWeight:', gameData.averageWeight);
+    gameData.averageWeight = parseNumericValue(/<statistics>[\s\S]*?<ratings>[\s\S]*?<averageweight\s+value="([\d\.]+)"(?:[^>]*)\/?>[\s\S]*?<\/ratings>[\s\S]*?<\/statistics>/i, xmlText, true);
     
     // If only playingtime is available, use it for min/max as a fallback.
     if (gameData.playingTime != null && gameData.minPlaytime == null) { 
@@ -352,7 +344,6 @@ export async function importAndRateBggGameAction(bggId: string): Promise<{ gameI
         }
         const thingXml = await thingResponseFetch.text();
         const parsedBggData = await parseBggThingXmlToBoardGame(thingXml, numericBggId);
-        console.log('[IMPORT/RATE] Parsed BGG Data from importAndRate:', JSON.stringify(parsedBggData));
 
 
         if (parsedBggData.name === "Name Not Found in Details" || !parsedBggData.name || parsedBggData.name.startsWith("BGG ID")) {
@@ -471,9 +462,9 @@ export async function getGameDetails(gameId: string): Promise<BoardGame | null> 
 }
 
 async function fetchWithRetry(url: string, retries = 3, delay = 2000, attempt = 1): Promise<string> {
-    console.log(`[BGG FETCH ATTEMPT ${attempt}] URL: ${url}, Status: (pending)`);
+    // console.log(`[BGG FETCH ATTEMPT ${attempt}] URL: ${url}, Status: (pending)`);
     const response = await fetch(url, { cache: 'no-store' });
-    console.log(`[BGG FETCH ATTEMPT ${attempt}] URL: ${url}, Status: ${response.status}`);
+    // console.log(`[BGG FETCH ATTEMPT ${attempt}] URL: ${url}, Status: ${response.status}`);
 
     if (response.status === 200) {
         const xmlText = await response.text();
@@ -889,7 +880,6 @@ export async function fetchAndUpdateBggGameDetailsAction(bggId: number): Promise
         }
 
         const parsedBggData = await parseBggThingXmlToBoardGame(thingXml, bggId);
-        console.log('[FETCH/UPDATE ACTION] Parsed BGG Data:', JSON.stringify(parsedBggData));
         
         const updateData: Partial<BoardGame> = {};
         if (parsedBggData.name && parsedBggData.name !== "Name Not Found in Details" && parsedBggData.name !== "Unknown Name" && !parsedBggData.name.startsWith("BGG ID")) {
@@ -923,7 +913,6 @@ export async function fetchAndUpdateBggGameDetailsAction(bggId: number): Promise
             updateData.averageWeight = parsedBggData.averageWeight;
         }
 
-        console.log('[FETCH/UPDATE ACTION] Constructed updateData:', JSON.stringify(updateData));
 
         if (Object.keys(updateData).length === 0) {
              return { success: true, message: `Nessun nuovo dettaglio da aggiornare per ${parsedBggData.name || `BGG ID ${bggId}`} da BGG.`, updateData: {} };
@@ -941,4 +930,3 @@ export async function fetchAndUpdateBggGameDetailsAction(bggId: number): Promise
         return { success: false, message: 'Recupero dettagli BGG fallito.', error: errorMessage };
     }
 }
-
