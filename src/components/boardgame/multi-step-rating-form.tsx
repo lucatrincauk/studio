@@ -29,7 +29,7 @@ interface MultiStepRatingFormProps {
   onStepChange: (step: number) => void;
 }
 
-const totalInputSteps = 4;
+const totalInputSteps = 4; // Number of steps where user inputs ratings
 const stepCategories: (keyof RatingFormValues)[][] = [
   ['excitedToReplay', 'mentallyStimulating', 'fun'],
   ['decisionDepth', 'replayability', 'luck', 'lengthDowntime'],
@@ -38,7 +38,7 @@ const stepCategories: (keyof RatingFormValues)[][] = [
 ];
 
 const categoryDescriptions: Record<RatingCategory, string> = {
-  excitedToReplay: "Quanto sei ansioso di rigiocare a questo gioco presto?",
+  excitedToReplay: "Quanto ti entusiasma l’idea di rigiocare questo gioco?",
   mentallyStimulating: "Quanto ti fa pensare, elaborare strategie o risolvere problemi questo gioco?",
   fun: "In generale, quanto è stata piacevole e divertente l'esperienza di gioco?",
   decisionDepth: "Quanto sono significative e incisive le scelte che fai durante il gioco?",
@@ -213,16 +213,16 @@ export function MultiStepRatingForm({
         if (submissionSuccessful) {
           const currentRatings = form.getValues();
           const tempReviewForSummary: Review = {
-            id: 'summary',
+            id: 'summary', // Temporary ID for calculation
             author: currentUser.displayName || 'Anonimo',
             userId: currentUser.uid,
             authorPhotoURL: currentUser.photoURL || null,
             rating: currentRatings,
-            comment: '',
+            comment: '', // Comment is empty now
             date: new Date().toISOString(),
           };
           setGroupedAveragesForSummary(calculateGroupedCategoryAverages([tempReviewForSummary]));
-          onStepChange(totalInputSteps + 1);
+          onStepChange(totalInputSteps + 1); // Go to summary step
         }
       });
     } else {
@@ -241,6 +241,7 @@ export function MultiStepRatingForm({
     if (currentStep === 2) return "Design del Gioco";
     if (currentStep === 3) return "Estetica e Immersione";
     if (currentStep === 4) return "Apprendimento e Logistica";
+    if (currentStep === 5) return "Riepilogo Tue Valutazioni";
     return "Passo della Recensione";
   };
 
@@ -249,9 +250,10 @@ export function MultiStepRatingForm({
     if (currentStep === 2) return "Come valuteresti le meccaniche e la struttura di base?";
     if (currentStep === 3) return "Valuta l'aspetto visivo e gli elementi tematici del gioco.";
     if (currentStep === 4) return "Quanto è facile imparare, preparare e rimettere a posto il gioco?";
+    if (currentStep === 5) return "La tua recensione è stata salvata. Ecco un riepilogo:";
     return "";
   }
-
+  
   const yourOverallAverage = calculateOverallCategoryAverage(form.getValues());
 
   return (
@@ -269,9 +271,11 @@ export function MultiStepRatingForm({
         )}
 
          {currentStep === 5 && (
-            <CardHeader className="px-0 pt-0 pb-4">
+            <CardHeader className="px-0 pt-0 pb-6">
                 <div className="flex justify-between items-center mb-1">
-                    <CardTitle className="text-2xl md:text-3xl text-left">Riepilogo Tue Valutazioni</CardTitle>
+                    <CardTitle className="text-2xl md:text-3xl text-left">
+                        {getCurrentStepTitle()}
+                    </CardTitle>
                     {yourOverallAverage !== null && (
                         <span className="text-2xl font-bold text-primary whitespace-nowrap">
                             {formatRatingNumber(yourOverallAverage * 2)}
@@ -279,7 +283,7 @@ export function MultiStepRatingForm({
                     )}
                 </div>
                  <CardDescription className="text-left text-sm text-muted-foreground">
-                     La tua recensione è stata salvata. Ecco un riepilogo:
+                    {getCurrentStepDescription()}
                 </CardDescription>
             </CardHeader>
         )}
@@ -403,6 +407,7 @@ export function MultiStepRatingForm({
                 <GroupedRatingsDisplay
                     groupedAverages={groupedAveragesForSummary}
                     noRatingsMessage="Impossibile caricare il riepilogo. Per favore, prova a inviare di nuovo."
+                    defaultOpenSections={['Sentimento','Design del Gioco','Estetica e Immersione','Apprendimento e Logistica']} // Open all by default
                  />
             </div>
           )}
@@ -445,11 +450,11 @@ export function MultiStepRatingForm({
                 existingReview ? 'Aggiorna Recensione' : 'Invia Recensione'
               )}
             </Button>
-          ) : (
+          ) : ( // currentStep === 5 (Summary Step)
              <Button
                 type="button"
                 onClick={() => {
-                  form.reset(defaultFormValues);
+                  form.reset(defaultFormValues); // Reset form on finishing
                   onReviewSubmitted();
                 }}
                 className="bg-primary hover:bg-primary/90 text-primary-foreground"
