@@ -292,8 +292,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           {currentUserReviewState && (
             <div className="mb-8">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
-                <h3 className="text-xl font-semibold text-foreground mb-2 sm:mb-0">La Tua Recensione</h3>
-                <div className="flex gap-2 flex-wrap">
+                <h3 className="text-xl font-semibold text-foreground mb-2 sm:mb-0 flex-grow">La Tua Recensione</h3>
+                <div className="flex gap-2 flex-wrap flex-shrink-0">
                   <Button asChild size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90">
                     <Link href={`/games/${gameId}/rate`}>
                       <Edit className="mr-0 sm:mr-2 h-4 w-4" />
