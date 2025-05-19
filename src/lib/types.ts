@@ -65,10 +65,13 @@ export interface BoardGame {
   yearPublished?: number | null;
   minPlayers?: number | null;
   maxPlayers?: number | null;
-  playingTime?: number | null;
+  playingTime?: number | null; // Typical or stated playing time
+  minPlaytime?: number | null; // Minimum playing time from BGG
+  maxPlaytime?: number | null; // Maximum playing time from BGG
+  averageWeight?: number | null; // Complexity/weight rating from BGG
   bggId: number;
   overallAverageRating?: number | null;
-  isPinned?: boolean; // Added for Vetrina
+  isPinned?: boolean;
 }
 
 export interface AiSummary {
@@ -100,4 +103,3 @@ export interface UserProfile {
   name: string;
   photoURL?: string | null;
 }
-
