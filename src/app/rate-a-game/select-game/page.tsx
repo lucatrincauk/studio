@@ -22,7 +22,7 @@ export default async function SelectGameToRatePage() {
         <CardHeader>
           <CardTitle className="text-2xl md:text-3xl">Scegli il Gioco da Valutare</CardTitle>
           <CardDescription>
-            Cerca un gioco nella nostra collezione per valutarlo.
+            Seleziona tra i giochi in evidenza oppure cerca un gioco nella collezione per valutarlo
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -56,3 +56,4 @@ export default async function SelectGameToRatePage() {
 
 // Revalidate data for this page as needed, e.g., every hour or on demand
 export const revalidate = 3600;
+
