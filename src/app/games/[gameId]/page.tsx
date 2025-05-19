@@ -27,6 +27,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger, // Added AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
 import { SafeImage } from '@/components/common/SafeImage';
 
@@ -223,21 +224,21 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
         <div className="flex flex-col md:flex-row">
           <div className="flex-1 p-6 space-y-4 order-1 md:order-1">
             <div className="flex justify-between items-start mb-4">
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">{game.name}</h1>
-                {isAdmin && !isLoadingGame && game && (
-                  <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={handleTogglePinGame}
-                      disabled={isPinToggling}
-                      title={currentIsPinned ? "Rimuovi da Vetrina" : "Aggiungi a Vetrina"}
-                      className={`h-9 w-9 hover:bg-accent/20 ${currentIsPinned ? 'text-accent' : 'text-muted-foreground/60 hover:text-accent'}`}
-                  >
-                      {isPinToggling ? <Loader2 className="h-5 w-5 animate-spin" /> : (currentIsPinned ? <PinOff className="h-5 w-5" /> : <Pin className="h-5 w-5" />)}
-                  </Button>
-                )}
-              </div>
+                <div className="flex items-center gap-2 flex-1">
+                  <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">{game.name}</h1>
+                  {isAdmin && !isLoadingGame && game && (
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={handleTogglePinGame}
+                        disabled={isPinToggling}
+                        title={currentIsPinned ? "Rimuovi da Vetrina" : "Aggiungi a Vetrina"}
+                        className={`h-9 w-9 hover:bg-accent/20 ${currentIsPinned ? 'text-accent' : 'text-muted-foreground/60 hover:text-accent'}`}
+                    >
+                        {isPinToggling ? <Loader2 className="h-5 w-5 animate-spin" /> : (currentIsPinned ? <PinOff className="h-5 w-5" /> : <Pin className="h-5 w-5" />)}
+                    </Button>
+                  )}
+                </div>
               {globalGameAverage !== null && (
               <span className="text-3xl sm:text-4xl font-bold text-primary whitespace-nowrap">
                   {formatRatingNumber(globalGameAverage * 2)}
@@ -265,6 +266,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
               <GroupedRatingsDisplay 
                 groupedAverages={groupedCategoryAverages} 
                 noRatingsMessage="Nessuna valutazione per calcolare le medie."
+                defaultOpenSections={['Sentimento']}
               />
             </div>
           </div>
