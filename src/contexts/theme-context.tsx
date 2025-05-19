@@ -4,7 +4,7 @@
 import type { ReactNode } from 'react';
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 
-type Theme = 'light' | 'dark' | 'ocean';
+type Theme = 'light' | 'dark' | 'ocean' | 'violet-dream'; // Added violet-dream
 
 interface ThemeContextType {
   theme: Theme;
@@ -22,7 +22,7 @@ interface ThemeProviderProps {
 export function ThemeProvider({
   children,
   defaultTheme = 'light',
-  storageKey = 'vite-ui-theme',
+  storageKey = 'morchiometro-theme', // Updated storageKey from vite-ui-theme
 }: ThemeProviderProps) {
   const [theme, setThemeState] = useState<Theme>(() => {
     if (typeof window !== 'undefined') {
@@ -46,7 +46,7 @@ export function ThemeProvider({
 
   useEffect(() => {
     const root = window.document.documentElement;
-    root.classList.remove('light', 'dark', 'ocean');
+    root.classList.remove('light', 'dark', 'ocean', 'violet-dream'); // Added violet-dream
     root.classList.add(theme);
   }, [theme]);
 

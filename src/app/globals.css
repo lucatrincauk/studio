@@ -118,6 +118,45 @@ body {
     --sidebar-border: 210 40% 28%;
     --sidebar-ring: 15 90% 60%;
   }
+
+  .violet-dream {
+    --background: 267 38% 93%; /* #EDE6F5 Soft lilac-gray */
+    --foreground: 266 40% 18%; /* #2A1D42 Intense eggplant */
+    --card: 0 0% 100%; /* White cards */
+    --card-foreground: 266 40% 18%; /* #2A1D42 */
+    --popover: 0 0% 100%; /* White */
+    --popover-foreground: 266 40% 18%; /* #2A1D42 */
+    --primary: 267 26% 52%; /* #8265A5 Soft violet */
+    --primary-foreground: 0 0% 98%; /* White */
+    --secondary: 267 40% 71%; /* #B59AD1 Muted lavender */
+    --secondary-foreground: 266 40% 18%; /* #2A1D42 - text on secondary */
+    --muted: 267 38% 88%; /* #E0D8ED - slightly darker than background */
+    --muted-foreground: 267 35% 40%; /* #6A578A - text on muted */
+    --accent: 267 35% 27%; /* #412E5E Dark purple */
+    --accent-foreground: 0 0% 98%; /* White */
+    --destructive: 0 84.2% 60.2%; /* Default destructive */
+    --destructive-foreground: 0 0% 98%; /* Default destructive-foreground */
+    --border: 267 38% 85%; /* #D9D1E8 - border color */
+    --input: 267 38% 85%; /* #D9D1E8 - input background */
+    --ring: 267 26% 52%; /* #8265A5 - Primary color for focus rings */
+    --radius: 0.5rem;
+
+    --chart-1: 267 26% 52%; /* primary */
+    --chart-2: 267 40% 71%; /* secondary */
+    --chart-3: 267 35% 27%; /* accent */
+    --chart-4: 267 26% 62%; /* lighter primary */
+    --chart-5: 267 40% 81%; /* lighter secondary */
+
+    /* Sidebar variables for violet-dream */
+    --sidebar-background: 266 40% 15%; /* #23193B - Darker shade of Deep Contrast */
+    --sidebar-foreground: 267 38% 90%; /* #E3DFF0 - Light text */
+    --sidebar-primary: 267 26% 52%; /* #8265A5 - Soft violet for active/hover */
+    --sidebar-primary-foreground: 0 0% 98%; /* White */
+    --sidebar-accent: 266 40% 22%; /* #31244F - Slightly lighter than sidebar background */
+    --sidebar-accent-foreground: 267 38% 90%;
+    --sidebar-border: 266 40% 22%;
+    --sidebar-ring: 267 26% 52%;
+  }
 }
 
 @layer base {
