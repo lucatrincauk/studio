@@ -12,17 +12,24 @@ interface GameCardProps {
   variant?: 'default' | 'featured';
   priority?: boolean;
   linkTarget?: 'detail' | 'rate';
+  showOverlayText?: boolean; // New prop
 }
 
-export function GameCard({ game, variant = 'default', priority = false, linkTarget = 'detail' }: GameCardProps) {
+export function GameCard({ 
+  game, 
+  variant = 'default', 
+  priority = false, 
+  linkTarget = 'detail',
+  showOverlayText = true // Default to true
+}: GameCardProps) {
   const fallbackSrc = `https://placehold.co/200x300.png?text=${encodeURIComponent(game.name?.substring(0,10) || 'N/A')}`;
   
   const baseHref = linkTarget === 'rate' ? `/games/${game.id}/rate` : `/games/${game.id}`;
 
   if (variant === 'featured') {
     return (
-      <Link href={baseHref} className="block group w-full h-auto"> {/* Ensure link takes full space of its container */}
-        <Card className="relative overflow-hidden shadow-lg transition-all duration-300 ease-in-out hover:shadow-xl rounded-lg border border-border group-hover:border-primary/50 w-full aspect-[3/4]"> {/* Removed h-full, added w-full */}
+      <Link href={baseHref} className="block group w-full h-auto">
+        <Card className="relative overflow-hidden shadow-lg transition-all duration-300 ease-in-out hover:shadow-xl rounded-lg border border-border group-hover:border-primary/50 w-full aspect-[3/4]">
           <SafeImage
             src={game.coverArtUrl}
             alt={`${game.name || 'Gioco'} copertina`}
@@ -31,20 +38,22 @@ export function GameCard({ game, variant = 'default', priority = false, linkTarg
             className="object-cover group-hover:scale-105 transition-transform duration-300"
             data-ai-hint="board game cover"
             priority={priority}
-            sizes="(max-width: 767px) 160px, 33vw" // Adjusted for "In Evidenza" which might differ from Top 10 sizing
+            sizes="(max-width: 767px) 160px, 33vw"
           />
-          <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/60 via-black/25 to-transparent p-2 sm:p-3">
-            <div className="flex justify-between items-end">
-              <h3 className="text-primary-foreground font-semibold text-sm sm:text-base leading-tight drop-shadow-sm line-clamp-2 mr-1">
-                {game.name}
-              </h3>
-              {game.overallAverageRating !== null && typeof game.overallAverageRating === 'number' && (
-                <p className="text-xs sm:text-sm font-bold text-accent drop-shadow-sm whitespace-nowrap">
-                  {formatRatingNumber(game.overallAverageRating * 2)}
-                </p>
-              )}
+          {showOverlayText && (
+            <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/60 via-black/25 to-transparent p-2 sm:p-3">
+              <div className="flex justify-between items-end">
+                <h3 className="text-primary-foreground font-semibold text-base leading-tight drop-shadow-sm line-clamp-2 mr-1">
+                  {game.name}
+                </h3>
+                {game.overallAverageRating !== null && typeof game.overallAverageRating === 'number' && (
+                  <p className="text-lg font-bold text-accent drop-shadow-sm whitespace-nowrap">
+                    {formatRatingNumber(game.overallAverageRating * 2)}
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </Card>
       </Link>
     );

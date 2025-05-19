@@ -48,7 +48,7 @@ export default async function HomePage() {
             <div className="flex space-x-4 overflow-x-auto pb-4 md:grid md:grid-cols-3 md:gap-4 md:space-x-0 md:pb-0 md:overflow-x-visible">
               {featuredGames.map((game, index) => (
                 <div key={game.id} className="w-40 flex-shrink-0 md:w-auto">
-                  <GameCard game={game} variant="featured" priority={index < 3} />
+                  <GameCard game={game} variant="featured" priority={index < 3} showOverlayText={true} />
                 </div>
               ))}
             </div>
@@ -70,10 +70,10 @@ export default async function HomePage() {
                     </span>
                   </div>
                   <div className="w-24 h-32 sm:w-28 sm:h-36 md:w-32 md:h-40 flex-shrink-0"> 
-                    <GameCard game={game} variant="featured" priority={index < 5} />
+                    <GameCard game={game} variant="featured" priority={index < 5} showOverlayText={false} />
                   </div>
-                  <div className="flex-grow min-w-0 ml-2 sm:ml-3">
-                    <Link href={`/games/${game.id}`} className="group">
+                  <div className="flex-grow min-w-0 ml-2 sm:ml-3 flex justify-between items-center">
+                    <Link href={`/games/${game.id}`} className="group flex-1">
                       <h3 className="text-md sm:text-lg font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-2 hover:underline">
                         {game.name}
                       </h3>
@@ -82,13 +82,12 @@ export default async function HomePage() {
                           ({game.yearPublished})
                         </p>
                       )}
-                      {/* Score is on the GameCard overlay, but if needed for text readers or alternative display: */}
-                      {/* game.overallAverageRating !== null && (
-                        <p className="text-sm text-primary font-semibold mt-1">
-                          Voto: {formatRatingNumber(game.overallAverageRating * 2)}
-                        </p>
-                      )*/}
                     </Link>
+                    {game.overallAverageRating !== null && (
+                      <p className="text-xl sm:text-2xl font-bold text-primary ml-4 flex-shrink-0">
+                        {formatRatingNumber(game.overallAverageRating * 2)}
+                      </p>
+                    )}
                   </div>
                 </div>
               ))}
