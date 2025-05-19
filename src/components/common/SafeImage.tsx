@@ -18,27 +18,30 @@ export function SafeImage({
   fallbackSrc,
   ...props // Captures other props like fill, sizes, className, data-ai-hint, priority, etc.
 }: SafeImageProps) {
-  const [currentSrc, setCurrentSrc] = useState(initialSrc || fallbackSrc);
+  // State to hold the source for NextImage.
+  // Initialize with initialSrc if available, otherwise use fallbackSrc.
+  const [imageSrcToRender, setImageSrcToRender] = useState(initialSrc || fallbackSrc);
 
+  // Effect to update imageSrcToRender if the initialSrc or fallbackSrc props change.
   useEffect(() => {
-    // Update currentSrc if initialSrc prop changes or if initialSrc was undefined and then defined
-    if (initialSrc && initialSrc !== currentSrc) {
-      setCurrentSrc(initialSrc);
-    } else if (!initialSrc && currentSrc !== fallbackSrc) {
-      // If initialSrc becomes null/undefined, revert to fallback
-      setCurrentSrc(fallbackSrc);
+    if (initialSrc) {
+      setImageSrcToRender(initialSrc);
+    } else {
+      // If initialSrc becomes null/undefined, or was never provided, ensure we use fallbackSrc.
+      setImageSrcToRender(fallbackSrc);
     }
-  }, [initialSrc, fallbackSrc, currentSrc]);
+  }, [initialSrc, fallbackSrc]); // Rerun this effect only if these props change.
 
   return (
     <NextImage
-      src={currentSrc}
+      src={imageSrcToRender}
       alt={alt}
       onError={() => {
-        // Only set to fallback if not already fallback, to prevent potential loops
-        // if fallback itself errors (though unlikely for a placeholder).
-        if (currentSrc !== fallbackSrc) {
-          setCurrentSrc(fallbackSrc);
+        // If the current imageSrcToRender (which might be initialSrc) fails to load,
+        // and we are not already displaying the fallbackSrc, switch to fallbackSrc.
+        // This prevents a loop if the fallbackSrc itself is somehow problematic.
+        if (imageSrcToRender !== fallbackSrc) {
+          setImageSrcToRender(fallbackSrc);
         }
       }}
       {...props} // Spreads other props

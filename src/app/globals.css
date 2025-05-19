@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -160,45 +161,6 @@ body {
     --sidebar-ring: 45 100% 70%;
   }
 
-  .indigo-sunset {
-    --background: 0 0% 100%; /* Pure White - #FFFFFF */
-    --foreground: 227 28% 25%; /* Darker Deep Indigo for text - to ensure contrast */
-    --card: 0 0% 100%; /* White cards */
-    --card-foreground: 227 28% 25%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 227 28% 25%;
-    --primary: 227 28% 43%; /* Deep Indigo - #4E598C */
-    --primary-foreground: 0 0% 98%; /* White text on primary */
-    --secondary: 29 92% 67%; /* Vibrant Orange - #FCAF58 */
-    --secondary-foreground: 227 28% 20%; /* Darker Indigo for text on orange */
-    --muted: 0 0% 94%; /* Light Gray */
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 39 90% 75%; /* Soft Gold - #F9C784 */
-    --accent-foreground: 227 28% 25%; /* Dark Indigo for text on gold */
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 227 28% 43%; /* Primary color for focus rings */
-    --radius: 0.5rem;
-
-    --chart-1: 227 28% 43%; /* Deep Indigo */
-    --chart-2: 39 90% 75%; /* Soft Gold */
-    --chart-3: 29 92% 67%; /* Vibrant Orange */
-    --chart-4: 24 100% 63%; /* Bold Tangerine */
-    --chart-5: 227 28% 63%; /* Lighter Deep Indigo */
-
-    /* Sidebar variables for indigo-sunset */
-    --sidebar-background: 227 28% 30%; /* Darker Deep Indigo */
-    --sidebar-foreground: 0 0% 95%; /* Light text */
-    --sidebar-primary: 39 90% 75%; /* Soft Gold for active/hover */
-    --sidebar-primary-foreground: 227 28% 20%; /* Dark text on gold */
-    --sidebar-accent: 29 92% 67%; /* Vibrant Orange */
-    --sidebar-accent-foreground: 227 28% 20%; /* Dark text on orange */
-    --sidebar-border: 227 28% 35%;
-    --sidebar-ring: 39 90% 75%;
-  }
-
   .coral-slate {
     --background: 0 0% 93%; /* #EEEEEE */
     --foreground: 207 35% 26%; /* #2A4759 */
@@ -238,6 +200,44 @@ body {
     --sidebar-ring: 19 90% 71%;
   }
 
+  .forest-mist {
+    --background: 140 27% 95%; /* #EAF2ED Lighter Very Light Greenish Gray */
+    --foreground: 205 30% 20%; /* #243642 Dark Slate Blue */
+    --card: 0 0% 100%; /* White cards */
+    --card-foreground: 205 30% 20%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 205 30% 20%;
+    --primary: 185 39% 34%; /* #387478 Dark Teal */
+    --primary-foreground: 140 27% 95%; /* Lighter Very Light Greenish Gray for text on primary */
+    --secondary: 185 25% 55%; /* #6FA5A9 Lighter Teal */
+    --secondary-foreground: 205 30% 20%; /* Dark Slate Blue */
+    --muted: 140 20% 90%; /* #E3EDE9 - Lighter than the new background for subtle differentiation */
+    --muted-foreground: 205 25% 35%;
+    --accent: 160 22% 48%; /* #629584 Medium Greenish Blue/Teal */
+    --accent-foreground: 0 0% 98%; /* White text on accent */
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 140 15% 85%; /* #D3E0DC - Slightly adjusted grayer border */
+    --input: 140 15% 85%;
+    --ring: 185 39% 34%; /* Dark Teal */
+    --radius: 0.5rem;
+
+    --chart-1: 185 39% 34%; /* Dark Teal */
+    --chart-2: 160 22% 48%; /* Medium Greenish Blue/Teal */
+    --chart-3: 185 25% 55%; /* Lighter Teal */
+    --chart-4: 190 30% 45%; /* Mid blue-green */
+    --chart-5: 150 20% 60%; /* Soft green */
+
+    /* Sidebar variables for forest-mist */
+    --sidebar-background: 205 30% 15%; /* Darker Dark Slate Blue */
+    --sidebar-foreground: 140 27% 90%; /* Lighter shade of main background for text */
+    --sidebar-primary: 160 22% 48%; /* Medium Greenish Blue/Teal */
+    --sidebar-primary-foreground: 0 0% 98%; /* White */
+    --sidebar-accent: 205 30% 20%; /* Dark Slate Blue (same as main foreground) */
+    --sidebar-accent-foreground: 140 27% 90%;
+    --sidebar-border: 205 30% 20%;
+    --sidebar-ring: 160 22% 48%;
+  }
 }
 
 @layer base {
@@ -248,3 +248,5 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+    

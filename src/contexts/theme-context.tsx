@@ -4,7 +4,7 @@
 import type { ReactNode } from 'react';
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 
-type Theme = 'light' | 'dark' | 'violet-dream' | 'energetic-coral' | 'indigo-sunset' | 'coral-slate'; // Added 'coral-slate', removed 'graphite-aqua'
+type Theme = 'light' | 'dark' | 'violet-dream' | 'energetic-coral' | 'coral-slate' | 'forest-mist'; // Added 'forest-mist', removed 'indigo-sunset'
 
 interface ThemeContextType {
   theme: Theme;
@@ -22,7 +22,7 @@ interface ThemeProviderProps {
 export function ThemeProvider({
   children,
   defaultTheme = 'light',
-  storageKey = 'morchiometro-theme', 
+  storageKey = 'morchiometro-theme',
 }: ThemeProviderProps) {
   const [theme, setThemeState] = useState<Theme>(() => {
     if (typeof window !== 'undefined') {
@@ -46,7 +46,7 @@ export function ThemeProvider({
 
   useEffect(() => {
     const root = window.document.documentElement;
-    root.classList.remove('light', 'dark', 'violet-dream', 'energetic-coral', 'indigo-sunset', 'graphite-aqua', 'coral-slate'); // Removed 'graphite-aqua', added 'coral-slate'
+    root.classList.remove('light', 'dark', 'violet-dream', 'energetic-coral', 'indigo-sunset', 'coral-slate', 'forest-mist'); // Removed 'indigo-sunset', added 'forest-mist'
     root.classList.add(theme);
   }, [theme]);
 
@@ -76,3 +76,5 @@ export const useTheme = () => {
   }
   return context;
 };
+
+    
