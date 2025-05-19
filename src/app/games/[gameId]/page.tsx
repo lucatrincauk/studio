@@ -296,15 +296,15 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 <div className="flex gap-2 flex-wrap">
                   <Button asChild size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90">
                     <Link href={`/games/${gameId}/rate`}>
-                      <Edit className="mr-2 h-4 w-4" />
-                      Modifica
+                      <Edit className="mr-0 sm:mr-2 h-4 w-4" />
+                      <span className="hidden sm:inline">Modifica</span>
                     </Link>
                   </Button>
-                  <AlertDialog>
+                  <AlertDialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
                     <AlertDialogTrigger asChild>
                       <Button variant="destructive" size="sm" disabled={isDeletingReview}>
-                        {isDeletingReview ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
-                        Elimina
+                        {isDeletingReview ? <Loader2 className="mr-0 sm:mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-0 sm:mr-2 h-4 w-4" />}
+                        <span className="hidden sm:inline">Elimina</span>
                       </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
