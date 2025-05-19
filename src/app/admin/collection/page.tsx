@@ -7,7 +7,7 @@ import { fetchBggUserCollectionAction, getBoardGamesFromFirestoreAction, syncBoa
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, AlertCircle, Info, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, Pin, PinOff, Search as SearchIcon, PlusCircle, DownloadCloud, DatabaseZap } from 'lucide-react';
+import { Loader2, AlertCircle, Info, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, Pin, PinOff, Search as SearchIcon, PlusCircle, DownloadCloud, DatabaseZap, Filter } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { CollectionConfirmationDialog } from '@/components/collection/confirmation-dialog';
@@ -26,6 +26,8 @@ import { doc, updateDoc, getDoc, writeBatch } from 'firebase/firestore';
 import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 
 
 const BGG_USERNAME = 'lctr01'; 
@@ -60,7 +62,6 @@ export default function AdminCollectionPage() {
   const [showConfirmationDialog, setShowConfirmationDialog] = useState(false);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'isPinned', direction: 'descending' });
 
-  // State for BGG Search
   const [bggSearchTerm, setBggSearchTerm] = useState('');
   const [bggSearchResults, setBggSearchResults] = useState<BggSearchResult[]>([]);
   const [isBggSearching, startBggSearchTransition] = useTransition();
@@ -68,12 +69,11 @@ export default function AdminCollectionPage() {
   const [isImportingGameId, setIsImportingGameId] = useState<string | null>(null);
   const [isPendingImport, startImportTransition] = useTransition();
 
-  // State for fetching BGG details for a specific game
   const [isFetchingDetailsFor, setIsFetchingDetailsFor] = useState<string | null>(null);
   const [isPendingBggDetailsFetch, startBggDetailsFetchTransition] = useTransition();
 
-  // State for batch updating missing BGG details
   const [isBatchUpdating, startBatchUpdateTransition] = useTransition();
+  const [showOnlyMissingDetails, setShowOnlyMissingDetails] = useState(false);
 
 
   const { toast } = useToast();
@@ -158,7 +158,7 @@ export default function AdminCollectionPage() {
     });
   };
 
-  const handleTogglePin = (gameId: string, currentPinStatus: boolean) => {
+  const handleTogglePin = async (gameId: string, currentPinStatus: boolean) => {
     startPinToggleTransition(async () => {
       try {
         const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, gameId);
@@ -184,7 +184,16 @@ export default function AdminCollectionPage() {
   };
   
   const sortedDisplayedCollection = useMemo(() => {
-    let itemsToDisplay = [...(bggFetchedCollection || dbCollection)];
+    let itemsToDisplay = bggFetchedCollection ? [...bggFetchedCollection] : [...dbCollection];
+
+    if (showOnlyMissingDetails && !bggFetchedCollection) {
+      itemsToDisplay = itemsToDisplay.filter(game => 
+        game.minPlaytime == null || 
+        game.maxPlaytime == null || 
+        game.averageWeight == null
+      );
+    }
+
     itemsToDisplay.sort((a, b) => {
       if (sortConfig.key === 'name') {
         const nameA = a.name || '';
@@ -197,12 +206,13 @@ export default function AdminCollectionPage() {
       } else if (sortConfig.key === 'isPinned') {
         const pinnedA = a.isPinned ? 1 : 0;
         const pinnedB = b.isPinned ? 1 : 0;
-        return sortConfig.direction === 'ascending' ? pinnedA - pinnedB : pinnedB - pinnedA;
+        // For descending (default for pinned), true (1) comes before false (0)
+        return sortConfig.direction === 'descending' ? pinnedB - pinnedA : pinnedA - pinnedB;
       }
       return 0;
     });
     return itemsToDisplay;
-  }, [bggFetchedCollection, dbCollection, sortConfig]);
+  }, [bggFetchedCollection, dbCollection, sortConfig, showOnlyMissingDetails]);
   
   const displaySource = bggFetchedCollection ? "Collezione BGG Caricata" : "Collezione DB Corrente";
 
@@ -255,11 +265,18 @@ export default function AdminCollectionPage() {
     });
   };
 
-  const handleFetchGameDetailsFromBgg = (firestoreGameId: string, bggId: number) => {
+  const handleFetchGameDetailsFromBgg = async (firestoreGameId: string, bggId: number) => {
     setIsFetchingDetailsFor(firestoreGameId);
+    let bggFetchResult;
+    try {
+      bggFetchResult = await fetchAndUpdateBggGameDetailsAction(bggId);
+    } catch (e) {
+      const errorMsg = e instanceof Error ? e.message : "Errore sconosciuto API";
+      toast({ title: 'Errore Chiamata API BGG', description: errorMsg, variant: 'destructive' });
+      setIsFetchingDetailsFor(null);
+      return;
+    }
     startBggDetailsFetchTransition(async () => {
-      const bggFetchResult = await fetchAndUpdateBggGameDetailsAction(bggId);
-
       if (!bggFetchResult.success || !bggFetchResult.updateData) {
         toast({ title: 'Errore Recupero Dati BGG', description: bggFetchResult.error || 'Impossibile recuperare dati da BGG.', variant: 'destructive' });
         setIsFetchingDetailsFor(null);
@@ -480,18 +497,36 @@ export default function AdminCollectionPage() {
 
       <Card className="shadow-lg border border-border rounded-lg">
         <CardHeader>
-            <CardTitle className="text-2xl">
-            {displaySource} ({sortedDisplayedCollection.length} giochi)
-            </CardTitle>
+            <div className="flex justify-between items-center">
+                <CardTitle className="text-2xl">
+                {displaySource} ({sortedDisplayedCollection.length} giochi)
+                </CardTitle>
+                {!bggFetchedCollection && (
+                <div className="flex items-center space-x-2">
+                    <Checkbox
+                    id="missing-details-filter"
+                    checked={showOnlyMissingDetails}
+                    onCheckedChange={(checked) => setShowOnlyMissingDetails(checked as boolean)}
+                    />
+                    <Label htmlFor="missing-details-filter" className="text-sm font-medium">
+                    Mostra solo con dettagli mancanti
+                    </Label>
+                </div>
+                )}
+            </div>
         </CardHeader>
         <CardContent>
         {isLoadingDb && !bggFetchedCollection && <div className="flex justify-center py-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /> <span className="ml-2">Caricamento collezione DB...</span></div>}
         
         {!isLoadingDb && sortedDisplayedCollection.length === 0 && !bggFetchedCollection && (
-            <Alert>
-            <Info className="h-4 w-4" />
-            <AlertTitle>Collezione Vuota</AlertTitle>
-            <AlertDescription>La tua collezione nel database è vuota. Prova a sincronizzare con BGG per aggiungere giochi, o aggiungi giochi individualmente dalla ricerca BGG qui sopra.</AlertDescription>
+             <Alert>
+                <Info className="h-4 w-4" />
+                <AlertTitle>Collezione Vuota o Filtri Attivi</AlertTitle>
+                <AlertDescription>
+                {showOnlyMissingDetails
+                    ? "Nessun gioco con dettagli mancanti trovato."
+                    : "La tua collezione nel database è vuota. Prova a sincronizzare con BGG per aggiungere giochi, o aggiungi giochi individualmente dalla ricerca BGG qui sopra."}
+                </AlertDescription>
             </Alert>
         )}
         
@@ -569,8 +604,8 @@ export default function AdminCollectionPage() {
                             <Button 
                                 variant="ghost" 
                                 size="icon" 
-                                onClick={() => handleTogglePin(game.id, game.isPinned || false)}
-                                disabled={isPinToggling}
+                                onClick={() => game.id && handleTogglePin(game.id, game.isPinned || false)}
+                                disabled={isPinToggling || !game.id}
                                 title={game.isPinned ? "Rimuovi da Vetrina" : "Aggiungi a Vetrina"}
                                 className={`h-8 w-8 hover:bg-accent/20 ${game.isPinned ? 'text-accent' : 'text-muted-foreground/60 hover:text-accent'}`}
                             >
@@ -582,14 +617,14 @@ export default function AdminCollectionPage() {
                             <Button 
                                 variant="outline" 
                                 size="icon" 
-                                onClick={() => handleFetchGameDetailsFromBgg(game.id, game.bggId)}
-                                disabled={isPendingBggDetailsFetch && isFetchingDetailsFor === game.id}
+                                onClick={() => game.id && game.bggId && handleFetchGameDetailsFromBgg(game.id, game.bggId)}
+                                disabled={(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) || !game.id || !game.bggId}
                                 title="Aggiorna Dettagli da BGG"
                                 className="h-8 w-8"
                             >
                                 {(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) ? <Loader2 className="h-4 w-4 animate-spin" /> : <DownloadCloud className="h-4 w-4" />}
                             </Button>
-                            <Button variant="outline" size="icon" asChild className="h-8 w-8">
+                            <Button variant="outline" size="icon" asChild className="h-8 w-8" disabled={!game.bggId}>
                                 <a href={`https://boardgamegeek.com/boardgame/${game.bggId}`} target="_blank" rel="noopener noreferrer" title="Vedi su BGG">
                                     <ExternalLink className="h-4 w-4" />
                                 </a>
@@ -615,3 +650,6 @@ export default function AdminCollectionPage() {
     </div>
   );
 }
+
+
+    
