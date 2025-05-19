@@ -299,7 +299,7 @@ export default function AdminCollectionPage() {
           return;
         }
         
-        console.log('[ADMIN PAGE] Data to update Firestore with for game ' + firestoreGameId + ':', bggFetchResult.updateData);
+        // console.log('[ADMIN PAGE] Data to update Firestore with for game ' + firestoreGameId + ':', bggFetchResult.updateData);
 
         await updateDoc(gameRef, bggFetchResult.updateData);
         toast({ title: 'Dettagli Aggiornati', description: `Dettagli per ${docSnap.data()?.name || firestoreGameId} aggiornati con successo.` });
@@ -655,4 +655,5 @@ export default function AdminCollectionPage() {
 
 
     
+
 
