@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/table";
 import { SafeImage } from '@/components/common/SafeImage';
 import { formatRatingNumber } from '@/lib/utils';
-import { fetchPaginatedGamesAction, FetchPaginatedGamesParams } from '@/lib/actions';
+import { fetchPaginatedGamesAction, type FetchPaginatedGamesParams } from '@/lib/actions';
 import type { DocumentData, QueryDocumentSnapshot } from 'firebase/firestore';
 
 type SortableKeys = 'name' | 'overallAverageRating';
@@ -51,7 +51,8 @@ const LocalGamesTable = ({
   handlePrevPage,
   handleNextPage,
   isLoading,
-  totalGamesCount
+  totalGamesCount,
+  currentSearchTerm
 }: {
   games: BoardGame[],
   sortConfig: SortConfig,
@@ -62,6 +63,7 @@ const LocalGamesTable = ({
   handleNextPage: () => void,
   isLoading: boolean;
   totalGamesCount: number;
+  currentSearchTerm: string;
 }) => {
 
   const SortIcon = ({ columnKey }: { columnKey: SortableKeys }) => {
@@ -85,12 +87,12 @@ const LocalGamesTable = ({
         <Alert variant="default" className="max-w-lg mx-auto bg-secondary/30 border-secondary text-center">
             <Info className="h-4 w-4 mx-auto mb-2 text-muted-foreground" />
             <AlertTitle className="mb-1 text-foreground">
-              {totalGamesCount > 0 ? "Nessun Gioco Trovato" : "Collezione Vuota"}
+              {currentSearchTerm ? "Nessun Gioco Trovato" : "Collezione Vuota"}
             </AlertTitle>
             <AlertDescription className="mb-3 text-muted-foreground">
-              {totalGamesCount > 0 
-                ? "Nessun gioco corrispondente ai tuoi criteri di ricerca è stato trovato nella collezione locale."
-                : "La tua collezione locale è vuota. Puoi aggiungere giochi tramite la sezione Admin."
+              {currentSearchTerm 
+                ? `Nessun gioco corrispondente alla ricerca "${currentSearchTerm}" è stato trovato nella collezione locale.`
+                : "La tua collezione locale è vuota. Gli admin possono aggiungere giochi tramite la sezione Admin."
               }
             </AlertDescription>
         </Alert>
@@ -190,7 +192,7 @@ export function GameSearchList() {
   // Effect to reset pagination state when search term or sort config changes
   useEffect(() => {
     setCurrentPage(1);
-    setPageCursors([null]); // This will trigger the data fetching effect below.
+    setPageCursors([null]); 
   }, [debouncedSearchTerm, sortConfig]);
 
   // Effect to fetch data
@@ -204,29 +206,26 @@ export function GameSearchList() {
         sortKey: sortConfig.key,
         sortDirection: sortConfig.direction,
         searchTerm: debouncedSearchTerm,
-        direction: 'next',
+        direction: 'next', 
       };
 
       const result = await fetchPaginatedGamesAction(params);
       setGames(result.games);
       setTotalGames(result.totalGames);
 
-      // Update cursors for the *next* page
       if (result.nextPageParam) {
         setPageCursors(prev => {
           const newCursors = [...prev];
           while (newCursors.length <= currentPage) {
             newCursors.push(null);
           }
-          // Only update if the cursor is new or different to prevent potential loops
           if (!newCursors[currentPage] || newCursors[currentPage]?.id !== result.nextPageParam?.id) {
-             newCursors[currentPage] = result.nextPageParam; // Cursor for page (currentPage + 1) is at index `currentPage`
+             newCursors[currentPage] = result.nextPageParam;
              return newCursors;
           }
           return prev;
         });
       } else {
-         // If no next page, ensure cursor for 'next' slot is null
          setPageCursors(prev => {
             if (prev.length > currentPage && prev[currentPage] !== null) {
                const newCursors = [...prev];
@@ -237,10 +236,9 @@ export function GameSearchList() {
          });
       }
     });
-  // `pageCursors` is included as a dependency. The conditional updates to `setPageCursors`
-  // (returning `prev` if data is identical) are crucial to prevent infinite loops.
-  // eslint-disable-next-line react-hooks/exhaustive-deps 
-  }, [currentPage, debouncedSearchTerm, sortConfig, pageCursors, startDataFetchTransition]); 
+  // Removed pageCursors from dependency array to simplify and potentially avoid loops.
+  // The effect will read the latest pageCursors via closure when triggered by other dependencies.
+  }, [currentPage, debouncedSearchTerm, sortConfig, startDataFetchTransition]); 
 
 
   const handleSort = useCallback((key: SortableKeys) => {
@@ -249,7 +247,6 @@ export function GameSearchList() {
       if (prevSortConfig.key === key && prevSortConfig.direction === 'asc') {
         direction = 'desc';
       }
-      // Resetting currentPage and pageCursors is handled by the useEffect watching sortConfig
       return { key, direction }; 
     });
   }, []);
@@ -270,20 +267,17 @@ export function GameSearchList() {
 
   const handleSearchInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
-    // Resetting currentPage and pageCursors is handled by the useEffect watching debouncedSearchTerm
   }, []);
   
   const clientSortedGames = useMemo(() => {
-    // Server-side sorting for 'name' is primary.
-    // Client-side sorting for 'overallAverageRating' is applied to the current page's data.
     if (sortConfig.key === 'overallAverageRating' && games.length > 0) {
       return [...games].sort((a, b) => {
-        const ratingA = a.overallAverageRating ?? (sortConfig.direction === 'asc' ? Infinity : -Infinity);
-        const ratingB = b.overallAverageRating ?? (sortConfig.direction === 'asc' ? Infinity : -Infinity);
-        return sortConfig.direction === 'asc' ? ratingA - ratingB : ratingB - ratingA;
+        const valA = a.overallAverageRating ?? (sortConfig.direction === 'asc' ? Infinity : -Infinity);
+        const valB = b.overallAverageRating ?? (sortConfig.direction === 'asc' ? Infinity : -Infinity);
+        return sortConfig.direction === 'asc' ? valA - valB : valB - valA;
       });
     }
-    return games; // For name sort, server already handled it for the fetched page.
+    return games;
   }, [games, sortConfig]);
 
 
@@ -313,7 +307,9 @@ export function GameSearchList() {
         handleNextPage={handleNextPage}
         isLoading={isLoading}
         totalGamesCount={totalGames}
+        currentSearchTerm={debouncedSearchTerm}
       />
     </div>
   );
 }
+

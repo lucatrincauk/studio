@@ -1,12 +1,11 @@
 
-import { getFeaturedGamesAction } from '@/lib/actions'; // Removed getAllGamesAction
+import { getFeaturedGamesAction } from '@/lib/actions'; 
 import { GameSearchList } from '@/components/boardgame/game-search-list';
 import { GameCard } from '@/components/boardgame/game-card';
 import { Separator } from '@/components/ui/separator';
 import type { BoardGame } from '@/lib/types';
 
 export default async function HomePage() {
-  // getAllGamesAction is removed, GameSearchList will fetch its own data
   const featuredGames = await getFeaturedGamesAction();
 
   return (
