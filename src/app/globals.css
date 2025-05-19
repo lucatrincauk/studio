@@ -161,45 +161,6 @@ body {
     --sidebar-ring: 45 100% 70%;
   }
 
-  .coral-slate {
-    --background: 0 0% 93%; /* #EEEEEE */
-    --foreground: 207 35% 26%; /* #2A4759 */
-    --card: 0 0% 100%; /* White */
-    --card-foreground: 207 35% 26%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 207 35% 26%;
-    --primary: 207 35% 26%; /* #2A4759 */
-    --primary-foreground: 0 0% 98%; /* White */
-    --secondary: 0 0% 87%; /* #DDDDDD */
-    --secondary-foreground: 207 35% 20%; /* Darker blue for text on light gray */
-    --muted: 0 0% 90%; /* Lighter than secondary */
-    --muted-foreground: 207 35% 35%;
-    --accent: 19 90% 71%; /* #F79B72 */
-    --accent-foreground: 207 35% 26%; /* Dark blue text on coral for contrast */
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 80%; /* Darker than secondary for more visible borders */
-    --input: 0 0% 100%; /* White input background */
-    --ring: 19 90% 71%; /* Coral for focus rings */
-    --radius: 0.5rem;
-
-    --chart-1: 19 90% 71%; /* Coral */
-    --chart-2: 207 35% 40%; /* Mid Slate Blue */
-    --chart-3: 19 80% 60%; /* Darker Coral */
-    --chart-4: 207 35% 55%; /* Lighter Slate Blue */
-    --chart-5: 0 0% 65%; /* Medium Gray */
-
-    /* Sidebar variables for coral-slate */
-    --sidebar-background: 207 35% 18%; /* Darker version of primary */
-    --sidebar-foreground: 0 0% 90%; /* Light text */
-    --sidebar-primary: 19 90% 71%; /* Coral for active/hover */
-    --sidebar-primary-foreground: 207 35% 15%; /* Very dark blue for text on coral */
-    --sidebar-accent: 207 35% 22%; /* Slightly lighter than sidebar background */
-    --sidebar-accent-foreground: 0 0% 90%;
-    --sidebar-border: 207 35% 22%;
-    --sidebar-ring: 19 90% 71%;
-  }
-
   .forest-mist {
     --background: 140 27% 95%; /* #EAF2ED Lighter Very Light Greenish Gray */
     --foreground: 205 30% 20%; /* #243642 Dark Slate Blue */
@@ -238,6 +199,45 @@ body {
     --sidebar-border: 205 30% 20%;
     --sidebar-ring: 160 22% 48%;
   }
+
+  .verde-selva {
+    --background: 0 0% 93%; /* #EEEEEE - Mist White */
+    --foreground: 140 30% 20%; /* #224533 - Dark Forest Green */
+    --card: 0 0% 100%; /* White */
+    --card-foreground: 140 30% 20%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 140 30% 20%;
+    --primary: 140 30% 20%; /* Dark Forest Green */
+    --primary-foreground: 0 0% 98%; /* White */
+    --secondary: 140 15% 87%; /* #D8E2DE - Very Light Green-Gray */
+    --secondary-foreground: 140 30% 15%; /* Darker Green */
+    --muted: 140 10% 90%; /* #E3E8E5 - Even Lighter Green-Gray */
+    --muted-foreground: 140 25% 35%; /* #40624C - Muted Green */
+    --accent: 140 55% 45%; /* #39A76B - Vibrant Forest Green */
+    --accent-foreground: 0 0% 98%; /* White */
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 140 10% 80%; /* #C9D3CD - Light Green-Gray Border */
+    --input: 140 10% 80%; /* Light Green-Gray Input Background */
+    --ring: 140 55% 45%; /* Accent green for focus rings */
+    --radius: 0.5rem;
+
+    --chart-1: 140 55% 45%; /* accent */
+    --chart-2: 140 45% 55%; /* slightly lighter accent */
+    --chart-3: 140 60% 35%; /* darker, more saturated accent */
+    --chart-4: 140 30% 30%; /* darker primary */
+    --chart-5: 140 20% 50%; /* desaturated mid-green */
+
+    /* Sidebar variables for verde-selva */
+    --sidebar-background: 140 30% 15%; /* Darker version of primary/foreground */
+    --sidebar-foreground: 0 0% 90%; /* Light text */
+    --sidebar-primary: 140 55% 45%; /* Accent green for active/hover */
+    --sidebar-primary-foreground: 0 0% 98%; /* White text */
+    --sidebar-accent: 140 30% 20%; /* Slightly lighter than sidebar background */
+    --sidebar-accent-foreground: 0 0% 90%;
+    --sidebar-border: 140 30% 20%;
+    --sidebar-ring: 140 55% 45%;
+  }
 }
 
 @layer base {
@@ -248,5 +248,3 @@ body {
     @apply bg-background text-foreground;
   }
 }
-
-    

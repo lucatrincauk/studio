@@ -4,7 +4,7 @@
 import type { ReactNode } from 'react';
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 
-type Theme = 'light' | 'dark' | 'violet-dream' | 'energetic-coral' | 'coral-slate' | 'forest-mist'; // Added 'forest-mist', removed 'indigo-sunset'
+type Theme = 'light' | 'dark' | 'violet-dream' | 'energetic-coral' | 'forest-mist' | 'verde-selva';
 
 interface ThemeContextType {
   theme: Theme;
@@ -46,7 +46,7 @@ export function ThemeProvider({
 
   useEffect(() => {
     const root = window.document.documentElement;
-    root.classList.remove('light', 'dark', 'violet-dream', 'energetic-coral', 'indigo-sunset', 'coral-slate', 'forest-mist'); // Removed 'indigo-sunset', added 'forest-mist'
+    root.classList.remove('light', 'dark', 'violet-dream', 'energetic-coral', 'coral-slate', 'forest-mist', 'verde-selva');
     root.classList.add(theme);
   }, [theme]);
 
@@ -76,5 +76,3 @@ export const useTheme = () => {
   }
   return context;
 };
-
-    
