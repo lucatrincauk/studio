@@ -3,15 +3,26 @@
 
 import { useState, useEffect, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import type { BoardGame, BggSearchResult } from '@/lib/types';
-import { GameCard } from '@/components/boardgame/game-card';
+// Removed GameCard import as it's no longer used for the main list here
 import { BggSearchResultItem } from './bgg-search-result-item';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Loader2, AlertCircle, Info } from 'lucide-react';
+import { Search, Loader2, AlertCircle, Info, ExternalLink } from 'lucide-react';
 import { searchBggGamesAction, importAndRateBggGameAction } from '@/lib/actions';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { SafeImage } from '@/components/common/SafeImage';
+import { formatRatingNumber } from '@/lib/utils';
 
 interface GameSearchListProps {
   initialGames: BoardGame[];
@@ -87,11 +98,76 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
           title: 'Gioco Aggiunto!',
           description: 'Il gioco è stato aggiunto alla tua collezione.',
         });
-         router.push(`/games/${result.gameId}?imported=true`);
+         router.push(`/games/${result.gameId}/rate`); // Go to rate page after import
       }
       setIsImportingId(null);
     });
   };
+
+  const GameTable = ({ games, title }: { games: BoardGame[], title: string }) => (
+    <section>
+      <h3 className="text-xl font-semibold mb-4 text-foreground">
+        {title} ({games.length})
+      </h3>
+      <div className="overflow-x-auto bg-card p-4 rounded-lg shadow-md border border-border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[60px] sm:w-[80px]">Copertina</TableHead>
+              <TableHead>Nome</TableHead>
+              <TableHead className="hidden sm:table-cell text-center">Anno</TableHead>
+              <TableHead className="hidden md:table-cell text-center">Giocatori</TableHead>
+              <TableHead className="hidden md:table-cell text-center">Durata</TableHead>
+              <TableHead className="text-center">Voto Medio</TableHead>
+              <TableHead className="text-right">Azioni</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {games.map(game => (
+              <TableRow key={game.id}>
+                <TableCell>
+                  <div className="relative w-12 h-16 sm:w-16 sm:h-20 rounded overflow-hidden shadow-sm">
+                    <SafeImage
+                      src={game.coverArtUrl}
+                      fallbackSrc={`https://placehold.co/64x80.png?text=${encodeURIComponent(game.name?.substring(0,3) || 'N/A')}`}
+                      alt={`${game.name || 'Gioco'} copertina`}
+                      fill
+                      sizes="(max-width: 640px) 48px, 64px"
+                      className="object-cover"
+                      data-ai-hint={`board game ${game.name?.split(' ')[0]?.toLowerCase() || 'mini'}`}
+                    />
+                  </div>
+                </TableCell>
+                <TableCell className="font-medium">
+                  <Link href={`/games/${game.id}`} className="hover:text-primary hover:underline">
+                    {game.name || "Gioco Senza Nome"}
+                  </Link>
+                </TableCell>
+                <TableCell className="hidden sm:table-cell text-center">{game.yearPublished || '-'}</TableCell>
+                <TableCell className="hidden md:table-cell text-center">
+                  {game.minPlayers}{game.maxPlayers && game.minPlayers !== game.maxPlayers ? `-${game.maxPlayers}` : ''}
+                </TableCell>
+                <TableCell className="hidden md:table-cell text-center">{game.playingTime ? `${game.playingTime} min` : '-'}</TableCell>
+                <TableCell className="text-center">
+                  {game.overallAverageRating !== null && typeof game.overallAverageRating === 'number' ? (
+                    <span className="font-semibold text-primary">{formatRatingNumber(game.overallAverageRating * 2)}</span>
+                  ) : (
+                    '-'
+                  )}
+                </TableCell>
+                <TableCell className="text-right">
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href={`/games/${game.id}`}>Vedi Dettagli</Link>
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </section>
+  );
+
 
   return (
     <div className="space-y-8">
@@ -110,16 +186,7 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
       {searchTerm.trim().length > 0 ? (
         <>
           {localFilteredGames.length > 0 ? (
-            <section>
-              <h3 className="text-xl font-semibold mb-4 text-foreground">
-                Giochi Corrispondenti ({localFilteredGames.length})
-              </h3>
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
-                {localFilteredGames.map((game) => (
-                  <GameCard key={game.id} game={game} />
-                ))}
-              </div>
-            </section>
+            <GameTable games={localFilteredGames} title="Giochi Corrispondenti nella Tua Collezione" />
           ) : (
             <>
               {isLoadingBgg ? (
@@ -173,16 +240,7 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
       ) : (
         <>
           {initialGames.length > 0 ? (
-            <section>
-              <h3 className="text-xl font-semibold mb-4 text-foreground">
-                I Tuoi Giochi ({initialGames.length})
-              </h3>
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
-                {initialGames.map((game) => (
-                  <GameCard key={game.id} game={game} />
-                ))}
-              </div>
-            </section>
+             <GameTable games={initialGames} title="I Tuoi Giochi" />
           ) : (
             <Alert variant="default" className="max-w-lg mx-auto bg-secondary/30 border-secondary">
               <Info className="h-4 w-4" />
@@ -195,3 +253,4 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
     </div>
   );
 }
+
