@@ -8,10 +8,20 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Search, Info, Loader2, Edit, Star } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { GameCard } from '@/components/boardgame/game-card'; // Import GameCard
+import { GameCard } from '@/components/boardgame/game-card';
 import { searchLocalGamesByNameAction } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { formatRatingNumber } from '@/lib/utils';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { SafeImage } from '@/components/common/SafeImage';
+
 
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
@@ -53,10 +63,6 @@ export function GameRatingSelector() {
         setLocalResults([]);
       } else {
         setLocalResults(result);
-        if (result.length === 0) {
-          // Toast for no results can be annoying if user is still typing, consider removing or making less intrusive
-          // toast({ title: "Nessun Gioco Trovato", description: `Nessun gioco trovato nella collezione per "${debouncedSearchTerm}".` });
-        }
       }
     });
   }, [debouncedSearchTerm, toast]);
@@ -93,15 +99,15 @@ export function GameRatingSelector() {
 
       {!isLoadingLocal && localResults.length > 0 && (
         <div className="space-y-3">
-          <h3 className="text-lg font-semibold text-foreground">Giochi Trovati nella Collezione ({localResults.length}):</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          <h3 className="text-lg font-semibold text-foreground">Giochi Trovati ({localResults.length}):</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {localResults.map((game, index) => (
               <GameCard
                 game={game}
                 key={game.id}
                 variant="featured"
                 linkTarget="rate"
-                priority={index < 3} // Prioritize loading images for the first few cards
+                priority={index < 4} 
               />
             ))}
           </div>
@@ -120,4 +126,3 @@ export function GameRatingSelector() {
     </div>
   );
 }
-

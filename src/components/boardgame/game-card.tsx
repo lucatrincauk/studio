@@ -11,7 +11,7 @@ interface GameCardProps {
   game: BoardGame;
   variant?: 'default' | 'featured';
   priority?: boolean;
-  linkTarget?: 'detail' | 'rate'; // New prop
+  linkTarget?: 'detail' | 'rate';
 }
 
 export function GameCard({ game, variant = 'default', priority = false, linkTarget = 'detail' }: GameCardProps) {
@@ -31,7 +31,7 @@ export function GameCard({ game, variant = 'default', priority = false, linkTarg
             className="object-cover group-hover:scale-105 transition-transform duration-300"
             data-ai-hint="board game cover"
             priority={priority}
-            sizes="(max-width: 767px) 160px, 33vw"
+            sizes="(max-width: 767px) 50vw, 33vw"
           />
           <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/60 via-black/25 to-transparent p-2 sm:p-3">
             <div className="flex justify-between items-end">
@@ -50,7 +50,7 @@ export function GameCard({ game, variant = 'default', priority = false, linkTarg
     );
   }
 
-  // Default variant
+  // Default variant (for tables typically)
   return (
     <Card className="flex flex-row overflow-hidden shadow-lg transition-all duration-300 ease-in-out hover:shadow-xl rounded-lg border border-border hover:border-primary/50 h-40 md:h-44">
       <div className="relative w-1/3 md:w-2/5 h-full flex-shrink-0">
