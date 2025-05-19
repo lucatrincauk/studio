@@ -48,8 +48,6 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
-// Define LocalGamesTable outside GameSearchList or use React.memo if kept inside (but better outside)
-// For this fix, moving input out is key. Table definition can stay inside if it's not causing issues itself.
 const LocalGamesTable = ({ 
   games, 
   totalGamesCount, 
@@ -59,7 +57,8 @@ const LocalGamesTable = ({
   currentPage,
   totalPages,
   handlePrevPage,
-  handleNextPage
+  handleNextPage,
+  isSearchActive // New prop to know if a search term is active
 }: { 
   games: BoardGame[], 
   totalGamesCount: number, 
@@ -69,7 +68,8 @@ const LocalGamesTable = ({
   currentPage: number,
   totalPages: number,
   handlePrevPage: () => void,
-  handleNextPage: () => void
+  handleNextPage: () => void,
+  isSearchActive: boolean
 }) => {
 
   const SortIcon = ({ columnKey }: { columnKey: SortableKeys }) => {
@@ -81,11 +81,11 @@ const LocalGamesTable = ({
 
   return (
     <section className="mt-8"> 
-      <h3 className="text-xl font-semibold mb-4 text-foreground"> {/* Increased mb for spacing with search bar */}
+      <h3 className="text-xl font-semibold mb-4 text-foreground">
         {title} ({totalGamesCount})
       </h3>
       
-      {games.length === 0 && totalGamesCount > 0 && ( // This condition implies a search yielded no local results from a non-empty collection
+      {games.length === 0 && isSearchActive && (
          <Alert variant="default" className="max-w-lg mx-auto bg-secondary/30 border-secondary text-center">
             <Info className="h-4 w-4 mx-auto mb-2 text-muted-foreground" />
             <AlertTitle className="mb-1 text-foreground">Nessun Gioco Trovato</AlertTitle>
@@ -94,7 +94,7 @@ const LocalGamesTable = ({
             </AlertDescription>
         </Alert>
       )}
-      {games.length === 0 && totalGamesCount === 0 && ( // This condition implies the initial collection is empty
+      {games.length === 0 && !isSearchActive && totalGamesCount === 0 && (
          <Alert variant="default" className="max-w-lg mx-auto bg-secondary/30 border-secondary text-center">
             <Info className="h-4 w-4 mx-auto mb-2 text-muted-foreground" />
             <AlertTitle className="mb-1 text-foreground">Collezione Vuota</AlertTitle>
@@ -250,7 +250,7 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
 
   return (
     <div className="space-y-8">
-       <div className="relative max-w-xl mx-auto mb-6"> {/* Search input is now part of GameSearchList directly */}
+       <div className="relative max-w-xl mx-auto mb-6">
         <Search className="absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground pointer-events-none" />
         <Input
           type="search"
@@ -272,7 +272,9 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
         totalPages={totalPages}
         handlePrevPage={handlePrevPage}
         handleNextPage={handleNextPage}
+        isSearchActive={searchTerm.trim().length > 0} // Pass search status
       />
     </div>
   );
 }
+
