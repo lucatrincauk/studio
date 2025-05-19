@@ -460,9 +460,11 @@ export async function getAllGamesAction(): Promise<BoardGame[]> {
 async function fetchWithRetry(url: string, retries = 5, delay = 3000, attempt = 1): Promise<string> {
     try {
         const response = await fetch(url, { cache: 'no-store' }); 
+        // console.log(`[BGG FETCH ATTEMPT ${attempt}] URL: ${url}, Status: ${response.status}`);
 
         if (response.status === 200) {
             const xmlText = await response.text();
+            // console.log(`[BGG FETCH ATTEMPT ${attempt}] Received 200 OK. XML (first 2000 chars): `, xmlText.substring(0, 2000));
             if (!xmlText.includes('<items') && !xmlText.includes("<item ") && !xmlText.includes("<error>") && attempt < retries) { 
                  console.warn(`[BGG FETCH ATTEMPT ${attempt}] Ricevuto 200 ma XML sembra incompleto/non valido. Riprovo...`);
                  await new Promise(resolve => setTimeout(resolve, Math.min(delay * attempt, 10000))); 
@@ -497,10 +499,14 @@ async function fetchWithRetry(url: string, retries = 5, delay = 3000, attempt = 
 
 
 export async function fetchBggUserCollectionAction(username: string): Promise<BoardGame[] | { error: string }> {
+    // console.log(`[SERVER ACTION ENTRY] fetchBggUserCollectionAction called for username: ${username}`);
     try {
         const url = `${BGG_API_BASE_URL}/collection?username=${username}&own=1&excludesubtype=boardgameexpansion`;
+        // console.log(`[SERVER ACTION] Fetching BGG collection from URL: ${url}`);
         const collectionXml = await fetchWithRetry(url);
+        // console.log(`[SERVER ACTION] Received XML for ${username}, length: ${collectionXml.length}. Parsing...`);
         const games = await parseBggCollectionXml(collectionXml);
+        // console.log(`[SERVER ACTION] Parsed ${games.length} games for ${username}.`);
         return games;
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Si è verificato un errore sconosciuto durante il recupero della collezione BGG.';
@@ -592,11 +598,18 @@ export async function syncBoardGamesToFirestoreAction(
         // Fetch existing games to preserve their 'isPinned' status
         const existingGamesMap = new Map<string, boolean>();
         if (gamesToAdd.length > 0) {
-            const existingGamesQuery = query(collection(db, FIRESTORE_COLLECTION_NAME), where('__name__', 'in', gamesToAdd.map(g => g.id)));
-            const existingGamesSnapshot = await getDocs(existingGamesQuery);
-            existingGamesSnapshot.forEach(doc => {
-                existingGamesMap.set(doc.id, doc.data().isPinned || false);
-            });
+            // Firestore 'in' query limit is 30 items. If gamesToAdd is larger, batch the queries.
+            const gameIdsToAdd = gamesToAdd.map(g => g.id);
+            for (let i = 0; i < gameIdsToAdd.length; i += 30) {
+                const batchOfIds = gameIdsToAdd.slice(i, i + 30);
+                if (batchOfIds.length > 0) {
+                    const existingGamesQuery = query(collection(db, FIRESTORE_COLLECTION_NAME), where('__name__', 'in', batchOfIds));
+                    const existingGamesSnapshot = await getDocs(existingGamesQuery);
+                    existingGamesSnapshot.forEach(doc => {
+                        existingGamesMap.set(doc.id, doc.data().isPinned || false);
+                    });
+                }
+            }
         }
 
 
@@ -738,30 +751,34 @@ export async function getFeaturedGamesAction(): Promise<BoardGame[]> {
     const pinnedGamesPromises = pinnedGamesSnapshot.docs.map(async (docSnap) => {
         const data = docSnap.data();
         const reviewsSnapshot = await getDocs(collection(db, FIRESTORE_COLLECTION_NAME, docSnap.id, 'reviews'));
-        const reviews: Review[] = reviewsSnapshot.docs.map(reviewDoc => reviewDoc.data() as Review); // Simplified for brevity
+        const reviews: Review[] = reviewsSnapshot.docs.map(reviewDoc => reviewDoc.data() as Review); 
         const categoryAvgs = calculateCategoryAverages(reviews);
         const overallAverageRating = categoryAvgs ? calculateOverallCategoryAverage(categoryAvgs) : null;
         return {
             id: docSnap.id,
             ...data,
-            reviews: [], // Keep reviews light for list
+            reviews: [], 
             overallAverageRating,
             isPinned: data.isPinned || false,
         } as BoardGame;
     });
-    const pinnedGames = await Promise.all(pinnedGamesPromises);
+    let pinnedGames = await Promise.all(pinnedGamesPromises);
+    // Sort pinned games by name
+    pinnedGames.sort((a,b) => (a.name || "").localeCompare(b.name || ""));
+
+
     const pinnedGameIds = new Set(pinnedGames.map(g => g.id));
 
     // 2. Fetch recently reviewed games (excluding pinned ones)
     const allGamesSnapshot = await getDocs(gamesCollectionRef);
     const gamesWithLatestReviewDate: Array<{
-      gameData: BoardGame; // Store the full game data
+      gameData: BoardGame; 
       latestReviewDate: string | null;
     }> = [];
 
     for (const gameDoc of allGamesSnapshot.docs) {
       if (pinnedGameIds.has(gameDoc.id)) {
-        continue; // Skip if already pinned
+        continue; 
       }
       const gameData = gameDoc.data();
       const reviewsQuery = query(
@@ -775,7 +792,7 @@ export async function getFeaturedGamesAction(): Promise<BoardGame[]> {
         latestReviewDate = latestReviewSnapshot.docs[0].data().date as string;
       }
 
-      if (latestReviewDate) { // Only consider games that have reviews
+      if (latestReviewDate) { 
         const reviewsSnapshot = await getDocs(collection(db, FIRESTORE_COLLECTION_NAME, gameDoc.id, 'reviews'));
         const reviews: Review[] = reviewsSnapshot.docs.map(reviewDoc => reviewDoc.data() as Review);
         const categoryAvgs = calculateCategoryAverages(reviews);
@@ -804,41 +821,13 @@ export async function getFeaturedGamesAction(): Promise<BoardGame[]> {
     const sortedRecentGames = gamesWithLatestReviewDate
       .sort((a, b) => new Date(b.latestReviewDate!).getTime() - new Date(a.latestReviewDate!).getTime());
 
-    const recentGamesLimit = 3;
+    const recentGamesLimit = Math.max(0, 5 - pinnedGames.length); // Ensure we get up to 5 total games
     const recentGames = sortedRecentGames.slice(0, recentGamesLimit).map(item => item.gameData);
-
-    // Combine pinned and recent, ensuring no duplicates if logic changes later
-    const combinedGames = [...pinnedGames];
-    recentGames.forEach(rg => {
-      if (!combinedGames.find(pg => pg.id === rg.id)) {
-        combinedGames.push(rg);
-      }
-    });
     
-    // Sort pinned games by name, then append recent ones (already sorted by review date)
-    pinnedGames.sort((a,b) => (a.name || "").localeCompare(b.name || ""));
-
-    return [...pinnedGames, ...recentGames.filter(rg => !pinnedGameIds.has(rg.id))].slice(0, 5); // Cap total at 5 for example
+    return [...pinnedGames, ...recentGames];
 
   } catch (error) {
     console.error("Errore nel recupero dei giochi in vetrina:", error);
     return [];
-  }
-}
-
-
-export async function togglePinGameAction(gameId: string, currentPinStatus: boolean): Promise<{ success: boolean; error?: string }> {
-  try {
-    const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, gameId);
-    await updateDoc(gameRef, {
-      isPinned: !currentPinStatus
-    });
-    revalidatePath('/');
-    revalidatePath('/admin/collection');
-    return { success: true };
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Si è verificato un errore sconosciuto.';
-    console.error("Errore nell'aggiornamento dello stato pin del gioco:", errorMessage);
-    return { success: false, error: errorMessage };
   }
 }

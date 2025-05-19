@@ -3,7 +3,7 @@
 
 import type { BoardGame } from '@/lib/types';
 import { useState, useEffect, useTransition, useMemo, useCallback } from 'react';
-import { fetchBggUserCollectionAction, getBoardGamesFromFirestoreAction, syncBoardGamesToFirestoreAction, togglePinGameAction } from '@/lib/actions';
+import { fetchBggUserCollectionAction, getBoardGamesFromFirestoreAction, syncBoardGamesToFirestoreAction } from '@/lib/actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, AlertCircle, Info, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, Pin, PinOff } from 'lucide-react';
@@ -20,6 +20,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { db } from '@/lib/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
+import { revalidatePath } from 'next/cache';
 
 const BGG_USERNAME = 'lctr01'; 
 
@@ -135,12 +138,25 @@ export default function AdminCollectionPage() {
 
   const handleTogglePin = (gameId: string, currentPinStatus: boolean) => {
     startPinToggleTransition(async () => {
-      const result = await togglePinGameAction(gameId, currentPinStatus);
-      if (result.success) {
+      try {
+        const gameRef = doc(db, "boardgames_collection", gameId);
+        await updateDoc(gameRef, {
+          isPinned: !currentPinStatus
+        });
         toast({ title: 'Stato Pin Aggiornato', description: `Lo stato pin per il gioco è stato ${currentPinStatus ? 'rimosso' : 'aggiunto'}.`});
-        await loadDbCollection(); // Reload to reflect changes
-      } else {
-        toast({ title: 'Errore Aggiornamento Pin', description: result.error || 'Si è verificato un errore sconosciuto.', variant: 'destructive'});
+        
+        // Revalidate paths
+        revalidatePath('/');
+        revalidatePath('/admin/collection');
+        revalidatePath(`/games/${gameId}`); // If you have individual game pages that might be affected
+        
+        // Optimistically update local state or reload
+        // For simplicity, reloading the DB collection.
+        await loadDbCollection();
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Errore sconosciuto";
+        toast({ title: 'Errore Aggiornamento Pin', description: `Impossibile aggiornare lo stato pin: ${errorMessage}`, variant: 'destructive'});
+        console.error("Errore aggiornamento pin:", error);
       }
     });
   };

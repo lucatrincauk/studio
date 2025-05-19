@@ -1,9 +1,9 @@
 
 'use client';
 
-import { useEffect, useState, useTransition, useCallback, use } from 'react';
+import { useEffect, useState, useTransition, useCallback } from 'react';
 import Link from 'next/link';
-import { getGameDetails, togglePinGameAction } from '@/lib/actions';
+import { getGameDetails } from '@/lib/actions';
 import type { BoardGame, AiSummary, Review, Rating, GroupedCategoryAverages } from '@/lib/types';
 import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,8 @@ import { calculateGroupedCategoryAverages, calculateCategoryAverages, calculateO
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { doc, deleteDoc } from 'firebase/firestore';
+import { doc, deleteDoc, updateDoc } from 'firebase/firestore'; // Added updateDoc
+// import { revalidatePath } from 'next/cache'; // Removed: Cannot be used in Client Components
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,19 +28,18 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger, // Added AlertDialogTrigger
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { SafeImage } from '@/components/common/SafeImage';
 
 
 interface GameDetailPageProps {
-  params: Promise<{
+  params: { // No longer a Promise here as we fetch in useEffect
     gameId: string;
-  }>;
+  };
 }
 
-export default function GameDetailPage({ params: paramsPromise }: GameDetailPageProps) {
-  const params = use(paramsPromise);
+export default function GameDetailPage({ params }: GameDetailPageProps) {
   const { gameId } = params;
 
   const { user: currentUser, loading: authLoading, isAdmin } = useAuth();
@@ -163,6 +163,8 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
         setUserReview(undefined); 
         setUserOverallScore(null);
         await fetchGameData(); 
+        // revalidatePath(`/games/${gameId}`); // Removed: Cannot use in Client Component
+        // revalidatePath('/'); // Removed
       } catch (error) {
         console.error("Errore durante l'eliminazione della recensione da Firestore:", error);
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
@@ -174,22 +176,35 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
   const handleTogglePinGame = () => {
     if (!game) return;
     startPinToggleTransition(async () => {
-      const result = await togglePinGameAction(game.id, currentIsPinned);
-      if (result.success) {
+      try {
+        const gameRef = doc(db, "boardgames_collection", game.id);
+        await updateDoc(gameRef, {
+          isPinned: !currentIsPinned
+        });
         setCurrentIsPinned(!currentIsPinned);
         toast({
           title: "Stato Vetrina Aggiornato",
           description: `Il gioco è stato ${!currentIsPinned ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
         });
-        // Optionally re-fetch game data if other parts of the page need to react,
-        // or rely on revalidatePath for eventual consistency.
-        // await fetchGameData(); 
-      } else {
+        // Revalidate paths to update cached data on server and other clients
+        // Removed revalidatePath calls as they don't work in client components
+        // revalidatePath('/');
+        // revalidatePath('/admin/collection');
+        // revalidatePath(`/games/${game.id}`);
+        
+        // Instead, rely on local state update (setCurrentIsPinned) and 
+        // potentially re-fetch game data if deeper consistency is needed immediately.
+        // For this page, setCurrentIsPinned and the toast are the primary feedback.
+        // Other pages might need to be revisited manually or will update on their next load.
+        await fetchGameData(); // Optionally re-fetch to ensure full consistency on this page if needed.
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({
           title: "Errore Aggiornamento Vetrina",
-          description: result.error || "Si è verificato un errore sconosciuto.",
+          description: `Impossibile aggiornare lo stato vetrina: ${errorMessage}`,
           variant: "destructive",
         });
+        console.error("Errore durante l'aggiornamento dello stato pin del gioco:", error);
       }
     });
   };
@@ -224,7 +239,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
         <div className="flex flex-col md:flex-row">
           <div className="flex-1 p-6 space-y-4 order-1 md:order-1">
             <div className="flex justify-between items-start mb-4">
-                <div className="flex items-center gap-2 flex-1">
+                <div className="flex items-center gap-2 flex-1 mr-4"> {/* Added mr-4 for spacing */}
                   <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">{game.name}</h1>
                   {isAdmin && !isLoadingGame && game && (
                     <Button
@@ -405,6 +420,4 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
     </div>
   );
 }
-
-export const dynamic = 'force-dynamic';
 
