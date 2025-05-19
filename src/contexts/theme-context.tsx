@@ -31,11 +31,11 @@ export function ThemeProvider({
         if (storedTheme) {
           return storedTheme;
         }
-        const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        if (systemPrefersDark && (defaultTheme === 'light' || defaultTheme === 'dark')) {
-          // Only default to system dark if 'dark' is a supported default
-          return 'dark';
-        }
+        // System preference logic can be re-added here if desired
+        // const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        // if (systemPrefersDark && (defaultTheme === 'light' || defaultTheme === 'dark')) {
+        //   return 'dark';
+        // }
       } catch (e) {
         // localStorage is not available
         console.error('Error reading theme from localStorage', e);
@@ -46,7 +46,9 @@ export function ThemeProvider({
 
   useEffect(() => {
     const root = window.document.documentElement;
-    root.classList.remove('light', 'dark', 'violet-dream', 'energetic-coral', 'forest-mist', 'coral-slate', 'verde-selva'); // Added coral-slate and verde-selva for removal if present
+    // Ensure this list matches all possible theme class names
+    const allThemeClasses = ['light', 'dark', 'violet-dream', 'energetic-coral', 'forest-mist'];
+    allThemeClasses.forEach(cls => root.classList.remove(cls));
     root.classList.add(theme);
   }, [theme]);
 

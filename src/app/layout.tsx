@@ -5,7 +5,7 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { Header } from '@/components/layout/header';
 import { AuthProvider } from '@/contexts/auth-context';
-import { ThemeProvider } from '@/contexts/theme-context'; // Import ThemeProvider
+import { ThemeProvider } from '@/contexts/theme-context';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -22,6 +22,33 @@ export const metadata: Metadata = {
   description: 'Valuta e recensisci i tuoi giochi da tavolo preferiti.',
 };
 
+const NoFlashScript = () => {
+  // Values should match ThemeProvider props and Theme type
+  const storageKey = "morchiometro-theme";
+  const defaultTheme = "forest-mist";
+  const validThemes = ['light', 'dark', 'violet-dream', 'energetic-coral', 'forest-mist'];
+
+  const scriptContent = `
+(function() {
+  var themeToApply = '${defaultTheme}';
+  var themeInStorage;
+  try {
+    themeInStorage = localStorage.getItem('${storageKey}');
+  } catch (e) { /* Ignore */ }
+
+  if (themeInStorage && ${JSON.stringify(validThemes)}.includes(themeInStorage)) {
+    themeToApply = themeInStorage;
+  }
+
+  var classList = document.documentElement.classList;
+  ${JSON.stringify(validThemes)}.forEach(function(t) { classList.remove(t); });
+  classList.add(themeToApply);
+})();
+  `;
+  return <script dangerouslySetInnerHTML={{ __html: scriptContent }} />;
+};
+
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -29,6 +56,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="it" className="h-full">
+      <head>
+        <NoFlashScript />
+      </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-screen bg-background`}>
         <ThemeProvider defaultTheme="forest-mist" storageKey="morchiometro-theme">
           <AuthProvider>
