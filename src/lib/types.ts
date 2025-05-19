@@ -20,8 +20,8 @@ export const RATING_CATEGORIES: Record<RatingCategory, string> = {
   replayability: 'Rigiocabilità',
   luck: 'Fattore Fortuna',
   lengthDowntime: 'Durata e Tempi Morti',
-  graphicDesign: 'Grafica e Componenti', // Changed
-  componentsThemeLore: 'Componenti, Tema e Ambientazione',
+  graphicDesign: 'Grafica e Componenti',
+  componentsThemeLore: 'Tema e Ambientazione',
   effortToLearn: 'Facilità di apprendimento',
   setupTeardown: 'Preparazione e Riordino',
 };
@@ -97,5 +97,6 @@ export interface UserProfile {
   name: string;
   photoURL?: string | null;
 }
+
 
 
