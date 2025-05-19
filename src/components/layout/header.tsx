@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { LogOut, UserPlus, LogIn, MessagesSquare, Users2, ShieldCheck, UserCircle, Menu, TrendingUp, GaugeCircle, Library } from 'lucide-react';
+import { LogOut, UserPlus, LogIn, MessagesSquare, Users2, ShieldCheck, UserCircle, Menu, TrendingUp, GaugeCircle, Library, Edit, BarChart3 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import {
   DropdownMenu,
@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/sheet";
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
+import Image from 'next/image';
 
 const PoopEmojiLogo = () => (
   <span className="text-3xl" role="img" aria-label="logo">💩</span>
@@ -36,46 +37,13 @@ export function Header() {
     await signOut();
   };
 
-  const navLinks = (
-    <>
-      <SheetClose asChild>
-        <Link
-          href="/top-10"
-          className="flex items-center gap-1.5 text-sm font-medium transition-colors hover:bg-muted md:hover:bg-primary-foreground/10 md:text-primary-foreground rounded-md px-3 py-2"
-        >
-          <TrendingUp size={18} />
-          Top 10
-        </Link>
-      </SheetClose>
-      <SheetClose asChild>
-        <Link
-          href="/all-games"
-          className="flex items-center gap-1.5 text-sm font-medium transition-colors hover:bg-muted md:hover:bg-primary-foreground/10 md:text-primary-foreground rounded-md px-3 py-2"
-        >
-          <Library size={18} />
-          Catalogo
-        </Link>
-      </SheetClose>
-      <SheetClose asChild>
-        <Link
-          href="/users"
-          className="flex items-center gap-1.5 text-sm font-medium transition-colors hover:bg-muted md:hover:bg-primary-foreground/10 md:text-primary-foreground rounded-md px-3 py-2"
-        >
-          <Users2 size={18} />
-          Utenti
-        </Link>
-      </SheetClose>
-      <SheetClose asChild>
-        <Link
-          href="/reviews"
-          className="flex items-center gap-1.5 text-sm font-medium transition-colors hover:bg-muted md:hover:bg-primary-foreground/10 md:text-primary-foreground rounded-md px-3 py-2"
-        >
-          <MessagesSquare size={18} />
-          Tutte le Recensioni
-        </Link>
-      </SheetClose>
-    </>
-  );
+  // Navigation links definition - used by both sub-navbar and mobile sheet
+  const mainNavLinks = [
+    { href: "/top-10", label: "Top 10", icon: <TrendingUp size={18} /> },
+    { href: "/all-games", label: "Catalogo", icon: <Library size={18} /> },
+    { href: "/users", label: "Utenti", icon: <Users2 size={18} /> },
+    { href: "/reviews", label: "Tutte le Recensioni", icon: <MessagesSquare size={18} /> },
+  ];
 
   const authBlockDesktop = (
     loading ? (
@@ -125,7 +93,7 @@ export function Header() {
         </DropdownMenuContent>
       </DropdownMenu>
     ) : (
-      <>
+      <div className="flex items-center gap-1 sm:gap-2">
         <Link
           href="/signin"
           className={cn(
@@ -146,7 +114,7 @@ export function Header() {
              <UserPlus size={16} className="mr-1.5"/>
              Registrati
         </Link>
-      </>
+      </div>
     )
   );
   
@@ -224,81 +192,80 @@ export function Header() {
 
 
   return (
-    <header className="bg-primary text-primary-foreground sticky top-0 z-50 shadow-md">
-      <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
-        <Link href="/" className="flex items-center gap-2 transition-opacity hover:opacity-80">
-          <PoopEmojiLogo />
-          <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Morchiometro</h1>
-        </Link>
+    <div className="sticky top-0 z-50 w-full">
+      <header className="bg-primary text-primary-foreground shadow-md">
+        <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
+          <Link href="/" className="flex items-center gap-2 transition-opacity hover:opacity-80">
+            <PoopEmojiLogo />
+            <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Morchiometro</h1>
+          </Link>
 
-        {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center gap-1">
-          <ul className="flex items-center gap-1 sm:gap-2">
-            <Link
-              href="/top-10"
-              className="flex items-center gap-1.5 text-sm font-medium transition-colors hover:bg-primary-foreground/10 text-primary-foreground rounded-md px-3 py-1.5"
-            >
-              <TrendingUp size={18} />
-              Top 10
-            </Link>
-             <Link
-              href="/all-games"
-              className="flex items-center gap-1.5 text-sm font-medium transition-colors hover:bg-primary-foreground/10 text-primary-foreground rounded-md px-3 py-1.5"
-            >
-              <Library size={18} />
-              Catalogo
-            </Link>
-            <Link
-              href="/users"
-              className="flex items-center gap-1.5 text-sm font-medium transition-colors hover:bg-primary-foreground/10 text-primary-foreground rounded-md px-3 py-1.5"
-            >
-              <Users2 size={18} />
-              Utenti
-            </Link>
-            <Link
-              href="/reviews"
-              className="flex items-center gap-1.5 text-sm font-medium transition-colors hover:bg-primary-foreground/10 text-primary-foreground rounded-md px-3 py-1.5"
-            >
-              <MessagesSquare size={18} />
-              Tutte le Recensioni
-            </Link>
-          </ul>
-          <div className="ml-2 flex items-center gap-1 sm:gap-2">
+          {/* Desktop Auth Block */}
+          <div className="hidden md:flex items-center">
             {authBlockDesktop}
           </div>
-        </nav>
 
-        {/* Mobile Navigation */}
-        <div className="md:hidden">
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="hover:bg-primary-foreground/10 focus-visible:ring-accent">
-                <Menu className="h-6 w-6" />
-                <span className="sr-only">Apri menu</span>
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="right" className="w-[280px] bg-card p-0 text-card-foreground">
-              <SheetHeader className="p-4 border-b">
-                <SheetTitle className="text-left">
-                  <SheetClose asChild>
-                    <Link href="/" className="flex items-center gap-2 text-primary transition-opacity hover:opacity-80">
-                      <PoopEmojiLogo />
-                      <span className="text-lg font-bold">Morchiometro</span>
-                    </Link>
-                  </SheetClose>
-                </SheetTitle>
-              </SheetHeader>
-              <nav className="flex flex-col space-y-1 p-4">
-                {navLinks} 
-              </nav>
-              <Separator className="my-2"/>
-              <div className="flex flex-col space-y-2 p-4">
-                 {authBlockMobile}
-              </div>
-            </SheetContent>
-          </Sheet>
+          {/* Mobile Navigation Trigger */}
+          <div className="md:hidden">
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="hover:bg-primary-foreground/10 focus-visible:ring-accent">
+                  <Menu className="h-6 w-6" />
+                  <span className="sr-only">Apri menu</span>
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-[280px] bg-card p-0 text-card-foreground">
+                <SheetHeader className="p-4 border-b">
+                  <SheetTitle className="text-left">
+                    <SheetClose asChild>
+                      <Link href="/" className="flex items-center gap-2 text-primary transition-opacity hover:opacity-80">
+                        <PoopEmojiLogo />
+                        <span className="text-lg font-bold">Morchiometro</span>
+                      </Link>
+                    </SheetClose>
+                  </SheetTitle>
+                </SheetHeader>
+                <nav className="flex flex-col space-y-1 p-4">
+                  {mainNavLinks.map(link => (
+                     <SheetClose asChild key={link.href}>
+                        <Link
+                          href={link.href}
+                          className="flex items-center gap-2 text-sm font-medium transition-colors hover:bg-muted text-foreground rounded-md px-3 py-2"
+                        >
+                          {link.icon}
+                          {link.label}
+                        </Link>
+                      </SheetClose>
+                  ))}
+                </nav>
+                <Separator className="my-2"/>
+                <div className="flex flex-col space-y-2 p-4">
+                   {authBlockMobile}
+                </div>
+              </SheetContent>
+            </Sheet>
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
+
+      {/* Sub-navbar for Desktop */}
+      <nav className="hidden md:flex bg-muted border-b border-border">
+        <div className="container mx-auto flex h-12 items-center justify-center px-4 sm:px-6 lg:px-8">
+          <ul className="flex items-center gap-4">
+            {mainNavLinks.map(link => (
+              <li key={link.href}>
+                <Link
+                  href={link.href}
+                  className="flex items-center gap-1.5 text-sm font-medium text-foreground transition-colors hover:text-primary px-3 py-2 rounded-md"
+                >
+                  {link.icon}
+                  {link.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </nav>
+    </div>
   );
 }
