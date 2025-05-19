@@ -57,6 +57,7 @@ async function parseRankFromThingXml(xmlText: string): Promise<number> {
 }
 
 async function parseBggThingXmlToBoardGame(xmlText: string, bggIdInput: number): Promise<Partial<BoardGame>> {
+    console.log('[BGG THING XML PARSE] Raw XML for BGG ID:', bggIdInput, '\n', xmlText.substring(0, 4000)); // Log XML for debugging
     const gameData: Partial<BoardGame> = { bggId: bggIdInput };
 
     const nameMatches = Array.from(xmlText.matchAll(/<name\s+type="(primary|alternate)"(?:[^>]*)value="([^"]+)"(?:[^>]*)?\/>/g));
@@ -651,8 +652,8 @@ export async function syncBoardGamesToFirestoreAction(
                 minPlayers: game.minPlayers ?? null,
                 maxPlayers: game.maxPlayers ?? null,
                 playingTime: game.playingTime ?? null,
-                minPlaytime: game.minPlaytime ?? existingData?.minPlaytime ?? null,
-                maxPlaytime: game.maxPlaytime ?? existingData?.maxPlaytime ?? null,
+                minPlaytime: game.minPlaytime ?? existingData?.minPlaytime ?? game.playingTime ?? null, // Use game.playingTime as fallback if minPlaytime is null
+                maxPlaytime: game.maxPlaytime ?? existingData?.maxPlaytime ?? game.playingTime ?? null, // Use game.playingTime as fallback if maxPlaytime is null
                 averageWeight: game.averageWeight ?? existingData?.averageWeight ?? null,
                 description: game.description && game.description !== 'Descrizione non disponibile dalla sincronizzazione della collezione BGG.' ? game.description : existingData?.description ?? 'Nessuna descrizione disponibile.',
                 isPinned: existingData?.isPinned || game.isPinned || false,
@@ -953,3 +954,4 @@ export async function fetchAndUpdateBggGameDetailsAction(bggId: number): Promise
         return { success: false, message: 'Recupero dettagli BGG fallito.', error: errorMessage };
     }
 }
+
