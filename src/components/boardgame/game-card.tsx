@@ -31,8 +31,7 @@ export function GameCard({
     return (
       <Link href={baseHref} className="block group w-full h-auto">
         <Card className={cn(
-          "relative overflow-hidden shadow-lg transition-all duration-300 ease-in-out hover:shadow-xl rounded-lg border border-border group-hover:border-primary/50 w-full aspect-[3/4]",
-          !showOverlayText && "bg-muted" // Use muted background if not showing overlay text (e.g., for Top 10 image-only cards)
+          "relative overflow-hidden shadow-lg transition-all duration-300 ease-in-out hover:shadow-xl rounded-lg border border-border group-hover:border-primary/50 w-full aspect-[3/4]"
         )}>
           <SafeImage
             src={game.coverArtUrl}
@@ -42,7 +41,7 @@ export function GameCard({
             className="object-cover group-hover:scale-105 transition-transform duration-300"
             data-ai-hint="board game cover"
             priority={priority}
-            sizes="(max-width: 767px) 50vw, 33vw" // Adjusted for two-column mobile in rating selector
+            sizes="(max-width: 767px) 160px, 33vw" 
           />
           {showOverlayText && (
             <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/60 via-black/25 to-transparent p-2 sm:p-3">
