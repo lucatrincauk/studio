@@ -34,14 +34,14 @@ interface SortConfig {
 
 export function GameSearchList({ initialGames }: GameSearchListProps) {
   const [searchTerm, setSearchTerm] = useState('');
-  const [filteredLocalGames, setFilteredLocalGames] = useState<BoardGame[]>(initialGames);
+  const [localFilteredGames, setLocalFilteredGames] = useState<BoardGame[]>(initialGames);
   
   const [bggResults, setBggResults] = useState<BggSearchResult[]>([]);
   const [isLoadingBgg, setIsLoadingBgg] = useState(false);
   const [bggError, setBggError] = useState<string | null>(null);
   const [isImportingId, setIsImportingId] = useState<string | null>(null); 
   const [bggSearchAttempted, setBggSearchAttempted] = useState(false);
-  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'ascending' });
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'overallAverageRating', direction: 'descending' });
   
   const [isPendingImport, startImportTransition] = useTransition();
   const router = useRouter();
@@ -52,7 +52,7 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
     setBggSearchAttempted(false); 
 
     if (!trimmedSearchTerm) {
-      setFilteredLocalGames(initialGames); 
+      setLocalFilteredGames(initialGames); 
       setBggResults([]); 
       setBggError(null);
       setIsLoadingBgg(false); 
@@ -62,7 +62,7 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
     const filtered = initialGames.filter(game =>
       (game.name || '').toLowerCase().includes(trimmedSearchTerm)
     );
-    setFilteredLocalGames(filtered);
+    setLocalFilteredGames(filtered);
 
     setBggResults([]);
     setBggError(null);
@@ -94,8 +94,8 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
     return items;
   }, [initialGames, sortConfig]);
 
-  const sortedFilteredLocalGames = useMemo(() => {
-    let items = [...filteredLocalGames];
+  const sortedLocalFilteredGames = useMemo(() => {
+    let items = [...localFilteredGames];
     items.sort((a, b) => {
       if (sortConfig.key === 'name') {
         const nameA = a.name || '';
@@ -109,7 +109,7 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
       return 0;
     });
     return items;
-  }, [filteredLocalGames, sortConfig]);
+  }, [localFilteredGames, sortConfig]);
 
 
   const handleManualBggSearch = async () => {
@@ -305,8 +305,8 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
 
       {searchTerm.trim().length > 0 ? (
         <>
-          {sortedFilteredLocalGames.length > 0 ? (
-            <LocalGamesTable games={sortedFilteredLocalGames} title="Giochi Corrispondenti nella Tua Collezione" />
+          {sortedLocalFilteredGames.length > 0 ? (
+            <LocalGamesTable games={sortedLocalFilteredGames} title="Giochi Corrispondenti nella Tua Collezione" />
           ) : (
             <>
               {isLoadingBgg ? (
@@ -359,3 +359,4 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
     </div>
   );
 }
+
