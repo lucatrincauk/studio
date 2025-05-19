@@ -100,13 +100,22 @@ async function parseBggThingXmlToBoardGame(xmlText: string, bggIdInput: number):
   }
   gameData.coverArtUrl = coverArt || `https://placehold.co/400x600.png?text=${encodeURIComponent(gameData.name || 'Game')}`;
   
-  gameData.yearPublished = parseNumericValueHelper(/<yearpublished(?:[^>]*?\s)?value="(\d+)"[^>]*\/?>/i, xmlText);
-  gameData.minPlayers = parseNumericValueHelper(/<minplayers(?:[^>]*?\s)?value="(\d+)"[^>]*\/?>/i, xmlText);
-  gameData.maxPlayers = parseNumericValueHelper(/<maxplayers(?:[^>]*?\s)?value="(\d+)"[^>]*\/?>/i, xmlText);
-  gameData.playingTime = parseNumericValueHelper(/<playingtime(?:[^>]*?\s)?value="(\d+)"[^>]*\/?>/i, xmlText);
-  gameData.minPlaytime = parseNumericValueHelper(/<minplaytime(?:[^>]*?\s)?value="(\d+)"[^>]*\/?>/i, xmlText);
-  gameData.maxPlaytime = parseNumericValueHelper(/<maxplaytime(?:[^>]*?\s)?value="(\d+)"[^>]*\/?>/i, xmlText);
-  gameData.averageWeight = parseNumericValueHelper(/<averageweight\s+value="([\d\.]+)"\s*\/?>/i, xmlText, true);
+  const parseNumericValue = (regex: RegExp, isFloat = false): number | null => {
+    const match = regex.exec(xmlText);
+    if (match && match[1]) {
+      const num = isFloat ? parseFloat(match[1]) : parseInt(match[1], 10);
+      return isNaN(num) ? null : num;
+    }
+    return null;
+  };
+
+  gameData.yearPublished = parseNumericValue(/<yearpublished(?:[^>]*?\s)?value="(\d+)"[^>]*\/?>/i);
+  gameData.minPlayers = parseNumericValue(/<minplayers(?:[^>]*?\s)?value="(\d+)"[^>]*\/?>/i);
+  gameData.maxPlayers = parseNumericValue(/<maxplayers(?:[^>]*?\s)?value="(\d+)"[^>]*\/?>/i);
+  gameData.playingTime = parseNumericValue(/<playingtime(?:[^>]*?\s)?value="(\d+)"[^>]*\/?>/i);
+  gameData.minPlaytime = parseNumericValue(/<minplaytime(?:[^>]*?\s)?value="(\d+)"[^>]*\/?>/i);
+  gameData.maxPlaytime = parseNumericValue(/<maxplaytime(?:[^>]*?\s)?value="(\d+)"[^>]*\/?>/i);
+  gameData.averageWeight = parseNumericValue(/<averageweight\s+value="([\d\.]+)"\s*\/?>/i, true);
       
   if (gameData.playingTime != null && gameData.minPlaytime == null) { 
       gameData.minPlaytime = gameData.playingTime;
@@ -269,7 +278,7 @@ export async function searchBggGamesAction(searchTerm: string): Promise<BggSearc
                   return { ...item, name: item.name || "Name Not Found in Details", rank: Number.MAX_SAFE_INTEGER };
               }
               const thingXml = await thingResponseFetch.text();
-              const rankMatch = /<rank\s+type="subtype"\s+name="boardgame"\s+(?:bayesaverage="[^"]*"\s+)?value="(\d+)"(?:\s+friendlyname="[^"]*")?\s*\/?>/i.exec(thingXml);
+              const rankMatch = /<rank\s+type="subtype"\s+name="boardgame"(?:\s+bayesaverage="[^"]*")?\s+value="(\d+)"(?:\s+friendlyname="[^"]*")?\s*\/?>/i.exec(thingXml);
               let rank = Number.MAX_SAFE_INTEGER;
               if (rankMatch && rankMatch[1]) {
                   rank = parseInt(rankMatch[1], 10);
@@ -452,7 +461,7 @@ async function fetchWithRetry(url: string, retries = 3, delay = 2000, attempt = 
       if (response.status === 200) {
           const xmlText = await response.text();
            if ((!xmlText.includes('<items') && !xmlText.includes("<item ") && !xmlText.includes("<error>") && attempt < retries && !xmlText.includes("<boardgames") && !xmlText.includes("<boardgame ") && !xmlText.includes("<message>Your request for task processing has been accepted")) && !url.includes("/thing?")) { 
-              console.warn(`[BGG FETCH RETRY] Attempt ${attempt}: Received 200 OK for ${url}, but XML might be incomplete or a queue message. Retrying...`);
+              // console.warn(`[BGG FETCH RETRY] Attempt ${attempt}: Received 200 OK for ${url}, but XML might be incomplete or a queue message. Retrying...`);
               await new Promise(resolve => setTimeout(resolve, Math.min(delay * attempt, 6000))); 
               return fetchWithRetry(url, retries, delay, attempt + 1);
           }
@@ -462,7 +471,7 @@ async function fetchWithRetry(url: string, retries = 3, delay = 2000, attempt = 
           }
           return xmlText;
       } else if (response.status === 202 && attempt < retries) {
-          console.log(`[BGG FETCH INFO] Attempt ${attempt}: Received 202 Accepted for ${url}. Waiting and retrying...`);
+          // console.log(`[BGG FETCH INFO] Attempt ${attempt}: Received 202 Accepted for ${url}. Waiting and retrying...`);
           await new Promise(resolve => setTimeout(resolve, Math.min(delay * attempt, 6000))); 
           return fetchWithRetry(url, retries, delay, attempt + 1);
       } else if (response.status !== 200 && response.status !== 202) {
@@ -804,7 +813,7 @@ export async function getFeaturedGamesAction(): Promise<BoardGame[]> {
       .filter(game => game.isPinned)
       .sort((a, b) => (a.name || "").localeCompare(b.name || "")); 
 
-    const recentlyReviewedGames = allGamesWithDetails
+    const recentlyReviewedGamesUnfiltered = allGamesWithDetails
       .filter(game => game._latestReviewDate !== null && !game.isPinned) 
       .sort((a, b) => b._latestReviewDate!.getTime() - a._latestReviewDate!.getTime());
 
@@ -819,16 +828,21 @@ export async function getFeaturedGamesAction(): Promise<BoardGame[]> {
         featuredGameIds.add(game.id);
       }
     }
-
+    
     const MAX_RECENTLY_REVIEWED_TO_SHOW = 3;
-    for (const game of recentlyReviewedGames) {
-      if (!featuredGameIds.has(game.id) && finalFeaturedGames.length < (pinnedGames.length + MAX_RECENTLY_REVIEWED_TO_SHOW) ) { 
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { _latestReviewDate, ...gameToAdd } = game; 
-        finalFeaturedGames.push(gameToAdd);
-        featuredGameIds.add(game.id);
-      }
-       if (finalFeaturedGames.length >= (pinnedGames.length + MAX_RECENTLY_REVIEWED_TO_SHOW)) break;
+    let addedRecentlyReviewedCount = 0;
+
+    for (const game of recentlyReviewedGamesUnfiltered) {
+        if (addedRecentlyReviewedCount >= MAX_RECENTLY_REVIEWED_TO_SHOW) {
+            break; 
+        }
+        if (!featuredGameIds.has(game.id)) {
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { _latestReviewDate, ...gameToAdd } = game;
+            finalFeaturedGames.push(gameToAdd);
+            featuredGameIds.add(game.id);
+            addedRecentlyReviewedCount++;
+        }
     }
     
     return finalFeaturedGames; 
@@ -1060,39 +1074,26 @@ export async function batchUpdateMissingBggDetailsAction(): Promise<{ success: b
 
 export async function searchLocalGamesByNameAction(term: string): Promise<BoardGame[] | { error: string }> {
   if (!term || term.trim().length < 2) {
-    return [];
+    return []; 
   }
   try {
     const gamesRef = collection(db, FIRESTORE_COLLECTION_NAME);
+    const querySnapshot = await getDocs(gamesRef); 
+
     const searchTermLower = term.toLowerCase();
-    
-    // This Firestore query is case-sensitive for 'name'.
-    // A better approach for case-insensitive search is to store a lowercase version of the name.
-    const q = query(
-      gamesRef,
-      where('name', '>=', term),
-      where('name', '<=', term + '\uf8ff'), // \uf8ff is a high Unicode char for prefix matching
-      orderBy('name'),
-      limit(15) // Fetch a bit more to allow for client-side case-insensitive filtering
-    );
+    const matchedGames: BoardGame[] = [];
 
-    const querySnapshot = await getDocs(q);
-    const games: BoardGame[] = [];
-
-    for (const docSnap of querySnapshot.docs) {
+    querySnapshot.forEach(docSnap => {
       const data = docSnap.data();
-      const gameId = docSnap.id;
-
-      // Client-side filter for case-insensitivity if needed after prefix match
-      if (data.name.toLowerCase().includes(searchTermLower)) {
-        games.push({
-          id: gameId,
+      const gameName = data.name || "";
+      if (gameName.toLowerCase().includes(searchTermLower)) {
+        matchedGames.push({
+          id: docSnap.id,
           name: data.name,
           coverArtUrl: data.coverArtUrl || `https://placehold.co/48x64.png?text=${encodeURIComponent(data.name?.substring(0,3) || 'N/A')}`,
           yearPublished: data.yearPublished ?? null,
           bggId: data.bggId || 0,
-          // For this selector, we do NOT calculate overallAverageRating to keep it fast
-          overallAverageRating: null,
+          overallAverageRating: null, // Not needed for selector, keep it fast
           reviews: [], 
           minPlayers: data.minPlayers ?? null,
           maxPlayers: data.maxPlayers ?? null,
@@ -1103,8 +1104,11 @@ export async function searchLocalGamesByNameAction(term: string): Promise<BoardG
           isPinned: data.isPinned || false,
         });
       }
-    }
-    return games.slice(0,10); // Return up to 10 after client-side filter
+    });
+    
+    matchedGames.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    return matchedGames.slice(0, 10); 
+
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Errore sconosciuto.';
     console.error("Error in searchLocalGamesByNameAction:", errorMessage);
@@ -1138,4 +1142,3 @@ export async function getOrCreateGameForRatingAction(bggId: string): Promise<{ g
     return { error: `Errore durante il recupero o la creazione del gioco: ${errorMessage}` };
   }
 }
-
