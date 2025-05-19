@@ -30,10 +30,10 @@ export function Header() {
       <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link href="/" className="flex items-center gap-2 transition-opacity hover:opacity-80">
           <Image
-            src="/logo.svg" // Assuming your logo is named logo.svg and in the public folder
+            src="/logo.svg" 
             alt="Morchiometro Logo"
-            width={32}
-            height={32}
+            width={65} // Changed width
+            height={32} // Kept height, adjust if aspect ratio needs it
           />
           <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Morchiometro</h1>
         </Link>
