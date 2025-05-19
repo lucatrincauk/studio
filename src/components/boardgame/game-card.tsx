@@ -3,8 +3,9 @@ import Link from 'next/link';
 import type { BoardGame } from '@/lib/types';
 import { Card, CardContent, CardFooter, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Users, Clock, CalendarDays } from 'lucide-react';
+import { Users, Clock, CalendarDays, Star } from 'lucide-react';
 import { SafeImage } from '@/components/common/SafeImage';
+import { formatRatingNumber } from '@/lib/utils';
 
 interface GameCardProps {
   game: BoardGame;
@@ -46,8 +47,14 @@ export function GameCard({ game }: GameCardProps) {
             </div>
         </div>
 
-        <CardFooter className="p-0 mt-auto flex flex-col items-start sm:flex-row sm:justify-end sm:items-center gap-2">
-          <Button asChild variant="default" size="sm" className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-xs sm:text-sm">
+        <CardFooter className="p-0 mt-auto flex flex-col items-start sm:flex-row sm:justify-between sm:items-center gap-2">
+          {game.overallAverageRating !== null && typeof game.overallAverageRating === 'number' && (
+            <div className="text-sm font-semibold text-primary flex items-center gap-1">
+              <Star size={14} className="fill-primary text-primary" /> 
+              {formatRatingNumber(game.overallAverageRating * 2)}
+            </div>
+          )}
+          <Button asChild variant="default" size="sm" className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-xs sm:text-sm sm:ml-auto">
             <Link href={`/games/${game.id}`}>Vedi Dettagli</Link>
           </Button>
         </CardFooter>

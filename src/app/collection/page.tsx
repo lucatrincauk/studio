@@ -6,12 +6,13 @@ import { useState, useEffect, useTransition } from 'react';
 import { fetchBggUserCollectionAction, getBoardGamesFromFirestoreAction, syncBoardGamesToFirestoreAction } from '@/lib/actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, AlertCircle, Info } from 'lucide-react';
+import { Loader2, AlertCircle, Info, Star } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { CollectionConfirmationDialog } from '@/components/collection/confirmation-dialog';
 import { SafeImage } from '@/components/common/SafeImage';
 import { Users, Clock, CalendarDays } from 'lucide-react';
+import { formatRatingNumber } from '@/lib/utils';
 
 
 const BGG_USERNAME = 'lctr01'; // Hardcoded for now
@@ -234,6 +235,12 @@ export default function CollectionPage() {
                 )}
                 {game.playingTime && <div className="flex items-center gap-1"><Clock size={12}/> {game.playingTime} min</div>}
               </div>
+              {game.overallAverageRating !== null && typeof game.overallAverageRating === 'number' && (
+                <div className="mt-2 text-sm font-semibold text-primary flex items-center gap-1">
+                  <Star size={14} className="fill-primary text-primary" />
+                  Voto Globale: {formatRatingNumber(game.overallAverageRating * 2)}
+                </div>
+              )}
             </CardContent>
              <CardFooter className="p-3 pt-1">
                 <Button variant="link" size="sm" className="p-0 h-auto text-xs" asChild>
