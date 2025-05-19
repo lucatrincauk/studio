@@ -197,44 +197,45 @@ body {
     --sidebar-ring: 45 100% 70%;
   }
 
-  .steel-blue-night {
-    --background: 200 28% 25%; /* #2f4550 - Dark Slate Blue/Gray */
-    --foreground: 240 17% 97%; /* #f4f4f9 - Very Light Gray */
-    --card: 203 18% 41%; /* #586f7c - Medium Slate Blue/Gray */
-    --card-foreground: 240 17% 97%; /* #f4f4f9 */
-    --popover: 203 18% 41%; /* #586f7c */
-    --popover-foreground: 240 17% 97%; /* #f4f4f9 */
-    --primary: 176 29% 79%; /* #b8dbd9 - Light Aqua */
-    --primary-foreground: 200 28% 15%; /* #20323b - Darker for text on primary */
-    --secondary: 200 28% 30%; /* #3a505c - Lighter than BG */
-    --secondary-foreground: 240 17% 97%; /* #f4f4f9 */
-    --muted: 200 28% 20%; /* #273b44 - Darker than BG */
-    --muted-foreground: 203 18% 60%; /* #85949e - Lighter Muted Text */
-    --accent: 176 29% 79%; /* #b8dbd9 - Light Aqua */
-    --accent-foreground: 200 28% 15%; /* #20323b - Darker for text on accent */
-    --destructive: 0 70% 40%; /* Darker Red */
+  .indigo-sunset {
+    --background: 0 0% 100%; /* Pure White - #FFFFFF */
+    --foreground: 227 28% 25%; /* Darker Deep Indigo for text - to ensure contrast */
+    --card: 0 0% 100%; /* White cards */
+    --card-foreground: 227 28% 25%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 227 28% 25%;
+    --primary: 227 28% 43%; /* Deep Indigo - #4E598C */
+    --primary-foreground: 0 0% 98%; /* White text on primary */
+    --secondary: 29 92% 67%; /* Vibrant Orange - #FCAF58 */
+    --secondary-foreground: 227 28% 20%; /* Darker Indigo for text on orange */
+    --muted: 0 0% 94%; /* Light Gray */
+    --muted-foreground: 0 0% 45.1%;
+    --accent: 39 90% 75%; /* Soft Gold - #F9C784 */
+    --accent-foreground: 227 28% 25%; /* Dark Indigo for text on gold */
+    --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 203 18% 35%; /* #4a616c - Between BG and Card */
-    --input: 203 18% 35%; /* #4a616c */
-    --ring: 176 29% 79%; /* #b8dbd9 */
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 227 28% 43%; /* Primary color for focus rings */
     --radius: 0.5rem;
 
-    --chart-1: 176 29% 70%;
-    --chart-2: 203 18% 50%;
-    --chart-3: 176 29% 60%;
-    --chart-4: 203 18% 35%;
-    --chart-5: 240 10% 80%;
+    --chart-1: 227 28% 43%; /* Deep Indigo */
+    --chart-2: 39 90% 75%; /* Soft Gold */
+    --chart-3: 29 92% 67%; /* Vibrant Orange */
+    --chart-4: 24 100% 63%; /* Bold Tangerine */
+    --chart-5: 227 28% 63%; /* Lighter Deep Indigo */
 
-    /* Sidebar variables for steel-blue-night */
-    --sidebar-background: 200 28% 15%; /* Darkest #20323b */
-    --sidebar-foreground: 240 17% 90%; /* Light text */
-    --sidebar-primary: 176 29% 79%; /* #b8dbd9 */
-    --sidebar-primary-foreground: 200 28% 10%; /* Very Dark for text on sidebar primary */
-    --sidebar-accent: 200 28% 20%; /* #273b44 */
-    --sidebar-accent-foreground: 240 17% 90%;
-    --sidebar-border: 200 28% 20%;
-    --sidebar-ring: 176 29% 79%;
+    /* Sidebar variables for indigo-sunset */
+    --sidebar-background: 227 28% 30%; /* Darker Deep Indigo */
+    --sidebar-foreground: 0 0% 95%; /* Light text */
+    --sidebar-primary: 39 90% 75%; /* Soft Gold for active/hover */
+    --sidebar-primary-foreground: 227 28% 20%; /* Dark text on gold */
+    --sidebar-accent: 29 92% 67%; /* Vibrant Orange */
+    --sidebar-accent-foreground: 227 28% 20%; /* Dark text on orange */
+    --sidebar-border: 227 28% 35%;
+    --sidebar-ring: 39 90% 75%;
   }
+
 }
 
 @layer base {
