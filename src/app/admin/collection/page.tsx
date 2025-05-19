@@ -2,11 +2,11 @@
 'use client';
 
 import type { BoardGame } from '@/lib/types';
-import { useState, useEffect, useTransition } from 'react';
+import { useState, useEffect, useTransition, useMemo } from 'react';
 import { fetchBggUserCollectionAction, getBoardGamesFromFirestoreAction, syncBoardGamesToFirestoreAction } from '@/lib/actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, AlertCircle, Info, Users, Clock, ExternalLink } from 'lucide-react';
+import { Loader2, AlertCircle, Info, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { CollectionConfirmationDialog } from '@/components/collection/confirmation-dialog';
@@ -22,6 +22,12 @@ import {
 } from "@/components/ui/table";
 
 const BGG_USERNAME = 'lctr01'; // Hardcoded for now
+
+type SortableKeys = 'name' | 'overallAverageRating';
+interface SortConfig {
+  key: SortableKeys;
+  direction: 'ascending' | 'descending';
+}
 
 // Helper function to compare game arrays based on their IDs
 function areGameArraysEqual(arr1: BoardGame[], arr2: BoardGame[]): boolean {
@@ -44,6 +50,7 @@ export default function AdminCollectionPage() {
   
   const [error, setError] = useState<string | null>(null);
   const [showConfirmationDialog, setShowConfirmationDialog] = useState(false);
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'ascending' });
 
   const { toast } = useToast();
 
@@ -56,9 +63,7 @@ export default function AdminCollectionPage() {
       setDbCollection([]);
       toast({ title: 'Errore Caricamento DB', description: result.error, variant: 'destructive'});
     } else {
-      // Sort by name before setting
-      const sortedResult = result.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-      setDbCollection(sortedResult);
+      setDbCollection(result); // Initial sort will be applied by useMemo
     }
     setIsLoadingDb(false);
   };
@@ -98,9 +103,7 @@ export default function AdminCollectionPage() {
         toast({ title: 'Errore Sincronizzazione BGG', description: result.error, variant: 'destructive' });
         setBggFetchedCollection([]); 
       } else {
-        // Sort by name before setting
-        const sortedResult = result.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-        setBggFetchedCollection(sortedResult);
+        setBggFetchedCollection(result); // Initial sort will be applied by useMemo
         toast({ title: 'Collezione BGG Caricata', description: `Trovati ${result.length} giochi posseduti per ${BGG_USERNAME}. Controlla le modifiche in sospeso qui sotto.` });
       }
     });
@@ -129,9 +132,41 @@ export default function AdminCollectionPage() {
       }
     });
   };
+
+  const handleSort = (key: SortableKeys) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+  };
   
-  const displayedCollection = (bggFetchedCollection || dbCollection).sort((a,b) => (a.name || "").localeCompare(b.name || ""));
+  const sortedDisplayedCollection = useMemo(() => {
+    let itemsToDisplay = [...(bggFetchedCollection || dbCollection)];
+    itemsToDisplay.sort((a, b) => {
+      if (sortConfig.key === 'name') {
+        const nameA = a.name || '';
+        const nameB = b.name || '';
+        return sortConfig.direction === 'ascending' ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+      } else if (sortConfig.key === 'overallAverageRating') {
+        const ratingA = a.overallAverageRating === null || a.overallAverageRating === undefined ? (sortConfig.direction === 'ascending' ? Infinity : -Infinity) : a.overallAverageRating;
+        const ratingB = b.overallAverageRating === null || b.overallAverageRating === undefined ? (sortConfig.direction === 'ascending' ? Infinity : -Infinity) : b.overallAverageRating;
+        return sortConfig.direction === 'ascending' ? ratingA - ratingB : ratingB - ratingA;
+      }
+      return 0;
+    });
+    return itemsToDisplay;
+  }, [bggFetchedCollection, dbCollection, sortConfig]);
+  
   const displaySource = bggFetchedCollection ? "Collezione BGG Caricata" : "Collezione DB Corrente";
+
+  const SortIcon = ({ columnKey }: { columnKey: SortableKeys }) => {
+    if (sortConfig.key !== columnKey) {
+      return <ArrowUpDown className="ml-2 h-4 w-4 text-muted-foreground/50" />;
+    }
+    return sortConfig.direction === 'ascending' ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />;
+  };
+
 
   return (
     <div className="space-y-8">
@@ -200,13 +235,13 @@ export default function AdminCollectionPage() {
       <Card className="shadow-lg border border-border rounded-lg">
         <CardHeader>
             <CardTitle className="text-2xl">
-            {displaySource} ({displayedCollection.length} giochi)
+            {displaySource} ({sortedDisplayedCollection.length} giochi)
             </CardTitle>
         </CardHeader>
         <CardContent>
         {isLoadingDb && !bggFetchedCollection && <div className="flex justify-center py-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /> <span className="ml-2">Caricamento collezione DB...</span></div>}
         
-        {!isLoadingDb && displayedCollection.length === 0 && !bggFetchedCollection && (
+        {!isLoadingDb && sortedDisplayedCollection.length === 0 && !bggFetchedCollection && (
             <Alert>
             <Info className="h-4 w-4" />
             <AlertTitle>Collezione Vuota</AlertTitle>
@@ -214,7 +249,7 @@ export default function AdminCollectionPage() {
             </Alert>
         )}
         
-        {!isLoadingDb && displayedCollection.length === 0 && bggFetchedCollection && !isLoadingBgg && (
+        {!isLoadingDb && sortedDisplayedCollection.length === 0 && bggFetchedCollection && !isLoadingBgg && (
             <Alert>
             <Info className="h-4 w-4" />
             <AlertTitle>Collezione BGG Vuota o Non Trovata</AlertTitle>
@@ -222,21 +257,31 @@ export default function AdminCollectionPage() {
             </Alert>
         )}
 
-        {displayedCollection.length > 0 && (
+        {sortedDisplayedCollection.length > 0 && (
             <div className="overflow-x-auto">
                 <Table>
                     <TableHeader>
                     <TableRow>
                         <TableHead className="w-[80px]">Copertina</TableHead>
-                        <TableHead>Nome</TableHead>
+                        <TableHead>
+                          <Button variant="ghost" onClick={() => handleSort('name')} className="px-1">
+                            Nome
+                            <SortIcon columnKey="name" />
+                          </Button>
+                        </TableHead>
                         <TableHead className="hidden md:table-cell text-center">Giocatori</TableHead>
                         <TableHead className="hidden md:table-cell text-center">Durata</TableHead>
-                        <TableHead className="text-center">Voto</TableHead>
+                        <TableHead className="text-center">
+                           <Button variant="ghost" onClick={() => handleSort('overallAverageRating')} className="px-1">
+                            Voto
+                            <SortIcon columnKey="overallAverageRating" />
+                          </Button>
+                        </TableHead>
                         <TableHead className="text-right">BGG</TableHead>
                     </TableRow>
                     </TableHeader>
                     <TableBody>
-                    {displayedCollection.map(game => (
+                    {sortedDisplayedCollection.map(game => (
                         <TableRow key={game.id}>
                         <TableCell>
                             <div className="relative w-12 h-16 sm:w-16 sm:h-20 rounded overflow-hidden">

@@ -1,13 +1,13 @@
 
 'use client';
 
-import { useState, useEffect, useTransition } from 'react';
+import { useState, useEffect, useTransition, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { BoardGame, BggSearchResult } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Loader2, AlertCircle, Info, ExternalLink, PlusCircle } from 'lucide-react';
+import { Search, Loader2, AlertCircle, Info, ExternalLink, PlusCircle, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { searchBggGamesAction, importAndRateBggGameAction } from '@/lib/actions';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
@@ -26,15 +26,22 @@ interface GameSearchListProps {
   initialGames: BoardGame[];
 }
 
+type SortableKeys = 'name' | 'overallAverageRating';
+interface SortConfig {
+  key: SortableKeys;
+  direction: 'ascending' | 'descending';
+}
+
 export function GameSearchList({ initialGames }: GameSearchListProps) {
   const [searchTerm, setSearchTerm] = useState('');
-  const [localFilteredGames, setLocalFilteredGames] = useState<BoardGame[]>(initialGames.sort((a,b) => (a.name || "").localeCompare(b.name || "")));
+  const [filteredLocalGames, setFilteredLocalGames] = useState<BoardGame[]>(initialGames);
   
   const [bggResults, setBggResults] = useState<BggSearchResult[]>([]);
   const [isLoadingBgg, setIsLoadingBgg] = useState(false);
   const [bggError, setBggError] = useState<string | null>(null);
   const [isImportingId, setIsImportingId] = useState<string | null>(null); 
   const [bggSearchAttempted, setBggSearchAttempted] = useState(false);
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'ascending' });
   
   const [isPendingImport, startImportTransition] = useTransition();
   const router = useRouter();
@@ -45,7 +52,7 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
     setBggSearchAttempted(false); 
 
     if (!trimmedSearchTerm) {
-      setLocalFilteredGames(initialGames.sort((a,b) => (a.name || "").localeCompare(b.name || ""))); 
+      setFilteredLocalGames(initialGames); 
       setBggResults([]); 
       setBggError(null);
       setIsLoadingBgg(false); 
@@ -54,13 +61,55 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
 
     const filtered = initialGames.filter(game =>
       (game.name || '').toLowerCase().includes(trimmedSearchTerm)
-    ).sort((a,b) => (a.name || "").localeCompare(b.name || ""));
-    setLocalFilteredGames(filtered);
+    );
+    setFilteredLocalGames(filtered);
 
     setBggResults([]);
     setBggError(null);
     setIsLoadingBgg(false);
   }, [searchTerm, initialGames]);
+
+  const handleSort = (key: SortableKeys) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const sortedInitialGames = useMemo(() => {
+    let items = [...initialGames];
+    items.sort((a, b) => {
+      if (sortConfig.key === 'name') {
+        const nameA = a.name || '';
+        const nameB = b.name || '';
+        return sortConfig.direction === 'ascending' ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+      } else if (sortConfig.key === 'overallAverageRating') {
+        const ratingA = a.overallAverageRating === null || a.overallAverageRating === undefined ? (sortConfig.direction === 'ascending' ? Infinity : -Infinity) : a.overallAverageRating;
+        const ratingB = b.overallAverageRating === null || b.overallAverageRating === undefined ? (sortConfig.direction === 'ascending' ? Infinity : -Infinity) : b.overallAverageRating;
+        return sortConfig.direction === 'ascending' ? ratingA - ratingB : ratingB - ratingA;
+      }
+      return 0;
+    });
+    return items;
+  }, [initialGames, sortConfig]);
+
+  const sortedFilteredLocalGames = useMemo(() => {
+    let items = [...filteredLocalGames];
+    items.sort((a, b) => {
+      if (sortConfig.key === 'name') {
+        const nameA = a.name || '';
+        const nameB = b.name || '';
+        return sortConfig.direction === 'ascending' ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+      } else if (sortConfig.key === 'overallAverageRating') {
+        const ratingA = a.overallAverageRating === null || a.overallAverageRating === undefined ? (sortConfig.direction === 'ascending' ? Infinity : -Infinity) : a.overallAverageRating;
+        const ratingB = b.overallAverageRating === null || b.overallAverageRating === undefined ? (sortConfig.direction === 'ascending' ? Infinity : -Infinity) : b.overallAverageRating;
+        return sortConfig.direction === 'ascending' ? ratingA - ratingB : ratingB - ratingA;
+      }
+      return 0;
+    });
+    return items;
+  }, [filteredLocalGames, sortConfig]);
 
 
   const handleManualBggSearch = async () => {
@@ -102,6 +151,14 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
     });
   };
 
+  const SortIcon = ({ columnKey }: { columnKey: SortableKeys }) => {
+    if (sortConfig.key !== columnKey) {
+      return <ArrowUpDown className="ml-2 h-4 w-4 text-muted-foreground/50" />;
+    }
+    return sortConfig.direction === 'ascending' ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />;
+  };
+
+
   const LocalGamesTable = ({ games, title }: { games: BoardGame[], title: string }) => (
     <section>
       <h3 className="text-xl font-semibold mb-4 text-foreground">
@@ -112,10 +169,20 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
           <TableHeader>
             <TableRow>
               <TableHead className="w-[60px] sm:w-[80px]">Copertina</TableHead>
-              <TableHead>Nome</TableHead>
+              <TableHead>
+                <Button variant="ghost" onClick={() => handleSort('name')} className="px-1">
+                  Nome
+                  <SortIcon columnKey="name" />
+                </Button>
+              </TableHead>
               <TableHead className="hidden md:table-cell text-center">Giocatori</TableHead>
               <TableHead className="hidden md:table-cell text-center">Durata</TableHead>
-              <TableHead className="text-center">Voto Medio</TableHead>
+              <TableHead className="text-center">
+                 <Button variant="ghost" onClick={() => handleSort('overallAverageRating')} className="px-1">
+                  Voto Medio
+                  <SortIcon columnKey="overallAverageRating" />
+                </Button>
+              </TableHead>
               <TableHead className="text-right">Azioni</TableHead>
             </TableRow>
           </TableHeader>
@@ -238,8 +305,8 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
 
       {searchTerm.trim().length > 0 ? (
         <>
-          {localFilteredGames.length > 0 ? (
-            <LocalGamesTable games={localFilteredGames} title="Giochi Corrispondenti nella Tua Collezione" />
+          {sortedFilteredLocalGames.length > 0 ? (
+            <LocalGamesTable games={sortedFilteredLocalGames} title="Giochi Corrispondenti nella Tua Collezione" />
           ) : (
             <>
               {isLoadingBgg ? (
@@ -278,8 +345,8 @@ export function GameSearchList({ initialGames }: GameSearchListProps) {
         </>
       ) : (
         <>
-          {initialGames.length > 0 ? (
-             <LocalGamesTable games={initialGames} title="I Tuoi Giochi" />
+          {sortedInitialGames.length > 0 ? (
+             <LocalGamesTable games={sortedInitialGames} title="I Tuoi Giochi" />
           ) : (
             <Alert variant="default" className="max-w-lg mx-auto bg-secondary/30 border-secondary">
               <Info className="h-4 w-4" />
