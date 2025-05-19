@@ -22,13 +22,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { db } from '@/lib/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, getDoc } from 'firebase/firestore'; // Added getDoc
 import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 
 const BGG_USERNAME = 'lctr01'; 
+const FIRESTORE_COLLECTION_NAME = 'boardgames_collection'; // Added this constant
 
 type SortableKeys = 'name' | 'overallAverageRating' | 'isPinned';
 interface SortConfig {
@@ -253,17 +254,43 @@ export default function AdminCollectionPage() {
     });
   };
 
-  const handleFetchGameDetailsFromBgg = (gameId: string, bggId: number) => {
-    setIsFetchingDetailsFor(gameId);
+  const handleFetchGameDetailsFromBgg = (firestoreGameId: string, bggId: number) => {
+    setIsFetchingDetailsFor(firestoreGameId);
     startBggDetailsFetchTransition(async () => {
-      const result = await fetchAndUpdateBggGameDetailsAction(bggId);
-      if (result.success) {
-        toast({ title: 'Dettagli Aggiornati', description: result.message });
-        await loadDbCollection();
-      } else {
-        toast({ title: 'Errore Aggiornamento Dettagli', description: result.error || 'Si è verificato un errore sconosciuto.', variant: 'destructive' });
+      const bggFetchResult = await fetchAndUpdateBggGameDetailsAction(bggId);
+
+      if (!bggFetchResult.success || !bggFetchResult.updateData) {
+        toast({ title: 'Errore Recupero Dati BGG', description: bggFetchResult.error || 'Impossibile recuperare dati da BGG.', variant: 'destructive' });
+        setIsFetchingDetailsFor(null);
+        return;
       }
-      setIsFetchingDetailsFor(null);
+      
+      if (Object.keys(bggFetchResult.updateData).length === 0) {
+        toast({ title: 'Nessun Aggiornamento', description: `Nessun nuovo dettaglio da aggiornare per ${bggFetchResult.updateData.name || firestoreGameId} da BGG.` });
+        setIsFetchingDetailsFor(null);
+        return;
+      }
+
+      try {
+        const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, firestoreGameId);
+        const docSnap = await getDoc(gameRef);
+
+        if (!docSnap.exists()) {
+          toast({ title: 'Errore Database', description: `Gioco con ID ${firestoreGameId} non trovato nel database.`, variant: 'destructive' });
+          setIsFetchingDetailsFor(null);
+          return;
+        }
+        
+        await updateDoc(gameRef, bggFetchResult.updateData);
+        toast({ title: 'Dettagli Aggiornati', description: `Dettagli per ${docSnap.data()?.name || firestoreGameId} aggiornati con successo.` });
+        await loadDbCollection();
+        // router.revalidate(); // Consider revalidating paths if needed for other pages
+      } catch (dbError) {
+        const errorMessage = dbError instanceof Error ? dbError.message : "Errore sconosciuto durante l'aggiornamento del DB.";
+        toast({ title: 'Errore Aggiornamento Database', description: errorMessage, variant: 'destructive' });
+      } finally {
+        setIsFetchingDetailsFor(null);
+      }
     });
   };
 
@@ -551,5 +578,3 @@ export default function AdminCollectionPage() {
     </div>
   );
 }
-
-
