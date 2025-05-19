@@ -3,13 +3,13 @@
 
 import { useEffect, useState, useTransition, useCallback, use } from 'react';
 import Link from 'next/link';
-import { getGameDetails } from '@/lib/actions';
+import { getGameDetails, togglePinGameAction } from '@/lib/actions';
 import type { BoardGame, AiSummary, Review, Rating, GroupedCategoryAverages } from '@/lib/types';
 import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2 } from 'lucide-react';
+import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { summarizeReviews } from '@/ai/flows/summarize-reviews';
@@ -27,7 +27,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { SafeImage } from '@/components/common/SafeImage';
 
@@ -42,7 +41,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
   const params = use(paramsPromise);
   const { gameId } = params;
 
-  const { user: currentUser, loading: authLoading } = useAuth();
+  const { user: currentUser, loading: authLoading, isAdmin } = useAuth();
   const { toast } = useToast();
 
   const [game, setGame] = useState<BoardGame | null>(null);
@@ -58,6 +57,8 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
 
   const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false);
   const [isDeletingReview, startDeleteReviewTransition] = useTransition();
+  const [isPinToggling, startPinToggleTransition] = useTransition();
+  const [currentIsPinned, setCurrentIsPinned] = useState(false);
 
 
   const fetchGameData = useCallback(async () => {
@@ -66,6 +67,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
     const gameData = await getGameDetails(gameId);
     setGame(gameData);
     if (gameData) {
+      setCurrentIsPinned(gameData.isPinned || false);
       let foundUserReview: Review | undefined = undefined;
       if (currentUser && !authLoading) {
         foundUserReview = gameData.reviews.find(r => r.userId === currentUser.uid);
@@ -85,6 +87,7 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
       setGlobalGameAverage(flatCategoryAverages ? calculateOverallCategoryAverage(flatCategoryAverages) : null);
 
     } else {
+      setCurrentIsPinned(false);
       setUserReview(undefined);
       setGroupedCategoryAverages(null);
       setGlobalGameAverage(null);
@@ -116,6 +119,12 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
       setUserOverallScore(null);
     }
   }, [currentUser, authLoading, game, userReview]);
+
+  useEffect(() => {
+    if (game) {
+      setCurrentIsPinned(game.isPinned || false);
+    }
+  }, [game?.isPinned]);
 
 
   const handleGenerateSummary = async () => {
@@ -161,6 +170,29 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
     });
   };
 
+  const handleTogglePinGame = () => {
+    if (!game) return;
+    startPinToggleTransition(async () => {
+      const result = await togglePinGameAction(game.id, currentIsPinned);
+      if (result.success) {
+        setCurrentIsPinned(!currentIsPinned);
+        toast({
+          title: "Stato Vetrina Aggiornato",
+          description: `Il gioco è stato ${!currentIsPinned ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
+        });
+        // Optionally re-fetch game data if other parts of the page need to react,
+        // or rely on revalidatePath for eventual consistency.
+        // await fetchGameData(); 
+      } else {
+        toast({
+          title: "Errore Aggiornamento Vetrina",
+          description: result.error || "Si è verificato un errore sconosciuto.",
+          variant: "destructive",
+        });
+      }
+    });
+  };
+
 
   if (isLoadingGame || authLoading) {
     return (
@@ -192,11 +224,25 @@ export default function GameDetailPage({ params: paramsPromise }: GameDetailPage
           <div className="flex-1 p-6 space-y-4 order-1 md:order-1">
             <div className="flex justify-between items-start mb-4">
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">{game.name}</h1>
-              {globalGameAverage !== null && (
-                <span className="text-3xl sm:text-4xl font-bold text-primary whitespace-nowrap ml-4">
-                  {formatRatingNumber(globalGameAverage * 2)}
-                </span>
-              )}
+                <div className="flex items-center gap-2">
+                    {globalGameAverage !== null && (
+                    <span className="text-3xl sm:text-4xl font-bold text-primary whitespace-nowrap">
+                        {formatRatingNumber(globalGameAverage * 2)}
+                    </span>
+                    )}
+                    {isAdmin && !isLoadingGame && game && (
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={handleTogglePinGame}
+                        disabled={isPinToggling}
+                        title={currentIsPinned ? "Rimuovi da Vetrina" : "Aggiungi a Vetrina"}
+                        className={`h-9 w-9 hover:bg-accent/20 ${currentIsPinned ? 'text-accent' : 'text-muted-foreground/60 hover:text-accent'}`}
+                    >
+                        {isPinToggling ? <Loader2 className="h-5 w-5 animate-spin" /> : (currentIsPinned ? <PinOff className="h-5 w-5" /> : <Pin className="h-5 w-5" />)}
+                    </Button>
+                    )}
+                </div>
             </div>
             
             <div className="md:hidden my-4 max-w-[240px] mx-auto">
