@@ -6,13 +6,14 @@ import { Button } from '@/components/ui/button';
 import { Users, Clock, Star } from 'lucide-react';
 import { SafeImage } from '@/components/common/SafeImage';
 import { formatRatingNumber } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 
 interface GameCardProps {
   game: BoardGame;
   variant?: 'default' | 'featured';
   priority?: boolean;
   linkTarget?: 'detail' | 'rate';
-  showOverlayText?: boolean; // New prop
+  showOverlayText?: boolean;
 }
 
 export function GameCard({ 
@@ -20,7 +21,7 @@ export function GameCard({
   variant = 'default', 
   priority = false, 
   linkTarget = 'detail',
-  showOverlayText = true // Default to true
+  showOverlayText = true
 }: GameCardProps) {
   const fallbackSrc = `https://placehold.co/200x300.png?text=${encodeURIComponent(game.name?.substring(0,10) || 'N/A')}`;
   
@@ -29,7 +30,10 @@ export function GameCard({
   if (variant === 'featured') {
     return (
       <Link href={baseHref} className="block group w-full h-auto">
-        <Card className="relative overflow-hidden shadow-lg transition-all duration-300 ease-in-out hover:shadow-xl rounded-lg border border-border group-hover:border-primary/50 w-full aspect-[3/4]">
+        <Card className={cn(
+          "relative overflow-hidden shadow-lg transition-all duration-300 ease-in-out hover:shadow-xl rounded-lg border border-border group-hover:border-primary/50 w-full aspect-[3/4]",
+          !showOverlayText && "bg-muted" // Use muted background if not showing overlay text (e.g., for Top 10 image-only cards)
+        )}>
           <SafeImage
             src={game.coverArtUrl}
             alt={`${game.name || 'Gioco'} copertina`}
@@ -38,7 +42,7 @@ export function GameCard({
             className="object-cover group-hover:scale-105 transition-transform duration-300"
             data-ai-hint="board game cover"
             priority={priority}
-            sizes="(max-width: 767px) 160px, 33vw"
+            sizes="(max-width: 767px) 50vw, 33vw" // Adjusted for two-column mobile in rating selector
           />
           {showOverlayText && (
             <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/60 via-black/25 to-transparent p-2 sm:p-3">
