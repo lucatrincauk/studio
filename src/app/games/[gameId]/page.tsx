@@ -9,7 +9,7 @@ import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, Brain, Tag, ExternalLink, BookOpen } from 'lucide-react'; // Added icons
+import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, Brain, Tag, ExternalLink } from 'lucide-react'; // Removed BookOpen
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { summarizeReviews } from '@/ai/flows/summarize-reviews';
@@ -289,19 +289,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 </div>
               )}
             </div>
-            
-            {game.description && game.description.trim() !== "" && game.description.trim() !== "Nessuna descrizione disponibile." && (
-                <div className="mt-4 pt-4 border-t border-border space-y-2">
-                    <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                        <BookOpen size={18} className="text-primary/80" />
-                        Descrizione del Gioco
-                    </h3>
-                    <p className="text-sm text-foreground/90 leading-relaxed whitespace-pre-wrap">
-                        {game.description}
-                    </p>
-                </div>
-            )}
-
 
             <div className="mt-4 space-y-1 md:border-t-0 border-t border-border pt-4 md:pt-0">
               <h3 className="text-lg font-semibold text-foreground mb-3">Valutazioni Medie dei Giocatori:</h3>
@@ -461,4 +448,3 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
-

@@ -60,7 +60,6 @@ export interface BoardGame {
   id: string;
   name: string;
   coverArtUrl: string;
-  description?: string;
   reviews: Review[];
   yearPublished?: number | null;
   minPlayers?: number | null;
