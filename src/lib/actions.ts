@@ -2,7 +2,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import type { BoardGame, Review, Rating, SummarizeReviewsInput, BggSearchResult, AugmentedReview, UserProfile } from './types';
+import type { BoardGame, Review, Rating, BggSearchResult, AugmentedReview, UserProfile } from './types';
 import { reviewFormSchema, type RatingFormValues } from '@/lib/validators';
 import { db } from '@/lib/firebase';
 import {
@@ -45,7 +45,6 @@ function decodeHtmlEntities(text: string): string {
 
 
 async function parseRankFromThingXml(xmlText: string): Promise<number> {
-    // Regex adjusted to make bayesaverage optional and handle potential extra spaces or attributes more flexibly.
     const rankMatch = /<rank\s+type="subtype"\s+name="boardgame"\s+(?:bayesaverage="[^"]*"\s+)?value="(\d+)"(?:\s+friendlyname="[^"]*")?\s*\/?>/i.exec(xmlText);
     if (rankMatch && rankMatch[1]) {
         const rankValue = parseInt(rankMatch[1], 10);
@@ -57,7 +56,6 @@ async function parseRankFromThingXml(xmlText: string): Promise<number> {
     }
     return Number.MAX_SAFE_INTEGER;
 }
-
 
 async function parseBggThingXmlToBoardGame(xmlText: string, bggIdInput: number): Promise<Partial<BoardGame>> {
     const gameData: Partial<BoardGame> = { bggId: bggIdInput };
@@ -71,7 +69,6 @@ async function parseBggThingXmlToBoardGame(xmlText: string, bggIdInput: number):
         return null;
     };
     
-    // More robust regexes, case-insensitive, allowing for other attributes.
     const nameMatches = Array.from(xmlText.matchAll(/<name\s+type="(primary|alternate)"(?:[^>]*)value="([^"]+)"(?:[^>]*)?\/>/gi));
     const nameElementsForParsing = nameMatches.map(match => ({
         type: match[1],
@@ -161,8 +158,7 @@ async function parseBggSearchXml(xmlText: string): Promise<Omit<BggSearchResult,
         if (primaryNameMatch && primaryNameMatch[1]) {
             name = decodeHtmlEntities(primaryNameMatch[1]);
         } else {
-            // Fallback to any name tag if primary is not found or badly formatted
-            const anyNameMatch = /<name value="([^"]+?)"\s*\/>/.exec(itemContent); // Simpler regex for any name
+            const anyNameMatch = /<name value="([^"]+?)"\s*\/>/.exec(itemContent); 
             if (anyNameMatch && anyNameMatch[1]) {
                 name = decodeHtmlEntities(anyNameMatch[1]);
             }
@@ -170,7 +166,6 @@ async function parseBggSearchXml(xmlText: string): Promise<Omit<BggSearchResult,
         if (!name || name === "Unknown Name" || name === "Name Not Found in Details") {
             name = `BGG ID ${id}`;
         }
-
 
         let yearPublished: number | undefined;
         const yearMatch = /<yearpublished\s+value="(\d+)"(?:[^>]*)\/?>/i.exec(itemContent);
@@ -185,43 +180,37 @@ async function parseBggSearchXml(xmlText: string): Promise<Omit<BggSearchResult,
 
 async function parseBggCollectionXml(xmlText: string): Promise<BoardGame[]> {
     const games: BoardGame[] = [];
-    const processedBggIds = new Set<number>(); // To avoid duplicates if BGG API returns same item
+    const processedBggIds = new Set<number>();
 
-    // Regex to capture each <item> block and its objectid
     const itemMatches = xmlText.matchAll(/<item[^>]*objectid="(\d+)"(?:[^>]*)?>([\s\S]*?)<\/item>/gi);
 
     for (const itemMatch of itemMatches) {
         const bggId = parseInt(itemMatch[1], 10);
         if (isNaN(bggId) || processedBggIds.has(bggId)) {
-            continue; // Skip if ID is invalid or already processed
+            continue;
         }
 
         const itemContent = itemMatch[2];
 
-        // Ensure it's a boardgame (not an expansion, etc.)
         const subtypeMatch = /<subtype\s+value="boardgame"\s*\/?>/i.exec(itemContent) || /subtype="boardgame"/i.exec(itemMatch[0]);
         if (!subtypeMatch) {
             continue;
         }
         processedBggIds.add(bggId);
 
-
         let name = '';
-        // Prioritize name with sortindex="1" which is usually primary
         const primaryNameMatch = /<name sortindex="1"[^>]*>([\s\S]*?)<\/name>/.exec(itemContent);
         if (primaryNameMatch && primaryNameMatch[1] && primaryNameMatch[1].trim()) {
             name = decodeHtmlEntities(primaryNameMatch[1].trim());
         } else {
-            // Fallback to the first name tag if primary is not found
             const anyNameMatch = /<name[^>]*>([\s\S]*?)<\/name>/.exec(itemContent);
             if (anyNameMatch && anyNameMatch[1] && anyNameMatch[1].trim()) {
                 name = decodeHtmlEntities(anyNameMatch[1].trim());
             }
         }
-         if (!name) { // Fallback if no name tag is found or name is empty
+         if (!name) { 
             name = `BGG Gioco ID ${bggId}`;
         }
-
 
         let yearPublished: number | undefined;
         const yearMatch = /<yearpublished>(\d+)<\/yearpublished>/.exec(itemContent);
@@ -233,21 +222,19 @@ async function parseBggCollectionXml(xmlText: string): Promise<BoardGame[]> {
         const thumbnailMatch = /<thumbnail>([\s\S]*?)<\/thumbnail>/.exec(itemContent);
         if (thumbnailMatch && thumbnailMatch[1]) {
             thumbnail = decodeHtmlEntities(thumbnailMatch[1].trim());
-            if (thumbnail.startsWith('//')) { // Ensure protocol is added
+            if (thumbnail.startsWith('//')) { 
                 thumbnail = `https:${thumbnail}`;
             }
         }
-
         const coverArtUrl = thumbnail || `https://placehold.co/100x150.png?text=${encodeURIComponent(name.substring(0,10))}`;
 
-        // Stats parsing - more robust
         let minPlayers: number | undefined, maxPlayers: number | undefined, playingTime: number | undefined;
         const statsMatch = /<stats minplayers="(\d+)" maxplayers="(\d+)"(?:[^>]*)playingtime="(\d+)"/.exec(itemContent);
         if (statsMatch) {
             minPlayers = parseInt(statsMatch[1], 10);
             maxPlayers = parseInt(statsMatch[2], 10);
             playingTime = parseInt(statsMatch[3], 10);
-        } else { // Fallback if full stats tag not present/malformed
+        } else { 
             const minPRegex = /<stats[^>]*minplayers="(\d+)"/;
             const minPMatch = minPRegex.exec(itemContent);
             if (minPMatch && minPMatch[1]) minPlayers = parseInt(minPMatch[1], 10);
@@ -262,10 +249,10 @@ async function parseBggCollectionXml(xmlText: string): Promise<BoardGame[]> {
         }
 
         games.push({
-            id: `bgg-${bggId}`, // Using bggId as part of the Firestore document ID
+            id: `bgg-${bggId}`,
             bggId,
             name,
-            yearPublished,
+            yearPublished: yearPublished === undefined ? null : yearPublished,
             coverArtUrl,
             minPlayers: minPlayers ?? null,
             maxPlayers: maxPlayers ?? null,
@@ -274,8 +261,8 @@ async function parseBggCollectionXml(xmlText: string): Promise<BoardGame[]> {
             maxPlaytime: null, 
             averageWeight: null,  
             reviews: [],
-            isPinned: false, // Default to not pinned
-            overallAverageRating: null, // Will be calculated later if needed
+            isPinned: false,
+            overallAverageRating: null,
         });
     }
     return games;
@@ -360,7 +347,6 @@ export async function importAndRateBggGameAction(bggId: string): Promise<{ gameI
         const thingXml = await thingResponseFetch.text();
         const parsedBggData = await parseBggThingXmlToBoardGame(thingXml, numericBggId);
 
-
         if (parsedBggData.name === "Name Not Found in Details" || !parsedBggData.name || parsedBggData.name.startsWith("BGG ID")) {
             console.error('Dettagli essenziali del gioco (nome) mancanti dalla risposta BGG per ID:', numericBggId);
             return { error: 'Dettagli essenziali del gioco (nome) mancanti dalla risposta BGG.' };
@@ -400,7 +386,6 @@ export async function importAndRateBggGameAction(bggId: string): Promise<{ gameI
         return { error: `Errore API BGG: ${errorMessage}` };
     }
 }
-
 
 export async function getGameDetails(gameId: string): Promise<BoardGame | null> {
   try {
@@ -504,7 +489,6 @@ async function fetchWithRetry(url: string, retries = 3, delay = 2000, attempt = 
     }
 }
 
-
 export async function fetchBggUserCollectionAction(username: string): Promise<BoardGame[] | { error: string }> {
     try {
         const url = `${BGG_API_BASE_URL}/collection?username=${username}&own=1&excludesubtype=boardgameexpansion`;
@@ -516,7 +500,6 @@ export async function fetchBggUserCollectionAction(username: string): Promise<Bo
         return { error: errorMessage };
     }
 }
-
 
 export async function getBoardGamesFromFirestoreAction(): Promise<BoardGame[] | { error: string }> {
     try {
@@ -621,7 +604,6 @@ export async function syncBoardGamesToFirestoreAction(
             }
         }
 
-
         gamesToAdd.forEach(game => {
             if (!game.id) {
                 throw new Error(`Il gioco "${game.name || 'Senza Nome'}" non ha un ID.`);
@@ -669,7 +651,6 @@ export async function syncBoardGamesToFirestoreAction(
         return { success: false, message: 'Sincronizzazione database fallita.', error: errorMessage };
     }
 }
-
 
 export async function getAllReviewsAction(): Promise<AugmentedReview[]> {
   const allAugmentedReviews: AugmentedReview[] = [];
@@ -793,10 +774,9 @@ export async function getFeaturedGamesAction(): Promise<BoardGame[]> {
       const categoryAvgs = calculateCategoryAverages(reviews); 
       const overallAverageRating = categoryAvgs ? calculateOverallCategoryAverage(categoryAvgs) : null;
 
-
       let latestReviewDate: string | null = null;
       if (reviews.length > 0) { 
-        latestReviewDate = reviews[0].date; // Since they are ordered by date desc
+        latestReviewDate = reviews[0].date; 
       }
 
       return {
@@ -823,7 +803,6 @@ export async function getFeaturedGamesAction(): Promise<BoardGame[]> {
     const pinnedGames = allGamesWithDetails
       .filter(game => game.isPinned)
       .sort((a, b) => (a.name || "").localeCompare(b.name || "")); 
-
 
     const recentlyReviewedGames = allGamesWithDetails
       .filter(game => game._latestReviewDate !== null && !game.isPinned) 
@@ -910,7 +889,6 @@ export async function fetchAndUpdateBggGameDetailsAction(bggId: number): Promise
             updateData.averageWeight = parsedBggData.averageWeight;
         }
 
-
         if (Object.keys(updateData).length === 0) {
              return { success: true, message: `Nessun nuovo dettaglio da aggiornare per ${parsedBggData.name || `BGG ID ${bggId}`} da BGG.`, updateData: {} };
         }
@@ -948,9 +926,9 @@ async function parseBggMultiThingXml(xmlText: string): Promise<Map<number, Parti
     return parsedGamesMap;
 }
 
-
 export async function batchUpdateMissingBggDetailsAction(): Promise<{ success: boolean; message: string; error?: string }> {
-    const BATCH_SIZE = 20;
+    const MAX_GAMES_TO_UPDATE_IN_BATCH = 20; // Limit the number of games processed in one go
+    const BATCH_SIZE_BGG_API = 20; // How many games to fetch from BGG in one API call
     const BATCH_DELAY_MS = 500; 
 
     try {
@@ -959,23 +937,25 @@ export async function batchUpdateMissingBggDetailsAction(): Promise<{ success: b
             throw new Error(allGamesResult.error);
         }
 
-        const gamesToUpdate: BoardGame[] = allGamesResult.filter(game =>
+        let gamesNeedingUpdate = allGamesResult.filter(game =>
             game.bggId > 0 &&
             (game.minPlaytime == null || game.maxPlaytime == null || game.averageWeight == null || 
              game.yearPublished == null || game.minPlayers == null || game.maxPlayers == null || game.playingTime == null ||
              (game.name || "").startsWith("BGG Gioco ID") || (game.coverArtUrl || "").includes("placehold.co"))
         );
+        
+        const gamesToProcessThisRun = gamesNeedingUpdate.slice(0, MAX_GAMES_TO_UPDATE_IN_BATCH);
 
-        if (gamesToUpdate.length === 0) {
-            return { success: true, message: 'Nessun gioco necessita di aggiornamento dei dettagli da BGG.' };
+        if (gamesToProcessThisRun.length === 0) {
+            return { success: true, message: 'Nessun gioco necessita di aggiornamento dei dettagli da BGG in questo momento.' };
         }
 
         const firestoreBatch = writeBatch(db);
         let updatedCount = 0;
         let failedCount = 0;
 
-        for (let i = 0; i < gamesToUpdate.length; i += BATCH_SIZE) {
-            const gameChunk = gamesToUpdate.slice(i, i + BATCH_SIZE);
+        for (let i = 0; i < gamesToProcessThisRun.length; i += BATCH_SIZE_BGG_API) {
+            const gameChunk = gamesToProcessThisRun.slice(i, i + BATCH_SIZE_BGG_API);
             const bggIdsInChunk = gameChunk.map(g => g.bggId).filter(id => id > 0);
 
             if (bggIdsInChunk.length === 0) continue;
@@ -1025,7 +1005,7 @@ export async function batchUpdateMissingBggDetailsAction(): Promise<{ success: b
                     }
                 }
                 
-                if (i + BATCH_SIZE < gamesToUpdate.length) { 
+                if (i + BATCH_SIZE_BGG_API < gamesToProcessThisRun.length) { 
                     await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
                 }
 
@@ -1047,16 +1027,21 @@ export async function batchUpdateMissingBggDetailsAction(): Promise<{ success: b
         if (failedCount > 0) {
             message += ` ${failedCount} giochi non sono stati aggiornati a causa di errori.`;
         }
-        if (updatedCount === 0 && failedCount === 0 && gamesToUpdate.length > 0) {
-            message = `Nessun nuovo dettaglio trovato per ${gamesToUpdate.length} giochi che necessitavano di un controllo.`;
+        const remainingToUpdate = gamesNeedingUpdate.length - gamesToProcessThisRun.length;
+        if (remainingToUpdate > 0) {
+            message += ` Ci sono ancora ${remainingToUpdate} giochi che necessitano di aggiornamento. Rilancia l'azione per processarli.`;
         }
-
+        if (updatedCount === 0 && failedCount === 0 && gamesToProcessThisRun.length > 0) {
+            message = `Nessun nuovo dettaglio trovato per i ${gamesToProcessThisRun.length} giochi controllati.`;
+        }
 
         return { success: true, message };
 
     } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Si è verificato un errore sconosciuto durante l\'aggiornamento batch.';
+        const errorMessage = error instanceof Error ? String(error.message) : 'Si è verificato un errore sconosciuto durante l\'aggiornamento batch.';
         console.error("Errore in batchUpdateMissingBggDetailsAction:", errorMessage);
         return { success: false, message: 'Aggiornamento batch dei dettagli BGG fallito.', error: errorMessage };
     }
 }
+
+    
