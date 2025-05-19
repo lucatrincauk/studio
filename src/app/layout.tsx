@@ -1,5 +1,4 @@
 
-
 import type {Metadata} from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
@@ -18,7 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Punteggiometro',
+  title: 'Morchiometro', // Changed name
   description: 'Valuta e recensisci i tuoi giochi da tavolo preferiti.',
 };
 
@@ -37,11 +36,10 @@ export default function RootLayout({
           </main>
           <Toaster />
           <footer className="py-6 text-center text-sm text-muted-foreground">
-            © {new Date().getFullYear()} Punteggiometro. Tutti i diritti riservati.
+            © {new Date().getFullYear()} Morchiometro. Tutti i diritti riservati. {/* Changed name */}
           </footer>
         </AuthProvider>
       </body>
     </html>
   );
 }
-

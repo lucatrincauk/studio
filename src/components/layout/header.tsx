@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { LogOut, UserPlus, LogIn, BarChart3, MessagesSquare, Users2, ShieldCheck } from 'lucide-react';
+import { LogOut, UserPlus, LogIn, BarChart3, MessagesSquare, Users2, ShieldCheck, GaugeCircle } from 'lucide-react'; // Added GaugeCircle for new logo
 import { useAuth } from '@/contexts/auth-context';
 import {
   DropdownMenu,
@@ -29,8 +29,8 @@ export function Header() {
     <header className="bg-primary text-primary-foreground sticky top-0 z-50 shadow-md">
       <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link href="/" className="flex items-center gap-2 transition-opacity hover:opacity-80">
-          <BarChart3 className="h-8 w-8" />
-          <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Punteggiometro</h1>
+          <BarChart3 className="h-8 w-8" /> {/* Changed from GaugeCircle */}
+          <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Morchiometro</h1> {/* Changed name */}
         </Link>
 
         <nav>
@@ -53,7 +53,6 @@ export function Header() {
                 Tutte le Recensioni
               </Link>
             </li>
-            {/* Removed "Collezione" link from main navigation */}
             {loading ? (
               <div className="h-8 w-20 animate-pulse rounded-md bg-primary-foreground/20"></div>
             ) : user ? (
