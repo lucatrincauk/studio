@@ -157,6 +157,45 @@ body {
     --sidebar-border: 266 40% 22%;
     --sidebar-ring: 267 26% 52%;
   }
+
+  .energetic-coral {
+    --background: 48 75% 96%; /* Very Light Soft Sand - #F8F5EE */
+    --foreground: 210 50% 32%; /* Deep Navy - #26547C */
+    --card: 0 0% 100%; /* White */
+    --card-foreground: 210 50% 32%; /* Deep Navy */
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 50% 32%;
+    --primary: 5 100% 69%; /* Energetic Coral - #FF6F61 */
+    --primary-foreground: 0 0% 100%; /* White */
+    --secondary: 45 100% 70%; /* Golden Amber - #FFD166 */
+    --secondary-foreground: 210 50% 32%; /* Deep Navy */
+    --muted: 50 83% 90%; /* Lighter Soft Sand - #F7F0C9 */
+    --muted-foreground: 210 50% 45%; /* Slightly Lighter Deep Navy */
+    --accent: 160 95% 43%; /* Bright Teal - #06D6A0 */
+    --accent-foreground: 210 50% 20%; /* Darkest Navy for text on Bright Teal */
+    --destructive: 0 84.2% 60.2%; /* Default destructive */
+    --destructive-foreground: 0 0% 98%;
+    --border: 50 60% 85%; /* Light desaturated Soft Sand - #EFEBDC */
+    --input: 50 60% 85%;
+    --ring: 160 95% 43%; /* Bright Teal */
+    --radius: 0.5rem;
+
+    --chart-1: 5 100% 69%; /* Energetic Coral */
+    --chart-2: 45 100% 70%; /* Golden Amber */
+    --chart-3: 160 95% 43%; /* Bright Teal */
+    --chart-4: 210 50% 50%; /* Mid Navy */
+    --chart-5: 50 83% 70%; /* Darker Soft Sand */
+
+    /* Sidebar variables for energetic-coral */
+    --sidebar-background: 210 50% 25%; /* Darker Deep Navy - #1F3F5E */
+    --sidebar-foreground: 50 83% 90%; /* Lighter Soft Sand */
+    --sidebar-primary: 45 100% 70%; /* Golden Amber */
+    --sidebar-primary-foreground: 210 50% 15%; /* Very Dark Navy */
+    --sidebar-accent: 160 95% 43%;  /* Bright Teal */
+    --sidebar-accent-foreground: 0 0% 100%; /* White */
+    --sidebar-border: 210 50% 30%; /* Slightly Lighter Deep Navy */
+    --sidebar-ring: 45 100% 70%;
+  }
 }
 
 @layer base {
