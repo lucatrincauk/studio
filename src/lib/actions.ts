@@ -21,6 +21,10 @@ import {
   Query,
   QueryDocumentSnapshot,
   DocumentData,
+  getCountFromServer,
+  startAfter,
+  endBefore,
+  limitToLast,
 } from 'firebase/firestore';
 import { calculateCategoryAverages, calculateOverallCategoryAverage } from './utils';
 
@@ -420,6 +424,8 @@ export async function getGameDetails(gameId: string): Promise<BoardGame | null> 
       } catch (reviewError) {
         console.error(`[GETGAMEDETAILS] Error fetching reviews for gameId: "${gameId}"`, reviewError);
       }
+        
+      const overallAverageRating = reviews.length > 0 ? calculateOverallCategoryAverage(calculateCategoryAverages(reviews)!) : null;
 
       const game: BoardGame = {
         id: gameId,
@@ -435,7 +441,7 @@ export async function getGameDetails(gameId: string): Promise<BoardGame | null> 
         averageWeight: data.averageWeight === undefined ? null : data.averageWeight,
         reviews: reviews,
         isPinned: data.isPinned || false,
-        overallAverageRating: null, 
+        overallAverageRating, 
       };
       return game;
     } else {
@@ -695,7 +701,7 @@ export async function getAllUsersAction(): Promise<UserProfile[]> {
     const users: UserProfile[] = usersSnapshot.docs.map(docSnap => {
       const data = docSnap.data();
       return {
-        id: docSnap.id, // This is the user's UID
+        id: docSnap.id, 
         name: data.name || 'Utente Sconosciuto',
         photoURL: data.photoURL || null,
       };
@@ -783,13 +789,13 @@ export async function getFeaturedGamesAction(): Promise<BoardGame[]> {
         name: gameData.name || "Gioco Senza Nome",
         coverArtUrl: gameData.coverArtUrl || `https://placehold.co/200x300.png?text=N/A`,
         bggId: gameData.bggId || 0,
-        yearPublished: gameData.yearPublished === undefined ? null : gameData.yearPublished,
-        minPlayers: gameData.minPlayers === undefined ? null : gameData.minPlayers,
-        maxPlayers: gameData.maxPlayers === undefined ? null : gameData.maxPlayers,
-        playingTime: gameData.playingTime === undefined ? null : gameData.playingTime,
-        minPlaytime: gameData.minPlaytime === undefined ? null : gameData.minPlaytime,
-        maxPlaytime: gameData.maxPlaytime === undefined ? null : gameData.maxPlaytime,
-        averageWeight: gameData.averageWeight === undefined ? null : gameData.averageWeight,
+        yearPublished: gameData.yearPublished ?? null,
+        minPlayers: gameData.minPlayers ?? null,
+        maxPlayers: gameData.maxPlayers ?? null,
+        playingTime: gameData.playingTime ?? null,
+        minPlaytime: gameData.minPlaytime ?? null,
+        maxPlaytime: gameData.maxPlaytime ?? null,
+        averageWeight: gameData.averageWeight ?? null,
         reviews: [], 
         overallAverageRating,
         isPinned: gameData.isPinned || false,
@@ -1048,4 +1054,144 @@ export async function batchUpdateMissingBggDetailsAction(): Promise<{ success: b
         console.error("Errore in batchUpdateMissingBggDetailsAction:", errorMessage);
         return { success: false, message: 'Recupero dettagli BGG per aggiornamento batch fallito.', error: errorMessage };
     }
+}
+
+
+export interface FetchPaginatedGamesParams {
+  pageParam?: QueryDocumentSnapshot<DocumentData> | null; // Document snapshot for cursor
+  limitNum?: number;
+  sortKey?: 'name' | 'overallAverageRating'; // overallAverageRating sort is client-side for now
+  sortDirection?: 'asc' | 'desc';
+  searchTerm?: string;
+  direction?: 'next' | 'prev';
+}
+
+export async function fetchPaginatedGamesAction({
+  pageParam = null,
+  limitNum = 10,
+  sortKey = 'name',
+  sortDirection = 'asc',
+  searchTerm = '',
+  direction = 'next',
+}: FetchPaginatedGamesParams): Promise<{
+  games: BoardGame[];
+  nextPageParam: QueryDocumentSnapshot<DocumentData> | null;
+  prevPageParam: QueryDocumentSnapshot<DocumentData> | null;
+  totalGames: number;
+}> {
+  try {
+    const gamesCollection = collection(db, FIRESTORE_COLLECTION_NAME);
+    let q: Query = gamesCollection;
+
+    // Search term (basic name filtering)
+    // For more advanced search, consider a dedicated search service like Algolia/Typesense
+    if (searchTerm) {
+       q = query(q, 
+        where('name', '>=', searchTerm),
+        where('name', '<=', searchTerm + '\uf8ff')
+      );
+    }
+    
+    // Always apply a base sort by name for consistent pagination if primary sort is different or not effective
+    q = query(q, orderBy('name', sortDirection === 'asc' ? 'asc' : 'desc'));
+
+
+    const totalGamesSnapshot = await getCountFromServer(query(gamesCollection, ...(searchTerm ? [where('name', '>=', searchTerm), where('name', '<=', searchTerm + '\uf8ff')] : [])));
+    const totalGames = totalGamesSnapshot.data().count;
+
+    if (pageParam) {
+      if (direction === 'next') {
+        q = query(q, startAfter(pageParam));
+      } else {
+        // For 'prev', we need to reverse order, limitToLast, then reverse results
+        // This is more complex and might require storing both first and last visible for robust bidirectional paging
+        // For simplicity, this example might not perfectly handle 'prev' with dynamic sorting other than name
+         q = query(q, orderBy('name', sortDirection === 'desc' ? 'asc' : 'desc')); // Reverse order for endBefore
+         q = query(q, endBefore(pageParam), limitToLast(limitNum));
+      }
+    }
+    
+    if (direction === 'next' || !pageParam) {
+        q = query(q, limit(limitNum));
+    }
+
+
+    const documentSnapshots = await getDocs(q);
+    
+    let gamesPromises = documentSnapshots.docs.map(async (docSnap) => {
+      const data = docSnap.data();
+      const gameId = docSnap.id;
+      let reviews: Review[] = [];
+      try {
+        const reviewsSnapshot = await getDocs(query(collection(db, FIRESTORE_COLLECTION_NAME, gameId, 'reviews')));
+        reviews = reviewsSnapshot.docs.map(reviewDoc => {
+          const reviewData = reviewDoc.data();
+          const rating: Rating = {
+            excitedToReplay: reviewData.rating?.excitedToReplay || 0,
+            mentallyStimulating: reviewData.rating?.mentallyStimulating || 0,
+            fun: reviewData.rating?.fun || 0,
+            decisionDepth: reviewData.rating?.decisionDepth || 0,
+            replayability: reviewData.rating?.replayability || 0,
+            luck: reviewData.rating?.luck || 0,
+            lengthDowntime: reviewData.rating?.lengthDowntime || 0,
+            graphicDesign: reviewData.rating?.graphicDesign || 0,
+            componentsThemeLore: reviewData.rating?.componentsThemeLore || 0,
+            effortToLearn: reviewData.rating?.effortToLearn || 0,
+            setupTeardown: reviewData.rating?.setupTeardown || 0,
+          };
+          return { id: reviewDoc.id, ...reviewData, rating } as Review;
+        });
+      } catch (e) { console.error("Error fetching reviews for game " + gameId, e); }
+      
+      const categoryAvgs = calculateCategoryAverages(reviews);
+      const overallAverageRating = categoryAvgs ? calculateOverallCategoryAverage(categoryAvgs) : null;
+
+      return {
+        id: gameId,
+        name: data.name || "Gioco Senza Nome",
+        coverArtUrl: data.coverArtUrl || `https://placehold.co/100x150.png?text=N/A`,
+        yearPublished: data.yearPublished ?? null,
+        minPlayers: data.minPlayers ?? null,
+        maxPlayers: data.maxPlayers ?? null,
+        playingTime: data.playingTime ?? null,
+        minPlaytime: data.minPlaytime ?? null,
+        maxPlaytime: data.maxPlaytime ?? null,
+        averageWeight: data.averageWeight ?? null,
+        bggId: data.bggId || 0,
+        reviews: [], // Keep reviews minimal for list views
+        overallAverageRating,
+        isPinned: data.isPinned || false,
+      } as BoardGame;
+    });
+
+    let games = await Promise.all(gamesPromises);
+    
+    if (direction === 'prev' && pageParam) {
+        games = games.reverse(); // Ensure correct order for 'prev' page
+    }
+
+    // Client-side sort by overallAverageRating if requested, as Firestore can't sort by calculated fields directly
+    // This only sorts the current page, not the entire dataset.
+    if (sortKey === 'overallAverageRating') {
+      games.sort((a, b) => {
+        const valA = a.overallAverageRating ?? (sortDirection === 'asc' ? Infinity : -Infinity);
+        const valB = b.overallAverageRating ?? (sortDirection === 'asc' ? Infinity : -Infinity);
+        return sortDirection === 'asc' ? valA - valB : valB - valA;
+      });
+    }
+
+    const newNextPageParam = documentSnapshots.docs.length === limitNum ? documentSnapshots.docs[documentSnapshots.docs.length - 1] : null;
+    const newPrevPageParam = pageParam && documentSnapshots.docs.length > 0 ? documentSnapshots.docs[0] : null;
+
+
+    return {
+      games,
+      nextPageParam: newNextPageParam,
+      prevPageParam: newPrevPageParam, // This needs more robust logic for true cursor based 'prev'
+      totalGames,
+    };
+  } catch (error) {
+    console.error("Error fetching paginated games:", error);
+    return { games: [], nextPageParam: null, prevPageParam: null, totalGames: 0 };
+  }
 }

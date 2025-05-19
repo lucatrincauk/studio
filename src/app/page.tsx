@@ -1,15 +1,13 @@
 
-import { getAllGamesAction, getFeaturedGamesAction } from '@/lib/actions';
+import { getFeaturedGamesAction } from '@/lib/actions'; // Removed getAllGamesAction
 import { GameSearchList } from '@/components/boardgame/game-search-list';
 import { GameCard } from '@/components/boardgame/game-card';
 import { Separator } from '@/components/ui/separator';
 import type { BoardGame } from '@/lib/types';
 
 export default async function HomePage() {
-  const allGames = await getAllGamesAction();
+  // getAllGamesAction is removed, GameSearchList will fetch its own data
   const featuredGames = await getFeaturedGamesAction();
-
-  // Top 10 logic removed from here
 
   return (
     <div className="space-y-12">
@@ -39,7 +37,7 @@ export default async function HomePage() {
           </div>
         )}
         
-        <GameSearchList initialGames={allGames} /> 
+        <GameSearchList /> 
         
       </section>
     </div>
