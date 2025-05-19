@@ -1,12 +1,30 @@
 
-import { getAllGamesAction } from '@/lib/actions';
+import { getAllGamesAction, getFeaturedGamesAction } from '@/lib/actions';
 import { GameSearchList } from '@/components/boardgame/game-search-list';
+import { GameCard } from '@/components/boardgame/game-card';
+import { Separator } from '@/components/ui/separator';
 
 export default async function HomePage() {
-  const games = await getAllGamesAction();
+  const allGames = await getAllGamesAction();
+  const featuredGames = await getFeaturedGamesAction();
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-12">
+      {featuredGames && featuredGames.length > 0 && (
+        <section>
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mb-6 text-center sm:text-left">
+            Ultimi Giochi Valutati
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {featuredGames.map(game => (
+              <GameCard key={game.id} game={game} />
+            ))}
+          </div>
+        </section>
+      )}
+      
+      {featuredGames && featuredGames.length > 0 && <Separator className="my-8" />}
+
       <section>
         <div className="mb-6 text-center">
           <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground mb-2">
@@ -17,7 +35,7 @@ export default async function HomePage() {
           </p>
         </div>
         
-        <GameSearchList initialGames={games} /> 
+        <GameSearchList initialGames={allGames} /> 
         
       </section>
       {/* 
@@ -31,3 +49,4 @@ export default async function HomePage() {
 
 // Revalidate this page periodically or on demand when new games are added
 export const revalidate = 3600; // Revalidate every hour
+
