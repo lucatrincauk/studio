@@ -24,11 +24,10 @@ export const metadata: Metadata = {
 
 const NoFlashScript = () => {
   const storageKey = "morchiometro-theme";
-  const defaultTheme = "forest-mist"; // This is the key default
-  // Ensure this list is exhaustive of all theme classes you might have used or will use
+  const defaultTheme = "forest-mist";
+  // Ensure this list is exhaustive of all theme classes and matches ThemeProvider
   const validThemes = ['light', 'dark', 'violet-dream', 'energetic-coral', 'forest-mist'];
 
-  // This script runs prioritized in the <head> to set the theme ASAP
   const scriptContent = `
 (function() {
   let themeToApply = '${defaultTheme}'; // Start with the default
@@ -39,14 +38,12 @@ const NoFlashScript = () => {
     if (storedTheme && localThemes.includes(storedTheme)) {
       themeToApply = storedTheme; // Use stored theme if valid
     }
-    // If no valid theme in localStorage, themeToApply remains defaultTheme
   } catch (e) {
-    // If localStorage access fails, themeToApply remains defaultTheme
     console.warn('Could not access localStorage for theme preference.');
   }
 
   const docElClassList = document.documentElement.classList;
-  // Remove all known theme classes first to avoid conflicts
+  // Remove ONLY THE THEME CLASSES, leave other classes like "h-full" intact
   localThemes.forEach(function(t) { docElClassList.remove(t); });
   // Add the determined theme class
   docElClassList.add(themeToApply);
@@ -62,7 +59,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="it" className="h-full">
+    <html lang="it" className="h-full" suppressHydrationWarning>
       <head>
         <NoFlashScript />
       </head>
