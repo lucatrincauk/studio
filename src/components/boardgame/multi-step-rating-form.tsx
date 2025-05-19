@@ -42,8 +42,8 @@ const categoryDescriptions: Record<RatingCategory, string> = {
   mentallyStimulating: "Quanto ti ha fatto ragionare e elaborare strategie questo gioco?",
   fun: "In generale, quanto è stata piacevole e divertente l'esperienza di gioco?",
   decisionDepth: "Quanto sono state significative e incisive le scelte che hai fatto durante il gioco?",
-  replayability: "Quanto diversa ed entusiasmante potrebbe essere la prossima partita?", // Changed
-  luck: "Quanto il caso o la casualità influenzano l'esito del gioco?",
+  replayability: "Quanto diversa ed entusiasmante potrebbe essere la prossima partita?",
+  luck: "Quanto poco il caso o la casualità influenzano l'esito del gioco?", // Changed
   lengthDowntime: "Quanto è appropriata la durata del gioco per la sua profondità e quanto è coinvolgente quando non è il tuo turno?",
   graphicDesign: "Quanto è visivamente accattivante l'artwork, l'iconografia e il layout generale del gioco?",
   componentsThemeLore: "Quanto bene i componenti fisici, il tema e la storia migliorano l'esperienza?",
@@ -111,7 +111,7 @@ export function MultiStepRatingForm({
 
     const rating: RatingType = { ...data };
     const reviewAuthor = currentUser.displayName || 'Anonimo';
-    const reviewComment = ""; // Comments are no longer part of the form
+    const reviewComment = ""; 
     const authorPhotoURL = currentUser.photoURL || null;
 
     const newReviewData: Omit<Review, 'id'> = {
@@ -213,7 +213,7 @@ export function MultiStepRatingForm({
         if (submissionSuccessful) {
           const currentRatings = form.getValues();
           const tempReviewForSummary: Review = {
-            id: 'summary', // Temporary ID for calculation
+            id: 'summary', 
             author: currentUser.displayName || 'Anonimo',
             userId: currentUser.uid,
             authorPhotoURL: currentUser.photoURL || null,
@@ -222,7 +222,7 @@ export function MultiStepRatingForm({
             date: new Date().toISOString(),
           };
           setGroupedAveragesForSummary(calculateGroupedCategoryAverages([tempReviewForSummary]));
-          onStepChange(totalInputSteps + 1); // Go to summary step
+          onStepChange(totalInputSteps + 1); 
         }
       });
     } else {
@@ -273,7 +273,7 @@ export function MultiStepRatingForm({
             <CardHeader className="px-0 pt-0 pb-6">
                 <div className="flex justify-between items-center mb-1">
                     <CardTitle className="text-2xl md:text-3xl text-left">
-                        La Tua Recensione è Salvata
+                        Riepilogo Valutazione
                     </CardTitle>
                     {yourOverallAverage !== null && (
                         <span className="text-2xl font-bold text-primary whitespace-nowrap">
@@ -419,7 +419,7 @@ export function MultiStepRatingForm({
         )}
 
         <div className={`flex ${currentStep > 1 && currentStep < (totalInputSteps + 1) ? 'justify-between' : 'justify-end'} items-center pt-4 border-t mt-6`}>
-          {currentStep > 1 && currentStep < (totalInputSteps + 1) && currentStep !== 5 && (
+          {currentStep > 1 && currentStep < (totalInputSteps + 1) && (
             <Button
               type="button"
               variant="outline"
@@ -434,7 +434,7 @@ export function MultiStepRatingForm({
             <Button type="button" onClick={handleNext} disabled={isSubmitting} className="bg-primary hover:bg-primary/90 text-primary-foreground">
               Avanti
             </Button>
-          ) : currentStep === totalInputSteps ? ( // This is Step 4
+          ) : currentStep === totalInputSteps ? ( 
             <Button
               type="button"
               onClick={form.handleSubmit(handleStep4Submit)}
@@ -443,13 +443,13 @@ export function MultiStepRatingForm({
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> {existingReview ? 'Aggiornamento...' : 'Invio Recensione...'}
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> {existingReview ? 'Aggiornamento...' : 'Invia Recensione...'}
                 </>
               ) : (
                 existingReview ? 'Aggiorna Recensione' : 'Invia Recensione'
               )}
             </Button>
-          ) : ( // currentStep === 5 (Summary Step)
+          ) : ( 
              <Button
                 type="button"
                 onClick={() => {
@@ -466,6 +466,3 @@ export function MultiStepRatingForm({
     </Form>
   );
 }
-
-    
-
