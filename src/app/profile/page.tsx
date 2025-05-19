@@ -7,6 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Loader2, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { ThemeSwitcher } from '@/components/profile/theme-switcher'; // Import ThemeSwitcher
+import { Separator } from '@/components/ui/separator';
 
 export default function ProfilePage() {
   const { user, loading } = useAuth();
@@ -42,7 +44,7 @@ export default function ProfilePage() {
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold">Il Tuo Profilo</CardTitle>
-          <CardDescription>Gestisci le informazioni del tuo account.</CardDescription>
+          <CardDescription>Gestisci le informazioni del tuo account e le preferenze dell'applicazione.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div>
@@ -52,6 +54,9 @@ export default function ProfilePage() {
           <UpdateProfileForm initialDisplayName={user.displayName} />
         </CardContent>
       </Card>
+      <div className="w-full max-w-md mt-0"> {/* Adjusted margin top */}
+        <ThemeSwitcher />
+      </div>
     </div>
   );
 }

@@ -81,6 +81,43 @@ body {
     --sidebar-border: 0 0% 12%;
     --sidebar-ring: 55 99% 65%;
   }
+
+  .ocean {
+    --background: 210 50% 20%; /* Deep Blue */
+    --foreground: 180 30% 95%; /* Light Cyan/Off-white */
+    --card: 210 50% 25%; /* Slightly Lighter Blue */
+    --card-foreground: 180 30% 95%;
+    --popover: 210 50% 25%;
+    --popover-foreground: 180 30% 95%;
+    --primary: 170 70% 45%; /* Vibrant Teal/Cyan */
+    --primary-foreground: 210 50% 10%; /* Dark text on primary */
+    --secondary: 210 30% 35%; /* Muted Blue-Gray */
+    --secondary-foreground: 180 30% 95%;
+    --muted: 210 30% 30%; /* Darker Muted Blue-Gray */
+    --muted-foreground: 210 30% 70%;
+    --accent: 15 90% 60%; /* Bright Coral/Orange */
+    --accent-foreground: 15 50% 10%; /* Dark text on accent */
+    --destructive: 0 70% 50%; /* Adjusted destructive */
+    --destructive-foreground: 0 0% 98%;
+    --border: 210 40% 30%; /* Muted border */
+    --input: 210 40% 30%; /* Muted input */
+    --ring: 170 70% 45%; /* Primary color for focus rings */
+    --chart-1: 170 60% 55%;
+    --chart-2: 20 80% 65%;
+    --chart-3: 200 50% 50%;
+    --chart-4: 160 70% 40%;
+    --chart-5: 0 0% 70%; /* Neutral gray for contrast */
+    
+    /* Ocean Sidebar variables */
+    --sidebar-background: 210 55% 15%;
+    --sidebar-foreground: 180 30% 90%;
+    --sidebar-primary: 15 90% 60%; /* Accent Coral */
+    --sidebar-primary-foreground: 15 50% 10%;
+    --sidebar-accent: 210 50% 22%;
+    --sidebar-accent-foreground: 180 30% 90%;
+    --sidebar-border: 210 40% 28%;
+    --sidebar-ring: 15 90% 60%;
+  }
 }
 
 @layer base {
