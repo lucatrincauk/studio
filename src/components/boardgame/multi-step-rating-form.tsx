@@ -41,7 +41,7 @@ const categoryDescriptions: Record<RatingCategory, string> = {
   excitedToReplay: "Quanto ti entusiasma l’idea di rigiocare questo gioco?",
   mentallyStimulating: "Quanto ti ha fatto ragionare e elaborare strategie questo gioco?",
   fun: "In generale, quanto è stata piacevole e divertente l'esperienza di gioco?",
-  decisionDepth: "Quanto sono significative e incisive le scelte che fai durante il gioco?",
+  decisionDepth: "Quanto sono state significative e incisive le scelte che hai fatto durante il gioco?",
   replayability: "Quanto il gioco offre esperienze variegate in più partite?",
   luck: "Quanto il caso o la casualità influenzano l'esito del gioco?",
   lengthDowntime: "Quanto è appropriata la durata del gioco per la sua profondità e quanto è coinvolgente quando non è il tuo turno?",
@@ -250,7 +250,7 @@ export function MultiStepRatingForm({
     if (currentStep === 2) return "Come valuteresti le meccaniche e la struttura di base?";
     if (currentStep === 3) return "Valuta l'aspetto visivo e gli elementi tematici del gioco.";
     if (currentStep === 4) return "Quanto è facile imparare, preparare e rimettere a posto il gioco?";
-    if (currentStep === 5) return "La tua recensione è stata salvata. Ecco un riepilogo:";
+    if (currentStep === 5) return "La tua recensione è stata salvata. Ecco un riepilogo:"; // Updated description
     return "";
   }
   
@@ -260,7 +260,7 @@ export function MultiStepRatingForm({
     <Form {...form}>
       <form> {/* Removed onSubmit from here */}
         {currentStep <= totalInputSteps && (
-          <div className="mb-4"> {/* Reduced mb-6 to mb-4 */}
+          <div className="mb-4">
             <div className="flex justify-between items-center">
               <h3 className="text-xl font-semibold">{getCurrentStepTitle()} - Passo {currentStep} / {totalInputSteps}</h3>
             </div>
@@ -274,7 +274,7 @@ export function MultiStepRatingForm({
             <CardHeader className="px-0 pt-0 pb-6">
                 <div className="flex justify-between items-center mb-1">
                     <CardTitle className="text-2xl md:text-3xl text-left">
-                        Riepilogo Tue Valutazioni
+                        La Tua Recensione è Salvata
                     </CardTitle>
                     {yourOverallAverage !== null && (
                         <span className="text-2xl font-bold text-primary whitespace-nowrap">
@@ -419,8 +419,8 @@ export function MultiStepRatingForm({
             </div>
         )}
 
-        <div className={`flex ${currentStep > 1 && currentStep < 5 ? 'justify-between' : 'justify-end'} items-center pt-4 border-t mt-6`}>
-          {currentStep > 1 && currentStep < 5 && (
+        <div className={`flex ${currentStep > 1 && currentStep < (totalInputSteps + 1) ? 'justify-between' : 'justify-end'} items-center pt-4 border-t mt-6`}>
+          {currentStep > 1 && currentStep < (totalInputSteps + 1) && currentStep !== 5 && (
             <Button
               type="button"
               variant="outline"
