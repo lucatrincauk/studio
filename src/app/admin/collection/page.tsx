@@ -22,7 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { db } from '@/lib/firebase';
-import { doc, updateDoc, getDoc } from 'firebase/firestore'; 
+import { doc, updateDoc, getDoc, writeBatch } from 'firebase/firestore'; 
 import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -297,11 +297,28 @@ export default function AdminCollectionPage() {
   const handleBatchUpdateMissingDetails = () => {
     startBatchUpdateTransition(async () => {
       const result = await batchUpdateMissingBggDetailsAction();
-      if (result.success) {
-        toast({ title: 'Aggiornamento Batch Completato', description: result.message });
-        await loadDbCollection();
+      if (result.success && result.gamesToUpdateClientSide) {
+        if (result.gamesToUpdateClientSide.length > 0) {
+          const batch = writeBatch(db);
+          result.gamesToUpdateClientSide.forEach(item => {
+            const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, item.gameId);
+            batch.update(gameRef, item.updateData);
+          });
+          try {
+            await batch.commit();
+            toast({ title: 'Aggiornamento Batch Completato', description: `${result.gamesToUpdateClientSide.length} giochi aggiornati con successo. ${result.message.replace(`${result.gamesToUpdateClientSide.length} giochi pronti per l'aggiornamento client-side.`, '')}` });
+            await loadDbCollection();
+          } catch (dbError) {
+            const errorMessage = dbError instanceof Error ? dbError.message : "Errore sconosciuto durante l'aggiornamento batch del DB.";
+            toast({ title: 'Errore Aggiornamento Batch DB', description: errorMessage, variant: 'destructive' });
+          }
+        } else {
+           toast({ title: 'Aggiornamento Batch', description: result.message });
+        }
+      } else if (!result.success) {
+        toast({ title: 'Errore Aggiornamento Batch', description: result.error || result.message || 'Si è verificato un errore sconosciuto.', variant: 'destructive' });
       } else {
-        toast({ title: 'Errore Aggiornamento Batch', description: result.error || 'Si è verificato un errore sconosciuto.', variant: 'destructive' });
+         toast({ title: 'Aggiornamento Batch', description: result.message || 'Nessun gioco da aggiornare o operazione completata.' });
       }
     });
   };
@@ -598,4 +615,3 @@ export default function AdminCollectionPage() {
     </div>
   );
 }
-

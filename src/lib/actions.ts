@@ -3,7 +3,7 @@
 
 import { revalidatePath } from 'next/cache';
 import type { BoardGame, Review, Rating, BggSearchResult, AugmentedReview, UserProfile } from './types';
-import { reviewFormSchema, type RatingFormValues } from '@/lib/validators';
+// import { reviewFormSchema, type RatingFormValues } from '@/lib/validators'; // No longer used here
 import { db } from '@/lib/firebase';
 import {
   collection,
@@ -57,17 +57,17 @@ async function parseRankFromThingXml(xmlText: string): Promise<number> {
     return Number.MAX_SAFE_INTEGER;
 }
 
+function parseNumericValueHelper(regex: RegExp, text: string, isFloat = false): number | null {
+    const match = regex.exec(text);
+    if (match && match[1]) {
+        const num = isFloat ? parseFloat(match[1]) : parseInt(match[1], 10);
+        return isNaN(num) ? null : num;
+    }
+    return null;
+};
+
 async function parseBggThingXmlToBoardGame(xmlText: string, bggIdInput: number): Promise<Partial<BoardGame>> {
     const gameData: Partial<BoardGame> = { bggId: bggIdInput };
-
-    const parseNumericValueHelper = (regex: RegExp, text: string, isFloat = false): number | null => {
-        const match = regex.exec(text);
-        if (match && match[1]) {
-            const num = isFloat ? parseFloat(match[1]) : parseInt(match[1], 10);
-            return isNaN(num) ? null : num;
-        }
-        return null;
-    };
     
     const nameMatches = Array.from(xmlText.matchAll(/<name\s+type="(primary|alternate)"(?:[^>]*)value="([^"]+)"(?:[^>]*)?\/>/gi));
     const nameElementsForParsing = nameMatches.map(match => ({
@@ -107,7 +107,7 @@ async function parseBggThingXmlToBoardGame(xmlText: string, bggIdInput: number):
     } else {
         gameData.averageWeight = null;
     }
-    
+        
     if (gameData.playingTime != null && gameData.minPlaytime == null) { 
         gameData.minPlaytime = gameData.playingTime;
     }
@@ -346,7 +346,7 @@ export async function importAndRateBggGameAction(bggId: string): Promise<{ gameI
         }
         const thingXml = await thingResponseFetch.text();
         const parsedBggData = await parseBggThingXmlToBoardGame(thingXml, numericBggId);
-
+        
         if (parsedBggData.name === "Name Not Found in Details" || !parsedBggData.name || parsedBggData.name.startsWith("BGG ID")) {
             console.error('Dettagli essenziali del gioco (nome) mancanti dalla risposta BGG per ID:', numericBggId);
             return { error: 'Dettagli essenziali del gioco (nome) mancanti dalla risposta BGG.' };
@@ -395,6 +395,7 @@ export async function getGameDetails(gameId: string): Promise<BoardGame | null> 
     if (docSnap.exists()) {
       const data = docSnap.data();
       if (!data) {
+          console.error(`[GETGAMEDETAILS] No data found for gameId: "${gameId}" even though doc exists.`);
           return null;
       }
 
@@ -450,6 +451,7 @@ export async function getGameDetails(gameId: string): Promise<BoardGame | null> 
       };
       return game;
     } else {
+      console.log(`[GETGAMEDETAILS] No document found for gameId: "${gameId}"`);
       return null;
     }
   } catch (error) {
@@ -464,7 +466,7 @@ async function fetchWithRetry(url: string, retries = 3, delay = 2000, attempt = 
         
         if (response.status === 200) {
             const xmlText = await response.text();
-            if (!xmlText.includes('<items') && !xmlText.includes("<item ") && !xmlText.includes("<error>") && attempt < retries && !xmlText.includes("<boardgames") && !xmlText.includes("<boardgame ")) { 
+             if (!xmlText.includes('<items') && !xmlText.includes("<item ") && !xmlText.includes("<error>") && attempt < retries && !xmlText.includes("<boardgames") && !xmlText.includes("<boardgame ") && !xmlText.includes("<message>Your request for task processing has been accepted")) { 
                 await new Promise(resolve => setTimeout(resolve, Math.min(delay * attempt, 6000))); 
                 return fetchWithRetry(url, retries, delay, attempt + 1);
             }
@@ -476,7 +478,6 @@ async function fetchWithRetry(url: string, retries = 3, delay = 2000, attempt = 
             await new Promise(resolve => setTimeout(resolve, Math.min(delay * attempt, 6000))); 
             return fetchWithRetry(url, retries, delay, attempt + 1);
         } else if (response.status !== 200 && response.status !== 202) {
-            const errorText = await response.text().catch(() => "Unable to read error response body");
             throw new Error(`BGG API Error: Status ${response.status} for URL ${url}.`);
         } else { 
             throw new Error(`BGG API did not return success status after ${retries} retries for URL ${url}. Final status: ${response.status}`);
@@ -926,15 +927,15 @@ async function parseBggMultiThingXml(xmlText: string): Promise<Map<number, Parti
     return parsedGamesMap;
 }
 
-export async function batchUpdateMissingBggDetailsAction(): Promise<{ success: boolean; message: string; error?: string }> {
-    const MAX_GAMES_TO_UPDATE_IN_BATCH = 20; // Limit the number of games processed in one go
-    const BATCH_SIZE_BGG_API = 20; // How many games to fetch from BGG in one API call
+export async function batchUpdateMissingBggDetailsAction(): Promise<{ success: boolean; message: string; error?: string; gamesToUpdateClientSide?: Array<{ gameId: string; updateData: Partial<BoardGame>}> }> {
+    const MAX_GAMES_TO_UPDATE_IN_BATCH = 20;
+    const BATCH_SIZE_BGG_API = 20; 
     const BATCH_DELAY_MS = 500; 
 
     try {
         const allGamesResult = await getBoardGamesFromFirestoreAction();
         if ('error' in allGamesResult) {
-            throw new Error(allGamesResult.error);
+            return { success: false, message: allGamesResult.error, error: allGamesResult.error };
         }
 
         let gamesNeedingUpdate = allGamesResult.filter(game =>
@@ -950,9 +951,9 @@ export async function batchUpdateMissingBggDetailsAction(): Promise<{ success: b
             return { success: true, message: 'Nessun gioco necessita di aggiornamento dei dettagli da BGG in questo momento.' };
         }
 
-        const firestoreBatch = writeBatch(db);
-        let updatedCount = 0;
-        let failedCount = 0;
+        const gamesToUpdateClientSide: Array<{ gameId: string; updateData: Partial<BoardGame>}> = [];
+        let fetchedCount = 0;
+        let erroredFetchCount = 0;
 
         for (let i = 0; i < gamesToProcessThisRun.length; i += BATCH_SIZE_BGG_API) {
             const gameChunk = gamesToProcessThisRun.slice(i, i + BATCH_SIZE_BGG_API);
@@ -998,9 +999,8 @@ export async function batchUpdateMissingBggDetailsAction(): Promise<{ success: b
                         }
 
                         if (Object.keys(updatePayload).length > 0) {
-                            const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, gameInChunk.id);
-                            firestoreBatch.update(gameRef, updatePayload);
-                            updatedCount++;
+                            gamesToUpdateClientSide.push({ gameId: gameInChunk.id, updateData: updatePayload });
+                            fetchedCount++;
                         }
                     }
                 }
@@ -1011,37 +1011,29 @@ export async function batchUpdateMissingBggDetailsAction(): Promise<{ success: b
 
             } catch (batchFetchError) {
                 const chunkErrorMsg = batchFetchError instanceof Error ? batchFetchError.message : String(batchFetchError);
-                console.error(`Impossibile recuperare/aggiornare i dettagli per il batch BGG IDs ${bggIdsInChunk.join(',')}:`, chunkErrorMsg);
-                failedCount += gameChunk.length; 
+                console.error(`Impossibile recuperare i dettagli per il batch BGG IDs ${bggIdsInChunk.join(',')}:`, chunkErrorMsg);
+                erroredFetchCount += gameChunk.length; 
             }
         }
         
-        if (updatedCount > 0) {
-            await firestoreBatch.commit();
-        }
-        
-        revalidatePath('/admin/collection');
-        revalidatePath('/');
-
-        let message = `${updatedCount} giochi aggiornati con nuovi dettagli.`;
-        if (failedCount > 0) {
-            message += ` ${failedCount} giochi non sono stati aggiornati a causa di errori.`;
+        let message = `${fetchedCount} giochi pronti per l'aggiornamento client-side.`;
+        if (erroredFetchCount > 0) {
+            message += ` ${erroredFetchCount} giochi non sono stati recuperati a causa di errori.`;
         }
         const remainingToUpdate = gamesNeedingUpdate.length - gamesToProcessThisRun.length;
         if (remainingToUpdate > 0) {
-            message += ` Ci sono ancora ${remainingToUpdate} giochi che necessitano di aggiornamento. Rilancia l'azione per processarli.`;
+            message += ` Ci sono ancora ${remainingToUpdate} giochi che potrebbero necessitare di aggiornamento. Rilancia l'azione per processarli.`;
         }
-        if (updatedCount === 0 && failedCount === 0 && gamesToProcessThisRun.length > 0) {
-            message = `Nessun nuovo dettaglio trovato per i ${gamesToProcessThisRun.length} giochi controllati.`;
+         if (fetchedCount === 0 && erroredFetchCount === 0 && gamesToProcessThisRun.length > 0) {
+            message = `Nessun nuovo dettaglio trovato o necessario per i ${gamesToProcessThisRun.length} giochi controllati.`;
         }
 
-        return { success: true, message };
+
+        return { success: true, message, gamesToUpdateClientSide };
 
     } catch (error) {
-        const errorMessage = error instanceof Error ? String(error.message) : 'Si è verificato un errore sconosciuto durante l\'aggiornamento batch.';
+        const errorMessage = String(error instanceof Error ? error.message : error);
         console.error("Errore in batchUpdateMissingBggDetailsAction:", errorMessage);
-        return { success: false, message: 'Aggiornamento batch dei dettagli BGG fallito.', error: errorMessage };
+        return { success: false, message: 'Recupero dettagli BGG per aggiornamento batch fallito.', error: errorMessage };
     }
 }
-
-    
