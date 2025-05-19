@@ -9,7 +9,7 @@ import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, Brain, ExternalLink, Weight } from 'lucide-react';
+import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, Brain, ExternalLink, Weight, Tag } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { summarizeReviews } from '@/ai/flows/summarize-reviews';
@@ -60,6 +60,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
   
   const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false);
   const [isDeletingReview, startDeleteReviewTransition] = useTransition();
+  
   const [isPinToggling, startPinToggleTransition] = useTransition();
   const [currentIsPinned, setCurrentIsPinned] = useState(false);
 
@@ -151,7 +152,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
   };
 
   const handleTogglePinGame = async () => {
-    if (!game) return;
+    if (!game || authLoading) return;
     startPinToggleTransition(async () => {
       const newPinStatus = !currentIsPinned;
       try {
@@ -159,13 +160,13 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         await updateDoc(gameRef, {
           isPinned: newPinStatus
         });
-        setCurrentIsPinned(newPinStatus); 
+        setCurrentIsPinned(newPinStatus); // Optimistic update
         toast({
           title: "Stato Vetrina Aggiornato",
           description: `Il gioco è stato ${newPinStatus ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
         });
-        
-        await fetchGameData();
+        // No revalidatePath here, local state update and eventual cache update is enough for this page
+        await fetchGameData(); // Re-fetch to ensure consistency if needed elsewhere sooner
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({
@@ -173,6 +174,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `Impossibile aggiornare lo stato vetrina: ${errorMessage}`,
           variant: "destructive",
         });
+        setCurrentIsPinned(!newPinStatus); // Revert optimistic update on error
       }
     });
   };
@@ -234,9 +236,9 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                   )}
                 </div>
               {globalGameAverage !== null && (
-                <div className="flex-shrink-0 bg-primary text-primary-foreground rounded-full px-4 py-2 text-xl font-bold shadow-md">
-                  {formatRatingNumber(globalGameAverage * 2)}
-                </div>
+                 <span className="flex-shrink-0 text-primary text-3xl font-bold">
+                    {formatRatingNumber(globalGameAverage * 2)}
+                 </span>
               )}
             </div>
             
