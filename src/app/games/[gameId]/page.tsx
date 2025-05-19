@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState, useTransition, useCallback } from 'react';
+import { useEffect, useState, useTransition, useCallback, use } from 'react'; // Added 'use'
 import Link from 'next/link';
 import { getGameDetails } from '@/lib/actions';
 import type { BoardGame, AiSummary, Review, Rating, GroupedCategoryAverages } from '@/lib/types';
@@ -17,8 +17,8 @@ import { calculateGroupedCategoryAverages, calculateCategoryAverages, calculateO
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { doc, deleteDoc, updateDoc } from 'firebase/firestore'; // Added updateDoc
-// import { revalidatePath } from 'next/cache'; // Removed: Cannot be used in Client Components
+import { doc, deleteDoc, updateDoc } from 'firebase/firestore';
+// import { revalidatePath } from 'next/cache'; // Removed as it's not for client components
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,16 +31,18 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { SafeImage } from '@/components/common/SafeImage';
+import { Progress } from '@/components/ui/progress';
 
 
 interface GameDetailPageProps {
-  params: { // No longer a Promise here as we fetch in useEffect
+  params: Promise<{ // Updated params to be a Promise
     gameId: string;
-  };
+  }>;
 }
 
 export default function GameDetailPage({ params }: GameDetailPageProps) {
-  const { gameId } = params;
+  const resolvedParams = use(params); // Use React.use to unwrap the promise
+  const { gameId } = resolvedParams;
 
   const { user: currentUser, loading: authLoading, isAdmin } = useAuth();
   const { toast } = useToast();
@@ -163,8 +165,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         setUserReview(undefined); 
         setUserOverallScore(null);
         await fetchGameData(); 
-        // revalidatePath(`/games/${gameId}`); // Removed: Cannot use in Client Component
-        // revalidatePath('/'); // Removed
       } catch (error) {
         console.error("Errore durante l'eliminazione della recensione da Firestore:", error);
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
@@ -173,7 +173,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     });
   };
 
-  const handleTogglePinGame = () => {
+  const handleTogglePinGame = async () => {
     if (!game) return;
     startPinToggleTransition(async () => {
       try {
@@ -181,22 +181,12 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         await updateDoc(gameRef, {
           isPinned: !currentIsPinned
         });
-        setCurrentIsPinned(!currentIsPinned);
+        setCurrentIsPinned(!currentIsPinned); // Optimistic update for immediate UI feedback
         toast({
           title: "Stato Vetrina Aggiornato",
           description: `Il gioco è stato ${!currentIsPinned ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
         });
-        // Revalidate paths to update cached data on server and other clients
-        // Removed revalidatePath calls as they don't work in client components
-        // revalidatePath('/');
-        // revalidatePath('/admin/collection');
-        // revalidatePath(`/games/${game.id}`);
-        
-        // Instead, rely on local state update (setCurrentIsPinned) and 
-        // potentially re-fetch game data if deeper consistency is needed immediately.
-        // For this page, setCurrentIsPinned and the toast are the primary feedback.
-        // Other pages might need to be revisited manually or will update on their next load.
-        await fetchGameData(); // Optionally re-fetch to ensure full consistency on this page if needed.
+        await fetchGameData(); // Re-fetch to ensure full consistency
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({
@@ -237,9 +227,10 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     <div className="space-y-10">
       <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
         <div className="flex flex-col md:flex-row">
+          {/* Text content - takes full width on mobile, or remaining width on desktop */}
           <div className="flex-1 p-6 space-y-4 order-1 md:order-1">
             <div className="flex justify-between items-start mb-4">
-                <div className="flex items-center gap-2 flex-1 mr-4"> {/* Added mr-4 for spacing */}
+                <div className="flex items-center gap-2 flex-1 mr-4">
                   <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">{game.name}</h1>
                   {isAdmin && !isLoadingGame && game && (
                     <Button
@@ -261,6 +252,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
               )}
             </div>
             
+            {/* Image for mobile - shown below title/score */}
             <div className="md:hidden my-4 max-w-[240px] mx-auto">
               <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
                 <SafeImage
@@ -280,12 +272,14 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
               <h3 className="text-lg font-semibold text-foreground mb-3">Valutazioni Medie dei Giocatori:</h3>
               <GroupedRatingsDisplay 
                 groupedAverages={groupedCategoryAverages} 
+                isLoading={isLoadingGame}
                 noRatingsMessage="Nessuna valutazione per calcolare le medie."
                 defaultOpenSections={['Sentimento']}
               />
             </div>
           </div>
 
+          {/* Image for desktop - shown on the right */}
           <div className="hidden md:block md:w-1/4 p-6 flex-shrink-0 self-start order-2">
             <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
               <SafeImage

@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/table";
 import { db } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
-import { revalidatePath } from 'next/cache';
+// import { revalidatePath } from 'next/cache'; // Removed: Cannot be used in Client Components
 
 const BGG_USERNAME = 'lctr01'; 
 
@@ -145,14 +145,12 @@ export default function AdminCollectionPage() {
         });
         toast({ title: 'Stato Pin Aggiornato', description: `Lo stato pin per il gioco è stato ${currentPinStatus ? 'rimosso' : 'aggiunto'}.`});
         
-        // Revalidate paths
-        revalidatePath('/');
-        revalidatePath('/admin/collection');
-        revalidatePath(`/games/${gameId}`); // If you have individual game pages that might be affected
+        // Revalidate paths - Removed as it's not for client components
+        // revalidatePath('/');
+        // revalidatePath('/admin/collection');
+        // revalidatePath(`/games/${gameId}`); 
         
-        // Optimistically update local state or reload
-        // For simplicity, reloading the DB collection.
-        await loadDbCollection();
+        await loadDbCollection(); // Reload the collection to reflect changes
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Errore sconosciuto";
         toast({ title: 'Errore Aggiornamento Pin', description: `Impossibile aggiornare lo stato pin: ${errorMessage}`, variant: 'destructive'});
@@ -389,4 +387,3 @@ export default function AdminCollectionPage() {
     </div>
   );
 }
-
