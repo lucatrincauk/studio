@@ -30,7 +30,6 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { SafeImage } from '@/components/common/SafeImage';
-import { Progress } from '@/components/ui/progress';
 import { ReviewItem } from '@/components/boardgame/review-item';
 
 
@@ -57,8 +56,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
   const [remainingReviews, setRemainingReviews] = useState<Review[]>([]);
   const [groupedCategoryAverages, setGroupedCategoryAverages] = useState<GroupedCategoryAverages | null>(null);
   const [globalGameAverage, setGlobalGameAverage] = useState<number | null>(null);
-  const [userOverallScore, setUserOverallScore] = useState<number | null>(null);
-
+  
   const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false);
   const [isDeletingReview, startDeleteReviewTransition] = useTransition();
   const [isPinToggling, startPinToggleTransition] = useTransition();
@@ -77,16 +75,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       if (currentUser && !authLoading) {
         foundUserReview = gameData.reviews.find(r => r.userId === currentUser.uid);
       }
-      // This state is now set in the useEffect below
-      // setCurrentUserReviewState(foundUserReview); 
-
-      if (foundUserReview) {
-        setUserOverallScore(calculateOverallCategoryAverage(foundUserReview.rating));
-        // setRemainingReviews(gameData.reviews.filter(r => r.id !== foundUserReview!.id)); // This is also set in useEffect
-      } else {
-        setUserOverallScore(null);
-        // setRemainingReviews(gameData.reviews); // This is also set in useEffect
-      }
       
       setGroupedCategoryAverages(calculateGroupedCategoryAverages(gameData.reviews));
       
@@ -99,7 +87,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       setRemainingReviews([]);
       setGroupedCategoryAverages(null);
       setGlobalGameAverage(null);
-      setUserOverallScore(null);
     }
     setIsLoadingGame(false);
   }, [gameId, currentUser, authLoading]);
@@ -118,15 +105,12 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
         if (foundReview) {
             setRemainingReviews(game.reviews.filter(r => r.id !== foundReview!.id));
-            setUserOverallScore(calculateOverallCategoryAverage(foundReview.rating));
         } else {
             setRemainingReviews(game.reviews);
-            setUserOverallScore(null);
         }
-    } else if (!game) { // Ensure states are cleared if game becomes null
+    } else if (!game) { 
         setCurrentUserReviewState(undefined);
         setRemainingReviews([]);
-        setUserOverallScore(null);
     }
   }, [game, currentUser, authLoading]);
 
@@ -192,8 +176,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           title: "Stato Vetrina Aggiornato",
           description: `Il gioco è stato ${!currentIsPinned ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
         });
-        // No revalidatePath needed here as this is client-side logic, game data will be refreshed if needed by fetchGameData
-        await fetchGameData(); // Re-fetch to ensure full consistency
+        await fetchGameData(); 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({
@@ -305,73 +288,70 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
         <div className="lg:col-span-2 space-y-8">
-          <div className="p-6 border border-border rounded-lg shadow-md bg-card">
-            <div className="flex justify-between items-center mb-1">
-                <h3 className="text-xl font-semibold text-foreground">
-                {currentUserReviewState ? "Gestisci la Tua Recensione" : "Condividi la Tua Opinione"}
-                </h3>
-                {currentUserReviewState && userOverallScore !== null && (
-                    <span className="text-2xl font-bold text-primary">
-                        {formatRatingNumber(userOverallScore * 2)}
-                    </span>
-                )}
-            </div>
-            <CardDescription className="mb-4"> {/* Changed to CardDescription for consistency */}
-              {currentUserReviewState
-                ? "Hai già valutato questo gioco. Puoi modificare o eliminare le tue valutazioni qui sotto."
-                : "Aiuta gli altri condividendo la tua esperienza con questo gioco."}
-            </CardDescription>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <Button asChild className="w-full sm:w-auto bg-accent text-accent-foreground hover:bg-accent/90">
-                <Link href={`/games/${gameId}/rate`}>
-                  <Edit className="mr-2 h-4 w-4" />
-                  {currentUserReviewState ? "Modifica la Tua Recensione" : "Valuta questo Gioco"}
-                </Link>
-              </Button>
-              {currentUserReviewState && (
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="destructive" className="w-full sm:w-auto" disabled={isDeletingReview}>
-                      {isDeletingReview ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
-                      Elimina la Mia Recensione
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Sei sicuro?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Questa azione non può essere annullata. Eliminerà permanentemente la tua recensione per {game.name}.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Annulla</AlertDialogCancel>
-                      <AlertDialogAction onClick={confirmDeleteUserReview} className="bg-destructive hover:bg-destructive/90">
-                        {isDeletingReview ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Conferma Eliminazione" }
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              )}
-            </div>
-             {!currentUser && !authLoading && (
-                 <Alert variant="default" className="mt-4 bg-secondary/30 border-secondary">
-                    <Info className="h-4 w-4 text-secondary-foreground" />
-                    <AlertDescription className="text-secondary-foreground">
-                      <Link href={`/signin?redirect=/games/${gameId}/rate`} className="font-semibold underline">Accedi</Link> per aggiungere o modificare una recensione.
-                    </AlertDescription>
-                  </Alert>
-            )}
-          </div>
-
-          <Separator className="my-4" />
-
+          
           {currentUserReviewState && (
             <div className="mb-8">
-              <h3 className="text-xl font-semibold text-foreground mb-4">La Tua Recensione</h3>
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
+                <h3 className="text-xl font-semibold text-foreground mb-2 sm:mb-0">La Tua Recensione</h3>
+                <div className="flex gap-2 flex-wrap">
+                  <Button asChild size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90">
+                    <Link href={`/games/${gameId}/rate`}>
+                      <Edit className="mr-2 h-4 w-4" />
+                      Modifica
+                    </Link>
+                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive" size="sm" disabled={isDeletingReview}>
+                        {isDeletingReview ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                        Elimina
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Sei sicuro?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Questa azione non può essere annullata. Eliminerà permanentemente la tua recensione per {game.name}.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Annulla</AlertDialogCancel>
+                        <AlertDialogAction onClick={confirmDeleteUserReview} className="bg-destructive hover:bg-destructive/90">
+                          {isDeletingReview ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Conferma Eliminazione" }
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              </div>
               <ReviewItem review={currentUserReviewState} />
               <Separator className="my-6" />
             </div>
           )}
+          
+          {!currentUserReviewState && currentUser && (
+            <div className="p-6 border border-border rounded-lg shadow-md bg-card">
+              <h3 className="text-xl font-semibold text-foreground mb-1">Condividi la Tua Opinione</h3>
+              <CardDescription className="mb-4">
+                Aiuta gli altri condividendo la tua esperienza con questo gioco.
+              </CardDescription>
+              <Button asChild className="w-full sm:w-auto bg-accent text-accent-foreground hover:bg-accent/90">
+                <Link href={`/games/${gameId}/rate`}>
+                  <Edit className="mr-2 h-4 w-4" />
+                  Valuta questo Gioco
+                </Link>
+              </Button>
+            </div>
+          )}
+
+           {!currentUser && !authLoading && (
+                 <Alert variant="default" className="mt-4 bg-secondary/30 border-secondary">
+                    <Info className="h-4 w-4 text-secondary-foreground" />
+                    <AlertDescription className="text-secondary-foreground">
+                      <Link href={`/signin?redirect=/games/${gameId}/rate`} className="font-semibold underline">Accedi</Link> per aggiungere una recensione.
+                    </AlertDescription>
+                  </Alert>
+            )}
           
           <div>
             <h2 className="text-2xl font-semibold text-foreground mb-6">
