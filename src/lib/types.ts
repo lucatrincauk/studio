@@ -17,7 +17,7 @@ export const RATING_CATEGORIES: Record<RatingCategory, string> = {
   mentallyStimulating: 'Stimolazione Mentale',
   fun: 'Fattore Divertimento',
   decisionDepth: 'Profondità Decisionale',
-  replayability: 'Rigiocabilità',
+  replayability: 'Varietà e Rigiocabilità', // Changed
   luck: 'Fattore Fortuna',
   lengthDowntime: 'Durata',
   graphicDesign: 'Grafica e Componenti',
@@ -97,6 +97,7 @@ export interface UserProfile {
   name: string;
   photoURL?: string | null;
 }
+
 
 
 

@@ -42,7 +42,7 @@ const categoryDescriptions: Record<RatingCategory, string> = {
   mentallyStimulating: "Quanto ti ha fatto ragionare e elaborare strategie questo gioco?",
   fun: "In generale, quanto è stata piacevole e divertente l'esperienza di gioco?",
   decisionDepth: "Quanto sono state significative e incisive le scelte che hai fatto durante il gioco?",
-  replayability: "Quanto il gioco offre esperienze variegate in più partite?",
+  replayability: "Quanto diversa ed entusiasmante potrebbe essere la prossima partita?", // Changed
   luck: "Quanto il caso o la casualità influenzano l'esito del gioco?",
   lengthDowntime: "Quanto è appropriata la durata del gioco per la sua profondità e quanto è coinvolgente quando non è il tuo turno?",
   graphicDesign: "Quanto è visivamente accattivante l'artwork, l'iconografia e il layout generale del gioco?",
@@ -111,7 +111,7 @@ export function MultiStepRatingForm({
 
     const rating: RatingType = { ...data };
     const reviewAuthor = currentUser.displayName || 'Anonimo';
-    const reviewComment = "";
+    const reviewComment = ""; // Comments are no longer part of the form
     const authorPhotoURL = currentUser.photoURL || null;
 
     const newReviewData: Omit<Review, 'id'> = {
@@ -218,7 +218,7 @@ export function MultiStepRatingForm({
             userId: currentUser.uid,
             authorPhotoURL: currentUser.photoURL || null,
             rating: currentRatings,
-            comment: '', 
+            comment: '',
             date: new Date().toISOString(),
           };
           setGroupedAveragesForSummary(calculateGroupedCategoryAverages([tempReviewForSummary]));
@@ -241,7 +241,6 @@ export function MultiStepRatingForm({
     if (currentStep === 2) return "Design del Gioco";
     if (currentStep === 3) return "Estetica e Immersione";
     if (currentStep === 4) return "Apprendimento e Logistica";
-    // Step 5 doesn't need a generic step title in this specific header
     return "Passo della Recensione";
   };
 
@@ -250,7 +249,7 @@ export function MultiStepRatingForm({
     if (currentStep === 2) return "Come valuteresti le meccaniche e la struttura di base?";
     if (currentStep === 3) return "Valuta l'aspetto visivo e gli elementi tematici del gioco.";
     if (currentStep === 4) return "Quanto è facile imparare, preparare e rimettere a posto il gioco?";
-    if (currentStep === 5) return "La tua recensione è stata salvata. Ecco un riepilogo:"; // Updated description
+    if (currentStep === 5) return "La tua recensione è stata salvata. Ecco un riepilogo:";
     return "";
   }
   
@@ -258,7 +257,7 @@ export function MultiStepRatingForm({
 
   return (
     <Form {...form}>
-      <form> {/* Removed onSubmit from here */}
+      <form>
         {currentStep <= totalInputSteps && (
           <div className="mb-4">
             <div className="flex justify-between items-center">
@@ -437,8 +436,8 @@ export function MultiStepRatingForm({
             </Button>
           ) : currentStep === totalInputSteps ? ( // This is Step 4
             <Button
-              type="button" // Changed from submit
-              onClick={form.handleSubmit(handleStep4Submit)} // Submit handled by button click
+              type="button"
+              onClick={form.handleSubmit(handleStep4Submit)}
               disabled={isSubmitting}
               className="bg-accent hover:bg-accent/90 text-accent-foreground"
             >
@@ -469,3 +468,4 @@ export function MultiStepRatingForm({
 }
 
     
+
