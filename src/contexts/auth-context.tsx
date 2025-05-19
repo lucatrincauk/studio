@@ -10,12 +10,14 @@ import {
   signOut as firebaseSignOut,
   GoogleAuthProvider,
   signInWithPopup,
-  updateProfile as firebaseUpdateProfile, // Import updateProfile
+  updateProfile as firebaseUpdateProfile,
 } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
-import { toast } from '@/hooks/use-toast'; // Import toast
+import { auth, db } from '@/lib/firebase'; // Import db
+import { doc, setDoc, updateDoc, getDoc } from 'firebase/firestore'; // Import Firestore functions
+import { toast } from '@/hooks/use-toast';
 
 const ADMIN_EMAIL = "lucatrinca.uk@gmail.com";
+const USER_PROFILES_COLLECTION = 'user_profiles';
 
 interface AuthContextType {
   user: FirebaseUser | null;
@@ -26,11 +28,34 @@ interface AuthContextType {
   signIn: (email: string, pass: string) => Promise<FirebaseUser | null>;
   signInWithGoogle: () => Promise<FirebaseUser | null>;
   signOut: () => Promise<void>;
-  updateUserProfile: (newName: string) => Promise<boolean>; // New method
+  updateUserProfile: (newName: string) => Promise<boolean>;
   clearError: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// Helper function to create or update user profile in Firestore
+const updateUserProfileInFirestore = async (user: FirebaseUser) => {
+  if (!user) return;
+  const userProfileRef = doc(db, USER_PROFILES_COLLECTION, user.uid);
+  const userProfileData = {
+    uid: user.uid,
+    email: user.email,
+    name: user.displayName || user.email?.split('@')[0] || 'Utente Anonimo', // Use a default name
+    photoURL: user.photoURL,
+    // lastSeen: new Date().toISOString(), // Optional: track activity
+  };
+
+  try {
+    // Use setDoc with merge:true to create or update
+    await setDoc(userProfileRef, userProfileData, { merge: true });
+  } catch (firestoreError) {
+    console.error("Error updating user profile in Firestore:", firestoreError);
+    // Optionally, handle this error (e.g., log to a service)
+    // but don't block the auth flow for this.
+  }
+};
+
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<FirebaseUser | null>(null);
@@ -39,10 +64,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
       if (firebaseUser) {
         setIsAdmin(firebaseUser.email === ADMIN_EMAIL);
+        // Ensure profile exists or is updated on auth state change
+        await updateUserProfileInFirestore(firebaseUser);
       } else {
         setIsAdmin(false);
       }
@@ -58,9 +85,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
-      setUser(userCredential.user);
-      setIsAdmin(userCredential.user.email === ADMIN_EMAIL);
-      return userCredential.user;
+      const newUser = userCredential.user;
+      // Set a default display name if none exists, using the email prefix
+      if (!newUser.displayName && newUser.email) {
+        const displayNameFromEmail = newUser.email.split('@')[0];
+        await firebaseUpdateProfile(newUser, { displayName: displayNameFromEmail });
+        // Refresh user to get updated profile
+        await newUser.reload();
+      }
+      setUser(auth.currentUser); // Update state with potentially reloaded user
+      setIsAdmin(auth.currentUser?.email === ADMIN_EMAIL);
+      if (auth.currentUser) {
+        await updateUserProfileInFirestore(auth.currentUser);
+      }
+      return auth.currentUser;
     } catch (e) {
       setError(e as AuthError);
       return null;
@@ -76,6 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const userCredential = await signInWithEmailAndPassword(auth, email, pass);
       setUser(userCredential.user);
       setIsAdmin(userCredential.user.email === ADMIN_EMAIL);
+      await updateUserProfileInFirestore(userCredential.user); // Update profile on sign-in
       return userCredential.user;
     } catch (e) {
       setError(e as AuthError);
@@ -93,6 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const result = await signInWithPopup(auth, provider);
       setUser(result.user);
       setIsAdmin(result.user.email === ADMIN_EMAIL);
+      await updateUserProfileInFirestore(result.user); // Create/update profile on Google sign-in
       return result.user;
     } catch (e) {
       setError(e as AuthError);
@@ -116,23 +156,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const updateUserProfile = async (newName: string): Promise<boolean> => {
+  const updateUserProfileAuth = async (newName: string): Promise<boolean> => {
     if (!auth.currentUser) {
       const noUserError = { code: 'auth/no-current-user', message: 'Nessun utente attualmente loggato per aggiornare il profilo.' } as AuthError;
       setError(noUserError);
       toast({ title: "Errore", description: noUserError.message, variant: "destructive" });
       return false;
     }
-    // Optimistically set loading for this specific operation, not global loading
-    // const [isUpdatingProfile, setIsUpdatingProfile] = useState(false); // This would need to be managed differently
-    // For now, we'll use the global loading, or you can add a specific one in the form.
 
     setError(null);
     try {
       await firebaseUpdateProfile(auth.currentUser, { displayName: newName });
-      // Firebase Auth automatically updates auth.currentUser.
-      // onAuthStateChanged should pick this up, but to be safe and provide immediate feedback:
-      setUser({ ...auth.currentUser } as FirebaseUser); // Create a new object to trigger re-renders
+      const updatedUser = { ...auth.currentUser } as FirebaseUser; // Create a new object to trigger re-renders
+      setUser(updatedUser); // Update local user state
+      await updateUserProfileInFirestore(updatedUser); // Sync with Firestore profile
       toast({ title: "Profilo Aggiornato", description: "Il tuo nome visualizzato è stato aggiornato con successo." });
       return true;
     } catch (e) {
@@ -143,7 +180,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-
   const value = {
     user,
     loading,
@@ -153,7 +189,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signIn,
     signInWithGoogle,
     signOut: signOutFunc,
-    updateUserProfile, // Add new method
+    updateUserProfile: updateUserProfileAuth,
     clearError,
   };
 
