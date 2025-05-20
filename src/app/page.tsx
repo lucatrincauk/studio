@@ -71,11 +71,6 @@ export default async function HomePage() {
                   key={game.id} 
                   className="flex items-center gap-x-3 sm:gap-x-4 p-3 rounded-lg hover:bg-muted/50 transition-colors border border-border bg-[#f9fbf9]"
                 >
-                  <div className="flex-shrink-0">
-                    <span className="text-3xl font-bold text-primary w-10 text-center block">
-                      {index + 1}
-                    </span>
-                  </div>
                   <div className="w-24 sm:w-28 md:w-32 flex-shrink-0"> 
                     <GameCard game={game} variant="featured" priority={index < 5} showOverlayText={false} />
                   </div>
@@ -95,6 +90,11 @@ export default async function HomePage() {
                         {formatRatingNumber(game.overallAverageRating * 2)}
                       </p>
                     )}
+                  </div>
+                  <div className="flex-shrink-0 ml-auto"> {/* Moved Rank to the right */}
+                    <span className="text-3xl font-bold text-primary w-10 text-center block">
+                      {index + 1}
+                    </span>
                   </div>
                 </div>
               ))}
