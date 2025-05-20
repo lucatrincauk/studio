@@ -194,11 +194,14 @@ export function MultiStepRatingForm({
   const form = useForm<RatingFormValues>({
     resolver: zodResolver(reviewFormSchema),
     defaultValues: defaultFormValues,
-    mode: 'onChange',
+    mode: 'onChange', // Validate on change for better UX with sliders
   });
 
  useEffect(() => {
-    form.reset(defaultFormValues);
+    // Reset form when existingReview or currentStep changes, but only for input steps
+    if (currentStep <= totalInputSteps) {
+        form.reset(defaultFormValues);
+    }
   }, [defaultFormValues, form, currentStep]);
 
 
@@ -216,7 +219,6 @@ export function MultiStepRatingForm({
     if (!validatedFields.success) {
       toast({ title: "Errore di Validazione", description: "Per favore, correggi gli errori nel modulo.", variant: "destructive" });
       setFormError("Errore di validazione.");
-      // Manually set errors if needed, or rely on RHF's display
       Object.entries(validatedFields.error.flatten().fieldErrors).forEach(([fieldName, messages]) => {
         if (messages) {
           form.setError(fieldName as keyof RatingFormValues, { type: 'server', message: messages[0] });
@@ -377,14 +379,13 @@ export function MultiStepRatingForm({
                       </p>
                     )}
                 </div>
-                
              </div>
            </div>
         )}
 
         {currentStep === totalDisplaySteps && (
              <CardHeader className="px-0 pt-6 pb-4">
-                <div className="flex justify-between items-start mb-2">
+                <div className="flex justify-between items-baseline mb-2">
                     <div className="flex-1">
                         <CardTitle className="text-2xl md:text-3xl text-left">
                          Riepilogo Valutazione
@@ -396,7 +397,7 @@ export function MultiStepRatingForm({
                         )}
                     </div>
                     {yourOverallAverage !== null && (
-                        <div className="text-right -mt-2">
+                        <div className="text-right">
                             <span className="text-primary text-3xl md:text-4xl font-bold whitespace-nowrap">
                                 {formatRatingNumber(yourOverallAverage * 2)}
                             </span>
@@ -517,4 +518,3 @@ export function MultiStepRatingForm({
     </Form>
   );
 }
-
