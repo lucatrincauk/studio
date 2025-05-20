@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { getUserDetailsAndReviewsAction, getFavoritedGamesForUserAction, getWishlistedGamesForUserAction } from '@/lib/actions';
 import type { AugmentedReview, UserProfile, BoardGame } from '@/lib/types';
 import { ReviewItem } from '@/components/boardgame/review-item';
@@ -24,6 +24,7 @@ interface UserDetailPageParams {
 export default function UserDetailPage() {
   const params = useParams() as UserDetailPageParams;
   const { userId } = params;
+  const router = useRouter();
 
   const [viewedUser, setViewedUser] = useState<UserProfile | null>(null);
   const [userReviews, setUserReviews] = useState<AugmentedReview[]>([]);
@@ -31,7 +32,7 @@ export default function UserDetailPage() {
   const [wishlistedGames, setWishlistedGames] = useState<BoardGame[]>([]);
   
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
-  const [isLoadingReviews, setIsLoadingReviews] = useState(true); // Added for clarity
+  const [isLoadingReviews, setIsLoadingReviews] = useState(true);
   const [isLoadingFavorites, setIsLoadingFavorites] = useState(true);
   const [isLoadingWishlist, setIsLoadingWishlist] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -119,6 +120,8 @@ export default function UserDetailPage() {
     averageScoreGiven = totalScoreSum / userReviews.length;
   }
 
+  const reviewsPreview = userReviews.slice(0, 3);
+
   return (
     <div className="space-y-10">
       <Card className="shadow-lg border border-border rounded-lg">
@@ -151,16 +154,45 @@ export default function UserDetailPage() {
       <section>
         <h2 className="text-2xl font-semibold mb-4 text-foreground flex items-center gap-3">
           <MessageSquareText className="h-6 w-6 text-primary" />
-          Attività Recensioni
+          Attività Recensioni Recenti
         </h2>
         {isLoadingReviews ? (
            <div className="flex justify-center py-4"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
         ) : userReviews.length > 0 ? (
-          <Button asChild variant="outline">
-            <Link href={`/users/${userId}/reviews`}>
-              Vedi tutte le {userReviews.length} recensioni di {viewedUser.name} <ExternalLink className="ml-2 h-4 w-4" />
-            </Link>
-          </Button>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              {reviewsPreview.map(review => (
+                <Card key={review.id} className="overflow-hidden shadow-md hover:shadow-lg transition-shadow border border-border">
+                  <Link href={`/games/${review.gameId}`} className="block group">
+                    <div className="relative aspect-[4/3]">
+                      <SafeImage
+                        src={review.gameCoverArtUrl}
+                        alt={`${review.gameName || 'Copertina Gioco'} cover art`}
+                        fallbackSrc={`https://placehold.co/200x150.png?text=${encodeURIComponent(review.gameName?.substring(0,3) || 'N/A')}`}
+                        fill
+                        className="object-cover group-hover:scale-105 transition-transform"
+                        sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
+                        data-ai-hint={review.gameName ? `board game ${review.gameName.split(' ')[0]?.toLowerCase()}` : 'board game thumbnail'}
+                      />
+                    </div>
+                    <CardContent className="p-3">
+                      <h3 className="text-md font-semibold text-primary group-hover:underline truncate">{review.gameName}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Voto dato: <span className="font-bold text-foreground">{formatRatingNumber(calculateOverallCategoryAverage(review.rating) * 2)}</span>
+                      </p>
+                    </CardContent>
+                  </Link>
+                </Card>
+              ))}
+            </div>
+            {userReviews.length > 3 && (
+              <Button asChild variant="outline" className="mt-4 w-full sm:w-auto">
+                <Link href={`/users/${userId}/reviews`}>
+                  Vedi tutte le {userReviews.length} recensioni di {viewedUser.name} <ExternalLink className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            )}
+          </div>
         ) : (
           <Alert variant="default" className="bg-secondary/30 border-secondary">
             <Gamepad2 className="h-4 w-4" />
@@ -214,3 +246,4 @@ export default function UserDetailPage() {
     </div>
   );
 }
+
