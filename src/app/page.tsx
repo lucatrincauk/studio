@@ -73,11 +73,11 @@ export default async function HomePage() {
                 >
                   <span 
                     aria-hidden="true"
-                    className="absolute -right-[14px] -bottom-[28px] text-[140px] sm:-right-[23px] sm:-bottom-[45px] sm:text-[220px] lg:-right-[36px] lg:-bottom-[70px] lg:text-[340px] font-bold text-muted-foreground/10 pointer-events-none select-none leading-none z-0"
+                    className="absolute -right-[30px] -bottom-[55px] text-[255px] sm:-right-[30px] sm:-bottom-[65px] sm:text-[300px] lg:-right-[36px] lg:-bottom-[75px] lg:text-[340px] font-bold text-muted-foreground/10 pointer-events-none select-none leading-none z-0"
                   >
                     {index + 1}
                   </span>
-                  <div className="relative z-10 flex items-center gap-x-3 sm:gap-x-4 flex-grow mr-5 sm:mr-8 lg:mr-10">
+                  <div className="relative z-10 flex items-center gap-x-3 sm:gap-x-4 flex-grow mr-6 sm:mr-8 lg:mr-10">
                     <div className="w-24 sm:w-28 md:w-32 flex-shrink-0"> 
                       <GameCard game={game} variant="featured" priority={index < 5} showOverlayText={false} />
                     </div>
@@ -122,4 +122,5 @@ export default async function HomePage() {
 }
 
 export const revalidate = 3600;
+
 
