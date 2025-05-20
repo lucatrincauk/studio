@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useTransition, useMemo, useRef } from 'react';
@@ -20,7 +21,7 @@ import { db } from '@/lib/firebase';
 import { collection, addDoc, doc, updateDoc, query, where, getDocs, limit, writeBatch, getDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { SafeImage } from '@/components/common/SafeImage';
-
+import { revalidateGameDataAction } from '@/lib/actions'; // Added import
 
 interface RatingSliderInputProps {
   fieldName: RatingCategory;
@@ -166,7 +167,7 @@ export function MultiStepRatingForm({
         overallAverageRating: newOverallAverage,
         reviewCount: allReviewsForGame.length
       });
-
+      await revalidateGameDataAction(gameId); // Call revalidate action
     } catch (error) {
       console.error("Errore Aggiornamento Punteggio Medio Gioco:", error);
       toast({ title: "Errore Aggiornamento Punteggio", description: "Impossibile aggiornare il punteggio medio del gioco.", variant: "destructive" });
@@ -194,6 +195,7 @@ export function MultiStepRatingForm({
   });
 
  useEffect(() => {
+    // Only reset if not on summary step and default values actually change
     if (currentStep <= totalInputSteps) {
         form.reset(defaultFormValues);
     }
@@ -268,8 +270,7 @@ export function MultiStepRatingForm({
         }
       }
       submissionSuccess = true;
-      await updateGameOverallRating();
-      await revalidateGameDataAction(gameId);
+      await updateGameOverallRating(); // This already calls revalidate
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
       toast({ title: "Errore", description: `Impossibile inviare la recensione: ${errorMessage}`, variant: "destructive" });
@@ -514,3 +515,4 @@ export function MultiStepRatingForm({
     </Form>
   );
 }
+
