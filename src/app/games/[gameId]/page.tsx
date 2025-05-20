@@ -3,13 +3,13 @@
 
 import { useEffect, useState, useTransition, useCallback, use } from 'react';
 import Link from 'next/link';
-import { getGameDetails, revalidateGameDataAction } from '@/lib/actions'; // Import revalidateGameDataAction
+import { getGameDetails } from '@/lib/actions';
 import type { BoardGame, AiSummary, Review, Rating as RatingType, GroupedCategoryAverages } from '@/lib/types';
 import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, Brain, ExternalLink, Weight, Tag } from 'lucide-react';
+import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, Brain, ExternalLink, Weight, Tag, BookOpen, Wrench, Palette as PaletteIcon, Users as DesignersIcon, Building as PublishersIcon } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { summarizeReviews } from '@/ai/flows/summarize-reviews';
@@ -18,6 +18,7 @@ import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-di
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { doc, deleteDoc, updateDoc, getDoc, collection, getDocs, query, where, limit, writeBatch } from 'firebase/firestore';
+import { revalidateGameDataAction } from '@/lib/actions';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,11 +28,11 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { SafeImage } from '@/components/common/SafeImage';
 import { ReviewItem } from '@/components/boardgame/review-item';
 import { Progress } from '@/components/ui/progress';
+import { Badge } from "@/components/ui/badge";
 
 
 interface GameDetailPageProps {
@@ -146,12 +147,14 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
       const categoryAvgs = calculateCategoryAverages(allReviewsForGame);
       const newOverallAverage = categoryAvgs ? calculateOverallCategoryAverage(categoryAvgs) : null;
+      const newReviewCount = allReviewsForGame.length;
       
       const gameDocRef = doc(db, "boardgames_collection", gameId);
       await updateDoc(gameDocRef, {
-        overallAverageRating: newOverallAverage
+        overallAverageRating: newOverallAverage,
+        reviewCount: newReviewCount,
       });
-      await revalidateGameDataAction(gameId); // Revalidate after DB update
+      await revalidateGameDataAction(gameId); 
     } catch (error) {
       console.error("Error updating game's overall average rating after delete:", error);
     }
@@ -192,9 +195,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           title: "Stato Vetrina Aggiornato",
           description: `Il gioco è stato ${newPinStatus ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
         });
-        // Optimistically update local game state
         setGame(prevGame => prevGame ? { ...prevGame, isPinned: newPinStatus } : null);
-        await revalidateGameDataAction(game.id); // Revalidate cache
+        await revalidateGameDataAction(game.id);
 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
@@ -231,6 +233,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
   }
   
   const fallbackSrc = `https://placehold.co/400x600.png?text=${encodeURIComponent(game.name?.substring(0,10) || 'N/A')}`;
+
+  const hasDataForSection = (arr?: string[]) => arr && arr.length > 0;
 
   return (
     <div className="space-y-10">
@@ -321,6 +325,36 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
               )}
             </div>
 
+            {(hasDataForSection(game.categories) || hasDataForSection(game.mechanics) || hasDataForSection(game.designers) || hasDataForSection(game.publishers)) && (
+              <div className="mt-6 pt-4 border-t border-border space-y-3">
+                <h3 className="text-lg font-semibold text-foreground">Dettagli Aggiuntivi</h3>
+                {hasDataForSection(game.categories) && (
+                  <div className="text-sm">
+                    <strong className="text-muted-foreground">Categorie: </strong>
+                    {game.categories!.map(cat => <Badge key={cat} variant="secondary" className="mr-1 mb-1">{cat}</Badge>)}
+                  </div>
+                )}
+                {hasDataForSection(game.mechanics) && (
+                  <div className="text-sm">
+                    <strong className="text-muted-foreground">Meccaniche: </strong>
+                    {game.mechanics!.map(mech => <Badge key={mech} variant="secondary" className="mr-1 mb-1">{mech}</Badge>)}
+                  </div>
+                )}
+                {hasDataForSection(game.designers) && (
+                  <div className="text-sm">
+                    <strong className="text-muted-foreground">Autori: </strong>
+                    {game.designers!.join(', ')}
+                  </div>
+                )}
+                {hasDataForSection(game.publishers) && (
+                  <div className="text-sm">
+                    <strong className="text-muted-foreground">Editori: </strong>
+                    {game.publishers!.join(', ')}
+                  </div>
+                )}
+              </div>
+            )}
+
             {game.reviews && game.reviews.length > 0 && (
               <div className="mt-4 space-y-1 md:border-t-0 border-t border-border pt-4 md:pt-0">
                 <h3 className="text-lg font-semibold text-foreground mb-3">Valutazione Media:</h3>
@@ -371,7 +405,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                       </Link>
                     </Button>
                     <AlertDialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
-                      <AlertDialogTrigger asChild>
+                       <AlertDialogTrigger asChild>
                         <Button variant="destructive" size="sm" disabled={isDeletingReview}>
                            <span className="flex items-center">
                             {isDeletingReview ? <Loader2 className="mr-0 sm:mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-0 sm:mr-2 h-4 w-4" />}
@@ -424,7 +458,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             )}
           
           {remainingReviews.length > 0 ? (
-            <div>
+             <div>
               <Separator className="my-6" />
               <h2 className="text-2xl font-semibold text-foreground mb-6">
                 {userReview ? `Altre Recensioni (${remainingReviews.length})` : `Recensioni (${remainingReviews.length})`}
@@ -502,4 +536,3 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
-

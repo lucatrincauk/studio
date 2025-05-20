@@ -60,7 +60,7 @@ export interface BoardGame {
   id: string;
   name: string;
   coverArtUrl: string;
-  reviews: Review[]; // Populated for detail views or when calculating averages server-side
+  reviews: Review[];
   yearPublished?: number | null;
   minPlayers?: number | null;
   maxPlayers?: number | null;
@@ -72,6 +72,10 @@ export interface BoardGame {
   overallAverageRating?: number | null;
   reviewCount?: number;
   isPinned?: boolean;
+  mechanics?: string[];
+  categories?: string[];
+  designers?: string[];
+  publishers?: string[];
 }
 
 export interface AiSummary {
@@ -101,4 +105,5 @@ export interface UserProfile {
   id: string;
   name: string;
   photoURL?: string | null;
+  email?: string | null; // Added email as it's often useful
 }
