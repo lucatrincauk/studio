@@ -1054,7 +1054,29 @@ export async function searchLocalGamesByNameAction(term: string): Promise<BoardG
     const searchTermLower = term.toLowerCase();
     const matchedGames = allGamesResult.filter(game => 
       game.name.toLowerCase().includes(searchTermLower)
-    );
+    ).map(game => ({
+        id: game.id,
+        bggId: game.bggId,
+        name: game.name,
+        coverArtUrl: game.coverArtUrl,
+        yearPublished: game.yearPublished,
+        reviews: [], // Not needed for selector
+        minPlayers: game.minPlayers,
+        maxPlayers: game.maxPlayers,
+        playingTime: game.playingTime,
+        minPlaytime: game.minPlaytime,
+        maxPlaytime: game.maxPlaytime,
+        averageWeight: game.averageWeight,
+        overallAverageRating: game.overallAverageRating, // Include this
+        reviewCount: game.reviewCount, // And this
+        isPinned: game.isPinned,
+        categories: game.categories,
+        mechanics: game.mechanics,
+        designers: game.designers,
+        favoritedByUserIds: game.favoritedByUserIds,
+        favoriteCount: game.favoriteCount,
+        wishlistedByUserIds: game.wishlistedByUserIds,
+    }));
     
     matchedGames.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
     return matchedGames.slice(0, 10); 
@@ -1077,11 +1099,93 @@ export async function revalidateGameDataAction(gameId?: string) {
         revalidatePath(`/games/${gameId}`);
         revalidatePath(`/games/${gameId}/rate`);
     } else {
+        // For broader revalidations if no specific gameId is given
         revalidatePath('/users');
+        // Note: Revalidating dynamic paths like /users/[userId] requires special handling
+        // or revalidating a parent layout if you want all user pages to refresh.
+        // For now, if no gameId, we are only revalidating the main /users list page.
     }
     return { success: true, message: `Cache revalidated for relevant paths.` };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     return { success: false, message: 'Failed to revalidate cache.', error: errorMessage };
+  }
+}
+
+export async function getFavoritedGamesForUserAction(userId: string): Promise<BoardGame[]> {
+  if (!userId) {
+    return [];
+  }
+  try {
+    const q = query(collection(db, FIRESTORE_COLLECTION_NAME), where('favoritedByUserIds', 'array-contains', userId));
+    const querySnapshot = await getDocs(q);
+    const games: BoardGame[] = querySnapshot.docs.map(docSnap => {
+      const data = docSnap.data();
+      return {
+        id: docSnap.id,
+        name: data.name || "Gioco Senza Nome",
+        coverArtUrl: data.coverArtUrl || `https://placehold.co/200x300.png?text=N/A`,
+        bggId: data.bggId || 0,
+        yearPublished: data.yearPublished ?? null,
+        overallAverageRating: data.overallAverageRating ?? null,
+        reviews: [], // Reviews not needed for this list view
+        minPlayers: data.minPlayers ?? null,
+        maxPlayers: data.maxPlayers ?? null,
+        playingTime: data.playingTime ?? null,
+        minPlaytime: data.minPlaytime ?? null,
+        maxPlaytime: data.maxPlaytime ?? null,
+        averageWeight: data.averageWeight ?? null,
+        categories: data.categories ?? [],
+        mechanics: data.mechanics ?? [],
+        designers: data.designers ?? [],
+        isPinned: data.isPinned ?? false,
+        reviewCount: data.reviewCount ?? 0,
+        favoritedByUserIds: data.favoritedByUserIds ?? [],
+        favoriteCount: data.favoriteCount ?? 0,
+        wishlistedByUserIds: data.wishlistedByUserIds ?? [],
+      };
+    });
+    return games.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  } catch (error) {
+    return [];
+  }
+}
+
+export async function getWishlistedGamesForUserAction(userId: string): Promise<BoardGame[]> {
+  if (!userId) {
+    return [];
+  }
+  try {
+    const q = query(collection(db, FIRESTORE_COLLECTION_NAME), where('wishlistedByUserIds', 'array-contains', userId));
+    const querySnapshot = await getDocs(q);
+    const games: BoardGame[] = querySnapshot.docs.map(docSnap => {
+      const data = docSnap.data();
+      return {
+        id: docSnap.id,
+        name: data.name || "Gioco Senza Nome",
+        coverArtUrl: data.coverArtUrl || `https://placehold.co/200x300.png?text=N/A`,
+        bggId: data.bggId || 0,
+        yearPublished: data.yearPublished ?? null,
+        overallAverageRating: data.overallAverageRating ?? null,
+        reviews: [], // Reviews not needed for this list view
+        minPlayers: data.minPlayers ?? null,
+        maxPlayers: data.maxPlayers ?? null,
+        playingTime: data.playingTime ?? null,
+        minPlaytime: data.minPlaytime ?? null,
+        maxPlaytime: data.maxPlaytime ?? null,
+        averageWeight: data.averageWeight ?? null,
+        categories: data.categories ?? [],
+        mechanics: data.mechanics ?? [],
+        designers: data.designers ?? [],
+        isPinned: data.isPinned ?? false,
+        reviewCount: data.reviewCount ?? 0,
+        favoritedByUserIds: data.favoritedByUserIds ?? [],
+        favoriteCount: data.favoriteCount ?? 0,
+        wishlistedByUserIds: data.wishlistedByUserIds ?? [],
+      };
+    });
+    return games.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  } catch (error) {
+    return [];
   }
 }
