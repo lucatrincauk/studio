@@ -2,7 +2,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter }
+from 'next/navigation';
 import { getUserDetailsAndReviewsAction, getFavoritedGamesForUserAction, getWishlistedGamesForUserAction } from '@/lib/actions';
 import type { AugmentedReview, UserProfile, BoardGame } from '@/lib/types';
 import { ReviewItem } from '@/components/boardgame/review-item';
@@ -160,30 +161,25 @@ export default function UserDetailPage() {
            <div className="flex justify-center py-4"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
         ) : userReviews.length > 0 ? (
           <div className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {reviewsPreview.map(review => (
-                <Card key={review.id} className="overflow-hidden shadow-md hover:shadow-lg transition-shadow border border-border">
-                  <Link href={`/games/${review.gameId}`} className="block group">
-                    <div className="relative aspect-[4/3]">
-                      <SafeImage
-                        src={review.gameCoverArtUrl}
-                        alt={`${review.gameName || 'Copertina Gioco'} cover art`}
-                        fallbackSrc={`https://placehold.co/200x150.png?text=${encodeURIComponent(review.gameName?.substring(0,3) || 'N/A')}`}
-                        fill
-                        className="object-cover group-hover:scale-105 transition-transform"
-                        sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
-                        data-ai-hint={review.gameName ? `board game ${review.gameName.split(' ')[0]?.toLowerCase()}` : 'board game thumbnail'}
-                      />
-                    </div>
-                    <CardContent className="p-3">
-                      <h3 className="text-md font-semibold text-primary group-hover:underline truncate">{review.gameName}</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Voto dato: <span className="font-bold text-foreground">{formatRatingNumber(calculateOverallCategoryAverage(review.rating) * 2)}</span>
-                      </p>
-                    </CardContent>
-                  </Link>
-                </Card>
-              ))}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              {reviewsPreview.map((review, index) => {
+                const gameForCard: Partial<BoardGame> = {
+                  id: review.gameId,
+                  name: review.gameName,
+                  coverArtUrl: review.gameCoverArtUrl,
+                  overallAverageRating: calculateOverallCategoryAverage(review.rating), // User's score for this review
+                  // bggId and yearPublished could be added if available on AugmentedReview and needed by GameCard variant
+                };
+                return (
+                  <GameCard 
+                    key={review.id} 
+                    game={gameForCard as BoardGame} // Cast as BoardGame, ensure required props are present
+                    variant="featured" 
+                    priority={index < 3} 
+                    showOverlayText={true} 
+                  />
+                );
+              })}
             </div>
             {userReviews.length > 3 && (
               <Button asChild variant="outline" className="mt-4 w-full sm:w-auto">
@@ -247,3 +243,5 @@ export default function UserDetailPage() {
   );
 }
 
+
+    
