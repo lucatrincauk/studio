@@ -1,8 +1,9 @@
 
 'use client';
 
-import { useState, useEffect, useTransition, useMemo, useRef, useCallback } from 'react';
-import { useForm, type Control } from 'react-hook-form';
+import { useState, useEffect, useTransition, useMemo, useRef } from 'react';
+import type { Control } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import type { Review, Rating as RatingType, RatingCategory, GroupedCategoryAverages } from '@/lib/types';
@@ -17,7 +18,7 @@ import { Slider } from '@/components/ui/slider';
 import { calculateOverallCategoryAverage, calculateGroupedCategoryAverages, calculateCategoryAverages, formatRatingNumber } from '@/lib/utils';
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, doc, updateDoc, query, where, getDocs, limit, writeBatch } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc, query, where, getDocs, limit, writeBatch, getDoc } from 'firebase/firestore';
 import { revalidateGameDataAction } from '@/lib/actions';
 
 interface MultiStepRatingFormProps {
@@ -29,8 +30,8 @@ interface MultiStepRatingFormProps {
   onStepChange: (step: number) => void;
 }
 
-const totalInputSteps = 4; // Feeling, Design, Aesthetics, Logistics
-const totalDisplaySteps = 5; // Includes summary step
+const totalInputSteps = 4;
+const totalDisplaySteps = 5; 
 
 const stepCategories: RatingCategory[][] = [
   ['excitedToReplay', 'mentallyStimulating', 'fun'],
@@ -75,7 +76,7 @@ const RatingSliderInput: React.FC<RatingSliderInputProps> = ({ fieldName, contro
       control={control}
       name={fieldName}
       render={({ field }) => {
-        const currentFieldValue = Number(field.value); // Ensure it's a number for comparison and memoization
+        const currentFieldValue = Number(field.value); 
         const sliderValue = useMemo(() => [currentFieldValue], [currentFieldValue]);
         
         return (
@@ -85,9 +86,9 @@ const RatingSliderInput: React.FC<RatingSliderInputProps> = ({ fieldName, contro
             <div className="flex items-center gap-4">
               <Slider
                 value={sliderValue}
-                onValueChange={(value) => {
+                onValueChange={(value: number[]) => {
                   const numericValue = value[0];
-                  if (numericValue !== currentFieldValue) {
+                  if (numericValue !== currentFieldValue) { 
                     field.onChange(numericValue);
                   }
                 }}
@@ -165,7 +166,6 @@ export function MultiStepRatingForm({
     }
   };
 
-
   const processSubmitAndStay = async (data: RatingFormValues): Promise<boolean> => {
     setFormError(null);
     let submissionSuccess = false;
@@ -177,7 +177,7 @@ export function MultiStepRatingForm({
       userId: currentUser.uid,
       authorPhotoURL: currentUser.photoURL || null,
       rating: ratingData,
-      comment: "", // Comments removed from form but field might exist in type/DB
+      comment: "", 
       date: new Date().toISOString(),
     };
 
@@ -227,12 +227,11 @@ export function MultiStepRatingForm({
     return submissionSuccess;
   };
 
-
   const handleNext = async () => {
     let fieldsToValidate: (keyof RatingFormValues)[] = [];
     if (currentStep >= 1 && currentStep < totalInputSteps) {
         fieldsToValidate = stepCategories[currentStep-1];
-    } else if (currentStep === totalInputSteps) { // Step 4 going to summary (Step 5)
+    } else if (currentStep === totalInputSteps) { 
       onStepChange(currentStep + 1);
       setFormError(null);
       return;
@@ -272,18 +271,17 @@ export function MultiStepRatingForm({
         const submissionSuccessful = await processSubmitAndStay(data);
         if (submissionSuccessful) {
           const currentRatings = form.getValues();
-          // Construct a temporary Review object to pass to the grouping utility
           const tempReviewForSummary: Review = {
             id: existingReview?.id || 'summary-review-id',
             author: currentUser.displayName || 'Anonimo',
             userId: currentUser.uid,
             authorPhotoURL: currentUser.photoURL || null,
             rating: currentRatings,
-            comment: '', // Comment field is no longer in the form
+            comment: '',
             date: existingReview?.date || new Date().toISOString(),
           };
           setGroupedAveragesForSummary(calculateGroupedCategoryAverages([tempReviewForSummary]));
-          onStepChange(totalDisplaySteps); // Go to summary (step 5)
+          onStepChange(totalDisplaySteps); 
         }
       });
     } else {
@@ -296,13 +294,11 @@ export function MultiStepRatingForm({
     }
   };
 
-
   const getCurrentStepTitle = () => {
     if (currentStep === 1) return "Sentimento";
     if (currentStep === 2) return "Design del Gioco";
     if (currentStep === 3) return "Estetica e Immersione";
     if (currentStep === 4) return "Apprendimento e Logistica";
-    if (currentStep === 5) return "Riepilogo Valutazione";
     return "";
   };
 
@@ -319,9 +315,9 @@ export function MultiStepRatingForm({
 
   return (
     <Form {...form}>
-      <form className="space-y-6"> {/* Reduced from space-y-8 */}
+      <form className="space-y-6">
         {currentStep !== totalDisplaySteps && (
-          <div className="mb-4" id={`rating-step-header-${currentStep}`}> {/* Reduced from mb-6 */}
+          <div className="mb-4" id={`rating-step-header-${currentStep}`}>
             <h3 className="text-xl font-semibold flex items-center">
               <StepIcon step={currentStep} />
               {getCurrentStepTitle()} ({currentStep} di {totalInputSteps})
@@ -336,10 +332,10 @@ export function MultiStepRatingForm({
              <CardHeader className="px-0 pt-6 pb-6">
                 <div className="flex justify-between items-center mb-1">
                     <CardTitle className="text-2xl md:text-3xl text-left">
-                       {getCurrentStepTitle()}
+                       Riepilogo Valutazione
                     </CardTitle>
                     {yourOverallAverage !== null && (
-                        <span className="text-primary text-3xl font-bold whitespace-nowrap">
+                        <span className="text-primary text-2xl font-bold whitespace-nowrap">
                             {formatRatingNumber(yourOverallAverage * 2)}
                         </span>
                     )}
@@ -350,7 +346,7 @@ export function MultiStepRatingForm({
             </CardHeader>
         )}
 
-        <div className="min-h-[240px] sm:min-h-[280px]"> {/* Reduced min-height */}
+        <div className="min-h-[240px] sm:min-h-[280px]"> 
           {currentStep === 1 && (
             <div className="space-y-6 animate-fadeIn">
               {(stepCategories[0] as RatingCategory[]).map((fieldName) => (
@@ -369,8 +365,8 @@ export function MultiStepRatingForm({
 
           {currentStep === 3 && (
             <div className="space-y-6 animate-fadeIn">
-              {(stepCategories[2] as RatingCategory[]).map((fieldName) => (
-                 <RatingSliderInput key={fieldName} fieldName={fieldName} control={form.control} />
+             {(stepCategories[2] as RatingCategory[]).map((fieldName) => (
+                <RatingSliderInput key={fieldName} fieldName={fieldName} control={form.control} />
               ))}
             </div>
           )}
@@ -400,8 +396,8 @@ export function MultiStepRatingForm({
             </div>
         )}
 
-        <div className={`flex ${currentStep > 1 && currentStep < totalInputSteps ? 'justify-between' : (currentStep === totalInputSteps ? 'justify-end' : 'justify-end')} items-center pt-4 border-t mt-6`}>
-          {currentStep > 1 && currentStep < totalDisplaySteps && ( // Previous button not on step 5
+        <div className={`flex ${currentStep > 1 && currentStep < totalInputSteps ? 'justify-between' : (currentStep === totalInputSteps ? 'justify-end' : (currentStep === totalDisplaySteps ? 'justify-end' : 'justify-end'))} items-center pt-4 border-t mt-6`}>
+          {currentStep > 1 && currentStep < totalDisplaySteps && ( 
             <Button
               type="button"
               variant="outline"
@@ -416,7 +412,7 @@ export function MultiStepRatingForm({
             <Button type="button" onClick={handleNext} disabled={isSubmitting} className="bg-primary hover:bg-primary/90 text-primary-foreground">
               Avanti
             </Button>
-          ) : currentStep === totalInputSteps ? ( // On Step 4, the button is "Submit Review"
+          ) : currentStep === totalInputSteps ? ( 
             <Button
               type="button"
               onClick={handleStep4Submit}
@@ -431,7 +427,7 @@ export function MultiStepRatingForm({
                 existingReview ? 'Aggiorna Recensione' : 'Invia Recensione'
               )}
             </Button>
-          ) : ( // On Step 5 (Summary), the button is "Finish & Back to Game"
+          ) : ( 
              <Button
                 type="button"
                 onClick={() => {
@@ -448,3 +444,5 @@ export function MultiStepRatingForm({
     </Form>
   );
 }
+
+    
