@@ -174,8 +174,8 @@ body {
     --secondary-foreground: 205 30% 20%; /* Dark Slate Blue */
     --muted: 140 20% 90%; /* #E3EDE9 - Lighter than the new background for subtle differentiation */
     --muted-foreground: 205 25% 35%;
-    --accent: 160 22% 48%; /* #629584 Medium Greenish Blue/Teal */
-    --accent-foreground: 0 0% 98%; /* White text on accent */
+    --accent: 160 45% 75%; /* #AEE4D9 - Lighter, vibrant teal */
+    --accent-foreground: 160 30% 15%; /* #1C3832 - Dark teal text on light accent */
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
     --border: 140 15% 85%; /* #D3E0DC - Slightly adjusted grayer border */
@@ -184,7 +184,7 @@ body {
     --radius: 0.5rem;
 
     --chart-1: 185 39% 34%; /* Dark Teal */
-    --chart-2: 160 22% 48%; /* Medium Greenish Blue/Teal */
+    --chart-2: 160 45% 75%; /* Lighter vibrant teal (new accent) */
     --chart-3: 185 25% 55%; /* Lighter Teal */
     --chart-4: 190 30% 45%; /* Mid blue-green */
     --chart-5: 150 20% 60%; /* Soft green */
@@ -192,12 +192,12 @@ body {
     /* Sidebar variables for forest-mist */
     --sidebar-background: 205 30% 15%; /* Darker Dark Slate Blue */
     --sidebar-foreground: 140 27% 90%; /* Lighter shade of main background for text */
-    --sidebar-primary: 160 22% 48%; /* Medium Greenish Blue/Teal */
-    --sidebar-primary-foreground: 0 0% 98%; /* White */
+    --sidebar-primary: 160 45% 75%; /* Use new lighter accent for sidebar primary */
+    --sidebar-primary-foreground: 160 30% 15%; /* Dark teal text on light sidebar primary */
     --sidebar-accent: 205 30% 20%; /* Dark Slate Blue (same as main foreground) */
     --sidebar-accent-foreground: 140 27% 90%;
     --sidebar-border: 205 30% 20%;
-    --sidebar-ring: 160 22% 48%;
+    --sidebar-ring: 160 45% 75%; /* Use new lighter accent for sidebar ring */
   }
 }
 

@@ -58,7 +58,7 @@ export function GameCard({
                   {game.name}
                 </h3>
                 {game.overallAverageRating !== null && typeof game.overallAverageRating === 'number' && (
-                  <p className="text-lg font-bold text-primary-foreground drop-shadow-sm whitespace-nowrap">
+                  <p className="text-lg font-bold text-accent drop-shadow-sm whitespace-nowrap">
                     {formatRatingNumber(game.overallAverageRating * 2)}
                   </p>
                 )}
