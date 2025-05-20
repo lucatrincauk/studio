@@ -5,6 +5,8 @@ import type { ReactNode } from 'react';
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 
 type Theme = 'light' | 'dark' | 'violet-dream' | 'energetic-coral' | 'forest-mist' | 'forest-mist-dark';
+const VALID_THEMES: Readonly<Theme[]> = ['light', 'dark', 'violet-dream', 'energetic-coral', 'forest-mist', 'forest-mist-dark'];
+
 
 interface ThemeContextType {
   theme: Theme;
@@ -21,39 +23,76 @@ interface ThemeProviderProps {
 
 export function ThemeProvider({
   children,
-  defaultTheme: propDefaultTheme = 'forest-mist', // Default matches SERVER_DEFAULT_THEME in layout
+  defaultTheme: propDefaultTheme = 'forest-mist',
   storageKey = 'morchiometro-theme',
 }: ThemeProviderProps) {
   const [theme, setThemeState] = useState<Theme>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const storedTheme = window.localStorage.getItem(storageKey) as Theme | null;
-        const validThemes: Theme[] = ['light', 'dark', 'violet-dream', 'energetic-coral', 'forest-mist', 'forest-mist-dark'];
-        if (storedTheme && validThemes.includes(storedTheme)) {
-          return storedTheme;
-        }
-      } catch (e) {
-        console.error('Error reading theme from localStorage', e);
-      }
+    if (typeof window === 'undefined') {
+      return propDefaultTheme;
     }
-    return propDefaultTheme;
+    try {
+      const storedTheme = window.localStorage.getItem(storageKey) as Theme | null;
+      if (storedTheme && VALID_THEMES.includes(storedTheme)) {
+        return storedTheme;
+      }
+      // No valid theme in localStorage, check OS preference
+      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        if (VALID_THEMES.includes('forest-mist-dark')) return 'forest-mist-dark';
+      }
+      // Fallback to propDefaultTheme (forest-mist) if OS prefers light or no preference
+      return propDefaultTheme;
+    } catch (e) {
+      console.error('Error reading theme from localStorage or OS preference', e);
+      return propDefaultTheme;
+    }
   });
 
   useEffect(() => {
     const root = window.document.documentElement;
-    const allThemeClasses: Theme[] = ['light', 'dark', 'violet-dream', 'energetic-coral', 'forest-mist', 'forest-mist-dark'];
     
-    // Remove all known theme classes first to ensure a clean state
-    allThemeClasses.forEach(cls => {
+    VALID_THEMES.forEach(cls => {
       root.classList.remove(cls);
     });
-    // Add the current theme from state
-    if (!root.classList.contains(theme)) {
-      root.classList.add(theme);
+    
+    if (VALID_THEMES.includes(theme)) {
+       if (!root.classList.contains(theme)) {
+         root.classList.add(theme);
+       }
+    } else {
+        // Fallback if theme state is somehow invalid
+        if (!root.classList.contains(propDefaultTheme)){
+             root.classList.add(propDefaultTheme);
+        }
     }
-  }, [theme]);
+
+  }, [theme, propDefaultTheme]);
+
+  // Listen to OS theme changes
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = (event: MediaQueryListEvent) => {
+      // Only update if no theme is explicitly set in localStorage
+      const storedTheme = window.localStorage.getItem(storageKey) as Theme | null;
+      if (!storedTheme || !VALID_THEMES.includes(storedTheme)) {
+        const newOsTheme = event.matches ? 'forest-mist-dark' : 'forest-mist';
+        if (VALID_THEMES.includes(newOsTheme)) {
+          setThemeState(newOsTheme);
+        }
+      }
+    };
+
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, [storageKey, propDefaultTheme]);
+
 
   const setTheme = useCallback((newTheme: Theme) => {
+    if (!VALID_THEMES.includes(newTheme)) {
+      console.warn(`Attempted to set invalid theme: ${newTheme}`);
+      return;
+    }
     if (typeof window !== 'undefined') {
       try {
         window.localStorage.setItem(storageKey, newTheme);
@@ -79,3 +118,4 @@ export const useTheme = () => {
   }
   return context;
 };
+

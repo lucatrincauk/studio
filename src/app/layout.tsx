@@ -2,8 +2,7 @@
 import type {Metadata} from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
-// import { Toaster } from "@/components/ui/toaster"; // Remove direct import
-import { ClientOnlyToaster } from '@/components/layout/client-only-toaster'; // Import new wrapper
+import { ClientOnlyToaster } from '@/components/layout/client-only-toaster';
 import { Header } from '@/components/layout/header';
 import { AuthProvider } from '@/contexts/auth-context';
 import { ThemeProvider } from '@/contexts/theme-context';
@@ -23,36 +22,47 @@ export const metadata: Metadata = {
   description: 'Valuta e recensisci i tuoi giochi da tavolo preferiti.',
 };
 
-const SERVER_DEFAULT_THEME = 'forest-mist'; 
+const SERVER_DEFAULT_THEME = 'forest-mist';
+const VALID_THEMES: Readonly<string[]> = ['light', 'dark', 'violet-dream', 'energetic-coral', 'forest-mist', 'forest-mist-dark'];
 
 const NoFlashScript = () => {
   const storageKey = "morchiometro-theme";
-  const scriptDefaultTheme = SERVER_DEFAULT_THEME;
-  // Ensure this list matches the themes defined in globals.css and ThemeContext
-  const validThemes = ['light', 'dark', 'violet-dream', 'energetic-coral', 'forest-mist', 'forest-mist-dark'];
-
+  // This script runs before React hydrates. It sets the theme class on <html>
+  // based on localStorage or OS preference to prevent a theme flash.
   const scriptContent = `
 (function() {
   const docEl = document.documentElement;
   const localKey = '${storageKey}';
-  let themeToApply = '${scriptDefaultTheme}'; // Default to server-rendered theme
-  const localThemes = ${JSON.stringify(validThemes)};
+  const scriptDefaultTheme = '${SERVER_DEFAULT_THEME}';
+  const scriptValidThemes = ${JSON.stringify(VALID_THEMES)};
+  let themeToApply = scriptDefaultTheme; // Start with the server-rendered/app default
 
   try {
     const storedTheme = window.localStorage.getItem(localKey);
-    if (storedTheme && localThemes.includes(storedTheme)) {
-      themeToApply = storedTheme;
+    if (storedTheme && scriptValidThemes.includes(storedTheme)) {
+      themeToApply = storedTheme; // Use localStorage theme if valid
+    } else {
+      // No valid theme in localStorage, check OS preference
+      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        if (scriptValidThemes.includes('forest-mist-dark')) {
+          themeToApply = 'forest-mist-dark';
+        }
+      } else {
+        if (scriptValidThemes.includes('forest-mist')) {
+           themeToApply = 'forest-mist'; // Default to light version of forest-mist if OS is light
+        }
+      }
     }
-  } catch (e) { /* ignore */ }
+  } catch (e) { /* ignore localStorage errors */ }
 
   // Remove all known theme classes first to ensure a clean state
-  localThemes.forEach(function(t) {
-    if (docEl.classList.contains(t)) { 
-        docEl.classList.remove(t);
+  scriptValidThemes.forEach(function(t) {
+    if (docEl.classList.contains(t)) {
+      docEl.classList.remove(t);
     }
   });
   // Add the chosen one
-  if (!docEl.classList.contains(themeToApply)) { 
+  if (!docEl.classList.contains(themeToApply)) {
     docEl.classList.add(themeToApply);
   }
 })();
@@ -78,7 +88,7 @@ export default function RootLayout({
             <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8">
               {children}
             </main>
-            <ClientOnlyToaster /> {/* Use the client-side wrapper */}
+            <ClientOnlyToaster />
             <footer className="py-6 text-center text-sm text-muted-foreground">
               © {new Date().getFullYear()} Morchiometro.
             </footer>
@@ -88,3 +98,4 @@ export default function RootLayout({
     </html>
   );
 }
+
