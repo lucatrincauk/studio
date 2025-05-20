@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/auth-context';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation'; // Added useSearchParams
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, Loader2 } from "lucide-react";
 import Link from 'next/link';
@@ -46,7 +46,8 @@ const GoogleIcon = () => (
 
 export function SignupForm() {
   const { signUp, signInWithGoogle, loading, error, clearError } = useAuth();
-  const router = useRouter();
+  const router = useRouter(); // Keep for potential other uses
+  const searchParams = useSearchParams(); // Get search params
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   const form = useForm<SignupFormValues>({
@@ -60,20 +61,18 @@ export function SignupForm() {
 
   async function onSubmit(values: SignupFormValues) {
     clearError();
-    const user = await signUp(values.email, values.password);
-    if (user) {
-      router.push('/'); 
-    }
+    const redirectPath = searchParams.get('redirect');
+    await signUp(values.email, values.password, redirectPath);
+    // Redirection is now handled by AuthContext
   }
 
   async function handleGoogleSignUp() {
     clearError();
     setIsGoogleLoading(true);
-    const user = await signInWithGoogle();
-    if (user) {
-      router.push('/');
-    }
+    const redirectPath = searchParams.get('redirect');
+    await signInWithGoogle(redirectPath);
     setIsGoogleLoading(false);
+    // Redirection is now handled by AuthContext
   }
 
   return (
