@@ -58,8 +58,12 @@ export function Header() {
   const [searchResults, setSearchResults] = useState<BoardGame[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+  const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false); // For mobile sheet
+
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const mobileSearchInputRef = useRef<HTMLInputElement>(null);
+
 
   const handleSignOut = async () => {
     await signOut();
@@ -84,10 +88,12 @@ export function Header() {
       const result = await searchLocalGamesByNameAction(debouncedSearchTerm);
       if ('error' in result) {
         setSearchResults([]);
+        // console.error("Search error:", result.error);
       } else {
         setSearchResults(result);
       }
       setIsSearching(false);
+      // Only open popover if there are results
       setIsPopoverOpen(result && !('error' in result) && result.length > 0);
     };
 
@@ -98,6 +104,7 @@ export function Header() {
     setSearchTerm('');
     setSearchResults([]);
     setIsPopoverOpen(false);
+    setIsMobileSheetOpen(false); // Close sheet if a result is clicked from mobile search
   };
 
   const authBlockDesktop = (
@@ -210,7 +217,7 @@ export function Header() {
           </SheetClose>
         )}
          <Separator />
-        <Button variant="ghost" onClick={() => { handleSignOut(); }} className="w-full justify-start gap-2 text-destructive hover:text-destructive hover:bg-destructive/10">
+        <Button variant="ghost" onClick={() => { handleSignOut(); setIsMobileSheetOpen(false); }} className="w-full justify-start gap-2 text-destructive hover:text-destructive hover:bg-destructive/10">
           <LogOut className="h-4 w-4" />
           Esci
         </Button>
@@ -245,6 +252,36 @@ export function Header() {
     )
   );
 
+  const commonSearchPopover = (
+    <PopoverContent
+      className="w-[300px] p-0"
+      align="end"
+      onOpenAutoFocus={(e) => e.preventDefault()}
+      onInteractOutside={(e) => {
+        const activeInputRef = isMobileSheetOpen ? mobileSearchInputRef : searchInputRef;
+        if (activeInputRef.current && activeInputRef.current.contains(e.target as Node)) {
+          return;
+        }
+        setIsPopoverOpen(false);
+      }}
+    >
+      <div className="max-h-60 overflow-y-auto">
+        {searchResults.map(game => (
+          <SheetClose asChild key={`mobile-search-${game.id}`}>
+            <Link
+              href={`/games/${game.id}`}
+              onClick={handleResultClick}
+              className="block px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
+            >
+              {game.name}
+              {game.yearPublished && <span className="ml-2 text-xs text-muted-foreground">({game.yearPublished})</span>}
+            </Link>
+          </SheetClose>
+        ))}
+      </div>
+    </PopoverContent>
+  );
+
   return (
     <div className="sticky top-0 z-50 w-full">
       <header className="bg-primary text-primary-foreground shadow-md">
@@ -259,7 +296,7 @@ export function Header() {
           </div>
 
           <div className="md:hidden">
-            <Sheet>
+            <Sheet open={isMobileSheetOpen} onOpenChange={setIsMobileSheetOpen}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" className="hover:bg-primary-foreground/10 focus-visible:ring-accent">
                   <Menu className="h-6 w-6" />
@@ -277,12 +314,34 @@ export function Header() {
                     </SheetClose>
                   </SheetTitle>
                 </SheetHeader>
-                <nav className="flex flex-col space-y-1 p-4">
+                
+                <div className="p-4">
+                  <Popover open={isPopoverOpen && searchTerm.length >=2 && isMobileSheetOpen} onOpenChange={setIsPopoverOpen}>
+                     <PopoverAnchor>
+                        <div className="relative flex items-center mb-4">
+                          <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                          <Input
+                            ref={mobileSearchInputRef}
+                            type="search"
+                            placeholder="Cerca un gioco..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onFocus={() => setIsPopoverOpen(debouncedSearchTerm.length >= 2 && searchResults.length > 0)}
+                            className="h-9 w-full rounded-md pl-9 pr-3 text-sm bg-background text-foreground border-input focus:ring-primary/50"
+                          />
+                          {isSearching && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />}
+                        </div>
+                      </PopoverAnchor>
+                      {isPopoverOpen && searchResults.length > 0 && commonSearchPopover}
+                  </Popover>
+                </div>
+
+                <nav className="flex flex-col space-y-1 p-4 pt-0">
                   {mainNavLinks.map(link => (
                      <SheetClose asChild key={link.href}>
                         <Link
                           href={link.href}
-                          className="flex items-center gap-2 text-sm font-medium transition-colors hover:bg-muted text-foreground rounded-md px-3 py-2"
+                          className={cn(buttonVariants({ variant: "ghost" }), "w-full justify-start gap-2 text-sm font-medium text-foreground rounded-md px-3 py-2")}
                         >
                           {link.icon}
                           {link.label}
@@ -316,7 +375,7 @@ export function Header() {
             ))}
           </ul>
           <div className="relative">
-            <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
+            <Popover open={isPopoverOpen && searchTerm.length >=2 && !isMobileSheetOpen} onOpenChange={setIsPopoverOpen}>
               <PopoverAnchor>
                 <div className="relative flex items-center">
                   <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
@@ -332,33 +391,7 @@ export function Header() {
                   {isSearching && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />}
                 </div>
               </PopoverAnchor>
-              {isPopoverOpen && searchResults.length > 0 && (
-                <PopoverContent
-                  className="w-[300px] p-0"
-                  align="end"
-                  onOpenAutoFocus={(e) => e.preventDefault()} // Prevent auto-focusing inside popover to keep focus on input
-                  onInteractOutside={(e) => {
-                    if (searchInputRef.current && searchInputRef.current.contains(e.target as Node)) {
-                      return; // Don't close if click is on the input itself
-                    }
-                    setIsPopoverOpen(false);
-                  }}
-                >
-                  <div className="max-h-60 overflow-y-auto">
-                    {searchResults.map(game => (
-                      <Link
-                        key={game.id}
-                        href={`/games/${game.id}`}
-                        onClick={handleResultClick}
-                        className="block px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
-                      >
-                        {game.name}
-                        {game.yearPublished && <span className="ml-2 text-xs text-muted-foreground">({game.yearPublished})</span>}
-                      </Link>
-                    ))}
-                  </div>
-                </PopoverContent>
-              )}
+              {isPopoverOpen && searchResults.length > 0 && commonSearchPopover}
             </Popover>
           </div>
         </div>
