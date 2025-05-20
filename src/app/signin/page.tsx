@@ -1,6 +1,8 @@
 
 import { SigninForm } from '@/components/auth/signin-form';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Suspense } from 'react';
+import { Loader2 } from 'lucide-react';
 
 export default function SigninPage() {
   return (
@@ -11,7 +13,9 @@ export default function SigninPage() {
           <CardDescription>Accedi per entrare nel tuo account.</CardDescription>
         </CardHeader>
         <CardContent>
-          <SigninForm />
+          <Suspense fallback={<div className="flex justify-center items-center h-32"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+            <SigninForm />
+          </Suspense>
         </CardContent>
       </Card>
     </div>
