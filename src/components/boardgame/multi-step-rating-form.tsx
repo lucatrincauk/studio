@@ -21,7 +21,49 @@ import { db } from '@/lib/firebase';
 import { collection, addDoc, doc, updateDoc, query, where, getDocs, limit, writeBatch, getDoc } from 'firebase/firestore';
 import { revalidateGameDataAction } from '@/lib/actions';
 import { SafeImage } from '@/components/common/SafeImage';
-import { useRouter } from 'next/navigation'; // Added useRouter
+import { useRouter } from 'next/navigation';
+
+interface RatingSliderInputProps {
+  fieldName: RatingCategory;
+  control: Control<RatingFormValues>;
+  label: string;
+  description: string;
+}
+
+const RatingSliderInput: React.FC<RatingSliderInputProps> = ({ fieldName, control, label, description }) => {
+  return (
+    <FormField
+      control={control}
+      name={fieldName}
+      render={({ field }) => {
+        const currentFieldValue = Number(field.value); // Ensure it's a number
+        const sliderValue = useMemo(() => [currentFieldValue], [currentFieldValue]);
+
+        return (
+          <FormItem>
+            <FormLabel>{label}</FormLabel>
+            <p className="text-xs text-muted-foreground mt-1 mb-2">{description}</p>
+            <div className="flex items-center gap-4">
+              <Slider
+                value={sliderValue}
+                onValueChange={(value: number[]) => {
+                  const numericValue = value[0];
+                  if (numericValue !== currentFieldValue) { // Compare number with number
+                    field.onChange(numericValue);
+                  }
+                }}
+                min={1} max={5} step={1}
+                className="w-full"
+              />
+              <span className="text-lg font-semibold w-8 text-center">{currentFieldValue}</span>
+            </div>
+            <FormMessage />
+          </FormItem>
+        );
+      }}
+    />
+  );
+};
 
 interface MultiStepRatingFormProps {
   gameId: string;
@@ -35,7 +77,7 @@ interface MultiStepRatingFormProps {
 }
 
 const totalInputSteps = 4;
-const totalDisplaySteps = 5;
+const totalDisplaySteps = 5; // Includes summary
 
 const stepCategories: RatingCategory[][] = [
   ['excitedToReplay', 'mentallyStimulating', 'fun'],
@@ -63,6 +105,7 @@ const stepUIDescriptions: Record<number, string> = {
   2: "Come giudichi gli aspetti legati al design del gioco?",
   3: "Valuta l'impatto visivo e l'immersione tematica.",
   4: "Quanto è stato facile apprendere e gestire il gioco?",
+  5: "Controlla la tua valutazione prima di inviarla.",
 };
 
 const StepIcon = ({ step }: { step: number }) => {
@@ -76,45 +119,6 @@ const StepIcon = ({ step }: { step: number }) => {
   }
 };
 
-interface RatingSliderInputProps {
-  fieldName: RatingCategory;
-  control: Control<RatingFormValues>;
-}
-
-const RatingSliderInput: React.FC<RatingSliderInputProps> = ({ fieldName, control }) => {
-  return (
-    <FormField
-      control={control}
-      name={fieldName}
-      render={({ field }) => {
-        const currentFieldValue = Number(field.value);
-        const sliderValue = useMemo(() => [currentFieldValue], [currentFieldValue]);
-
-        return (
-          <FormItem>
-            <FormLabel>{RATING_CATEGORIES[fieldName]}</FormLabel>
-            <p className="text-xs text-muted-foreground mt-1 mb-2">{categoryDescriptions[fieldName]}</p>
-            <div className="flex items-center gap-4">
-              <Slider
-                value={sliderValue}
-                onValueChange={(value: number[]) => {
-                  const numericValue = value[0];
-                  if (numericValue !== currentFieldValue) {
-                    field.onChange(numericValue);
-                  }
-                }}
-                min={1} max={5} step={1}
-                className="w-full"
-              />
-              <span className="text-lg font-semibold w-8 text-center">{currentFieldValue}</span>
-            </div>
-            <FormMessage />
-          </FormItem>
-        );
-      }}
-    />
-  );
-};
 
 export function MultiStepRatingForm({
   gameId,
@@ -130,7 +134,7 @@ export function MultiStepRatingForm({
   const [formError, setFormError] = useState<string | null>(null);
   const [groupedAveragesForSummary, setGroupedAveragesForSummary] = useState<GroupedCategoryAverages | null>(null);
   const { toast } = useToast();
-  const router = useRouter(); // Added router
+  const router = useRouter();
 
   const defaultFormValues: RatingFormValues = useMemo(() => ({
     excitedToReplay: existingReview?.rating.excitedToReplay || 3,
@@ -154,8 +158,7 @@ export function MultiStepRatingForm({
 
   useEffect(() => {
     form.reset(defaultFormValues);
-  }, [defaultFormValues, form]);
-
+  }, [defaultFormValues, form, currentStep]); // Reset on step change too, if desired for initial step load
 
   const updateGameOverallRating = async () => {
     try {
@@ -188,7 +191,9 @@ export function MultiStepRatingForm({
         reviewCount: allReviewsForGame.length
       });
       
+      // Call server action to revalidate paths
       await revalidateGameDataAction(gameId);
+
     } catch (error) {
       console.error("Errore Aggiornamento Punteggio Medio Gioco:", error);
       toast({ title: "Errore Aggiornamento Punteggio", description: "Impossibile aggiornare il punteggio medio del gioco.", variant: "destructive" });
@@ -356,7 +361,7 @@ export function MultiStepRatingForm({
                   </p>
                 )}
               </div>
-              {/* Small game image and title removed from steps 1-4 header */}
+              {/* Game Image and Name Block Removed from steps 1-4 headers */}
             </div>
           </div>
         )}
@@ -369,25 +374,10 @@ export function MultiStepRatingForm({
                         Riepilogo Valutazione
                         </CardTitle>
                         <CardDescription className="text-left text-sm text-muted-foreground mt-1">
-                        La tua recensione è stata salvata. Ecco un riepilogo:
+                         La tua recensione è stata salvata. Ecco un riepilogo:
                         </CardDescription>
                     </div>
-                    {gameCoverArtUrl && (
-                        <div className="ml-4 flex-shrink-0 w-24 text-right">
-                            <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md mb-1">
-                                <SafeImage
-                                src={gameCoverArtUrl}
-                                alt={`${gameName} copertina`}
-                                fallbackSrc={`https://placehold.co/80x120.png?text=${encodeURIComponent(gameName?.substring(0,3) || 'N/A')}`}
-                                fill
-                                className="object-cover"
-                                sizes="96px"
-                                data-ai-hint="game cover mini"
-                                />
-                            </div>
-                            <p className="text-xs text-muted-foreground truncate">{gameName}</p>
-                        </div>
-                    )}
+                    {/* Game image and title removed from Step 5 header */}
                 </div>
                  {yourOverallAverage !== null && (
                     <div className="text-right -mt-2">
@@ -403,7 +393,13 @@ export function MultiStepRatingForm({
           {currentStep === 1 && (
             <div className="space-y-6 animate-fadeIn">
               {(stepCategories[0] as RatingCategory[]).map((fieldName) => (
-                <RatingSliderInput key={fieldName} fieldName={fieldName} control={form.control} />
+                <RatingSliderInput 
+                  key={fieldName} 
+                  fieldName={fieldName} 
+                  control={form.control} 
+                  label={RATING_CATEGORIES[fieldName]}
+                  description={categoryDescriptions[fieldName]}
+                />
               ))}
             </div>
           )}
@@ -411,7 +407,13 @@ export function MultiStepRatingForm({
           {currentStep === 2 && (
             <div className="space-y-6 animate-fadeIn">
               {(stepCategories[1] as RatingCategory[]).map((fieldName) => (
-                <RatingSliderInput key={fieldName} fieldName={fieldName} control={form.control} />
+                <RatingSliderInput 
+                  key={fieldName} 
+                  fieldName={fieldName} 
+                  control={form.control} 
+                  label={RATING_CATEGORIES[fieldName]}
+                  description={categoryDescriptions[fieldName]}
+                />
               ))}
             </div>
           )}
@@ -419,7 +421,13 @@ export function MultiStepRatingForm({
           {currentStep === 3 && (
             <div className="space-y-6 animate-fadeIn">
              {(stepCategories[2] as RatingCategory[]).map((fieldName) => (
-                <RatingSliderInput key={fieldName} fieldName={fieldName} control={form.control} />
+                <RatingSliderInput 
+                  key={fieldName} 
+                  fieldName={fieldName} 
+                  control={form.control} 
+                  label={RATING_CATEGORIES[fieldName]}
+                  description={categoryDescriptions[fieldName]}
+                />
               ))}
             </div>
           )}
@@ -427,7 +435,13 @@ export function MultiStepRatingForm({
           {currentStep === 4 && (
             <div className="space-y-6 animate-fadeIn">
              {(stepCategories[3] as RatingCategory[]).map((fieldName) => (
-                <RatingSliderInput key={fieldName} fieldName={fieldName} control={form.control} />
+                <RatingSliderInput 
+                  key={fieldName} 
+                  fieldName={fieldName} 
+                  control={form.control} 
+                  label={RATING_CATEGORIES[fieldName]}
+                  description={categoryDescriptions[fieldName]}
+                />
               ))}
             </div>
           )}
@@ -450,7 +464,7 @@ export function MultiStepRatingForm({
         )}
 
         <div className={`flex ${
-           currentStep === totalDisplaySteps ? 'justify-end' : 'justify-between'
+           (currentStep === 1 || currentStep === totalDisplaySteps) ? 'justify-end' : 'justify-between'
         } items-center pt-4 border-t mt-6`}>
           
           {currentStep === 1 && (
@@ -506,3 +520,4 @@ export function MultiStepRatingForm({
     </Form>
   );
 }
+
