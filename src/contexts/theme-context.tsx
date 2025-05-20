@@ -35,7 +35,8 @@ export function ThemeProvider({
     }
     try {
       const storedAuto = window.localStorage.getItem(AUTO_THEME_STORAGE_KEY);
-      return storedAuto === null ? true : storedAuto === 'true'; // Default to true if not set
+      // Default to true if not explicitly set to 'false'
+      return storedAuto !== 'false';
     } catch (e) {
       return true;
     }
@@ -50,11 +51,10 @@ export function ThemeProvider({
       if (storedTheme && VALID_THEMES.includes(storedTheme)) {
         return storedTheme;
       }
-      // If auto theme is enabled and no explicit theme is set, check OS
-      const localAutoEnabled = window.localStorage.getItem(AUTO_THEME_STORAGE_KEY);
-      const isAuto = localAutoEnabled === null ? true : localAutoEnabled === 'true';
+      // If auto theme is enabled (or just not disabled) and no explicit theme, check OS
+      const localAutoEnabled = window.localStorage.getItem(AUTO_THEME_STORAGE_KEY) !== 'false';
 
-      if (isAuto && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      if (localAutoEnabled && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
         if (VALID_THEMES.includes('forest-mist-dark')) return 'forest-mist-dark';
       }
       return propDefaultTheme;
@@ -65,9 +65,8 @@ export function ThemeProvider({
 
   useEffect(() => {
     const root = window.document.documentElement;
-    const allThemeClasses = ['light', 'dark', 'violet-dream', 'energetic-coral', 'forest-mist', 'forest-mist-dark'];
-
-    allThemeClasses.forEach(cls => {
+    
+    VALID_THEMES.forEach(cls => {
       root.classList.remove(cls);
     });
 
@@ -106,14 +105,14 @@ export function ThemeProvider({
     if (typeof window !== 'undefined') {
       window.localStorage.setItem(AUTO_THEME_STORAGE_KEY, String(enabled));
     }
-    setAutoThemeEnabledState(enabled);
+    setAutoThemeEnabledState(enabled); // Update state
     if (enabled) {
       // If auto mode is turned on, determine theme by OS and apply it
       let osTheme = propDefaultTheme;
       if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
         osTheme = 'forest-mist-dark';
       } else {
-        osTheme = 'forest-mist';
+        osTheme = propDefaultTheme; // which is 'forest-mist'
       }
       if (VALID_THEMES.includes(osTheme)) {
         setTheme(osTheme, true); // Pass true to indicate it's an automatic update
@@ -123,15 +122,14 @@ export function ThemeProvider({
 
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || !autoThemeEnabled) return; // Only listen if auto is enabled
 
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handleChange = (event: MediaQueryListEvent) => {
-      if (autoThemeEnabled) { // Only act if auto theme is enabled
-        const newOsTheme = event.matches ? 'forest-mist-dark' : 'forest-mist';
-        if (VALID_THEMES.includes(newOsTheme)) {
-          setTheme(newOsTheme, true); // Pass true for automatic update
-        }
+      // This effect only runs if autoThemeEnabled is true, so we don't need to re-check it here.
+      const newOsTheme = event.matches ? 'forest-mist-dark' : 'forest-mist';
+      if (VALID_THEMES.includes(newOsTheme)) {
+        setTheme(newOsTheme, true); // Pass true for automatic update
       }
     };
 

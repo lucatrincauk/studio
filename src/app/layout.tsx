@@ -42,13 +42,14 @@ const NoFlashScript = () => {
 
   try {
     const storedAutoThemeEnabled = window.localStorage.getItem(localAutoKey);
-    const isAutoEnabled = storedAutoThemeEnabled === null ? true : storedAutoThemeEnabled === 'true';
+    // Default to true if not explicitly set to 'false'
+    const isAutoEnabled = storedAutoThemeEnabled !== 'false';
     const storedTheme = window.localStorage.getItem(localKey);
 
     if (storedTheme && scriptValidThemes.includes(storedTheme)) {
-      themeToApply = storedTheme; // User has an explicit theme preference
+      themeToApply = storedTheme; // User has an explicit theme preference, auto is implicitly off
     } else if (isAutoEnabled) {
-      // No explicit theme or auto is enabled, check OS preference
+      // No explicit theme OR auto is enabled, check OS preference
       if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
         if (scriptValidThemes.includes('forest-mist-dark')) {
           themeToApply = 'forest-mist-dark';
@@ -58,7 +59,8 @@ const NoFlashScript = () => {
         themeToApply = scriptDefaultTheme;
       }
     }
-    // If auto is disabled and no explicit theme, it will fall back to scriptDefaultTheme
+    // If auto is disabled (isAutoEnabled is false) and no explicit theme, 
+    // it will fall back to scriptDefaultTheme (already set as initial themeToApply).
   } catch (e) { /* ignore localStorage errors */ }
 
   // Remove all known theme classes first to ensure a clean state
