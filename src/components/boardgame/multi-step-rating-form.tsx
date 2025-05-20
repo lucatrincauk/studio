@@ -58,7 +58,7 @@ const categoryDescriptions: Record<RatingCategory, string> = {
 };
 
 const stepUIDescriptions: Record<number, string> = {
-  1: "Valuta il tuo sentimento generale riguardo al gioco.", // This is handled by the parent page for step 1
+  1: "Valuta il tuo sentimento generale riguardo al gioco.",
   2: "Come giudichi gli aspetti legati al design del gioco?",
   3: "Valuta l'impatto visivo e l'immersione tematica.",
   4: "Quanto è stato facile apprendere e gestire il gioco?",
@@ -153,7 +153,7 @@ export function MultiStepRatingForm({
 
   useEffect(() => {
     form.reset(defaultFormValues);
-  }, [defaultFormValues, form]);
+  }, [defaultFormValues, form, currentStep]); // Reset form if existingReview changes or step changes for initial load
 
 
   const updateGameOverallRating = async () => {
@@ -163,18 +163,18 @@ export function MultiStepRatingForm({
       const allReviewsForGame: Review[] = reviewsSnapshot.docs.map(docSnap => {
         const data = docSnap.data();
         const rating: RatingType = {
-          excitedToReplay: data.rating?.excitedToReplay || 0,
-          mentallyStimulating: data.rating?.mentallyStimulating || 0,
-          fun: data.rating?.fun || 0,
-          decisionDepth: data.rating?.decisionDepth || 0,
-          replayability: data.rating?.replayability || 0,
-          luck: data.rating?.luck || 0,
-          lengthDowntime: data.rating?.lengthDowntime || 0,
-          graphicDesign: data.rating?.graphicDesign || 0,
-          componentsThemeLore: data.rating?.componentsThemeLore || 0,
-          effortToLearn: data.rating?.effortToLearn || 0,
-          setupTeardown: data.rating?.setupTeardown || 0,
-        };
+            excitedToReplay: data.rating?.excitedToReplay || 0,
+            mentallyStimulating: data.rating?.mentallyStimulating || 0,
+            fun: data.rating?.fun || 0,
+            decisionDepth: data.rating?.decisionDepth || 0,
+            replayability: data.rating?.replayability || 0,
+            luck: data.rating?.luck || 0,
+            lengthDowntime: data.rating?.lengthDowntime || 0,
+            graphicDesign: data.rating?.graphicDesign || 0,
+            componentsThemeLore: data.rating?.componentsThemeLore || 0,
+            effortToLearn: data.rating?.effortToLearn || 0,
+            setupTeardown: data.rating?.setupTeardown || 0,
+          };
         return { id: docSnap.id, ...data, rating } as Review;
       });
 
@@ -184,7 +184,7 @@ export function MultiStepRatingForm({
       const gameDocRef = doc(db, "boardgames_collection", gameId);
       await updateDoc(gameDocRef, {
         overallAverageRating: newOverallAverage,
-        reviewCount: allReviewsForGame.length
+        reviewCount: allReviewsForGame.length // Ensure reviewCount is also updated
       });
       
       await revalidateGameDataAction(gameId);
@@ -306,7 +306,7 @@ export function MultiStepRatingForm({
             userId: currentUser.uid,
             authorPhotoURL: currentUser.photoURL || null,
             rating: currentRatings,
-            comment: '', // Comment is empty
+            comment: '', 
             date: existingReview?.date || new Date().toISOString(),
           };
           setGroupedAveragesForSummary(calculateGroupedCategoryAverages([tempReviewForSummary]));
@@ -342,34 +342,39 @@ export function MultiStepRatingForm({
     <Form {...form}>
       <form className="space-y-6">
         {currentStep <= totalInputSteps && (
-          <div className="mb-4 flex justify-between items-start">
-            <div>
-              <h3 className="text-xl font-semibold flex items-center">
-                <StepIcon step={currentStep} />
-                {getCurrentStepTitle()} ({currentStep} di {totalInputSteps}) - {gameName}
-              </h3>
-              {currentStep > 1 && stepUIDescriptions[currentStep] && (
-                 <p className="text-sm text-muted-foreground mt-1">
+          <div className="mb-4"> {/* Wrapper for step header area */}
+            <div className="flex justify-between items-start"> {/* Top row for title and image block */}
+              {/* Left part: Step title and step number */}
+              <div>
+                <h3 className="text-xl font-semibold flex items-center">
+                  <StepIcon step={currentStep} />
+                  {getCurrentStepTitle()} ({currentStep} di {totalInputSteps})
+                </h3>
+                 {/* Step Description below the title line */}
+                {stepUIDescriptions[currentStep] && (
+                  <p className="text-sm text-muted-foreground mt-1"> 
                     {stepUIDescriptions[currentStep]}
                   </p>
+                )}
+              </div>
+              {/* Right part: Game Image and Name (top-right) */}
+              {gameCoverArtUrl && (
+                <div className="ml-4 flex-shrink-0 w-20 text-right">
+                  <div className="relative aspect-[2/3] w-full rounded-sm overflow-hidden shadow-sm mb-1">
+                    <SafeImage
+                      src={gameCoverArtUrl}
+                      alt={`${gameName} copertina`}
+                      fallbackSrc={`https://placehold.co/60x90.png?text=${encodeURIComponent(gameName?.substring(0,3) || 'N/A')}`}
+                      fill
+                      className="object-cover"
+                      sizes="80px"
+                      data-ai-hint="game cover mini"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground truncate">{gameName}</p>
+                </div>
               )}
             </div>
-            {gameCoverArtUrl && (
-              <div className="ml-4 flex-shrink-0 w-20 text-right">
-                <div className="relative aspect-[2/3] w-full rounded-sm overflow-hidden shadow-sm mb-1">
-                  <SafeImage
-                    src={gameCoverArtUrl}
-                    alt={`${gameName} copertina`}
-                    fallbackSrc={`https://placehold.co/60x90.png?text=${encodeURIComponent(gameName?.substring(0,3) || 'N/A')}`}
-                    fill
-                    className="object-cover"
-                    sizes="80px"
-                    data-ai-hint="game cover mini"
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground truncate">{gameName}</p>
-              </div>
-            )}
           </div>
         )}
 
@@ -442,12 +447,12 @@ export function MultiStepRatingForm({
         )}
 
         <div className={`flex ${
-           (currentStep > 1 && currentStep <= totalInputSteps)
+           (currentStep > 1 && currentStep < totalDisplaySteps) // Previous button visible for steps 2, 3, 4
             ? 'justify-between'
-            : 'justify-end'
+            : 'justify-end' 
         } items-center pt-4 border-t mt-6`}>
           
-          {(currentStep > 1 && currentStep <= totalInputSteps) && (
+          {(currentStep > 1 && currentStep < totalDisplaySteps) && ( // Show Previous button on steps 2, 3, 4
             <Button
               type="button"
               variant="outline"
@@ -488,4 +493,3 @@ export function MultiStepRatingForm({
     </Form>
   );
 }
-
