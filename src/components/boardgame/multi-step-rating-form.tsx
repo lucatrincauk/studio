@@ -7,7 +7,8 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import type { Review, Rating as RatingType, RatingCategory, GroupedCategoryAverages } from '@/lib/types';
-import { RATING_CATEGORIES } from '@/lib/types';
+import { RATING_CATEGORIES }
+from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, AlertCircle, CheckCircle, Smile, Puzzle, Palette, ClipboardList } from 'lucide-react';
 import { reviewFormSchema, type RatingFormValues } from '@/lib/validators';
@@ -160,7 +161,7 @@ export function MultiStepRatingForm({
       await updateDoc(gameDocRef, {
         overallAverageRating: newOverallAverage
       });
-      await revalidateGameDataAction(gameId); 
+      await revalidateGameDataAction(gameId);
     } catch (error) {
       console.error("Error updating game's overall average rating:", error);
     }
@@ -170,9 +171,15 @@ export function MultiStepRatingForm({
     setFormError(null);
     let submissionSuccess = false;
 
+    if (!currentUser) {
+      toast({ title: "Errore", description: "Devi essere loggato per inviare una recensione.", variant: "destructive" });
+      setFormError("Autenticazione richiesta.");
+      return false;
+    }
+
     const ratingData: RatingType = { ...data };
 
-    const reviewDataToSave = {
+    const reviewDataToSave: Omit<Review, 'id'> = {
       author: currentUser.displayName || 'Anonimo',
       userId: currentUser.uid,
       authorPhotoURL: currentUser.photoURL || null,
@@ -218,6 +225,7 @@ export function MultiStepRatingForm({
       }
       submissionSuccess = true;
       await updateGameOverallRating(); 
+      await revalidateGameDataAction(gameId);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
       toast({ title: "Errore", description: `Impossibile inviare la recensione: ${errorMessage}`, variant: "destructive" });
@@ -335,7 +343,7 @@ export function MultiStepRatingForm({
                        Riepilogo Valutazione
                     </CardTitle>
                     {yourOverallAverage !== null && (
-                        <span className="text-primary text-2xl font-bold whitespace-nowrap">
+                        <span className="text-primary text-3xl font-bold whitespace-nowrap">
                             {formatRatingNumber(yourOverallAverage * 2)}
                         </span>
                     )}
@@ -396,7 +404,16 @@ export function MultiStepRatingForm({
             </div>
         )}
 
-        <div className={`flex ${currentStep > 1 && currentStep < totalInputSteps ? 'justify-between' : (currentStep === totalInputSteps ? 'justify-end' : (currentStep === totalDisplaySteps ? 'justify-end' : 'justify-end'))} items-center pt-4 border-t mt-6`}>
+        <div className={`flex ${
+            currentStep > 1 && currentStep < totalInputSteps // Steps 2, 3
+              ? 'justify-between'
+              : currentStep === totalInputSteps // Step 4 (Submit step)
+              ? 'justify-between' 
+              : currentStep === totalDisplaySteps // Step 5 (Summary, only one button)
+              ? 'justify-end'
+              : 'justify-end' // Step 1 (only "Avanti")
+          } items-center pt-4 border-t mt-6`}
+        >
           {currentStep > 1 && currentStep < totalDisplaySteps && ( 
             <Button
               type="button"
@@ -417,11 +434,11 @@ export function MultiStepRatingForm({
               type="button"
               onClick={handleStep4Submit}
               disabled={isSubmitting}
-              className="bg-accent hover:bg-accent/90 text-accent-foreground"
+              className="bg-accent hover:bg-accent/90 text-accent-foreground" // Changed to accent color
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> {existingReview ? 'Aggiornamento...' : 'Invia Recensione...'}
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> {existingReview ? 'Aggiornamento...' : 'Invio Recensione...'}
                 </>
               ) : (
                 existingReview ? 'Aggiorna Recensione' : 'Invia Recensione'
