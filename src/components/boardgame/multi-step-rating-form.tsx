@@ -26,7 +26,6 @@ interface MultiStepRatingFormProps {
   gameId: string;
   gameName: string;
   gameCoverArtUrl?: string;
-  onReviewSubmitted: () => void;
   currentUser: FirebaseUser;
   existingReview?: Review | null;
   currentStep: number;
@@ -63,7 +62,6 @@ const stepUIDescriptions: Record<number, string> = {
   3: "Valuta l'impatto visivo e l'immersione tematica.",
   4: "Quanto è stato facile apprendere e gestire il gioco?",
 };
-
 
 const StepIcon = ({ step }: { step: number }) => {
   if (step > totalInputSteps) return null;
@@ -120,7 +118,6 @@ export function MultiStepRatingForm({
   gameId,
   gameName,
   gameCoverArtUrl,
-  onReviewSubmitted,
   currentUser,
   existingReview,
   currentStep,
@@ -153,7 +150,7 @@ export function MultiStepRatingForm({
 
   useEffect(() => {
     form.reset(defaultFormValues);
-  }, [defaultFormValues, form, currentStep]); // Reset form if existingReview changes or step changes for initial load
+  }, [defaultFormValues, form]);
 
 
   const updateGameOverallRating = async () => {
@@ -184,7 +181,7 @@ export function MultiStepRatingForm({
       const gameDocRef = doc(db, "boardgames_collection", gameId);
       await updateDoc(gameDocRef, {
         overallAverageRating: newOverallAverage,
-        reviewCount: allReviewsForGame.length // Ensure reviewCount is also updated
+        reviewCount: allReviewsForGame.length
       });
       
       await revalidateGameDataAction(gameId);
@@ -325,7 +322,11 @@ export function MultiStepRatingForm({
 
   const handleFinish = () => {
     form.reset(defaultFormValues);
-    onReviewSubmitted();
+    // onReviewSubmitted prop is no longer directly called here by the form.
+    // Navigation is handled by GameRatePage.tsx's "Torna al Gioco" (router.back())
+    // for ultimate flexibility, or a prop from parent could be used if specific nav needed.
+    // For now, this button only resets the form state.
+    // If the user truly wants to navigate away, they'd use the page-level back button.
   };
 
   const getCurrentStepTitle = () => {
@@ -342,57 +343,59 @@ export function MultiStepRatingForm({
     <Form {...form}>
       <form className="space-y-6">
         {currentStep <= totalInputSteps && (
-          <div className="mb-4"> {/* Wrapper for step header area */}
-            <div className="flex justify-between items-start"> {/* Top row for title and image block */}
-              {/* Left part: Step title and step number */}
+          <div className="mb-4">
+            <div className="flex justify-between items-start">
               <div>
                 <h3 className="text-xl font-semibold flex items-center">
                   <StepIcon step={currentStep} />
                   {getCurrentStepTitle()} ({currentStep} di {totalInputSteps})
                 </h3>
-                 {/* Step Description below the title line */}
-                {stepUIDescriptions[currentStep] && (
+                 {stepUIDescriptions[currentStep] && (
                   <p className="text-sm text-muted-foreground mt-1"> 
                     {stepUIDescriptions[currentStep]}
                   </p>
                 )}
               </div>
-              {/* Right part: Game Image and Name (top-right) */}
-              {gameCoverArtUrl && (
-                <div className="ml-4 flex-shrink-0 w-20 text-right">
-                  <div className="relative aspect-[2/3] w-full rounded-sm overflow-hidden shadow-sm mb-1">
-                    <SafeImage
-                      src={gameCoverArtUrl}
-                      alt={`${gameName} copertina`}
-                      fallbackSrc={`https://placehold.co/60x90.png?text=${encodeURIComponent(gameName?.substring(0,3) || 'N/A')}`}
-                      fill
-                      className="object-cover"
-                      sizes="80px"
-                      data-ai-hint="game cover mini"
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground truncate">{gameName}</p>
-                </div>
-              )}
+              {/* Image and game name removed from steps 1-4 header */}
             </div>
           </div>
         )}
 
         {currentStep === totalDisplaySteps && (
             <CardHeader className="px-0 pt-6 pb-4">
-                <div className="flex justify-between items-center mb-1">
-                    <CardTitle className="text-2xl md:text-3xl text-left">
-                       Riepilogo Valutazione
-                    </CardTitle>
-                    {yourOverallAverage !== null && (
+                <div className="flex justify-between items-start mb-2">
+                    <div className="flex-1">
+                        <CardTitle className="text-2xl md:text-3xl text-left">
+                        Riepilogo Valutazione
+                        </CardTitle>
+                        <CardDescription className="text-left text-sm text-muted-foreground mt-1">
+                        La tua recensione è stata salvata. Ecco un riepilogo:
+                        </CardDescription>
+                    </div>
+                    {gameCoverArtUrl && (
+                        <div className="ml-4 flex-shrink-0 w-24 text-right">
+                            <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md mb-1">
+                                <SafeImage
+                                src={gameCoverArtUrl}
+                                alt={`${gameName} copertina`}
+                                fallbackSrc={`https://placehold.co/80x120.png?text=${encodeURIComponent(gameName?.substring(0,3) || 'N/A')}`}
+                                fill
+                                className="object-cover"
+                                sizes="96px"
+                                data-ai-hint="game cover mini"
+                                />
+                            </div>
+                            <p className="text-xs text-muted-foreground truncate">{gameName}</p>
+                        </div>
+                    )}
+                </div>
+                 {yourOverallAverage !== null && (
+                    <div className="text-right -mt-2">
                         <span className="text-primary text-2xl md:text-3xl font-bold whitespace-nowrap">
                             {formatRatingNumber(yourOverallAverage * 2)}
                         </span>
-                    )}
-                </div>
-                <CardDescription className="text-left text-sm text-muted-foreground">
-                  La tua recensione è stata salvata. Ecco un riepilogo:
-                </CardDescription>
+                    </div>
+                )}
             </CardHeader>
         )}
 
@@ -447,12 +450,12 @@ export function MultiStepRatingForm({
         )}
 
         <div className={`flex ${
-           (currentStep > 1 && currentStep < totalDisplaySteps) // Previous button visible for steps 2, 3, 4
+           (currentStep > 1 && currentStep <= totalInputSteps)
             ? 'justify-between'
             : 'justify-end' 
         } items-center pt-4 border-t mt-6`}>
           
-          {(currentStep > 1 && currentStep < totalDisplaySteps) && ( // Show Previous button on steps 2, 3, 4
+          {(currentStep > 1 && currentStep <= totalInputSteps) && (
             <Button
               type="button"
               variant="outline"
@@ -482,10 +485,11 @@ export function MultiStepRatingForm({
           ) : currentStep === totalDisplaySteps ? (
             <Button
                 type="button"
-                onClick={handleFinish}
+                onClick={() => { /* Navigation is handled by page-level button */ }}
                 className="bg-primary hover:bg-primary/90 text-primary-foreground"
             >
-                Termina e Torna al Gioco
+                {/* Button removed as per earlier request, navigation handled by page-level router.back() */}
+                {/* Text could be "Ok" or similar if needed for form reset only */}
             </Button>
           ) : null }
         </div>
@@ -493,3 +497,4 @@ export function MultiStepRatingForm({
     </Form>
   );
 }
+
