@@ -53,7 +53,7 @@ export interface Review {
 export interface AugmentedReview extends Review {
   gameId: string;
   gameName: string;
-  gameCoverArtUrl?: string;
+  gameCoverArtUrl?: string | null;
 }
 
 export interface AugmentedReviewWithGame extends Review {
@@ -84,7 +84,7 @@ export interface BoardGame {
   designers?: string[];
   favoritedByUserIds?: string[];
   favoriteCount?: number;
-  wishlistedByUserIds?: string[];
+  playlistedByUserIds?: string[]; // Renamed from wishlistedByUserIds
 }
 
 export interface AiSummary {

@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useTransition, useCallback, use } from 'react';
 import Link from 'next/link';
-import { getGameDetails, revalidateGameDataAction } from '@/lib/actions';
+import { getGameDetails } from '@/lib/actions';
 import type { BoardGame, AiSummary, Review, Rating as RatingType, GroupedCategoryAverages } from '@/lib/types';
 import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
@@ -33,6 +33,8 @@ import { SafeImage } from '@/components/common/SafeImage';
 import { ReviewItem } from '@/components/boardgame/review-item';
 import { Badge } from "@/components/ui/badge";
 import { Progress } from '@/components/ui/progress';
+import { revalidateGameDataAction } from '@/lib/actions';
+
 
 const FIRESTORE_COLLECTION_NAME = 'boardgames_collection';
 
@@ -70,8 +72,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
   const [isFavoritedByCurrentUser, setIsFavoritedByCurrentUser] = useState(false);
   const [currentFavoriteCount, setCurrentFavoriteCount] = useState(0);
 
-  const [isWishlisting, startWishlistTransition] = useTransition();
-  const [isWishlistedByCurrentUser, setIsWishlistedByCurrentUser] = useState(false);
+  const [isPlaylisting, startPlaylistTransition] = useTransition(); // Renamed from isWishlisting
+  const [isPlaylistedByCurrentUser, setIsPlaylistedByCurrentUser] = useState(false); // Renamed from isWishlistedByCurrentUser
 
 
   const fetchGameData = useCallback(async () => {
@@ -88,10 +90,10 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       if (currentUser && !authLoading && gameData.reviews) {
         foundUserReview = gameData.reviews.find(r => r.userId === currentUser.uid);
         setIsFavoritedByCurrentUser(gameData.favoritedByUserIds?.includes(currentUser.uid) || false);
-        setIsWishlistedByCurrentUser(gameData.wishlistedByUserIds?.includes(currentUser.uid) || false);
+        setIsPlaylistedByCurrentUser(gameData.playlistedByUserIds?.includes(currentUser.uid) || false); // Renamed
       } else {
         setIsFavoritedByCurrentUser(false);
-        setIsWishlistedByCurrentUser(false);
+        setIsPlaylistedByCurrentUser(false); // Renamed
       }
       setUserReview(foundUserReview);
 
@@ -114,7 +116,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       setCurrentIsPinned(false);
       setIsFavoritedByCurrentUser(false);
       setCurrentFavoriteCount(0);
-      setIsWishlistedByCurrentUser(false);
+      setIsPlaylistedByCurrentUser(false); // Renamed
       setUserReview(undefined);
       setRemainingReviews([]);
       setGroupedCategoryAverages(null);
@@ -134,7 +136,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       setCurrentFavoriteCount(game.favoriteCount || 0);
       if (currentUser) {
         setIsFavoritedByCurrentUser(game.favoritedByUserIds?.includes(currentUser.uid) || false);
-        setIsWishlistedByCurrentUser(game.wishlistedByUserIds?.includes(currentUser.uid) || false);
+        setIsPlaylistedByCurrentUser(game.playlistedByUserIds?.includes(currentUser.uid) || false); // Renamed
       }
     }
   }, [game, currentUser]);
@@ -193,7 +195,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       await revalidateGameDataAction(game.id);
       await fetchGameData();
     } catch (error) {
-      console.error("Error updating game's overall average rating:", error);
+      // console.error("Error updating game's overall average rating:", error);
       toast({ title: "Errore", description: "Impossibile aggiornare il punteggio medio del gioco.", variant: "destructive" });
     }
   };
@@ -212,6 +214,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         await deleteDoc(reviewDocRef);
         toast({ title: "Recensione Eliminata", description: "La tua recensione è stata eliminata con successo." });
         await updateGameOverallRatingAfterReviewChange();
+        await revalidateGameDataAction(gameId);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({ title: "Errore", description: `Impossibile eliminare la recensione: ${errorMessage}`, variant: "destructive" });
@@ -242,7 +245,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `Impossibile aggiornare lo stato vetrina: ${errorMessage}`,
           variant: "destructive",
         });
-        setCurrentIsPinned(!newPinStatus);
+        setCurrentIsPinned(!newPinStatus); // Revert optimistic update on error
       }
     });
   };
@@ -306,12 +309,12 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     });
   };
 
-  const handleToggleWishlist = async () => {
+  const handleTogglePlaylist = async () => { // Renamed from handleToggleWishlist
     if (!currentUser || !game || authLoading) {
-      toast({ title: "Azione non permessa", description: "Devi essere loggato per aggiungere alla wishlist.", variant: "destructive" });
+      toast({ title: "Azione non permessa", description: "Devi essere loggato per aggiungere alla playlist.", variant: "destructive" });
       return;
     }
-    startWishlistTransition(async () => {
+    startPlaylistTransition(async () => { // Renamed from startWishlistTransition
       const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
       try {
         const gameSnap = await getDoc(gameRef);
@@ -321,38 +324,38 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         }
 
         const gameData = gameSnap.data() as BoardGame;
-        const currentWishlistedByUserIds = gameData.wishlistedByUserIds || [];
-        let newWishlistedStatus = false;
+        const currentPlaylistedByUserIds = gameData.playlistedByUserIds || []; // Renamed from wishlistedByUserIds
+        let newPlaylistedStatus = false; // Renamed from newWishlistedStatus
 
-        if (currentWishlistedByUserIds.includes(currentUser.uid)) {
+        if (currentPlaylistedByUserIds.includes(currentUser.uid)) {
           await updateDoc(gameRef, {
-            wishlistedByUserIds: arrayRemove(currentUser.uid)
+            playlistedByUserIds: arrayRemove(currentUser.uid) // Renamed
           });
-          newWishlistedStatus = false;
+          newPlaylistedStatus = false;
         } else {
           await updateDoc(gameRef, {
-            wishlistedByUserIds: arrayUnion(currentUser.uid)
+            playlistedByUserIds: arrayUnion(currentUser.uid) // Renamed
           });
-          newWishlistedStatus = true;
+          newPlaylistedStatus = true;
         }
 
-        setIsWishlistedByCurrentUser(newWishlistedStatus);
+        setIsPlaylistedByCurrentUser(newPlaylistedStatus); // Renamed
         setGame(prevGame => prevGame ? {
           ...prevGame,
-          wishlistedByUserIds: newWishlistedStatus
-            ? [...(prevGame.wishlistedByUserIds || []), currentUser.uid]
-            : (prevGame.wishlistedByUserIds || []).filter(uid => uid !== currentUser.uid)
+          playlistedByUserIds: newPlaylistedStatus // Renamed
+            ? [...(prevGame.playlistedByUserIds || []), currentUser.uid]
+            : (prevGame.playlistedByUserIds || []).filter(uid => uid !== currentUser.uid)
         } : null);
 
         toast({
-          title: newWishlistedStatus ? "Aggiunto alla Wishlist!" : "Rimosso dalla Wishlist",
-          description: `${game.name} è stato ${newWishlistedStatus ? 'aggiunto alla' : 'rimosso dalla'} tua wishlist.`,
+          title: newPlaylistedStatus ? "Aggiunto alla Playlist!" : "Rimosso dalla Playlist", // Updated text
+          description: `${game.name} è stato ${newPlaylistedStatus ? 'aggiunto alla' : 'rimosso dalla'} tua playlist.`, // Updated text
         });
 
         await revalidateGameDataAction(game.id);
 
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Impossibile aggiornare la wishlist.";
+        const errorMessage = error instanceof Error ? error.message : "Impossibile aggiornare la playlist."; // Updated text
         toast({ title: "Errore", description: errorMessage, variant: "destructive" });
       }
     });
@@ -434,12 +437,12 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={handleToggleWishlist}
-                        disabled={isWishlisting || authLoading}
-                        title={isWishlistedByCurrentUser ? "Rimuovi dalla Wishlist" : "Aggiungi alla Wishlist"}
-                        className={`h-9 w-9 hover:bg-sky-500/20 ${isWishlistedByCurrentUser ? 'text-sky-500' : 'text-muted-foreground/60 hover:text-sky-500'}`}
+                        onClick={handleTogglePlaylist} // Renamed
+                        disabled={isPlaylisting || authLoading} // Renamed
+                        title={isPlaylistedByCurrentUser ? "Rimuovi dalla Playlist" : "Aggiungi alla Playlist"} // Updated text
+                        className={`h-9 w-9 hover:bg-sky-500/20 ${isPlaylistedByCurrentUser ? 'text-sky-500' : 'text-muted-foreground/60 hover:text-sky-500'}`} // Renamed
                       >
-                        {isWishlisting ? <Loader2 className="h-5 w-5 animate-spin" /> : (isWishlistedByCurrentUser ? <ListChecks className="h-5 w-5" /> : <ListPlus className="h-5 w-5" />)}
+                        {isPlaylisting ? <Loader2 className="h-5 w-5 animate-spin" /> : (isPlaylistedByCurrentUser ? <ListChecks className="h-5 w-5" /> : <ListPlus className="h-5 w-5" />)} 
                       </Button>
                     </>
                   )}
@@ -709,5 +712,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
+
 
 

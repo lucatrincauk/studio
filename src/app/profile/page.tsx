@@ -11,45 +11,45 @@ import { Button } from '@/components/ui/button';
 import { ThemeSwitcher } from '@/components/profile/theme-switcher'; 
 import { Separator } from '@/components/ui/separator';
 import { useState, useEffect } from 'react';
-import { getFavoritedGamesForUserAction, getWishlistedGamesForUserAction } from '@/lib/actions';
+import { getFavoritedGamesForUserAction, getPlaylistedGamesForUserAction } from '@/lib/actions'; // Renamed action
 import { GameCard } from '@/components/boardgame/game-card';
 
 export default function ProfilePage() {
   const { user, loading: authLoading } = useAuth();
   const [favoritedGames, setFavoritedGames] = useState<BoardGame[]>([]);
-  const [wishlistedGames, setWishlistedGames] = useState<BoardGame[]>([]);
+  const [playlistedGames, setPlaylistedGames] = useState<BoardGame[]>([]); // Renamed from wishlistedGames
   const [isLoadingFavorites, setIsLoadingFavorites] = useState(false);
-  const [isLoadingWishlist, setIsLoadingWishlist] = useState(false);
+  const [isLoadingPlaylist, setIsLoadingPlaylist] = useState(false); // Renamed from isLoadingWishlist
 
   useEffect(() => {
     if (user && !authLoading) {
       const fetchUserLists = async () => {
         setIsLoadingFavorites(true);
-        setIsLoadingWishlist(true);
+        setIsLoadingPlaylist(true); // Renamed
         try {
           const favResult = await getFavoritedGamesForUserAction(user.uid);
           setFavoritedGames(favResult);
         } catch (e) {
-          console.error("Failed to fetch favorited games:", e);
+          // console.error("Failed to fetch favorited games:", e);
           setFavoritedGames([]);
         } finally {
           setIsLoadingFavorites(false);
         }
 
         try {
-          const wishResult = await getWishlistedGamesForUserAction(user.uid);
-          setWishlistedGames(wishResult);
+          const playlistResult = await getPlaylistedGamesForUserAction(user.uid); // Renamed action
+          setPlaylistedGames(playlistResult); // Renamed
         } catch (e) {
-          console.error("Failed to fetch wishlisted games:", e);
-          setWishlistedGames([]);
+          // console.error("Failed to fetch playlisted games:", e); // Updated text
+          setPlaylistedGames([]); // Renamed
         } finally {
-          setIsLoadingWishlist(false);
+          setIsLoadingPlaylist(false); // Renamed
         }
       };
       fetchUserLists();
     } else {
       setFavoritedGames([]);
-      setWishlistedGames([]);
+      setPlaylistedGames([]); // Renamed
     }
   }, [user, authLoading]);
 
@@ -123,20 +123,21 @@ export default function ProfilePage() {
       <section>
         <h2 className="text-2xl font-semibold mb-6 text-foreground flex items-center gap-2">
           <ListChecks className="h-6 w-6 text-sky-500" />
-          La Tua Wishlist
+          La Tua Playlist
         </h2>
-        {isLoadingWishlist ? (
+        {isLoadingPlaylist ? ( // Renamed
           <div className="flex justify-center py-4"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
-        ) : wishlistedGames.length > 0 ? (
+        ) : playlistedGames.length > 0 ? ( // Renamed
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {wishlistedGames.map((game, index) => (
+            {playlistedGames.map((game, index) => ( // Renamed
               <GameCard key={game.id} game={game} variant="featured" priority={index < 5} showOverlayText={true} />
             ))}
           </div>
         ) : (
-          <p className="text-muted-foreground">La tua wishlist è vuota.</p>
+          <p className="text-muted-foreground">La tua playlist è vuota.</p> // Updated text
         )}
       </section>
     </div>
   );
 }
+
