@@ -15,7 +15,7 @@ import type { User as FirebaseUser } from 'firebase/auth';
 import { CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Slider } from '@/components/ui/slider';
-import { calculateOverallCategoryAverage, calculateGroupedCategoryAverages, formatRatingNumber } from '@/lib/utils';
+import { calculateOverallCategoryAverage, calculateGroupedCategoryAverages, calculateCategoryAverages } from '@/lib/utils'; // Added calculateCategoryAverages
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, doc, updateDoc, query, where, getDocs, limit, writeBatch, getDoc } from 'firebase/firestore';
@@ -136,30 +136,6 @@ export function MultiStepRatingForm({
   const { toast } = useToast();
   const router = useRouter();
 
-  const defaultFormValues: RatingFormValues = useMemo(() => ({
-    excitedToReplay: existingReview?.rating.excitedToReplay || 3,
-    mentallyStimulating: existingReview?.rating.mentallyStimulating || 3,
-    fun: existingReview?.rating.fun || 3,
-    decisionDepth: existingReview?.rating.decisionDepth || 3,
-    replayability: existingReview?.rating.replayability || 3,
-    luck: existingReview?.rating.luck || 3,
-    lengthDowntime: existingReview?.rating.lengthDowntime || 3,
-    graphicDesign: existingReview?.rating.graphicDesign || 3,
-    componentsThemeLore: existingReview?.rating.componentsThemeLore || 3,
-    effortToLearn: existingReview?.rating.effortToLearn || 3,
-    setupTeardown: existingReview?.rating.setupTeardown || 3,
-  }), [existingReview]);
-
-  const form = useForm<RatingFormValues>({
-    resolver: zodResolver(reviewFormSchema),
-    defaultValues: defaultFormValues,
-    mode: 'onChange', // Validate on change for better UX
-  });
-
-  useEffect(() => {
-    form.reset(defaultFormValues);
-  }, [defaultFormValues, form, currentStep]);
-
   const updateGameOverallRating = async () => {
     try {
       const reviewsCollectionRef = collection(db, "boardgames_collection", gameId, 'reviews');
@@ -198,6 +174,31 @@ export function MultiStepRatingForm({
       toast({ title: "Errore Aggiornamento Punteggio", description: "Impossibile aggiornare il punteggio medio del gioco.", variant: "destructive" });
     }
   };
+
+  const defaultFormValues: RatingFormValues = useMemo(() => ({
+    excitedToReplay: existingReview?.rating.excitedToReplay || 3,
+    mentallyStimulating: existingReview?.rating.mentallyStimulating || 3,
+    fun: existingReview?.rating.fun || 3,
+    decisionDepth: existingReview?.rating.decisionDepth || 3,
+    replayability: existingReview?.rating.replayability || 3,
+    luck: existingReview?.rating.luck || 3,
+    lengthDowntime: existingReview?.rating.lengthDowntime || 3,
+    graphicDesign: existingReview?.rating.graphicDesign || 3,
+    componentsThemeLore: existingReview?.rating.componentsThemeLore || 3,
+    effortToLearn: existingReview?.rating.effortToLearn || 3,
+    setupTeardown: existingReview?.rating.setupTeardown || 3,
+  }), [existingReview]);
+
+  const form = useForm<RatingFormValues>({
+    resolver: zodResolver(reviewFormSchema),
+    defaultValues: defaultFormValues,
+    mode: 'onChange', 
+  });
+
+  useEffect(() => {
+    form.reset(defaultFormValues);
+  }, [defaultFormValues, form, currentStep]);
+
 
   const processSubmitAndStay = async (data: RatingFormValues): Promise<boolean> => {
     setFormError(null);
@@ -340,32 +341,32 @@ export function MultiStepRatingForm({
     if (currentStep === 4) return "Apprendimento e Logistica";
     return "";
   };
-
+  
   const yourOverallAverage = calculateOverallCategoryAverage(form.getValues());
 
   return (
     <Form {...form}>
       <form className="space-y-6">
-        {currentStep <= totalInputSteps && (
+        {(currentStep <= totalInputSteps) && (
           <div className="mb-4">
-            <div className="flex justify-between items-start">
-              <div className="flex-1">
-                <h3 className="text-xl font-semibold flex items-center">
-                  <StepIcon step={currentStep} />
-                  {getCurrentStepTitle()} ({currentStep} di {totalInputSteps})
-                </h3>
-                 {stepUIDescriptions[currentStep] && (
-                  <p className="text-sm text-muted-foreground mt-1"> 
-                    {stepUIDescriptions[currentStep]}
-                  </p>
-                )}
-              </div>
+             <div className="flex justify-between items-start">
+                <div className="flex-1">
+                    <h3 className="text-xl font-semibold flex items-center">
+                    <StepIcon step={currentStep} />
+                    {getCurrentStepTitle()} ({currentStep} di {totalInputSteps})
+                    </h3>
+                    {stepUIDescriptions[currentStep] && (
+                    <p className="text-sm text-muted-foreground mt-1"> 
+                        {stepUIDescriptions[currentStep]}
+                    </p>
+                    )}
+                </div>
             </div>
           </div>
         )}
 
         {currentStep === totalDisplaySteps && (
-            <CardHeader className="px-0 pt-6 pb-4">
+             <CardHeader className="px-0 pt-6 pb-4">
                 <div className="flex justify-between items-start mb-2">
                     <div className="flex-1">
                         <CardTitle className="text-2xl md:text-3xl text-left">
@@ -463,21 +464,21 @@ export function MultiStepRatingForm({
         )}
 
         <div className={`flex ${currentStep === totalDisplaySteps ? 'justify-end' : 'justify-between'} items-center pt-4 border-t mt-6`}>
-          <div> {/* Left-aligned buttons wrapper */}
+          <div>
+            {currentStep === 1 && (
+                 <Button type="button" variant="outline" onClick={() => router.push(`/games/${gameId}`)} disabled={isSubmitting}>
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    Torna al Gioco
+                </Button>
+            )}
             {(currentStep > 1 && currentStep <= totalInputSteps) && (
               <Button type="button" variant="outline" onClick={handlePrevious} disabled={isSubmitting}>
                 Indietro
               </Button>
             )}
-            {currentStep === 1 && (
-              <Button type="button" variant="outline" onClick={() => router.push(`/games/${gameId}`)} disabled={isSubmitting}>
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Torna al Gioco
-              </Button>
-            )}
           </div>
 
-          <div> {/* Right-aligned buttons wrapper */}
+          <div>
             {currentStep < totalInputSteps ? (
               <Button type="button" onClick={handleNext} disabled={isSubmitting} className="bg-primary hover:bg-primary/90 text-primary-foreground">
                 Avanti
@@ -498,5 +499,7 @@ export function MultiStepRatingForm({
     </Form>
   );
 }
+
+    
 
     
