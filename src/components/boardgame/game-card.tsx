@@ -29,7 +29,7 @@ export function GameCard({
 
   if (variant === 'featured') {
     return (
-      <Link href={baseHref} className="block group w-full h-auto">
+      <Link href={baseHref} className="block group w-full h-full">
         <Card className={cn(
           "relative overflow-hidden transition-all duration-300 ease-in-out w-full aspect-[3/4]",
           // Standard card shell styles for all featured cards
