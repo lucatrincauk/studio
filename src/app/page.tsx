@@ -73,11 +73,11 @@ export default async function HomePage() {
                 >
                   <span 
                     aria-hidden="true"
-                    className="absolute -right-2 -bottom-8 sm:-bottom-10 md:-bottom-12 z-0 text-[100px] sm:text-[120px] md:text-[140px] font-bold text-muted-foreground/10 pointer-events-none select-none leading-none"
+                    className="absolute -right-[36px] -bottom-[70px] text-[340px] font-bold text-muted-foreground/10 pointer-events-none select-none leading-none z-0"
                   >
                     {index + 1}
                   </span>
-                  <div className="relative z-10 flex items-center gap-x-3 sm:gap-x-4 flex-grow mr-10 sm:mr-12 md:mr-16"> {/* Added right margin for content */}
+                  <div className="relative z-10 flex items-center gap-x-3 sm:gap-x-4 flex-grow mr-10 sm:mr-12 md:mr-16">
                     <div className="w-24 sm:w-28 md:w-32 flex-shrink-0"> 
                       <GameCard game={game} variant="featured" priority={index < 5} showOverlayText={false} />
                     </div>
