@@ -8,12 +8,14 @@ import type { AugmentedReview, UserProfile, BoardGame } from '@/lib/types';
 import { ReviewItem } from '@/components/boardgame/review-item';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { MessageSquareText, AlertCircle, Gamepad2, UserCircle2, Star, Heart, ListChecks, Loader2 } from 'lucide-react';
+import { MessageSquareText, AlertCircle, Gamepad2, UserCircle2, Star, Heart, ListChecks, Loader2, ExternalLink } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { SafeImage } from '@/components/common/SafeImage';
 import { calculateOverallCategoryAverage, formatRatingNumber } from '@/lib/utils';
 import { GameCard } from '@/components/boardgame/game-card';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
 
 interface UserDetailPageParams {
   userId: string;
@@ -29,6 +31,7 @@ export default function UserDetailPage() {
   const [wishlistedGames, setWishlistedGames] = useState<BoardGame[]>([]);
   
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  const [isLoadingReviews, setIsLoadingReviews] = useState(true); // Added for clarity
   const [isLoadingFavorites, setIsLoadingFavorites] = useState(true);
   const [isLoadingWishlist, setIsLoadingWishlist] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -37,24 +40,26 @@ export default function UserDetailPage() {
     if (!userId) return;
 
     setIsLoadingProfile(true);
+    setIsLoadingReviews(true);
     setIsLoadingFavorites(true);
     setIsLoadingWishlist(true);
     setError(null);
 
     try {
-      const [profileData, favData, wishData] = await Promise.all([
+      const [profileAndReviewsData, favData, wishData] = await Promise.all([
         getUserDetailsAndReviewsAction(userId),
         getFavoritedGamesForUserAction(userId),
         getWishlistedGamesForUserAction(userId)
       ]);
 
-      if (profileData.user) {
-        setViewedUser(profileData.user);
-        setUserReviews(profileData.reviews);
+      if (profileAndReviewsData.user) {
+        setViewedUser(profileAndReviewsData.user);
+        setUserReviews(profileAndReviewsData.reviews);
       } else {
         setError('Utente non trovato.');
       }
       setIsLoadingProfile(false);
+      setIsLoadingReviews(false);
 
       setFavoritedGames(favData);
       setIsLoadingFavorites(false);
@@ -66,6 +71,7 @@ export default function UserDetailPage() {
       console.error("Failed to fetch user data:", e);
       setError('Impossibile caricare i dati dell\'utente.');
       setIsLoadingProfile(false);
+      setIsLoadingReviews(false);
       setIsLoadingFavorites(false);
       setIsLoadingWishlist(false);
     }
@@ -108,7 +114,7 @@ export default function UserDetailPage() {
   if (userReviews && userReviews.length > 0) {
     const totalScoreSum = userReviews.reduce((sum, review) => {
       const overallReviewAvg = calculateOverallCategoryAverage(review.rating);
-      return sum + (overallReviewAvg * 2); // Summing scores on 2-10 scale
+      return sum + (overallReviewAvg * 2); 
     }, 0);
     averageScoreGiven = totalScoreSum / userReviews.length;
   }
@@ -141,54 +147,28 @@ export default function UserDetailPage() {
       </Card>
 
       <Separator />
-
+      
       <section>
-        <h2 className="text-2xl font-semibold mb-6 text-foreground flex items-center gap-3">
+        <h2 className="text-2xl font-semibold mb-4 text-foreground flex items-center gap-3">
           <MessageSquareText className="h-6 w-6 text-primary" />
-          Recensioni di {viewedUser.name}
+          Attività Recensioni
         </h2>
-        {userReviews.length === 0 ? (
+        {isLoadingReviews ? (
+           <div className="flex justify-center py-4"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+        ) : userReviews.length > 0 ? (
+          <Button asChild variant="outline">
+            <Link href={`/users/${userId}/reviews`}>
+              Vedi tutte le {userReviews.length} recensioni di {viewedUser.name} <ExternalLink className="ml-2 h-4 w-4" />
+            </Link>
+          </Button>
+        ) : (
           <Alert variant="default" className="bg-secondary/30 border-secondary">
             <Gamepad2 className="h-4 w-4" />
-            <AlertTitle>Nessuna Recensione Ancora</AlertTitle>
+            <AlertTitle>Nessuna Recensione</AlertTitle>
             <AlertDescription>
               {viewedUser.name} non ha ancora inviato recensioni.
             </AlertDescription>
           </Alert>
-        ) : (
-          <div className="space-y-6">
-            {userReviews.map((review) => {
-              const fallbackGameHeaderSrc = `https://placehold.co/48x64.png?text=${encodeURIComponent(review.gameName?.substring(0,3) || 'N/A')}`;
-              return (
-                <Card key={review.id} className="overflow-hidden shadow-md border border-border rounded-lg">
-                  <CardHeader className="bg-muted/30 p-3">
-                     <div className="flex items-center gap-3 hover:opacity-80 transition-opacity w-full"> {/* Removed Link to avoid nested links */}
-                      <div className="relative h-16 w-12 flex-shrink-0 rounded-sm overflow-hidden shadow-sm">
-                         <SafeImage
-                          src={review.gameCoverArtUrl}
-                          fallbackSrc={fallbackGameHeaderSrc}
-                          alt={`${review.gameName || 'Gioco'} copertina`}
-                          fill
-                          sizes="48px"
-                          className="object-cover"
-                          data-ai-hint={`board game ${review.gameName?.split(' ')[0]?.toLowerCase() || 'mini'}`}
-                        />
-                      </div>
-                      <div className="flex-grow">
-                        <CardTitle className="text-md font-semibold text-primary leading-tight">
-                          {review.gameName}
-                        </CardTitle>
-                         <CardDescription className="text-xs text-muted-foreground">Vedi Dettagli Recensione</CardDescription>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="p-4">
-                    <ReviewItem review={review} />
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
         )}
       </section>
       
@@ -197,7 +177,7 @@ export default function UserDetailPage() {
       <section>
         <h2 className="text-2xl font-semibold mb-6 text-foreground flex items-center gap-2">
           <Heart className="h-6 w-6 text-destructive" />
-          Giochi Preferiti di {viewedUser.name}
+          Giochi Preferiti di {viewedUser.name} ({favoritedGames.length})
         </h2>
         {isLoadingFavorites ? (
           <div className="flex justify-center py-4"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
@@ -217,7 +197,7 @@ export default function UserDetailPage() {
       <section>
         <h2 className="text-2xl font-semibold mb-6 text-foreground flex items-center gap-2">
           <ListChecks className="h-6 w-6 text-sky-500" />
-          Wishlist di {viewedUser.name}
+          Wishlist di {viewedUser.name} ({wishlistedGames.length})
         </h2>
         {isLoadingWishlist ? (
           <div className="flex justify-center py-4"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
