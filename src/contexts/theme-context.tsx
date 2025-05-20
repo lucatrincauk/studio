@@ -4,7 +4,7 @@
 import type { ReactNode } from 'react';
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 
-type Theme = 'light' | 'dark' | 'violet-dream' | 'energetic-coral' | 'forest-mist';
+type Theme = 'light' | 'dark' | 'violet-dream' | 'energetic-coral' | 'forest-mist' | 'forest-mist-dark';
 
 interface ThemeContextType {
   theme: Theme;
@@ -28,7 +28,7 @@ export function ThemeProvider({
     if (typeof window !== 'undefined') {
       try {
         const storedTheme = window.localStorage.getItem(storageKey) as Theme | null;
-        const validThemes: Theme[] = ['light', 'dark', 'violet-dream', 'energetic-coral', 'forest-mist'];
+        const validThemes: Theme[] = ['light', 'dark', 'violet-dream', 'energetic-coral', 'forest-mist', 'forest-mist-dark'];
         if (storedTheme && validThemes.includes(storedTheme)) {
           return storedTheme;
         }
@@ -41,7 +41,7 @@ export function ThemeProvider({
 
   useEffect(() => {
     const root = window.document.documentElement;
-    const allThemeClasses: Theme[] = ['light', 'dark', 'violet-dream', 'energetic-coral', 'forest-mist'];
+    const allThemeClasses: Theme[] = ['light', 'dark', 'violet-dream', 'energetic-coral', 'forest-mist', 'forest-mist-dark'];
     
     // Remove all known theme classes first to ensure a clean state
     allThemeClasses.forEach(cls => {

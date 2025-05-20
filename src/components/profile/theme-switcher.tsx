@@ -24,7 +24,7 @@ export function ThemeSwitcher() {
       <CardContent>
         <RadioGroup
           value={theme}
-          onValueChange={(value) => setTheme(value as 'light' | 'dark' | 'violet-dream' | 'energetic-coral' | 'forest-mist')}
+          onValueChange={(value) => setTheme(value as 'light' | 'dark' | 'violet-dream' | 'energetic-coral' | 'forest-mist' | 'forest-mist-dark')}
           className="space-y-2"
         >
           <div className="flex items-center space-x-2">
@@ -46,6 +46,10 @@ export function ThemeSwitcher() {
           <div className="flex items-center space-x-2">
             <RadioGroupItem value="forest-mist" id="theme-forest-mist" />
             <Label htmlFor="theme-forest-mist" className="cursor-pointer">Nebbia Forestale</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="forest-mist-dark" id="theme-forest-mist-dark" />
+            <Label htmlFor="theme-forest-mist-dark" className="cursor-pointer">Nebbia Forestale (Scuro)</Label>
           </div>
         </RadioGroup>
       </CardContent>

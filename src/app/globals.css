@@ -199,6 +199,45 @@ body {
     --sidebar-border: 205 30% 20%;
     --sidebar-ring: 160 45% 75%; /* Use new lighter accent for sidebar ring */
   }
+
+  .forest-mist-dark {
+    --background: 205 30% 15%; /* #1D2A33 Darker Dark Slate Blue */
+    --foreground: 140 27% 90%; /* #E3EDE9 Light Greenish Gray */
+    --card: 205 30% 20%; /* #243642 Dark Slate Blue (original foreground) */
+    --card-foreground: 140 27% 90%;
+    --popover: 205 30% 20%;
+    --popover-foreground: 140 27% 90%;
+    --primary: 185 39% 45%; /* #4A8A8F Slightly Lighter/Brighter Dark Teal */
+    --primary-foreground: 140 27% 95%; /* #EAF2ED Original forest-mist background */
+    --secondary: 185 25% 35%; /* #42676A Darker Lighter Teal */
+    --secondary-foreground: 140 27% 90%;
+    --muted: 205 30% 25%; /* #2A3B47 Darker Muted */
+    --muted-foreground: 140 27% 70%; /* #A8BEB6 Lighter Muted Foreground */
+    --accent: 160 45% 65%; /* #91D9C8 Slightly less vibrant Accent */
+    --accent-foreground: 205 30% 15%; /* Dark text on accent */
+    --destructive: 0 70% 45%; /* Adjusted destructive */
+    --destructive-foreground: 0 0% 98%;
+    --border: 185 25% 30%; /* #3A5A5D Darker Border */
+    --input: 185 25% 30%;
+    --ring: 185 39% 45%; /* Primary color for focus rings */
+    --radius: 0.5rem;
+
+    --chart-1: 185 39% 45%; /* primary */
+    --chart-2: 160 45% 65%; /* accent */
+    --chart-3: 185 25% 35%; /* secondary */
+    --chart-4: 190 30% 55%; /* adjusted */
+    --chart-5: 150 20% 70%; /* adjusted */
+
+    /* Sidebar variables for forest-mist-dark */
+    --sidebar-background: 205 30% 10%; /* #131C21 Even Darker */
+    --sidebar-foreground: 140 27% 85%; /* #D3E0DC */
+    --sidebar-primary: 160 45% 65%; /* main accent */
+    --sidebar-primary-foreground: 205 30% 15%;
+    --sidebar-accent: 205 30% 15%; /* Darker shade of main background */
+    --sidebar-accent-foreground: 140 27% 85%;
+    --sidebar-border: 205 30% 15%;
+    --sidebar-ring: 160 45% 65%;
+  }
 }
 
 @layer base {

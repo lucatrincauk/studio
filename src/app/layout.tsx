@@ -29,7 +29,7 @@ const NoFlashScript = () => {
   const storageKey = "morchiometro-theme";
   const scriptDefaultTheme = SERVER_DEFAULT_THEME;
   // Ensure this list matches the themes defined in globals.css and ThemeContext
-  const validThemes = ['light', 'dark', 'violet-dream', 'energetic-coral', 'forest-mist'];
+  const validThemes = ['light', 'dark', 'violet-dream', 'energetic-coral', 'forest-mist', 'forest-mist-dark'];
 
   const scriptContent = `
 (function() {
@@ -47,12 +47,12 @@ const NoFlashScript = () => {
 
   // Remove all known theme classes first to ensure a clean state
   localThemes.forEach(function(t) {
-    if (docEl.classList.contains(t)) { // Check before removing
+    if (docEl.classList.contains(t)) { 
         docEl.classList.remove(t);
     }
   });
   // Add the chosen one
-  if (!docEl.classList.contains(themeToApply)) { // Check before adding
+  if (!docEl.classList.contains(themeToApply)) { 
     docEl.classList.add(themeToApply);
   }
 })();
