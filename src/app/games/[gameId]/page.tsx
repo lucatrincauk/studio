@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useTransition, useCallback, use } from 'react';
 import Link from 'next/link';
-import { getGameDetails } from '@/lib/actions'; 
+import { getGameDetails, revalidateGameDataAction } from '@/lib/actions'; 
 import type { BoardGame, AiSummary, Review, Rating as RatingType, GroupedCategoryAverages } from '@/lib/types';
 import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
@@ -18,7 +18,6 @@ import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-di
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { doc, deleteDoc, updateDoc, getDocs, collection, getDoc, arrayUnion, arrayRemove, increment } from 'firebase/firestore'; 
-import { revalidateGameDataAction } from '@/lib/actions';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,7 +33,7 @@ import { SafeImage } from '@/components/common/SafeImage';
 import { ReviewItem } from '@/components/boardgame/review-item';
 import { Badge } from "@/components/ui/badge";
 
-const FIRESTORE_COLLECTION_NAME = 'boardgames_collection'; // Define the constant here
+const FIRESTORE_COLLECTION_NAME = 'boardgames_collection'; 
 
 interface GameDetailPageProps {
   params: Promise<{
@@ -211,7 +210,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         await deleteDoc(reviewDocRef);
         toast({ title: "Recensione Eliminata", description: "La tua recensione è stata eliminata con successo." });
         await updateGameOverallRatingAfterReviewChange(); 
-        await revalidateGameDataAction(gameId);
+        // revalidateGameDataAction is called within updateGameOverallRatingAfterReviewChange
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({ title: "Errore", description: `Impossibile eliminare la recensione: ${errorMessage}`, variant: "destructive" });
@@ -618,7 +617,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             )}
           
            {game.reviews && game.reviews.length > 0 && (
-            <div className="mt-4 space-y-1">
+            <div className="space-y-1"> {/* Removed mt-4 to let parent space-y-8 handle it */}
                 <h3 className="text-lg font-semibold text-foreground mb-3">Valutazione Media:</h3>
                 <GroupedRatingsDisplay
                     groupedAverages={groupedCategoryAverages}
