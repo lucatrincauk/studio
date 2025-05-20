@@ -2,8 +2,10 @@
 import { getAllGamesAction } from '@/lib/actions';
 import { GameCard } from '@/components/boardgame/game-card';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertCircle, Star } from 'lucide-react';
+import { AlertCircle, Star, TrendingUp } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import Link from 'next/link';
+import { formatRatingNumber } from '@/lib/utils';
 
 export default async function Top10Page() {
   const allGames = await getAllGamesAction();
@@ -18,7 +20,7 @@ export default async function Top10Page() {
       <Card className="shadow-lg border border-border rounded-lg">
         <CardHeader>
           <CardTitle className="text-2xl sm:text-3xl flex items-center gap-3">
-            <Star className="h-7 w-7 text-primary" />
+            <TrendingUp className="h-7 w-7 text-primary" />
             Top 10 Giochi Valutati
           </CardTitle>
           <CardDescription>
@@ -35,9 +37,41 @@ export default async function Top10Page() {
               </AlertDescription>
             </Alert>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
+            <div className="space-y-4">
               {topRatedGames.map((game, index) => (
-                <GameCard game={game} key={game.id} variant="featured" priority={index < 4} />
+                <div
+                  key={game.id}
+                  className="relative flex items-center gap-x-3 sm:gap-x-4 p-3 rounded-lg bg-[#f9fbf9] hover:bg-muted/50 transition-colors border border-border overflow-hidden"
+                >
+                  <span
+                    aria-hidden="true"
+                    className="absolute -right-[30px] -bottom-[55px] text-[255px] sm:-right-[30px] sm:-bottom-[65px] sm:text-[300px] lg:-right-[36px] lg:-bottom-[75px] lg:text-[340px] font-bold text-muted-foreground/10 pointer-events-none select-none leading-none z-0"
+                  >
+                    {index + 1}
+                  </span>
+                  <div className="relative z-10 flex items-center gap-x-3 sm:gap-x-4 flex-grow mr-6 sm:mr-8 lg:mr-10">
+                    <div className="w-24 sm:w-28 md:w-32 flex-shrink-0">
+                      <GameCard game={game} variant="featured" priority={index < 5} showOverlayText={false} />
+                    </div>
+                    <div className="flex-grow min-w-0 flex justify-between items-center">
+                      <Link href={`/games/${game.id}`} className="group flex-1">
+                        <h3 className="text-md sm:text-lg font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-3 hover:underline">
+                          {game.name}
+                        </h3>
+                        {game.yearPublished && (
+                          <p className="text-xs sm:text-sm text-muted-foreground">
+                            ({game.yearPublished})
+                          </p>
+                        )}
+                      </Link>
+                      {game.overallAverageRating !== null && typeof game.overallAverageRating === 'number' && (
+                        <p className="text-xl sm:text-2xl font-bold text-primary ml-4 flex-shrink-0">
+                          {formatRatingNumber(game.overallAverageRating * 2)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
               ))}
             </div>
           )}
@@ -48,4 +82,3 @@ export default async function Top10Page() {
 }
 
 export const revalidate = 3600; // Revalidate every hour
-
