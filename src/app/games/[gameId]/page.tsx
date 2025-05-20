@@ -388,7 +388,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
         <div className="flex flex-col md:flex-row">
           <div className="flex-1 p-6 space-y-4 md:order-1">
-            <div className="flex justify-between items-start mb-2">
+             <div className="flex justify-between items-start mb-2">
                 <div className="flex items-center gap-2 flex-1 mr-4">
                   <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">{game.name}</h1>
                   {game.bggId > 0 && (
@@ -446,12 +446,9 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 </div>
                <div className="flex-shrink-0 text-right">
                   {globalGameAverage !== null ? (
-                    <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-full bg-primary flex flex-col items-center justify-center text-primary-foreground shadow-md">
-                      <span className="text-2xl sm:text-3xl font-bold leading-none">
+                     <span className="text-primary text-3xl md:text-4xl font-bold whitespace-nowrap">
                         {formatRatingNumber(globalGameAverage * 2)}
                       </span>
-                      <span className="text-xs -mt-0.5">/10</span>
-                    </div>
                   ) : ("")}
                </div>
             </div>
@@ -712,4 +709,5 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
+
 
