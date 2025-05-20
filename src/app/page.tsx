@@ -3,7 +3,7 @@ import { getFeaturedGamesAction, getAllGamesAction } from '@/lib/actions';
 import { GameCard } from '@/components/boardgame/game-card';
 import { Separator } from '@/components/ui/separator';
 import type { BoardGame } from '@/lib/types';
-import { Star, Edit, TrendingUp, Library, AlertCircle, Info } from 'lucide-react'; 
+import { Star, Edit, TrendingUp, Library, AlertCircle, Info, BarChart3 } from 'lucide-react'; 
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { formatRatingNumber } from '@/lib/utils';
@@ -73,12 +73,12 @@ export default async function HomePage() {
                 >
                   <span 
                     aria-hidden="true"
-                    className="absolute -right-[15px] -bottom-[35px] text-[140px] sm:-right-[20px] sm:-bottom-[50px] sm:text-[220px] lg:-right-[25px] lg:-bottom-[60px] lg:text-[280px] font-bold text-muted-foreground/10 pointer-events-none select-none leading-none z-0"
+                    className="absolute font-bold text-muted-foreground/10 pointer-events-none select-none leading-none z-0 text-[255px] -bottom-[55px] -right-[30px] sm:text-[300px] sm:-bottom-[65px] sm:-right-[30px] lg:text-[340px] lg:-bottom-[75px] lg:-right-[36px]"
                   >
                     {index + 1}
                   </span>
-                  <div className="relative z-10 flex items-center gap-x-3 sm:gap-x-4 flex-grow mr-5 sm:mr-8 lg:mr-10">
-                    <div className="w-24 sm:w-28 md:w-32 flex-shrink-0"> 
+                  <div className="relative z-10 flex items-center gap-x-3 sm:gap-x-4 flex-grow mr-6 sm:mr-8 lg:mr-10">
+                    <div className="w-24 h-32 sm:w-28 sm:h-36 md:w-32 md:h-40 flex-shrink-0"> 
                       <GameCard game={game} variant="featured" priority={index < 5} showOverlayText={false} />
                     </div>
                     <div className="flex-grow min-w-0 flex justify-between items-center">
@@ -129,3 +129,4 @@ export default async function HomePage() {
 }
 
 export const revalidate = 3600;
+
