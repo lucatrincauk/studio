@@ -3,13 +3,13 @@
 
 import { useEffect, useState, useTransition, useCallback, use } from 'react';
 import Link from 'next/link';
-import { getGameDetails, revalidateGameDataAction } from '@/lib/actions'; 
+import { getGameDetails, revalidateGameDataAction } from '@/lib/actions';
 import type { BoardGame, AiSummary, Review, Rating as RatingType, GroupedCategoryAverages } from '@/lib/types';
 import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, Tag, Heart, ListPlus, ListChecks } from 'lucide-react';
+import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, Tag, Heart, ListPlus, ListChecks, BarChart3 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { summarizeReviews } from '@/ai/flows/summarize-reviews';
@@ -17,7 +17,7 @@ import { calculateGroupedCategoryAverages, calculateCategoryAverages, calculateO
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { doc, deleteDoc, updateDoc, getDocs, collection, getDoc, arrayUnion, arrayRemove, increment } from 'firebase/firestore'; 
+import { doc, deleteDoc, updateDoc, getDocs, collection, getDoc, arrayUnion, arrayRemove, increment } from 'firebase/firestore';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,8 +32,9 @@ import {
 import { SafeImage } from '@/components/common/SafeImage';
 import { ReviewItem } from '@/components/boardgame/review-item';
 import { Badge } from "@/components/ui/badge";
+import { Progress } from '@/components/ui/progress';
 
-const FIRESTORE_COLLECTION_NAME = 'boardgames_collection'; 
+const FIRESTORE_COLLECTION_NAME = 'boardgames_collection';
 
 interface GameDetailPageProps {
   params: Promise<{
@@ -58,10 +59,10 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
   const [remainingReviews, setRemainingReviews] = useState<Review[]>([]);
   const [groupedCategoryAverages, setGroupedCategoryAverages] = useState<GroupedCategoryAverages | null>(null);
   const [globalGameAverage, setGlobalGameAverage] = useState<number | null>(null);
-  
+
   const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false);
   const [isDeletingReview, startDeleteReviewTransition] = useTransition();
-  
+
   const [isPinToggling, startPinToggleTransition] = useTransition();
   const [currentIsPinned, setCurrentIsPinned] = useState(false);
 
@@ -82,7 +83,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     if (gameData) {
       setCurrentIsPinned(gameData.isPinned || false);
       setCurrentFavoriteCount(gameData.favoriteCount || 0);
-      
+
       let foundUserReview: Review | undefined = undefined;
       if (currentUser && !authLoading && gameData.reviews) {
         foundUserReview = gameData.reviews.find(r => r.userId === currentUser.uid);
@@ -93,15 +94,15 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         setIsWishlistedByCurrentUser(false);
       }
       setUserReview(foundUserReview);
-      
+
       setRemainingReviews(gameData.reviews?.filter(r => r.id !== foundUserReview?.id) || []);
-      
+
       if (gameData.overallAverageRating !== undefined && gameData.overallAverageRating !== null) {
         setGlobalGameAverage(gameData.overallAverageRating);
       } else {
         setGlobalGameAverage(null);
       }
-      
+
       if (gameData.reviews && gameData.reviews.length > 0) {
         setGroupedCategoryAverages(calculateGroupedCategoryAverages(gameData.reviews));
       } else {
@@ -182,14 +183,14 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
       const categoryAvgs = calculateCategoryAverages(allReviewsForGame);
       const newOverallAverage = categoryAvgs ? calculateOverallCategoryAverage(categoryAvgs) : null;
-      
+
       const gameDocRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
       await updateDoc(gameDocRef, {
         overallAverageRating: newOverallAverage,
         reviewCount: allReviewsForGame.length
       });
       await revalidateGameDataAction(game.id);
-      await fetchGameData(); 
+      await fetchGameData();
     } catch (error) {
       console.error("Error updating game's overall average rating:", error);
       toast({ title: "Errore", description: "Impossibile aggiornare il punteggio medio del gioco.", variant: "destructive" });
@@ -209,8 +210,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         const reviewDocRef = doc(db, FIRESTORE_COLLECTION_NAME, gameId, 'reviews', userReview.id);
         await deleteDoc(reviewDocRef);
         toast({ title: "Recensione Eliminata", description: "La tua recensione è stata eliminata con successo." });
-        await updateGameOverallRatingAfterReviewChange(); 
-        // revalidateGameDataAction is called within updateGameOverallRatingAfterReviewChange
+        await updateGameOverallRatingAfterReviewChange();
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({ title: "Errore", description: `Impossibile eliminare la recensione: ${errorMessage}`, variant: "destructive" });
@@ -227,12 +227,12 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         await updateDoc(gameRef, {
           isPinned: newPinStatus
         });
-        setCurrentIsPinned(newPinStatus); 
+        setCurrentIsPinned(newPinStatus);
         toast({
           title: "Stato Vetrina Aggiornato",
           description: `Il gioco è stato ${newPinStatus ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
         });
-        await revalidateGameDataAction(game.id); 
+        await revalidateGameDataAction(game.id);
         setGame(prevGame => prevGame ? { ...prevGame, isPinned: newPinStatus } : null);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
@@ -241,7 +241,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `Impossibile aggiornare lo stato vetrina: ${errorMessage}`,
           variant: "destructive",
         });
-        setCurrentIsPinned(!newPinStatus); 
+        setCurrentIsPinned(!newPinStatus);
       }
     });
   };
@@ -266,7 +266,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         let newFavoritedStatus = false;
 
         if (currentFavoritedByUserIds.includes(currentUser.uid)) {
-          // Unfavorite
           await updateDoc(gameRef, {
             favoritedByUserIds: arrayRemove(currentUser.uid),
             favoriteCount: increment(-1)
@@ -274,7 +273,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           newFavoriteCount = Math.max(0, newFavoriteCount - 1);
           newFavoritedStatus = false;
         } else {
-          // Favorite
           await updateDoc(gameRef, {
             favoritedByUserIds: arrayUnion(currentUser.uid),
             favoriteCount: increment(1)
@@ -285,8 +283,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
         setIsFavoritedByCurrentUser(newFavoritedStatus);
         setCurrentFavoriteCount(newFavoriteCount);
-        setGame(prevGame => prevGame ? { 
-          ...prevGame, 
+        setGame(prevGame => prevGame ? {
+          ...prevGame,
           favoriteCount: newFavoriteCount,
           favoritedByUserIds: newFavoritedStatus
             ? [...(prevGame.favoritedByUserIds || []), currentUser.uid]
@@ -297,7 +295,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           title: newFavoritedStatus ? "Aggiunto ai Preferiti!" : "Rimosso dai Preferiti",
           description: `${game.name} è stato ${newFavoritedStatus ? 'aggiunto ai' : 'rimosso dai'} tuoi preferiti.`,
         });
-        
+
         await revalidateGameDataAction(game.id);
 
       } catch (error) {
@@ -326,13 +324,11 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         let newWishlistedStatus = false;
 
         if (currentWishlistedByUserIds.includes(currentUser.uid)) {
-          // Remove from wishlist
           await updateDoc(gameRef, {
             wishlistedByUserIds: arrayRemove(currentUser.uid)
           });
           newWishlistedStatus = false;
         } else {
-          // Add to wishlist
           await updateDoc(gameRef, {
             wishlistedByUserIds: arrayUnion(currentUser.uid)
           });
@@ -340,8 +336,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         }
 
         setIsWishlistedByCurrentUser(newWishlistedStatus);
-        setGame(prevGame => prevGame ? { 
-          ...prevGame, 
+        setGame(prevGame => prevGame ? {
+          ...prevGame,
           wishlistedByUserIds: newWishlistedStatus
             ? [...(prevGame.wishlistedByUserIds || []), currentUser.uid]
             : (prevGame.wishlistedByUserIds || []).filter(uid => uid !== currentUser.uid)
@@ -351,7 +347,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           title: newWishlistedStatus ? "Aggiunto alla Wishlist!" : "Rimosso dalla Wishlist",
           description: `${game.name} è stato ${newWishlistedStatus ? 'aggiunto alla' : 'rimosso dalla'} tua wishlist.`,
         });
-        
+
         await revalidateGameDataAction(game.id);
 
       } catch (error) {
@@ -382,7 +378,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       </Alert>
     );
   }
-  
+
   const fallbackSrc = `https://placehold.co/400x600.png?text=${encodeURIComponent(game.name?.substring(0,10) || 'N/A')}`;
   const hasDataForSection = (arr?: string[]) => arr && arr.length > 0;
 
@@ -390,7 +386,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     <div className="space-y-10">
       <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
         <div className="flex flex-col md:flex-row">
-          <div className="flex-1 p-6 space-y-4 md:order-1"> 
+          <div className="flex-1 p-6 space-y-4 md:order-1">
             <div className="flex justify-between items-start mb-2">
                 <div className="flex items-center gap-2 flex-1 mr-4">
                   <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">{game.name}</h1>
@@ -447,11 +443,18 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                     </>
                   )}
                 </div>
-               <span className="text-primary text-3xl font-bold">
-                  {globalGameAverage !== null ? formatRatingNumber(globalGameAverage * 2) : ""}
-               </span>
+               <div className="flex-shrink-0 text-right">
+                  {globalGameAverage !== null ? (
+                    <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-full bg-primary flex flex-col items-center justify-center text-primary-foreground shadow-md">
+                      <span className="text-2xl sm:text-3xl font-bold leading-none">
+                        {formatRatingNumber(globalGameAverage * 2)}
+                      </span>
+                      <span className="text-xs -mt-0.5">/10</span>
+                    </div>
+                  ) : ("")}
+               </div>
             </div>
-            
+
             <div className="md:hidden my-4 max-w-[240px] mx-auto">
               <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
                 <SafeImage
@@ -466,7 +469,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 />
               </div>
             </div>
-            
+
             <div className="text-sm text-muted-foreground space-y-1.5 pt-1 grid grid-cols-2 gap-x-4 gap-y-2">
               {game.yearPublished != null && (
                 <div className="flex items-center gap-2">
@@ -487,7 +490,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                   <Clock size={16} className="text-primary/80" />
                   <span className="hidden sm:inline">Durata:</span>
                   <span>
-                    {game.minPlaytime != null && game.maxPlaytime != null ? 
+                    {game.minPlaytime != null && game.maxPlaytime != null ?
                       (game.minPlaytime === game.maxPlaytime ? `${game.minPlaytime} min` : `${game.minPlaytime} - ${game.maxPlaytime} min`)
                       : (game.playingTime != null ? `${game.playingTime} min` : 'N/D')
                     }
@@ -526,9 +529,21 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 )}
               </div>
             )}
+
+            {game.reviews && game.reviews.length > 0 && (
+              <div className="space-y-1 pt-4 border-t border-border">
+                <h3 className="text-lg font-semibold text-foreground mb-3">Valutazione Media:</h3>
+                <GroupedRatingsDisplay
+                    groupedAverages={groupedCategoryAverages}
+                    noRatingsMessage="Nessuna valutazione per calcolare le medie."
+                    isLoading={isLoadingGame}
+                    defaultOpenSections={['Sentimento']}
+                />
+              </div>
+            )}
           </div>
 
-          <div className="hidden md:block md:w-1/4 p-6 flex-shrink-0 self-start md:order-2"> 
+          <div className="hidden md:block md:w-1/4 p-6 flex-shrink-0 self-start md:order-2">
             <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
               <SafeImage
                 src={game.coverArtUrl}
@@ -591,7 +606,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
               <ReviewItem review={userReview} />
             </div>
           )}
-          
+
           {currentUser && !authLoading && !userReview && (
             <Card className="p-6 border border-border rounded-lg shadow-md bg-card">
               <CardTitle className="text-xl font-semibold text-foreground mb-1">Condividi la Tua Opinione</CardTitle>
@@ -615,19 +630,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                     </AlertDescription>
                   </Alert>
             )}
-          
-           {game.reviews && game.reviews.length > 0 && (
-            <div className="space-y-1"> {/* Removed mt-4 to let parent space-y-8 handle it */}
-                <h3 className="text-lg font-semibold text-foreground mb-3">Valutazione Media:</h3>
-                <GroupedRatingsDisplay
-                    groupedAverages={groupedCategoryAverages}
-                    noRatingsMessage="Nessuna valutazione per calcolare le medie."
-                    isLoading={isLoadingGame}
-                    defaultOpenSections={['Sentimento']}
-                />
-            </div>
-            )}
-          
+
+
            {remainingReviews.length > 0 ? (
              <div>
               <Separator className="my-6" />
