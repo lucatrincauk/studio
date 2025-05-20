@@ -163,20 +163,23 @@ export default function UserDetailPage() {
           <div className="space-y-4">
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
               {reviewsPreview.map((review, index) => {
-                const gameForCard: Partial<BoardGame> = {
+                const gameForCard: BoardGame = {
                   id: review.gameId,
-                  name: review.gameName,
-                  coverArtUrl: review.gameCoverArtUrl,
+                  name: review.gameName || "Gioco Sconosciuto",
+                  coverArtUrl: review.gameCoverArtUrl || '',
+                  bggId: 0, // Not strictly needed for GameCard featured variant if linking externally
+                  reviews: [],
                   overallAverageRating: calculateOverallCategoryAverage(review.rating), // User's score for this review
-                  // bggId and yearPublished could be added if available on AugmentedReview and needed by GameCard variant
                 };
+                const reviewDetailHref = `/games/${review.gameId}/reviews/${review.id}`;
                 return (
                   <GameCard 
                     key={review.id} 
-                    game={gameForCard as BoardGame} // Cast as BoardGame, ensure required props are present
+                    game={gameForCard}
                     variant="featured" 
                     priority={index < 3} 
-                    showOverlayText={true} 
+                    showOverlayText={true}
+                    overrideHref={reviewDetailHref} 
                   />
                 );
               })}
@@ -242,6 +245,3 @@ export default function UserDetailPage() {
     </div>
   );
 }
-
-
-    

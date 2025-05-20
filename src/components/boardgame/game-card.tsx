@@ -14,6 +14,7 @@ interface GameCardProps {
   priority?: boolean;
   linkTarget?: 'detail' | 'rate';
   showOverlayText?: boolean;
+  overrideHref?: string; // New prop for overriding the link
 }
 
 export function GameCard({
@@ -22,19 +23,19 @@ export function GameCard({
   priority = false,
   linkTarget = 'detail',
   showOverlayText = true,
+  overrideHref, // Destructure the new prop
 }: GameCardProps) {
   const fallbackSrc = `https://placehold.co/200x300.png?text=${encodeURIComponent(game.name?.substring(0,10) || 'N/A')}`;
   
   const baseHref = linkTarget === 'rate' ? `/games/${game.id}/rate` : `/games/${game.id}`;
+  const finalHref = overrideHref || baseHref; // Use overrideHref if provided
 
   if (variant === 'featured') {
     return (
-      <Link href={baseHref} className="block group w-full h-full">
+      <Link href={finalHref} className="block group w-full h-full">
         <Card className={cn(
           "relative overflow-hidden transition-all duration-300 ease-in-out w-full aspect-[3/4]",
-          // Standard card shell styles for all featured cards
           "shadow-lg hover:shadow-xl rounded-lg border border-border group-hover:border-primary/50",
-          // Conditional background for Top 10 cards (featured, no overlay text)
           !showOverlayText && "bg-[#f9fbf9]"
         )}>
           <SafeImage
@@ -44,17 +45,18 @@ export function GameCard({
             fill
             className={cn(
               "object-cover group-hover:scale-105 transition-transform duration-300",
-              "rounded-lg" // Consistent rounding for the image to match the card
+              "rounded-lg"
             )}
             data-ai-hint={game.name ? `board game ${game.name.split(' ')[0]?.toLowerCase()}` : 'board game thumbnail'}
             priority={priority}
             sizes={!showOverlayText ? "(max-width: 639px) 33vw, (max-width: 767px) 25vw, 128px" : "(max-width: 767px) 160px, 33vw"}
           />
-          {showOverlayText && ( // Overlay only rendered if showOverlayText is true
+          {showOverlayText && (
             <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/60 via-black/25 to-transparent p-2 sm:p-3">
               <div className="flex justify-between items-end">
                 <h3 className="text-primary-foreground font-semibold text-base leading-tight drop-shadow-sm line-clamp-2 mr-1">
                   {game.name}
+                  {game.yearPublished && ` (${game.yearPublished})`}
                 </h3>
                 {game.overallAverageRating !== null && typeof game.overallAverageRating === 'number' && (
                   <p className="text-lg font-bold text-accent drop-shadow-sm whitespace-nowrap">
@@ -69,27 +71,29 @@ export function GameCard({
     );
   }
 
-  // Default variant (for tables typically)
+  // Default variant
   return (
     <Card className="flex flex-row overflow-hidden shadow-lg transition-all duration-300 ease-in-out hover:shadow-xl rounded-lg border border-border hover:border-primary/50 h-40 md:h-44">
       <div className="relative w-1/3 md:w-2/5 h-full flex-shrink-0">
-        <SafeImage
-          src={game.coverArtUrl}
-          alt={`${game.name || 'Gioco'} copertina`}
-          fallbackSrc={fallbackSrc}
-          fill
-          sizes="(max-width: 767px) 33vw, 40vw"
-          className="object-cover rounded-l-lg"
-          data-ai-hint={`board game ${game.name?.split(' ')[0]?.toLowerCase() || 'generic'}`}
-          priority={priority}
-        />
+        <Link href={`/games/${game.id}`} className="block w-full h-full">
+            <SafeImage
+            src={game.coverArtUrl}
+            alt={`${game.name || 'Gioco'} copertina`}
+            fallbackSrc={fallbackSrc}
+            fill
+            sizes="(max-width: 767px) 33vw, 40vw"
+            className="object-cover rounded-l-lg"
+            data-ai-hint={`board game ${game.name?.split(' ')[0]?.toLowerCase() || 'generic'}`}
+            priority={priority}
+            />
+        </Link>
       </div>
 
       <div className="flex flex-col flex-grow p-3 sm:p-4 justify-between overflow-y-auto">
         <div>
           <div className="flex justify-between items-start mb-1.5">
             <CardTitle className="text-base sm:text-lg leading-tight font-semibold group-hover:text-primary transition-colors flex-1 mr-2">
-              <Link href={baseHref} className="hover:underline focus:outline-none focus:ring-2 focus:ring-ring rounded">
+              <Link href={`/games/${game.id}`} className="hover:underline focus:outline-none focus:ring-2 focus:ring-ring rounded">
                 {game.name}
                 {game.yearPublished && ` (${game.yearPublished})`}
               </Link>
