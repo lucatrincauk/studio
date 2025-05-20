@@ -21,7 +21,7 @@ export function GameCard({
   variant = 'default', 
   priority = false, 
   linkTarget = 'detail',
-  showOverlayText = true
+  showOverlayText = true // Default to true
 }: GameCardProps) {
   const fallbackSrc = `https://placehold.co/200x300.png?text=${encodeURIComponent(game.name?.substring(0,10) || 'N/A')}`;
   
@@ -32,9 +32,10 @@ export function GameCard({
       <Link href={baseHref} className="block group w-full h-auto">
         <Card className={cn(
           "relative overflow-hidden transition-all duration-300 ease-in-out w-full aspect-[3/4]",
-          showOverlayText 
-            ? "shadow-lg hover:shadow-xl rounded-lg border border-border group-hover:border-primary/50" 
-            : "bg-transparent border-transparent shadow-none" // Only image visible
+          // Standard card shell styles for all featured cards
+          "shadow-lg hover:shadow-xl rounded-lg border border-border group-hover:border-primary/50",
+          // Conditional background for Top 10 cards (featured, no overlay text)
+          !showOverlayText && "bg-[#f9fbf9]" 
         )}>
           <SafeImage
             src={game.coverArtUrl}
@@ -43,13 +44,13 @@ export function GameCard({
             fill
             className={cn(
               "object-cover group-hover:scale-105 transition-transform duration-300",
-              showOverlayText ? "rounded-lg" : "rounded-md" // slightly different rounding if no card box
+              "rounded-lg" // Consistent rounding for the image to match the card
             )}
             data-ai-hint="board game cover"
             priority={priority}
-            sizes="(max-width: 767px) 160px, 33vw" 
+            sizes={!showOverlayText ? "(max-width: 639px) 33vw, (max-width: 767px) 25vw, 128px" : "(max-width: 767px) 160px, 33vw"}
           />
-          {showOverlayText && (
+          {showOverlayText && ( // Overlay only rendered if showOverlayText is true
             <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/60 via-black/25 to-transparent p-2 sm:p-3">
               <div className="flex justify-between items-end">
                 <h3 className="text-primary-foreground font-semibold text-base leading-tight drop-shadow-sm line-clamp-2 mr-1">
