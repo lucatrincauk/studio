@@ -14,7 +14,7 @@ interface GameCardProps {
   priority?: boolean;
   linkTarget?: 'detail' | 'rate';
   showOverlayText?: boolean;
-  overrideHref?: string; // New prop for overriding the link
+  overrideHref?: string;
 }
 
 export function GameCard({
@@ -23,12 +23,12 @@ export function GameCard({
   priority = false,
   linkTarget = 'detail',
   showOverlayText = true,
-  overrideHref, // Destructure the new prop
+  overrideHref,
 }: GameCardProps) {
   const fallbackSrc = `https://placehold.co/200x300.png?text=${encodeURIComponent(game.name?.substring(0,10) || 'N/A')}`;
   
   const baseHref = linkTarget === 'rate' ? `/games/${game.id}/rate` : `/games/${game.id}`;
-  const finalHref = overrideHref || baseHref; // Use overrideHref if provided
+  const finalHref = overrideHref || baseHref;
 
   if (variant === 'featured') {
     return (
@@ -49,17 +49,16 @@ export function GameCard({
             )}
             data-ai-hint={game.name ? `board game ${game.name.split(' ')[0]?.toLowerCase()}` : 'board game thumbnail'}
             priority={priority}
-            sizes={!showOverlayText ? "(max-width: 639px) 33vw, (max-width: 767px) 25vw, 128px" : "(max-width: 767px) 160px, 33vw"}
+            sizes={!showOverlayText ? "(max-width: 767px) 160px, 33vw" : "(max-width: 767px) 50vw, 33vw"}
           />
           {showOverlayText && (
             <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/60 via-black/25 to-transparent p-2 sm:p-3">
               <div className="flex justify-between items-end">
                 <h3 className="text-primary-foreground font-semibold text-base leading-tight drop-shadow-sm line-clamp-2 mr-1">
                   {game.name}
-                  {game.yearPublished && ` (${game.yearPublished})`}
                 </h3>
                 {game.overallAverageRating !== null && typeof game.overallAverageRating === 'number' && (
-                  <p className="text-lg font-bold text-accent drop-shadow-sm whitespace-nowrap">
+                  <p className="text-lg font-bold text-primary-foreground drop-shadow-sm whitespace-nowrap">
                     {formatRatingNumber(game.overallAverageRating * 2)}
                   </p>
                 )}
