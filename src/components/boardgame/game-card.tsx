@@ -16,12 +16,12 @@ interface GameCardProps {
   showOverlayText?: boolean;
 }
 
-export function GameCard({ 
-  game, 
-  variant = 'default', 
-  priority = false, 
+export function GameCard({
+  game,
+  variant = 'default',
+  priority = false,
   linkTarget = 'detail',
-  showOverlayText = true // Default to true
+  showOverlayText = true,
 }: GameCardProps) {
   const fallbackSrc = `https://placehold.co/200x300.png?text=${encodeURIComponent(game.name?.substring(0,10) || 'N/A')}`;
   
@@ -35,7 +35,7 @@ export function GameCard({
           // Standard card shell styles for all featured cards
           "shadow-lg hover:shadow-xl rounded-lg border border-border group-hover:border-primary/50",
           // Conditional background for Top 10 cards (featured, no overlay text)
-          !showOverlayText && "bg-[#f9fbf9]" 
+          !showOverlayText && "bg-[#f9fbf9]"
         )}>
           <SafeImage
             src={game.coverArtUrl}
@@ -46,7 +46,7 @@ export function GameCard({
               "object-cover group-hover:scale-105 transition-transform duration-300",
               "rounded-lg" // Consistent rounding for the image to match the card
             )}
-            data-ai-hint="board game cover"
+            data-ai-hint={game.name ? `board game ${game.name.split(' ')[0]?.toLowerCase()}` : 'board game thumbnail'}
             priority={priority}
             sizes={!showOverlayText ? "(max-width: 639px) 33vw, (max-width: 767px) 25vw, 128px" : "(max-width: 767px) 160px, 33vw"}
           />
@@ -78,7 +78,7 @@ export function GameCard({
           alt={`${game.name || 'Gioco'} copertina`}
           fallbackSrc={fallbackSrc}
           fill
-          sizes="(max-width: 767px) 33vw, 40vw" 
+          sizes="(max-width: 767px) 33vw, 40vw"
           className="object-cover rounded-l-lg"
           data-ai-hint={`board game ${game.name?.split(' ')[0]?.toLowerCase() || 'generic'}`}
           priority={priority}
@@ -96,7 +96,7 @@ export function GameCard({
             </CardTitle>
             {game.overallAverageRating !== null && typeof game.overallAverageRating === 'number' && (
               <div className="text-lg sm:text-xl font-bold text-primary flex items-center gap-1 flex-shrink-0">
-                <Star className="h-4 w-4 text-accent fill-accent" /> 
+                <Star className="h-4 w-4 text-accent fill-accent" />
                 {formatRatingNumber((game.overallAverageRating ?? 0) * 2)}
               </div>
             )}
