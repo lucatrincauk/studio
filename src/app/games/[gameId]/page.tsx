@@ -34,6 +34,7 @@ import { SafeImage } from '@/components/common/SafeImage';
 import { ReviewItem } from '@/components/boardgame/review-item';
 import { Badge } from "@/components/ui/badge";
 
+const FIRESTORE_COLLECTION_NAME = 'boardgames_collection'; // Define the constant here
 
 interface GameDetailPageProps {
   params: Promise<{
@@ -210,6 +211,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         await deleteDoc(reviewDocRef);
         toast({ title: "Recensione Eliminata", description: "La tua recensione è stata eliminata con successo." });
         await updateGameOverallRatingAfterReviewChange(); 
+        await revalidateGameDataAction(gameId);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({ title: "Errore", description: `Impossibile eliminare la recensione: ${errorMessage}`, variant: "destructive" });
@@ -706,3 +708,4 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
+
