@@ -20,10 +20,12 @@ import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-di
 import { db } from '@/lib/firebase';
 import { collection, addDoc, doc, updateDoc, query, where, getDocs, limit, writeBatch, getDoc } from 'firebase/firestore';
 import { revalidateGameDataAction } from '@/lib/actions';
+import { SafeImage } from '@/components/common/SafeImage';
 
 interface MultiStepRatingFormProps {
   gameId: string;
-  gameName: string; 
+  gameName: string;
+  gameCoverArtUrl?: string;
   onReviewSubmitted: () => void;
   currentUser: FirebaseUser;
   existingReview?: Review | null;
@@ -54,6 +56,14 @@ const categoryDescriptions: Record<RatingCategory, string> = {
   effortToLearn: "Quanto è facile o difficile capire le regole e iniziare a giocare?",
   setupTeardown: "Quanto è veloce e semplice preparare il gioco e rimetterlo a posto?",
 };
+
+const stepUIDescriptions: Record<number, string> = {
+  1: "Valuta il tuo sentimento generale riguardo al gioco.", // This is handled by the parent page for step 1
+  2: "Come giudichi gli aspetti legati al design del gioco?",
+  3: "Valuta l'impatto visivo e l'immersione tematica.",
+  4: "Quanto è stato facile apprendere e gestire il gioco?",
+};
+
 
 const StepIcon = ({ step }: { step: number }) => {
   if (step > totalInputSteps) return null;
@@ -109,6 +119,7 @@ const RatingSliderInput: React.FC<RatingSliderInputProps> = ({ fieldName, contro
 export function MultiStepRatingForm({
   gameId,
   gameName,
+  gameCoverArtUrl,
   onReviewSubmitted,
   currentUser,
   existingReview,
@@ -142,7 +153,7 @@ export function MultiStepRatingForm({
 
   useEffect(() => {
     form.reset(defaultFormValues);
-  }, [defaultFormValues, form, currentStep]); // Reset form if existingReview changes or on first step
+  }, [defaultFormValues, form]);
 
 
   const updateGameOverallRating = async () => {
@@ -178,6 +189,7 @@ export function MultiStepRatingForm({
       
       await revalidateGameDataAction(gameId);
     } catch (error) {
+      console.error("Errore Aggiornamento Punteggio Medio Gioco:", error);
       toast({ title: "Errore Aggiornamento Punteggio", description: "Impossibile aggiornare il punteggio medio del gioco.", variant: "destructive" });
     }
   };
@@ -193,15 +205,15 @@ export function MultiStepRatingForm({
     }
 
     const ratingData: RatingType = { ...data };
-    const reviewDataToSave: Omit<Review, 'id' | 'author'> = {
+    const reviewDataToSave: Omit<Review, 'id'> = {
       userId: currentUser.uid,
+      author: currentUser.displayName || 'Anonimo',
       authorPhotoURL: currentUser.photoURL || null,
       rating: ratingData,
       comment: "", 
       date: new Date().toISOString(),
     };
-    const authorName = currentUser.displayName || 'Anonimo';
-
+    
     try {
       const gameDocRef = doc(db, "boardgames_collection", gameId);
       const gameDocSnap = await getDoc(gameDocRef);
@@ -222,7 +234,7 @@ export function MultiStepRatingForm({
            setFormError("Recensione non trovata o non hai i permessi per modificarla.");
            return false;
         }
-        await updateDoc(reviewDocRef, {...reviewDataToSave, author: authorName});
+        await updateDoc(reviewDocRef, reviewDataToSave);
         toast({ title: "Successo!", description: "Recensione aggiornata con successo!", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
       } else {
         const existingReviewQuery = query(reviewsCollectionRef, where("userId", "==", currentUser.uid), limit(1));
@@ -230,10 +242,10 @@ export function MultiStepRatingForm({
 
         if (!existingReviewSnapshot.empty) {
            const reviewToUpdateRef = existingReviewSnapshot.docs[0].ref;
-           await updateDoc(reviewToUpdateRef, {...reviewDataToSave, author: authorName});
+           await updateDoc(reviewToUpdateRef, reviewDataToSave);
            toast({ title: "Aggiornato!", description: "La tua recensione esistente è stata aggiornata.", variant: "default", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
         } else {
-          await addDoc(reviewsCollectionRef, {...reviewDataToSave, author: authorName});
+          await addDoc(reviewsCollectionRef, reviewDataToSave);
           toast({ title: "Successo!", description: "Recensione inviata con successo!", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
         }
       }
@@ -294,7 +306,7 @@ export function MultiStepRatingForm({
             userId: currentUser.uid,
             authorPhotoURL: currentUser.photoURL || null,
             rating: currentRatings,
-            comment: '',
+            comment: '', // Comment is empty
             date: existingReview?.date || new Date().toISOString(),
           };
           setGroupedAveragesForSummary(calculateGroupedCategoryAverages([tempReviewForSummary]));
@@ -329,17 +341,40 @@ export function MultiStepRatingForm({
   return (
     <Form {...form}>
       <form className="space-y-6">
-        {currentStep <= totalInputSteps && ( 
-          <div className="mb-4">
-            <h3 className="text-xl font-semibold flex items-center">
-              <StepIcon step={currentStep} />
-              {getCurrentStepTitle()} ({currentStep} di {totalInputSteps}) - {gameName}
-            </h3>
+        {currentStep <= totalInputSteps && (
+          <div className="mb-4 flex justify-between items-start">
+            <div>
+              <h3 className="text-xl font-semibold flex items-center">
+                <StepIcon step={currentStep} />
+                {getCurrentStepTitle()} ({currentStep} di {totalInputSteps}) - {gameName}
+              </h3>
+              {currentStep > 1 && stepUIDescriptions[currentStep] && (
+                 <p className="text-sm text-muted-foreground mt-1">
+                    {stepUIDescriptions[currentStep]}
+                  </p>
+              )}
+            </div>
+            {gameCoverArtUrl && (
+              <div className="ml-4 flex-shrink-0 w-20 text-right">
+                <div className="relative aspect-[2/3] w-full rounded-sm overflow-hidden shadow-sm mb-1">
+                  <SafeImage
+                    src={gameCoverArtUrl}
+                    alt={`${gameName} copertina`}
+                    fallbackSrc={`https://placehold.co/60x90.png?text=${encodeURIComponent(gameName?.substring(0,3) || 'N/A')}`}
+                    fill
+                    className="object-cover"
+                    sizes="80px"
+                    data-ai-hint="game cover mini"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground truncate">{gameName}</p>
+              </div>
+            )}
           </div>
         )}
 
         {currentStep === totalDisplaySteps && (
-            <CardHeader className="px-0 pt-6 pb-4"> {/* Changed pt-0 to pt-6 */}
+            <CardHeader className="px-0 pt-6 pb-4">
                 <div className="flex justify-between items-center mb-1">
                     <CardTitle className="text-2xl md:text-3xl text-left">
                        Riepilogo Valutazione
