@@ -3,7 +3,7 @@
 
 import type { BoardGame, BggSearchResult } from '@/lib/types';
 import { useState, useEffect, useTransition, useMemo, useCallback } from 'react';
-import { fetchBggUserCollectionAction, getBoardGamesFromFirestoreAction, syncBoardGamesToFirestoreAction, searchBggGamesAction, importAndRateBggGameAction, fetchAndUpdateBggGameDetailsAction, batchUpdateMissingBggDetailsAction } from '@/lib/actions';
+import { fetchBggUserCollectionAction, getBoardGamesFromFirestoreAction, syncBoardGamesToFirestoreAction, searchBggGamesAction, importAndRateBggGameAction, fetchAndUpdateBggGameDetailsAction, batchUpdateMissingBggDetailsAction, revalidateGameDataAction } from '@/lib/actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -166,6 +166,7 @@ export default function AdminCollectionPage() {
           isPinned: !currentPinStatus
         });
         toast({ title: 'Stato Pin Aggiornato', description: `Lo stato pin per il gioco è stato ${currentPinStatus ? 'rimosso' : 'aggiunto'}.`});
+        await revalidateGameDataAction(gameId); // Revalidate cache
         await loadDbCollection();
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Errore sconosciuto";
@@ -206,7 +207,6 @@ export default function AdminCollectionPage() {
       } else if (sortConfig.key === 'isPinned') {
         const pinnedA = a.isPinned ? 1 : 0;
         const pinnedB = b.isPinned ? 1 : 0;
-        // For descending (default for pinned), true (1) comes before false (0)
         return sortConfig.direction === 'descending' ? pinnedB - pinnedA : pinnedA - pinnedB;
       }
       return 0;
@@ -299,10 +299,9 @@ export default function AdminCollectionPage() {
           return;
         }
         
-        // console.log('[ADMIN PAGE] Data to update Firestore with for game ' + firestoreGameId + ':', bggFetchResult.updateData);
-
         await updateDoc(gameRef, bggFetchResult.updateData);
         toast({ title: 'Dettagli Aggiornati', description: `Dettagli per ${docSnap.data()?.name || firestoreGameId} aggiornati con successo.` });
+        await revalidateGameDataAction(firestoreGameId); // Revalidate cache
         await loadDbCollection();
       } catch (dbError) {
         const errorMessage = dbError instanceof Error ? dbError.message : "Errore sconosciuto durante l'aggiornamento del DB.";
@@ -326,6 +325,11 @@ export default function AdminCollectionPage() {
           try {
             await batch.commit();
             toast({ title: 'Aggiornamento Batch Completato', description: `${result.gamesToUpdateClientSide.length} giochi aggiornati con successo. ${result.message.replace(`${result.gamesToUpdateClientSide.length} giochi pronti per l'aggiornamento client-side.`, '')}` });
+            
+            // Revalidate paths for all updated games
+            for (const item of result.gamesToUpdateClientSide) {
+                await revalidateGameDataAction(item.gameId);
+            }
             await loadDbCollection();
           } catch (dbError) {
             const errorMessage = dbError instanceof Error ? dbError.message : "Errore sconosciuto durante l'aggiornamento batch del DB.";
@@ -652,8 +656,4 @@ export default function AdminCollectionPage() {
     </div>
   );
 }
-
-
-    
-
 

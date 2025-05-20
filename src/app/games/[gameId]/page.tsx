@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useTransition, useCallback, use } from 'react';
 import Link from 'next/link';
-import { getGameDetails } from '@/lib/actions';
+import { getGameDetails, revalidateGameDataAction } from '@/lib/actions'; // Import revalidateGameDataAction
 import type { BoardGame, AiSummary, Review, Rating as RatingType, GroupedCategoryAverages } from '@/lib/types';
 import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
@@ -151,6 +151,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       await updateDoc(gameDocRef, {
         overallAverageRating: newOverallAverage
       });
+      await revalidateGameDataAction(gameId); // Revalidate after DB update
     } catch (error) {
       console.error("Error updating game's overall average rating after delete:", error);
     }
@@ -191,7 +192,9 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           title: "Stato Vetrina Aggiornato",
           description: `Il gioco è stato ${newPinStatus ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
         });
+        // Optimistically update local game state
         setGame(prevGame => prevGame ? { ...prevGame, isPinned: newPinStatus } : null);
+        await revalidateGameDataAction(game.id); // Revalidate cache
 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
@@ -228,7 +231,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
   }
   
   const fallbackSrc = `https://placehold.co/400x600.png?text=${encodeURIComponent(game.name?.substring(0,10) || 'N/A')}`;
-  const userOverallReviewScore = userReview ? calculateOverallCategoryAverage(userReview.rating) : null;
 
   return (
     <div className="space-y-10">
@@ -421,7 +423,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                   </Alert>
             )}
           
-          {/* Player Reviews Section */}
           {remainingReviews.length > 0 ? (
             <div>
               <Separator className="my-6" />
@@ -431,9 +432,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
               <ReviewList reviews={remainingReviews} />
             </div>
           ) : (
-            // No reviews in remainingReviews. Check why.
             userReview && game.reviews && game.reviews.length === 1 ? (
-              // User has reviewed, and it's the only review
               <Alert variant="default" className="mt-6 bg-secondary/30 border-secondary">
                 <Info className="h-4 w-4 text-secondary-foreground" />
                 <AlertDescription className="text-secondary-foreground">
@@ -441,8 +440,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 </AlertDescription>
               </Alert>
             ) : (
-              // No userReview AND no reviews for the game at all (or remainingReviews is empty for other reasons not explicitly the above)
-              // We check game.reviews explicitly for the "no reviews at all" case.
               (!game.reviews || game.reviews.length === 0) && (
                 <Alert variant="default" className="mt-6 bg-secondary/30 border-secondary">
                   <Info className="h-4 w-4 text-secondary-foreground" />

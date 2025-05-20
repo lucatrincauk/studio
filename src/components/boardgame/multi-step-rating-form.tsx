@@ -1,12 +1,12 @@
 
 'use client';
 
-import { useState, useEffect, useTransition, useMemo, useRef } from 'react';
+import { useState, useEffect, useTransition, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
-import type { Review, Rating as RatingType } from '@/lib/types';
-import { RATING_CATEGORIES, type RatingCategory } from '@/lib/types';
+import type { Review, Rating as RatingType, RatingCategory } from '@/lib/types';
+import { RATING_CATEGORIES } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, AlertCircle, CheckCircle, Smile, Puzzle, Palette, ClipboardList } from 'lucide-react';
 import { reviewFormSchema, type RatingFormValues } from '@/lib/validators';
@@ -18,7 +18,7 @@ import { calculateOverallCategoryAverage, calculateGroupedCategoryAverages, calc
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, doc, updateDoc, query, where, getDocs, limit, getDoc, writeBatch } from 'firebase/firestore';
-import { Separator } from '../ui/separator';
+import { revalidateGameDataAction } from '@/lib/actions';
 
 
 interface MultiStepRatingFormProps {
@@ -55,6 +55,7 @@ const categoryDescriptions: Record<RatingCategory, string> = {
 };
 
 const StepIcon = ({ step }: { step: number }) => {
+  if (step > totalInputSteps) return null; // No icon for summary step
   switch (step) {
     case 1: return <Smile className="mr-2 h-5 w-5 text-primary" />;
     case 2: return <Puzzle className="mr-2 h-5 w-5 text-primary" />;
@@ -66,8 +67,8 @@ const StepIcon = ({ step }: { step: number }) => {
 
 interface RatingSliderInputProps {
   fieldName: RatingCategory;
-  control: any; // Control type from react-hook-form
-  watch: (name: string) => any;
+  control: any; 
+  watch: (name: string | string[]) => any;
 }
 
 const RatingSliderInput: React.FC<RatingSliderInputProps> = ({ fieldName, control, watch }) => {
@@ -144,8 +145,7 @@ export function MultiStepRatingForm({
     } else {
       form.reset(defaultFormValues);
     }
-  }, [existingReview, form]);
-
+  }, [existingReview, form, defaultFormValues]); // Added defaultFormValues as dependency
 
   const updateGameOverallRating = async () => {
     try {
@@ -163,10 +163,12 @@ export function MultiStepRatingForm({
       await updateDoc(gameDocRef, {
         overallAverageRating: newOverallAverage
       });
+      await revalidateGameDataAction(gameId);
     } catch (error) {
       console.error("Error updating game's overall average rating:", error);
     }
   };
+
 
   const processSubmitAndStay = async (data: RatingFormValues): Promise<boolean> => {
     setFormError(null);
@@ -176,12 +178,12 @@ export function MultiStepRatingForm({
     const reviewAuthor = currentUser.displayName || 'Anonimo';
     const authorPhotoURL = currentUser.photoURL || null;
 
-    const reviewDataToSave: Omit<Review, 'id'> = {
+    const reviewDataToSave = {
       author: reviewAuthor,
       userId: currentUser.uid,
       authorPhotoURL: authorPhotoURL,
       rating,
-      comment: "",
+      comment: "", // Comment field removed from form, so send empty string
       date: new Date().toISOString(),
     };
 
@@ -299,7 +301,6 @@ export function MultiStepRatingForm({
     if (currentStep === 2) return "Design del Gioco";
     if (currentStep === 3) return "Estetica e Immersione";
     if (currentStep === 4) return "Apprendimento e Logistica";
-    if (currentStep === 5) return "Riepilogo Valutazione"; 
     return "";
   };
 
@@ -318,7 +319,7 @@ export function MultiStepRatingForm({
     <Form {...form}>
       <form className="space-y-6">
         {currentStep !== totalDisplaySteps && (
-          <div className="mb-4">
+          <div className="mb-4" id={`rating-step-header-${currentStep}`}>
             <h3 className="text-xl font-semibold flex items-center">
               <StepIcon step={currentStep} />
               {getCurrentStepTitle()} ({currentStep} di {totalInputSteps})
@@ -330,10 +331,10 @@ export function MultiStepRatingForm({
         )}
         
         {currentStep === totalDisplaySteps && (
-             <CardHeader className="px-0 pt-0 pb-6">
+             <CardHeader className="px-0 pt-6 pb-6"> {/* Added pt-6 here */}
                 <div className="flex justify-between items-center mb-1">
                     <CardTitle className="text-2xl md:text-3xl text-left">
-                       {getCurrentStepTitle()}
+                       Riepilogo Valutazione
                     </CardTitle>
                     {yourOverallAverage !== null && (
                         <span className="text-primary text-3xl font-bold whitespace-nowrap">
@@ -397,7 +398,7 @@ export function MultiStepRatingForm({
             </div>
         )}
 
-        <div className={`flex ${currentStep > 1 && currentStep < totalDisplaySteps ? 'justify-between' : 'justify-end'} items-center pt-4 border-t mt-6`}>
+        <div className={`flex ${currentStep > 1 && currentStep < totalInputSteps ? 'justify-between' : 'justify-end'} items-center pt-4 border-t mt-6`}>
           {currentStep > 1 && currentStep < totalDisplaySteps && ( 
             <Button
               type="button"
