@@ -19,10 +19,10 @@ export const RATING_CATEGORIES: Record<RatingCategory, string> = {
   decisionDepth: 'Profondità Decisionale',
   replayability: 'Varietà e Rigiocabilità',
   luck: 'Assenza di Fortuna',
-  lengthDowntime: 'Durata', // Was Ottimizzazione Durata e Tempi Morti
-  graphicDesign: 'Grafica e Componenti', // Was Design Grafico
-  componentsThemeLore: 'Tema e Ambientazione', // Was Componenti, Tema e Ambientazione
-  effortToLearn: 'Facilità di Apprendimento', // Was Impegno per Imparare
+  lengthDowntime: 'Durata',
+  graphicDesign: 'Grafica e Componenti',
+  componentsThemeLore: 'Tema e Ambientazione',
+  effortToLearn: 'Facilità di Apprendimento',
   setupTeardown: 'Preparazione e Ripristino',
 };
 
@@ -77,6 +77,7 @@ export interface BoardGame {
   designers?: string[];
   favoritedByUserIds?: string[];
   favoriteCount?: number;
+  wishlistedByUserIds?: string[]; // New field
 }
 
 export interface AiSummary {
@@ -106,5 +107,5 @@ export interface UserProfile {
   id: string;
   name: string;
   photoURL?: string | null;
-  email?: string | null; 
+  email?: string | null;
 }

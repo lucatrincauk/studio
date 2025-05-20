@@ -9,7 +9,7 @@ import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, Tag, Heart } from 'lucide-react';
+import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, Tag, Heart, ListPlus, ListChecks } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { summarizeReviews } from '@/ai/flows/summarize-reviews';
@@ -69,6 +69,9 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
   const [isFavoritedByCurrentUser, setIsFavoritedByCurrentUser] = useState(false);
   const [currentFavoriteCount, setCurrentFavoriteCount] = useState(0);
 
+  const [isWishlisting, startWishlistTransition] = useTransition();
+  const [isWishlistedByCurrentUser, setIsWishlistedByCurrentUser] = useState(false);
+
 
   const fetchGameData = useCallback(async () => {
     setIsLoadingGame(true);
@@ -84,8 +87,10 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       if (currentUser && !authLoading && gameData.reviews) {
         foundUserReview = gameData.reviews.find(r => r.userId === currentUser.uid);
         setIsFavoritedByCurrentUser(gameData.favoritedByUserIds?.includes(currentUser.uid) || false);
+        setIsWishlistedByCurrentUser(gameData.wishlistedByUserIds?.includes(currentUser.uid) || false);
       } else {
         setIsFavoritedByCurrentUser(false);
+        setIsWishlistedByCurrentUser(false);
       }
       setUserReview(foundUserReview);
       
@@ -107,6 +112,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       setCurrentIsPinned(false);
       setIsFavoritedByCurrentUser(false);
       setCurrentFavoriteCount(0);
+      setIsWishlistedByCurrentUser(false);
       setUserReview(undefined);
       setRemainingReviews([]);
       setGroupedCategoryAverages(null);
@@ -126,6 +132,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       setCurrentFavoriteCount(game.favoriteCount || 0);
       if (currentUser) {
         setIsFavoritedByCurrentUser(game.favoritedByUserIds?.includes(currentUser.uid) || false);
+        setIsWishlistedByCurrentUser(game.wishlistedByUserIds?.includes(currentUser.uid) || false);
       }
     }
   }, [game, currentUser]);
@@ -275,7 +282,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           newFavoritedStatus = true;
         }
 
-        // Update local state for immediate UI feedback
         setIsFavoritedByCurrentUser(newFavoritedStatus);
         setCurrentFavoriteCount(newFavoriteCount);
         setGame(prevGame => prevGame ? { 
@@ -296,8 +302,60 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Impossibile aggiornare i preferiti.";
         toast({ title: "Errore", description: errorMessage, variant: "destructive" });
-        // Revert optimistic UI update on error if needed
-        // For simplicity, not implemented here, relies on next fetchGameData or full page reload
+      }
+    });
+  };
+
+  const handleToggleWishlist = async () => {
+    if (!currentUser || !game || authLoading) {
+      toast({ title: "Azione non permessa", description: "Devi essere loggato per aggiungere alla wishlist.", variant: "destructive" });
+      return;
+    }
+    startWishlistTransition(async () => {
+      const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
+      try {
+        const gameSnap = await getDoc(gameRef);
+        if (!gameSnap.exists()) {
+          toast({ title: "Errore", description: "Gioco non trovato.", variant: "destructive" });
+          return;
+        }
+
+        const gameData = gameSnap.data() as BoardGame;
+        const currentWishlistedByUserIds = gameData.wishlistedByUserIds || [];
+        let newWishlistedStatus = false;
+
+        if (currentWishlistedByUserIds.includes(currentUser.uid)) {
+          // Remove from wishlist
+          await updateDoc(gameRef, {
+            wishlistedByUserIds: arrayRemove(currentUser.uid)
+          });
+          newWishlistedStatus = false;
+        } else {
+          // Add to wishlist
+          await updateDoc(gameRef, {
+            wishlistedByUserIds: arrayUnion(currentUser.uid)
+          });
+          newWishlistedStatus = true;
+        }
+
+        setIsWishlistedByCurrentUser(newWishlistedStatus);
+        setGame(prevGame => prevGame ? { 
+          ...prevGame, 
+          wishlistedByUserIds: newWishlistedStatus
+            ? [...(prevGame.wishlistedByUserIds || []), currentUser.uid]
+            : (prevGame.wishlistedByUserIds || []).filter(uid => uid !== currentUser.uid)
+        } : null);
+
+        toast({
+          title: newWishlistedStatus ? "Aggiunto alla Wishlist!" : "Rimosso dalla Wishlist",
+          description: `${game.name} è stato ${newWishlistedStatus ? 'aggiunto alla' : 'rimosso dalla'} tua wishlist.`,
+        });
+        
+        await revalidateGameDataAction(game.id);
+
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Impossibile aggiornare la wishlist.";
+        toast({ title: "Errore", description: errorMessage, variant: "destructive" });
       }
     });
   };
@@ -359,21 +417,33 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                     </Button>
                   )}
                   {currentUser && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={handleToggleFavorite}
-                      disabled={isFavoriting || authLoading}
-                      title={isFavoritedByCurrentUser ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
-                      className={`h-9 w-9 hover:bg-destructive/20 ${isFavoritedByCurrentUser ? 'text-destructive fill-destructive' : 'text-muted-foreground/60 hover:text-destructive'}`}
-                    >
-                      {isFavoriting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Heart className={`h-5 w-5 ${isFavoritedByCurrentUser ? 'fill-destructive' : ''}`} />}
-                    </Button>
-                  )}
-                   {currentFavoriteCount > 0 && (
-                    <span className="text-sm text-muted-foreground ml-0.5">
-                      ({currentFavoriteCount})
-                    </span>
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={handleToggleFavorite}
+                        disabled={isFavoriting || authLoading}
+                        title={isFavoritedByCurrentUser ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
+                        className={`h-9 w-9 hover:bg-destructive/20 ${isFavoritedByCurrentUser ? 'text-destructive fill-destructive' : 'text-muted-foreground/60 hover:text-destructive'}`}
+                      >
+                        {isFavoriting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Heart className={`h-5 w-5 ${isFavoritedByCurrentUser ? 'fill-destructive' : ''}`} />}
+                      </Button>
+                       {currentFavoriteCount > 0 && (
+                        <span className="text-sm text-muted-foreground -ml-2 mr-1">
+                          ({currentFavoriteCount})
+                        </span>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={handleToggleWishlist}
+                        disabled={isWishlisting || authLoading}
+                        title={isWishlistedByCurrentUser ? "Rimuovi dalla Wishlist" : "Aggiungi alla Wishlist"}
+                        className={`h-9 w-9 hover:bg-sky-500/20 ${isWishlistedByCurrentUser ? 'text-sky-500' : 'text-muted-foreground/60 hover:text-sky-500'}`}
+                      >
+                        {isWishlisting ? <Loader2 className="h-5 w-5 animate-spin" /> : (isWishlistedByCurrentUser ? <ListChecks className="h-5 w-5" /> : <ListPlus className="h-5 w-5" />)}
+                      </Button>
+                    </>
                   )}
                 </div>
                <span className="text-primary text-3xl font-bold">
@@ -636,5 +706,3 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
-
-
