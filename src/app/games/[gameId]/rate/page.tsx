@@ -6,7 +6,7 @@ import { getGameDetails } from '@/lib/actions';
 import type { BoardGame, Review } from '@/lib/types';
 import { useAuth } from '@/contexts/auth-context';
 import { MultiStepRatingForm } from '@/components/boardgame/multi-step-rating-form';
-import { Loader2, AlertCircle, ArrowLeft, Gamepad2 } from 'lucide-react';
+import { Loader2, AlertCircle, Gamepad2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -27,7 +27,7 @@ export default function GameRatePage() {
   const [isLoadingGame, setIsLoadingGame] = useState(true);
   const [currentRatingFormStep, setCurrentRatingFormStep] = useState(1);
   
-  const cardRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null); // Keep for potential future use if needed, but not for current scroll logic
 
   useEffect(() => {
     async function fetchGameData() {
@@ -60,15 +60,10 @@ export default function GameRatePage() {
   }, [game, currentUser]);
 
   useEffect(() => {
+    // Scroll to the top of the page whenever the step changes
     if (typeof window !== "undefined") {
       setTimeout(() => {
-        if (currentRatingFormStep === 5) { // Summary step
-           window.scrollTo({ top: 0, behavior: 'smooth' });
-        } else if (currentRatingFormStep >= 1 && currentRatingFormStep <= 4) { // Input steps
-            const cardTopOffset = cardRef.current?.getBoundingClientRect().top ?? 0;
-            const scrollPosition = cardTopOffset + window.scrollY - 30; // 30px offset from top
-            window.scrollTo({ top: scrollPosition < 0 ? 0 : scrollPosition, behavior: 'smooth' });
-        }
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       }, 50); 
     }
   }, [currentRatingFormStep]);
@@ -93,7 +88,7 @@ export default function GameRatePage() {
         </p>
         <Button asChild variant="outline">
           <Link href="/">
-            <ArrowLeft className="mr-2 h-4 w-4" /> Torna alla Homepage
+             Torna alla Homepage
           </Link>
         </Button>
       </div>
@@ -117,16 +112,18 @@ export default function GameRatePage() {
     )
   }
 
+  const pageTitle = userReview ? "Modifica la Tua Valutazione per:" : "Valuta:";
+  const descriptionText = "Segui i passaggi sottostanti per inviare la tua valutazione.";
+
   return (
     <div className="max-w-2xl mx-auto py-8 px-4">
-      {/* Page-level "Torna al Gioco" button removed */}
       <Card ref={cardRef} className="shadow-xl border border-border rounded-lg">
-        {/* Conditional CardHeader removed entirely for steps 1-4, handled by MultiStepRatingForm */}
+        {/* The main page header is removed to let the form handle step-specific headers */}
         <CardContent className={currentRatingFormStep === 5 ? 'pt-0' : 'pt-6'}>
           <MultiStepRatingForm
             gameId={game.id}
             gameName={game.name} 
-            gameCoverArtUrl={game.coverArtUrl}
+            gameCoverArtUrl={game.coverArtUrl} // Pass cover art for summary step
             currentUser={currentUser}
             existingReview={userReview}
             onReviewSubmitted={() => router.push(`/games/${gameId}`)}
@@ -140,3 +137,4 @@ export default function GameRatePage() {
 }
 
 export const dynamic = 'force-dynamic';
+
