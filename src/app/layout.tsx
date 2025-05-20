@@ -27,32 +27,38 @@ const VALID_THEMES: Readonly<string[]> = ['light', 'dark', 'violet-dream', 'ener
 
 const NoFlashScript = () => {
   const storageKey = "morchiometro-theme";
-  // This script runs before React hydrates. It sets the theme class on <html>
-  // based on localStorage or OS preference to prevent a theme flash.
+  const autoThemeKey = "morchiometro-auto-theme-enabled";
+  const defaultTheme = SERVER_DEFAULT_THEME;
+  const validThemes = VALID_THEMES;
+
   const scriptContent = `
 (function() {
   const docEl = document.documentElement;
   const localKey = '${storageKey}';
-  const scriptDefaultTheme = '${SERVER_DEFAULT_THEME}';
-  const scriptValidThemes = ${JSON.stringify(VALID_THEMES)};
-  let themeToApply = scriptDefaultTheme; // Start with the server-rendered/app default
+  const localAutoKey = '${autoThemeKey}';
+  const scriptDefaultTheme = '${defaultTheme}';
+  const scriptValidThemes = ${JSON.stringify(validThemes)};
+  let themeToApply = scriptDefaultTheme;
 
   try {
+    const storedAutoThemeEnabled = window.localStorage.getItem(localAutoKey);
+    const isAutoEnabled = storedAutoThemeEnabled === null ? true : storedAutoThemeEnabled === 'true';
     const storedTheme = window.localStorage.getItem(localKey);
+
     if (storedTheme && scriptValidThemes.includes(storedTheme)) {
-      themeToApply = storedTheme; // Use localStorage theme if valid
-    } else {
-      // No valid theme in localStorage, check OS preference
+      themeToApply = storedTheme; // User has an explicit theme preference
+    } else if (isAutoEnabled) {
+      // No explicit theme or auto is enabled, check OS preference
       if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
         if (scriptValidThemes.includes('forest-mist-dark')) {
           themeToApply = 'forest-mist-dark';
         }
       } else {
-        if (scriptValidThemes.includes('forest-mist')) {
-           themeToApply = 'forest-mist'; // Default to light version of forest-mist if OS is light
-        }
+        // OS prefers light or no preference, stick to app default
+        themeToApply = scriptDefaultTheme;
       }
     }
+    // If auto is disabled and no explicit theme, it will fall back to scriptDefaultTheme
   } catch (e) { /* ignore localStorage errors */ }
 
   // Remove all known theme classes first to ensure a clean state
@@ -98,4 +104,3 @@ export default function RootLayout({
     </html>
   );
 }
-
