@@ -4,11 +4,12 @@ import type { AugmentedReview } from '@/lib/types';
 import { ReviewItem } from '@/components/boardgame/review-item';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { MessageSquareText, AlertCircle, Gamepad2, UserCircle2 } from 'lucide-react';
+import { MessageSquareText, AlertCircle, Gamepad2, UserCircle2, Star } from 'lucide-react';
 import Link from 'next/link';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { SafeImage } from '@/components/common/SafeImage';
+import { calculateOverallCategoryAverage, formatRatingNumber } from '@/lib/utils';
 
 interface UserDetailPageProps {
   params: {
@@ -30,22 +31,39 @@ export default async function UserDetailPage({ params }: UserDetailPageProps) {
     );
   }
 
+  let averageScoreGiven: number | null = null;
+  if (reviews && reviews.length > 0) {
+    const totalScoreSum = reviews.reduce((sum, review) => {
+      const overallReviewAvg = calculateOverallCategoryAverage(review.rating);
+      return sum + (overallReviewAvg * 2); // Summing scores on 2-10 scale
+    }, 0);
+    averageScoreGiven = totalScoreSum / reviews.length;
+  }
+
   return (
     <div className="space-y-8">
       <Card className="shadow-lg border border-border rounded-lg">
-        <CardHeader className="flex flex-col items-center text-center space-y-4">
-          <Avatar className="h-28 w-28 border-4 border-primary/50">
+        <CardHeader className="flex flex-col sm:flex-row items-center text-center sm:text-left space-y-4 sm:space-y-0 sm:space-x-6 p-6">
+          <Avatar className="h-24 w-24 sm:h-28 sm:w-28 border-4 border-primary/50">
             {user.photoURL && <AvatarImage src={user.photoURL} alt={user.name} />}
             <AvatarFallback className="text-4xl bg-muted text-muted-foreground">
-              {user.name ? user.name.substring(0, 1).toUpperCase() : <UserCircle2 className="h-16 w-16"/>}
+              {user.name ? user.name.substring(0, 1).toUpperCase() : <UserCircle2 className="h-12 w-12 sm:h-14 sm:w-14"/>}
             </AvatarFallback>
           </Avatar>
-          <CardTitle className="text-3xl sm:text-4xl font-bold text-foreground">
-            {user.name}
-          </CardTitle>
-          <CardDescription className="text-lg text-muted-foreground">
-            {reviews.length} {reviews.length === 1 ? 'Recensione Inviata' : 'Recensioni Inviate'}
-          </CardDescription>
+          <div className="flex-1">
+            <CardTitle className="text-2xl sm:text-3xl font-bold text-foreground">
+              {user.name}
+            </CardTitle>
+            <div className="text-sm text-muted-foreground mt-1.5 space-y-0.5">
+                <p>{reviews.length} {reviews.length === 1 ? 'Recensione Inviata' : 'Recensioni Inviate'}</p>
+                {averageScoreGiven !== null && (
+                    <p className="flex items-center justify-center sm:justify-start gap-1">
+                        <Star className="h-4 w-4 text-accent fill-accent" />
+                        Voto Medio Dato: <span className="font-semibold text-foreground">{formatRatingNumber(averageScoreGiven)}</span>
+                    </p>
+                )}
+            </div>
+          </div>
         </CardHeader>
       </Card>
 
@@ -67,10 +85,10 @@ export default async function UserDetailPage({ params }: UserDetailPageProps) {
         ) : (
           <div className="space-y-6">
             {reviews.map((review) => {
-              const fallbackGameHeaderSrc = `https://placehold.co/80x120.png?text=${encodeURIComponent(review.gameName?.substring(0,10) || 'N/A')}`;
+              const fallbackGameHeaderSrc = `https://placehold.co/48x64.png?text=${encodeURIComponent(review.gameName?.substring(0,3) || 'N/A')}`;
               return (
                 <Card key={review.id} className="overflow-hidden shadow-md border border-border rounded-lg">
-                  <CardHeader className="bg-muted/30 p-3 flex flex-row items-center gap-3">
+                  <CardHeader className="bg-muted/30 p-3">
                     <Link href={`/games/${review.gameId}`} className="flex items-center gap-3 hover:opacity-80 transition-opacity w-full">
                       <div className="relative h-16 w-12 flex-shrink-0 rounded-sm overflow-hidden shadow-sm">
                          <SafeImage
@@ -87,7 +105,7 @@ export default async function UserDetailPage({ params }: UserDetailPageProps) {
                         <h3 className="text-md font-semibold text-primary leading-tight">
                           {review.gameName}
                         </h3>
-                         <p className="text-xs text-muted-foreground">Vedi Gioco e Recensione Completa</p>
+                         <p className="text-xs text-muted-foreground">Vedi Dettagli Gioco e Recensione</p>
                       </div>
                     </Link>
                   </CardHeader>
