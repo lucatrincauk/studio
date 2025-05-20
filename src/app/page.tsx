@@ -69,15 +69,15 @@ export default async function HomePage() {
               {topRatedGames.map((game, index) => (
                 <div 
                   key={game.id} 
-                  className="relative flex items-center gap-x-3 sm:gap-x-4 p-3 rounded-lg bg-[#f9fbf9] hover:bg-muted/60 transition-colors border border-border overflow-hidden"
+                  className="relative flex items-center gap-x-3 sm:gap-x-4 p-3 rounded-lg bg-[#f9fbf9] hover:bg-muted/50 transition-colors border border-border overflow-hidden"
                 >
                   <span 
                     aria-hidden="true"
-                    className="absolute -right-[36px] -bottom-[70px] text-[340px] font-bold text-muted-foreground/10 pointer-events-none select-none leading-none z-0"
+                    className="absolute -bottom-[35px] -right-[15px] text-[180px] sm:text-[220px] sm:-bottom-[50px] sm:-right-[20px] lg:text-[280px] lg:-bottom-[60px] lg:-right-[25px] font-bold text-muted-foreground/10 pointer-events-none select-none leading-none z-0"
                   >
                     {index + 1}
                   </span>
-                  <div className="relative z-10 flex items-center gap-x-3 sm:gap-x-4 flex-grow mr-10 sm:mr-12 md:mr-16">
+                  <div className="relative z-10 flex items-center gap-x-3 sm:gap-x-4 flex-grow mr-6 sm:mr-8 lg:mr-10">
                     <div className="w-24 sm:w-28 md:w-32 flex-shrink-0"> 
                       <GameCard game={game} variant="featured" priority={index < 5} showOverlayText={false} />
                     </div>
