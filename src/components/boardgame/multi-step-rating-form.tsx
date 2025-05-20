@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import type { Review, Rating as RatingType, RatingCategory, GroupedCategoryAverages } from '@/lib/types';
 import { RATING_CATEGORIES } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, AlertCircle, CheckCircle, Smile, Puzzle, Palette, ClipboardList } from 'lucide-react';
+import { Loader2, AlertCircle, CheckCircle, Smile, Puzzle, Palette, ClipboardList, ArrowLeft } from 'lucide-react';
 import { reviewFormSchema, type RatingFormValues } from '@/lib/validators';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -21,6 +21,7 @@ import { db } from '@/lib/firebase';
 import { collection, addDoc, doc, updateDoc, query, where, getDocs, limit, writeBatch, getDoc } from 'firebase/firestore';
 import { revalidateGameDataAction } from '@/lib/actions';
 import { SafeImage } from '@/components/common/SafeImage';
+import { useRouter } from 'next/navigation'; // Added useRouter
 
 interface MultiStepRatingFormProps {
   gameId: string;
@@ -30,10 +31,11 @@ interface MultiStepRatingFormProps {
   existingReview?: Review | null;
   currentStep: number;
   onStepChange: (step: number) => void;
+  onReviewSubmitted: () => void;
 }
 
 const totalInputSteps = 4;
-const totalDisplaySteps = 5; // Includes summary step
+const totalDisplaySteps = 5;
 
 const stepCategories: RatingCategory[][] = [
   ['excitedToReplay', 'mentallyStimulating', 'fun'],
@@ -85,7 +87,7 @@ const RatingSliderInput: React.FC<RatingSliderInputProps> = ({ fieldName, contro
       control={control}
       name={fieldName}
       render={({ field }) => {
-        const currentFieldValue = Number(field.value); 
+        const currentFieldValue = Number(field.value);
         const sliderValue = useMemo(() => [currentFieldValue], [currentFieldValue]);
 
         return (
@@ -122,11 +124,13 @@ export function MultiStepRatingForm({
   existingReview,
   currentStep,
   onStepChange,
+  onReviewSubmitted,
 }: MultiStepRatingFormProps) {
   const [isSubmitting, startSubmitTransition] = useTransition();
   const [formError, setFormError] = useState<string | null>(null);
   const [groupedAveragesForSummary, setGroupedAveragesForSummary] = useState<GroupedCategoryAverages | null>(null);
   const { toast } = useToast();
+  const router = useRouter(); // Added router
 
   const defaultFormValues: RatingFormValues = useMemo(() => ({
     excitedToReplay: existingReview?.rating.excitedToReplay || 3,
@@ -201,12 +205,12 @@ export function MultiStepRatingForm({
       return false;
     }
 
-    const ratingData: RatingType = { ...data };
-    const reviewDataToSave: Omit<Review, 'id'> = {
+    const ratingDataToSave: RatingType = { ...data };
+    const reviewData: Omit<Review, 'id'> = {
       userId: currentUser.uid,
       author: currentUser.displayName || 'Anonimo',
       authorPhotoURL: currentUser.photoURL || null,
-      rating: ratingData,
+      rating: ratingDataToSave,
       comment: "", 
       date: new Date().toISOString(),
     };
@@ -231,7 +235,7 @@ export function MultiStepRatingForm({
            setFormError("Recensione non trovata o non hai i permessi per modificarla.");
            return false;
         }
-        await updateDoc(reviewDocRef, reviewDataToSave);
+        await updateDoc(reviewDocRef, reviewData);
         toast({ title: "Successo!", description: "Recensione aggiornata con successo!", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
       } else {
         const existingReviewQuery = query(reviewsCollectionRef, where("userId", "==", currentUser.uid), limit(1));
@@ -239,10 +243,10 @@ export function MultiStepRatingForm({
 
         if (!existingReviewSnapshot.empty) {
            const reviewToUpdateRef = existingReviewSnapshot.docs[0].ref;
-           await updateDoc(reviewToUpdateRef, reviewDataToSave);
+           await updateDoc(reviewToUpdateRef, reviewData);
            toast({ title: "Aggiornato!", description: "La tua recensione esistente è stata aggiornata.", variant: "default", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
         } else {
-          await addDoc(reviewsCollectionRef, reviewDataToSave);
+          await addDoc(reviewsCollectionRef, reviewData);
           toast({ title: "Successo!", description: "Recensione inviata con successo!", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
         }
       }
@@ -322,11 +326,7 @@ export function MultiStepRatingForm({
 
   const handleFinish = () => {
     form.reset(defaultFormValues);
-    // onReviewSubmitted prop is no longer directly called here by the form.
-    // Navigation is handled by GameRatePage.tsx's "Torna al Gioco" (router.back())
-    // for ultimate flexibility, or a prop from parent could be used if specific nav needed.
-    // For now, this button only resets the form state.
-    // If the user truly wants to navigate away, they'd use the page-level back button.
+    onReviewSubmitted();
   };
 
   const getCurrentStepTitle = () => {
@@ -345,7 +345,7 @@ export function MultiStepRatingForm({
         {currentStep <= totalInputSteps && (
           <div className="mb-4">
             <div className="flex justify-between items-start">
-              <div>
+              <div className="flex-1">
                 <h3 className="text-xl font-semibold flex items-center">
                   <StepIcon step={currentStep} />
                   {getCurrentStepTitle()} ({currentStep} di {totalInputSteps})
@@ -356,7 +356,7 @@ export function MultiStepRatingForm({
                   </p>
                 )}
               </div>
-              {/* Image and game name removed from steps 1-4 header */}
+              {/* Small game image and title removed from steps 1-4 header */}
             </div>
           </div>
         )}
@@ -450,11 +450,21 @@ export function MultiStepRatingForm({
         )}
 
         <div className={`flex ${
-           (currentStep > 1 && currentStep <= totalInputSteps)
-            ? 'justify-between'
-            : 'justify-end' 
+           currentStep === totalDisplaySteps ? 'justify-end' : 'justify-between'
         } items-center pt-4 border-t mt-6`}>
           
+          {currentStep === 1 && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.push(`/games/${gameId}`)}
+              disabled={isSubmitting}
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Torna al Gioco
+            </Button>
+          )}
+
           {(currentStep > 1 && currentStep <= totalInputSteps) && (
             <Button
               type="button"
@@ -485,11 +495,10 @@ export function MultiStepRatingForm({
           ) : currentStep === totalDisplaySteps ? (
             <Button
                 type="button"
-                onClick={() => { /* Navigation is handled by page-level button */ }}
+                onClick={handleFinish}
                 className="bg-primary hover:bg-primary/90 text-primary-foreground"
             >
-                {/* Button removed as per earlier request, navigation handled by page-level router.back() */}
-                {/* Text could be "Ok" or similar if needed for form reset only */}
+                Termina e Torna al Gioco
             </Button>
           ) : null }
         </div>
@@ -497,4 +506,3 @@ export function MultiStepRatingForm({
     </Form>
   );
 }
-
