@@ -413,7 +413,7 @@ export async function getGameDetails(gameId: string): Promise<BoardGame | null> 
         const reviewsSnapshot = await getDocs(reviewsQuery);
         reviews = reviewsSnapshot.docs.map(reviewDoc => {
           const reviewData = reviewDoc.data();
-          const rating: Rating = {
+          const rating: RatingType = {
             excitedToReplay: reviewData.rating?.excitedToReplay || 0,
             mentallyStimulating: reviewData.rating?.mentallyStimulating || 0,
             fun: reviewData.rating?.fun || 0,
@@ -663,7 +663,7 @@ export async function getAllReviewsAction(): Promise<AugmentedReview[]> {
 
       reviewsSnapshot.docs.forEach(reviewDoc => {
         const reviewData = reviewDoc.data() as Omit<Review, 'id'>;
-        const rating: Rating = {
+        const rating: RatingType = {
             excitedToReplay: reviewData.rating?.excitedToReplay || 0,
             mentallyStimulating: reviewData.rating?.mentallyStimulating || 0,
             fun: reviewData.rating?.fun || 0,
@@ -748,7 +748,7 @@ export async function getFeaturedGamesAction(): Promise<BoardGame[]> {
     const allGamesWithDetails: Array<BoardGame & { _latestReviewDate: Date | null }> = 
       await Promise.all(allGamesResult.map(async (game) => {
         let latestReviewDate: string | null = null;
-        if (game.id) {
+        if (game.id && game.reviewCount && game.reviewCount > 0) { // Only query if there are reviews
           const reviewsSnapshot = await getDocs(
             query(collection(db, FIRESTORE_COLLECTION_NAME, game.id, 'reviews'), orderBy("date", "desc"), limit(1))
           );
@@ -915,7 +915,7 @@ export async function batchUpdateMissingBggDetailsAction(): Promise<{ success: b
 
         let gamesNeedingUpdate = allGamesResult.filter(game =>
             game.bggId > 0 &&
-            (game.minPlaytime == null || game.maxPlaytime == null || game.averageWeight == null ||
+            (game.minPlaytime == null || game.maxPlaytime == null || game.averageWeight == null || 
              (game.categories && game.categories.length === 0) || 
              (game.mechanics && game.mechanics.length === 0) ||
              (game.designers && game.designers.length === 0)
@@ -1040,7 +1040,7 @@ export async function batchUpdateMissingBggDetailsAction(): Promise<{ success: b
 }
 
 export async function searchLocalGamesByNameAction(term: string): Promise<BoardGame[]> {
-  if (!term || term.trim().length < 1) { // Allow searching even with 1 char, but results may be broad
+  if (!term || term.trim().length < 1) {
     return [];
   }
   try {
@@ -1054,21 +1054,15 @@ export async function searchLocalGamesByNameAction(term: string): Promise<BoardG
       game.name.toLowerCase().includes(searchTermLower)
     );
     
-    // For the selector, no need to fetch reviews/calculate ratings again here
-    const simplifiedGames = matchedGames.map(game => ({
-      id: game.id,
-      name: game.name,
-      coverArtUrl: game.coverArtUrl,
-      yearPublished: game.yearPublished,
-      bggId: game.bggId,
-      overallAverageRating: game.overallAverageRating, // Read the stored one
-      reviews: [], // Keep reviews empty for selector performance
-      favoritedByUserIds: game.favoritedByUserIds ?? [],
-      favoriteCount: game.favoriteCount ?? 0,
-    }));
+    const gamesWithRatingsPromises = matchedGames.map(async (game) => {
+        // overallAverageRating is already fetched by getBoardGamesFromFirestoreAction
+        return game; 
+    });
+
+    const gamesWithRatings = await Promise.all(gamesWithRatingsPromises);
     
-    simplifiedGames.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-    return simplifiedGames.slice(0, 10); 
+    gamesWithRatings.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    return gamesWithRatings.slice(0, 10); 
 
   } catch (error) {
     return [];
@@ -1081,8 +1075,6 @@ export async function revalidateGameDataAction(gameId?: string) {
     revalidatePath('/all-games');
     revalidatePath('/top-10');
     revalidatePath('/reviews');
-    // Revalidating all user pages might be too broad, consider if needed
-    // revalidatePath('/users'); 
     revalidatePath('/rate-a-game/select-game');
     revalidatePath('/admin/collection');
 
@@ -1090,64 +1082,16 @@ export async function revalidateGameDataAction(gameId?: string) {
         revalidatePath(`/games/${gameId}`);
         revalidatePath(`/games/${gameId}/rate`);
         
-        // Attempt to revalidate user pages that might have reviewed this game
-        // This is a broad approach; more targeted revalidation might be complex
         const reviewsSnapshot = await getDocs(collection(db, FIRESTORE_COLLECTION_NAME, gameId, 'reviews'));
         const userIdsToRevalidate = new Set<string>();
         reviewsSnapshot.forEach(doc => userIdsToRevalidate.add(doc.data().userId));
         userIdsToRevalidate.forEach(uid => revalidatePath(`/users/${uid}`));
     } else {
-        // If no specific gameId, revalidate the general users list page
         revalidatePath('/users');
     }
     return { success: true, message: `Cache revalidated for relevant paths.` };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     return { success: false, message: 'Failed to revalidate cache.', error: errorMessage };
-  }
-}
-
-export async function toggleFavoriteGameAction(gameId: string, userId: string): Promise<{ success: boolean; error?: string; newFavoriteCount?: number }> {
-  if (!userId) {
-    return { success: false, error: "Utente non autenticato." };
-  }
-  if (!gameId) {
-    return { success: false, error: "ID del gioco non fornito." };
-  }
-
-  const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, gameId);
-
-  try {
-    const gameSnap = await getDoc(gameRef);
-    if (!gameSnap.exists()) {
-      return { success: false, error: "Gioco non trovato." };
-    }
-
-    const gameData = gameSnap.data() as BoardGame;
-    const favoritedByUserIds = gameData.favoritedByUserIds || [];
-    let newFavoriteCount = gameData.favoriteCount || 0;
-
-    if (favoritedByUserIds.includes(userId)) {
-      // Unfavorite
-      await updateDoc(gameRef, {
-        favoritedByUserIds: arrayRemove(userId),
-        favoriteCount: increment(-1)
-      });
-      newFavoriteCount = Math.max(0, newFavoriteCount - 1);
-    } else {
-      // Favorite
-      await updateDoc(gameRef, {
-        favoritedByUserIds: arrayUnion(userId),
-        favoriteCount: increment(1)
-      });
-      newFavoriteCount = newFavoriteCount + 1;
-    }
-
-    await revalidateGameDataAction(gameId);
-    return { success: true, newFavoriteCount };
-
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Errore sconosciuto durante l'aggiornamento dei preferiti.";
-    return { success: false, error: errorMessage };
   }
 }

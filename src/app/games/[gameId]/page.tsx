@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useTransition, useCallback, use } from 'react';
 import Link from 'next/link';
-import { getGameDetails, toggleFavoriteGameAction } from '@/lib/actions'; // Removed revalidateGameDataAction as it's called by toggleFavoriteGameAction
+import { getGameDetails } from '@/lib/actions'; 
 import type { BoardGame, AiSummary, Review, Rating as RatingType, GroupedCategoryAverages } from '@/lib/types';
 import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,7 @@ import { calculateGroupedCategoryAverages, calculateCategoryAverages, calculateO
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { doc, deleteDoc, updateDoc, getDocs, collection } from 'firebase/firestore'; 
+import { doc, deleteDoc, updateDoc, getDocs, collection, getDoc, arrayUnion, arrayRemove, increment } from 'firebase/firestore'; 
 import { revalidateGameDataAction } from '@/lib/actions';
 import {
   AlertDialog,
@@ -128,7 +128,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         setIsFavoritedByCurrentUser(game.favoritedByUserIds?.includes(currentUser.uid) || false);
       }
     }
-  }, [game?.isPinned, game?.favoriteCount, game?.favoritedByUserIds, currentUser]);
+  }, [game, currentUser]);
 
   const handleGenerateSummary = async () => {
     if (!game || !game.reviews) return;
@@ -157,7 +157,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       const reviewsSnapshot = await getDocs(reviewsCollectionRef);
       const allReviewsForGame: Review[] = reviewsSnapshot.docs.map(docSnap => {
         const reviewDocData = docSnap.data();
-        const rating: Rating = {
+        const rating: RatingType = {
           excitedToReplay: reviewDocData.rating?.excitedToReplay || 0,
           mentallyStimulating: reviewDocData.rating?.mentallyStimulating || 0,
           fun: reviewDocData.rating?.fun || 0,
@@ -182,7 +182,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         reviewCount: allReviewsForGame.length
       });
       await revalidateGameDataAction(game.id);
-      await fetchGameData(); // Re-fetch to update all local state
+      await fetchGameData(); 
     } catch (error) {
       console.error("Error updating game's overall average rating:", error);
       toast({ title: "Errore", description: "Impossibile aggiornare il punteggio medio del gioco.", variant: "destructive" });
@@ -224,8 +224,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           title: "Stato Vetrina Aggiornato",
           description: `Il gioco è stato ${newPinStatus ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
         });
-        // No longer calling revalidatePath here, relies on server action
-        await revalidateGameDataAction(game.id); // Call server action for revalidation
+        await revalidateGameDataAction(game.id); 
         setGame(prevGame => prevGame ? { ...prevGame, isPinned: newPinStatus } : null);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
@@ -245,24 +244,60 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       return;
     }
     startFavoriteTransition(async () => {
-      const result = await toggleFavoriteGameAction(game.id, currentUser.uid);
-      if (result.success) {
-        setIsFavoritedByCurrentUser(prev => !prev);
-        setCurrentFavoriteCount(result.newFavoriteCount ?? currentFavoriteCount);
-        toast({
-          title: isFavoritedByCurrentUser ? "Rimosso dai Preferiti" : "Aggiunto ai Preferiti!",
-          description: `${game.name} è stato ${isFavoritedByCurrentUser ? 'rimosso dai' : 'aggiunto ai'} tuoi preferiti.`,
-        });
-        // Optimistically update local game state for favorite count
+      const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
+      try {
+        const gameSnap = await getDoc(gameRef);
+        if (!gameSnap.exists()) {
+          toast({ title: "Errore", description: "Gioco non trovato.", variant: "destructive" });
+          return;
+        }
+
+        const gameData = gameSnap.data() as BoardGame;
+        const currentFavoritedByUserIds = gameData.favoritedByUserIds || [];
+        let newFavoriteCount = gameData.favoriteCount || 0;
+        let newFavoritedStatus = false;
+
+        if (currentFavoritedByUserIds.includes(currentUser.uid)) {
+          // Unfavorite
+          await updateDoc(gameRef, {
+            favoritedByUserIds: arrayRemove(currentUser.uid),
+            favoriteCount: increment(-1)
+          });
+          newFavoriteCount = Math.max(0, newFavoriteCount - 1);
+          newFavoritedStatus = false;
+        } else {
+          // Favorite
+          await updateDoc(gameRef, {
+            favoritedByUserIds: arrayUnion(currentUser.uid),
+            favoriteCount: increment(1)
+          });
+          newFavoriteCount = newFavoriteCount + 1;
+          newFavoritedStatus = true;
+        }
+
+        // Update local state for immediate UI feedback
+        setIsFavoritedByCurrentUser(newFavoritedStatus);
+        setCurrentFavoriteCount(newFavoriteCount);
         setGame(prevGame => prevGame ? { 
           ...prevGame, 
-          favoriteCount: result.newFavoriteCount,
-          favoritedByUserIds: result.newFavoriteCount && result.newFavoriteCount > (prevGame.favoriteCount || 0) 
+          favoriteCount: newFavoriteCount,
+          favoritedByUserIds: newFavoritedStatus
             ? [...(prevGame.favoritedByUserIds || []), currentUser.uid]
             : (prevGame.favoritedByUserIds || []).filter(uid => uid !== currentUser.uid)
         } : null);
-      } else {
-        toast({ title: "Errore", description: result.error || "Impossibile aggiornare i preferiti.", variant: "destructive" });
+
+        toast({
+          title: newFavoritedStatus ? "Aggiunto ai Preferiti!" : "Rimosso dai Preferiti",
+          description: `${game.name} è stato ${newFavoritedStatus ? 'aggiunto ai' : 'rimosso dai'} tuoi preferiti.`,
+        });
+        
+        await revalidateGameDataAction(game.id);
+
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Impossibile aggiornare i preferiti.";
+        toast({ title: "Errore", description: errorMessage, variant: "destructive" });
+        // Revert optimistic UI update on error if needed
+        // For simplicity, not implemented here, relies on next fetchGameData or full page reload
       }
     });
   };
@@ -449,39 +484,37 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 <h3 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h3>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <Button asChild size="sm">
-                    <Link href={`/games/${gameId}/rate`}>
+                     <Link href={`/games/${gameId}/rate`}>
                       <span className="flex items-center">
                           <Edit className="mr-0 sm:mr-2 h-4 w-4" />
                           <span className="hidden sm:inline">Modifica</span>
                       </span>
                     </Link>
                   </Button>
-                  {userReview && ( 
-                    <AlertDialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
-                       <AlertDialogTrigger asChild>
-                        <Button variant="destructive" size="sm" disabled={isDeletingReview}>
-                           <span className="flex items-center">
-                            {isDeletingReview ? <Loader2 className="mr-0 sm:mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-0 sm:mr-2 h-4 w-4" />}
-                             <span className="hidden sm:inline">Elimina</span>
-                           </span>
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Sei sicuro?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Questa azione non può essere annullata. Eliminerà permanentemente la tua recensione per {game.name}.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Annulla</AlertDialogCancel>
-                          <AlertDialogAction onClick={confirmDeleteUserReview} className="bg-destructive hover:bg-destructive/90">
-                            {isDeletingReview ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Conferma Eliminazione" }
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  )}
+                  <AlertDialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
+                      <AlertDialogTrigger asChild>
+                      <Button variant="destructive" size="sm" disabled={isDeletingReview}>
+                          <span className="flex items-center">
+                          {isDeletingReview ? <Loader2 className="mr-0 sm:mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-0 sm:mr-2 h-4 w-4" />}
+                            <span className="hidden sm:inline">Elimina</span>
+                          </span>
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Sei sicuro?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Questa azione non può essere annullata. Eliminerà permanentemente la tua recensione per {game.name}.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Annulla</AlertDialogCancel>
+                        <AlertDialogAction onClick={confirmDeleteUserReview} className="bg-destructive hover:bg-destructive/90">
+                          {isDeletingReview ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Conferma Eliminazione" }
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               </div>
               <ReviewItem review={userReview} />
@@ -524,7 +557,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             </div>
             )}
           
-          {remainingReviews.length > 0 ? (
+           {remainingReviews.length > 0 ? (
              <div>
               <Separator className="my-6" />
               <h2 className="text-2xl font-semibold text-foreground mb-6">
@@ -603,4 +636,5 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
+
 
