@@ -31,14 +31,20 @@ export function GameCard({
     return (
       <Link href={baseHref} className="block group w-full h-auto">
         <Card className={cn(
-          "relative overflow-hidden shadow-lg transition-all duration-300 ease-in-out hover:shadow-xl rounded-lg border border-border group-hover:border-primary/50 w-full aspect-[3/4]"
+          "relative overflow-hidden transition-all duration-300 ease-in-out w-full aspect-[3/4]",
+          showOverlayText 
+            ? "shadow-lg hover:shadow-xl rounded-lg border border-border group-hover:border-primary/50" 
+            : "bg-transparent border-transparent shadow-none" // Only image visible
         )}>
           <SafeImage
             src={game.coverArtUrl}
             alt={`${game.name || 'Gioco'} copertina`}
             fallbackSrc={fallbackSrc}
             fill
-            className="object-cover group-hover:scale-105 transition-transform duration-300"
+            className={cn(
+              "object-cover group-hover:scale-105 transition-transform duration-300",
+              showOverlayText ? "rounded-lg" : "rounded-md" // slightly different rounding if no card box
+            )}
             data-ai-hint="board game cover"
             priority={priority}
             sizes="(max-width: 767px) 160px, 33vw" 
