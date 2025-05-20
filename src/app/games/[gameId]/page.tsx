@@ -3,13 +3,13 @@
 
 import { useEffect, useState, useTransition, useCallback, use } from 'react';
 import Link from 'next/link';
-import { getGameDetails } from '@/lib/actions';
+import { getGameDetails, revalidateGameDataAction } from '@/lib/actions';
 import type { BoardGame, AiSummary, Review, Rating as RatingType, GroupedCategoryAverages } from '@/lib/types';
 import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, Brain, ExternalLink, Weight, Tag, BookOpen, Wrench, Palette as PaletteIcon, Users as DesignersIcon, Building as PublishersIcon } from 'lucide-react';
+import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, Tag } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { summarizeReviews } from '@/ai/flows/summarize-reviews';
@@ -17,8 +17,7 @@ import { calculateGroupedCategoryAverages, calculateCategoryAverages, calculateO
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { doc, deleteDoc, updateDoc, getDoc, collection, getDocs, query, where, limit, writeBatch } from 'firebase/firestore';
-import { revalidateGameDataAction } from '@/lib/actions';
+import { doc, deleteDoc, updateDoc } from 'firebase/firestore'; // Added updateDoc
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,10 +27,10 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger, // Added AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
 import { SafeImage } from '@/components/common/SafeImage';
 import { ReviewItem } from '@/components/boardgame/review-item';
-import { Progress } from '@/components/ui/progress';
 import { Badge } from "@/components/ui/badge";
 
 
@@ -137,26 +136,31 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
   };
 
   const updateGameOverallRatingAfterDelete = async () => {
+    if (!game) return;
     try {
-      const reviewsCollectionRef = collection(db, "boardgames_collection", gameId, 'reviews');
-      const reviewsSnapshot = await getDocs(reviewsCollectionRef); 
-      const allReviewsForGame: Review[] = reviewsSnapshot.docs.map(docSnap => {
-        const data = docSnap.data();
-        return { id: docSnap.id, ...data } as Review;
-      });
-
-      const categoryAvgs = calculateCategoryAverages(allReviewsForGame);
-      const newOverallAverage = categoryAvgs ? calculateOverallCategoryAverage(categoryAvgs) : null;
-      const newReviewCount = allReviewsForGame.length;
-      
-      const gameDocRef = doc(db, "boardgames_collection", gameId);
-      await updateDoc(gameDocRef, {
-        overallAverageRating: newOverallAverage,
-        reviewCount: newReviewCount,
-      });
-      await revalidateGameDataAction(gameId); 
+      // After deleting, refetch game data to get updated review list
+      const updatedGameData = await getGameDetails(game.id);
+      if (updatedGameData && updatedGameData.reviews) {
+        const categoryAvgs = calculateCategoryAverages(updatedGameData.reviews);
+        const newOverallAverage = categoryAvgs ? calculateOverallCategoryAverage(categoryAvgs) : null;
+        
+        const gameDocRef = doc(db, "boardgames_collection", game.id);
+        await updateDoc(gameDocRef, {
+          overallAverageRating: newOverallAverage,
+          reviewCount: updatedGameData.reviews.length
+        });
+        await revalidateGameDataAction(game.id); 
+      } else { // No reviews left or game data fetch failed
+        const gameDocRef = doc(db, "boardgames_collection", game.id);
+        await updateDoc(gameDocRef, {
+          overallAverageRating: null,
+          reviewCount: 0
+        });
+        await revalidateGameDataAction(game.id); 
+      }
     } catch (error) {
       console.error("Error updating game's overall average rating after delete:", error);
+      toast({ title: "Errore", description: "Impossibile aggiornare il punteggio medio del gioco.", variant: "destructive" });
     }
   };
 
@@ -171,9 +175,9 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       try {
         const reviewDocRef = doc(db, "boardgames_collection", gameId, 'reviews', userReview.id);
         await deleteDoc(reviewDocRef);
-        await updateGameOverallRatingAfterDelete(); 
         toast({ title: "Recensione Eliminata", description: "La tua recensione è stata eliminata con successo." });
-        await fetchGameData(); 
+        await updateGameOverallRatingAfterDelete(); // Update overall rating
+        await fetchGameData(); // Re-fetch all game data for the page
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({ title: "Errore", description: `Impossibile eliminare la recensione: ${errorMessage}`, variant: "destructive" });
@@ -233,7 +237,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
   }
   
   const fallbackSrc = `https://placehold.co/400x600.png?text=${encodeURIComponent(game.name?.substring(0,10) || 'N/A')}`;
-
   const hasDataForSection = (arr?: string[]) => arr && arr.length > 0;
 
   return (
@@ -244,7 +247,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             <div className="flex justify-between items-start mb-2">
                 <div className="flex items-center gap-2 flex-1 mr-4">
                   <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">{game.name}</h1>
-                   {game.bggId > 0 && (
+                  {game.bggId > 0 && (
                     <a
                       href={`https://boardgamegeek.com/boardgame/${game.bggId}`}
                       target="_blank"
@@ -324,7 +327,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 </div>
               )}
             </div>
-
             {(hasDataForSection(game.categories) || hasDataForSection(game.mechanics) || hasDataForSection(game.designers) || hasDataForSection(game.publishers)) && (
               <div className="mt-6 pt-4 border-t border-border space-y-3">
                 <h3 className="text-lg font-semibold text-foreground">Dettagli Aggiuntivi</h3>
@@ -354,18 +356,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 )}
               </div>
             )}
-
-            {game.reviews && game.reviews.length > 0 && (
-              <div className="mt-4 space-y-1 md:border-t-0 border-t border-border pt-4 md:pt-0">
-                <h3 className="text-lg font-semibold text-foreground mb-3">Valutazione Media:</h3>
-                  <GroupedRatingsDisplay
-                      groupedAverages={groupedCategoryAverages}
-                      noRatingsMessage="Nessuna valutazione per calcolare le medie."
-                      isLoading={isLoadingGame}
-                      defaultOpenSections={['Sentimento']}
-                  />
-              </div>
-            )}
           </div>
 
           <div className="hidden md:block md:w-1/4 p-6 flex-shrink-0 self-start md:order-2"> 
@@ -389,21 +379,20 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
         <div className="lg:col-span-2 space-y-8">
-          
-          {currentUser && !authLoading && (
-            userReview ? (
-              <div className="mb-6">
-                <div className="flex justify-between items-center mb-4 flex-wrap">
-                  <h3 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h3>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <Button asChild size="sm">
-                      <Link href={`/games/${gameId}/rate`}>
-                        <span className="flex items-center">
-                           <Edit className="mr-0 sm:mr-2 h-4 w-4" />
-                           <span className="hidden sm:inline">Modifica</span>
-                        </span>
-                      </Link>
-                    </Button>
+           {currentUser && !authLoading && userReview && (
+            <div className="mb-6">
+              <div className="flex justify-between items-center mb-4 flex-wrap">
+                <h3 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h3>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <Button asChild size="sm">
+                    <Link href={`/games/${gameId}/rate`}>
+                      <span className="flex items-center">
+                          <Edit className="mr-0 sm:mr-2 h-4 w-4" />
+                          <span className="hidden sm:inline">Modifica</span>
+                      </span>
+                    </Link>
+                  </Button>
+                  {userReview && ( // Only show delete if userReview exists
                     <AlertDialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
                        <AlertDialogTrigger asChild>
                         <Button variant="destructive" size="sm" disabled={isDeletingReview}>
@@ -428,24 +417,26 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                         </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>
-                  </div>
+                  )}
                 </div>
-                <ReviewItem review={userReview} />
               </div>
-            ) : (
-              <Card className="p-6 border border-border rounded-lg shadow-md bg-card">
-                <CardTitle className="text-xl font-semibold text-foreground mb-1">Condividi la Tua Opinione</CardTitle>
-                <CardDescription className="mb-4">
-                  Aiuta gli altri condividendo la tua esperienza con questo gioco.
-                </CardDescription>
-                <Button asChild className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90">
-                  <Link href={`/games/${gameId}/rate`}>
-                    <Edit className="mr-2 h-4 w-4" />
-                    Valuta questo Gioco
-                  </Link>
-                </Button>
-              </Card>
-            )
+              <ReviewItem review={userReview} />
+            </div>
+          )}
+          
+          {currentUser && !authLoading && !userReview && (
+            <Card className="p-6 border border-border rounded-lg shadow-md bg-card">
+              <CardTitle className="text-xl font-semibold text-foreground mb-1">Condividi la Tua Opinione</CardTitle>
+              <CardDescription className="mb-4">
+                Aiuta gli altri condividendo la tua esperienza con questo gioco.
+              </CardDescription>
+              <Button asChild className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90">
+                <Link href={`/games/${gameId}/rate`}>
+                  <Edit className="mr-2 h-4 w-4" />
+                  Valuta questo Gioco
+                </Link>
+              </Button>
+            </Card>
           )}
 
            {!currentUser && !authLoading && (
@@ -455,6 +446,18 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                       <Link href={`/signin?redirect=/games/${gameId}/rate`} className="font-semibold underline">Accedi</Link> per aggiungere una recensione.
                     </AlertDescription>
                   </Alert>
+            )}
+          
+           {game.reviews && game.reviews.length > 0 && (
+            <div className="mt-4 space-y-1">
+                <h3 className="text-lg font-semibold text-foreground mb-3">Valutazione Media:</h3>
+                <GroupedRatingsDisplay
+                    groupedAverages={groupedCategoryAverages}
+                    noRatingsMessage="Nessuna valutazione per calcolare le medie."
+                    isLoading={isLoadingGame}
+                    defaultOpenSections={['Sentimento']}
+                />
+            </div>
             )}
           
           {remainingReviews.length > 0 ? (
