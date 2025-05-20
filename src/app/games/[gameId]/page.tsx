@@ -17,7 +17,7 @@ import { calculateGroupedCategoryAverages, calculateCategoryAverages, calculateO
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { doc, deleteDoc, updateDoc } from 'firebase/firestore'; // Added updateDoc
+import { doc, deleteDoc, updateDoc } from 'firebase/firestore'; 
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,7 +27,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger, // Added AlertDialogTrigger
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { SafeImage } from '@/components/common/SafeImage';
 import { ReviewItem } from '@/components/boardgame/review-item';
@@ -327,7 +327,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 </div>
               )}
             </div>
-            {(hasDataForSection(game.categories) || hasDataForSection(game.mechanics) || hasDataForSection(game.designers) || hasDataForSection(game.publishers)) && (
+            {(hasDataForSection(game.categories) || hasDataForSection(game.mechanics) || hasDataForSection(game.designers) ) && (
               <div className="mt-6 pt-4 border-t border-border space-y-3">
                 <h3 className="text-lg font-semibold text-foreground">Dettagli Aggiuntivi</h3>
                 {hasDataForSection(game.categories) && (
@@ -346,12 +346,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                   <div className="text-sm">
                     <strong className="text-muted-foreground">Autori: </strong>
                     {game.designers!.join(', ')}
-                  </div>
-                )}
-                {hasDataForSection(game.publishers) && (
-                  <div className="text-sm">
-                    <strong className="text-muted-foreground">Editori: </strong>
-                    {game.publishers!.join(', ')}
                   </div>
                 )}
               </div>
@@ -392,7 +386,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                       </span>
                     </Link>
                   </Button>
-                  {userReview && ( // Only show delete if userReview exists
+                  {userReview && ( 
                     <AlertDialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
                        <AlertDialogTrigger asChild>
                         <Button variant="destructive" size="sm" disabled={isDeletingReview}>

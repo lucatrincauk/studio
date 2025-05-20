@@ -75,7 +75,6 @@ export interface BoardGame {
   mechanics?: string[];
   categories?: string[];
   designers?: string[];
-  publishers?: string[];
 }
 
 export interface AiSummary {
@@ -95,15 +94,11 @@ export interface SectionAverage {
   sectionAverage: number;
   subRatings: SubRatingAverage[];
 }
-export interface SubRatingAverage {
-  name: string;
-  average: number;
-}
 export type GroupedCategoryAverages = SectionAverage[];
 
 export interface UserProfile {
   id: string;
   name: string;
   photoURL?: string | null;
-  email?: string | null; // Added email as it's often useful
+  email?: string | null; 
 }
