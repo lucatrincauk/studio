@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { LogOut, UserPlus, LogIn, MessagesSquare, Users2, ShieldCheck, UserCircle, Menu, TrendingUp, GaugeCircle, Library, Edit, BarChart3 } from 'lucide-react';
+import { LogOut, UserPlus, LogIn, MessagesSquare, Users2, ShieldCheck, UserCircle, Menu, TrendingUp, Library, Edit, BarChart3, Search as SearchIcon, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import {
   DropdownMenu,
@@ -22,28 +22,83 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { Popover, PopoverTrigger, PopoverContent, PopoverAnchor } from "@/components/ui/popover";
+import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import type { BoardGame } from '@/lib/types';
+import { searchLocalGamesByNameAction } from '@/lib/actions';
+import { useRouter } from 'next/navigation';
 
 const PoopEmojiLogo = () => (
   <span className="text-3xl" role="img" aria-label="logo">💩</span>
 );
 
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+  return debouncedValue;
+}
+
+
 export function Header() {
   const { user, signOut, loading, isAdmin } = useAuth();
+  const router = useRouter();
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState<BoardGame[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+  const debouncedSearchTerm = useDebounce(searchTerm, 300);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const handleSignOut = async () => {
     await signOut();
   };
 
-  // Navigation links definition - used by both sub-navbar and mobile sheet
   const mainNavLinks = [
     { href: "/top-10", label: "Top 10", icon: <TrendingUp size={18} /> },
     { href: "/all-games", label: "Catalogo", icon: <Library size={18} /> },
     { href: "/users", label: "Utenti", icon: <Users2 size={18} /> },
     { href: "/reviews", label: "Tutte le Recensioni", icon: <MessagesSquare size={18} /> },
   ];
+
+  useEffect(() => {
+    if (debouncedSearchTerm.length < 2) {
+      setSearchResults([]);
+      setIsPopoverOpen(false);
+      return;
+    }
+
+    const performSearch = async () => {
+      setIsSearching(true);
+      const result = await searchLocalGamesByNameAction(debouncedSearchTerm);
+      if ('error' in result) {
+        setSearchResults([]);
+      } else {
+        setSearchResults(result);
+      }
+      setIsSearching(false);
+      setIsPopoverOpen(result && !('error' in result) && result.length > 0);
+    };
+
+    performSearch();
+  }, [debouncedSearchTerm]);
+
+  const handleResultClick = () => {
+    setSearchTerm('');
+    setSearchResults([]);
+    setIsPopoverOpen(false);
+  };
 
   const authBlockDesktop = (
     loading ? (
@@ -190,7 +245,6 @@ export function Header() {
     )
   );
 
-
   return (
     <div className="sticky top-0 z-50 w-full">
       <header className="bg-primary text-primary-foreground shadow-md">
@@ -200,12 +254,10 @@ export function Header() {
             <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Morchiometro</h1>
           </Link>
 
-          {/* Desktop Auth Block */}
           <div className="hidden md:flex items-center">
             {authBlockDesktop}
           </div>
 
-          {/* Mobile Navigation Trigger */}
           <div className="md:hidden">
             <Sheet>
               <SheetTrigger asChild>
@@ -248,9 +300,8 @@ export function Header() {
         </div>
       </header>
 
-      {/* Sub-navbar for Desktop */}
       <nav className="hidden md:flex bg-muted border-b border-border">
-        <div className="container mx-auto flex h-12 items-center justify-center px-4 sm:px-6 lg:px-8">
+        <div className="container mx-auto flex h-12 items-center justify-between px-4 sm:px-6 lg:px-8">
           <ul className="flex items-center gap-4">
             {mainNavLinks.map(link => (
               <li key={link.href}>
@@ -264,6 +315,52 @@ export function Header() {
               </li>
             ))}
           </ul>
+          <div className="relative">
+            <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
+              <PopoverAnchor>
+                <div className="relative flex items-center">
+                  <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                  <Input
+                    ref={searchInputRef}
+                    type="search"
+                    placeholder="Cerca un gioco..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onFocus={() => setIsPopoverOpen(debouncedSearchTerm.length >= 2 && searchResults.length > 0)}
+                    className="h-8 w-full rounded-md pl-9 pr-3 text-sm bg-background text-foreground border-input focus:ring-primary/50"
+                  />
+                  {isSearching && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />}
+                </div>
+              </PopoverAnchor>
+              {isPopoverOpen && searchResults.length > 0 && (
+                <PopoverContent
+                  className="w-[300px] p-0"
+                  align="end"
+                  onOpenAutoFocus={(e) => e.preventDefault()} // Prevent auto-focusing inside popover to keep focus on input
+                  onInteractOutside={(e) => {
+                    if (searchInputRef.current && searchInputRef.current.contains(e.target as Node)) {
+                      return; // Don't close if click is on the input itself
+                    }
+                    setIsPopoverOpen(false);
+                  }}
+                >
+                  <div className="max-h-60 overflow-y-auto">
+                    {searchResults.map(game => (
+                      <Link
+                        key={game.id}
+                        href={`/games/${game.id}`}
+                        onClick={handleResultClick}
+                        className="block px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
+                      >
+                        {game.name}
+                        {game.yearPublished && <span className="ml-2 text-xs text-muted-foreground">({game.yearPublished})</span>}
+                      </Link>
+                    ))}
+                  </div>
+                </PopoverContent>
+              )}
+            </Popover>
+          </div>
         </div>
       </nav>
     </div>
