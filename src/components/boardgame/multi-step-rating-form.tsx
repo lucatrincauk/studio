@@ -21,7 +21,8 @@ import { db } from '@/lib/firebase';
 import { collection, addDoc, doc, updateDoc, query, where, getDocs, limit, writeBatch, getDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { SafeImage } from '@/components/common/SafeImage';
-import { revalidateGameDataAction } from '@/lib/actions'; // Added import
+import { revalidateGameDataAction } from '@/lib/actions';
+import { calculateOverallCategoryAverage as calculateOverallAverageFromUtils, calculateCategoryAverages as calculateCatAvgsFromUtils } from '@/lib/utils'; // Renamed imports
 
 interface RatingSliderInputProps {
   fieldName: RatingCategory;
@@ -36,7 +37,7 @@ const RatingSliderInput: React.FC<RatingSliderInputProps> = ({ fieldName, contro
       control={control}
       name={fieldName}
       render={({ field }) => {
-        const currentFieldValue = Number(field.value); 
+        const currentFieldValue = Number(field.value);
         const sliderValue = useMemo(() => [currentFieldValue], [currentFieldValue]);
 
         return (
@@ -101,6 +102,14 @@ const categoryDescriptions: Record<RatingCategory, string> = {
   setupTeardown: "Quanto è veloce e semplice preparare il gioco e rimettere a posto?",
 };
 
+const stepUITitles: Record<number, string> = {
+  1: "Sentimento",
+  2: "Design del Gioco",
+  3: "Estetica e Immersione",
+  4: "Apprendimento e Logistica",
+  5: "Riepilogo Valutazione",
+};
+
 const stepUIDescriptions: Record<number, string> = {
   1: "Valuta il tuo sentimento generale riguardo al gioco.",
   2: "Come giudichi gli aspetti legati al design del gioco?",
@@ -159,15 +168,15 @@ export function MultiStepRatingForm({
         return { id: docSnap.id, ...data, rating } as Review;
       });
 
-      const categoryAvgs = calculateCategoryAverages(allReviewsForGame);
-      const newOverallAverage = categoryAvgs ? calculateOverallCategoryAverage(categoryAvgs) : null;
+      const categoryAvgs = calculateCatAvgsFromUtils(allReviewsForGame); // Use aliased import
+      const newOverallAverage = categoryAvgs ? calculateOverallAverageFromUtils(categoryAvgs) : null; // Use aliased import
       
       const gameDocRef = doc(db, "boardgames_collection", gameId);
       await updateDoc(gameDocRef, {
         overallAverageRating: newOverallAverage,
         reviewCount: allReviewsForGame.length
       });
-      await revalidateGameDataAction(gameId); // Call revalidate action
+      await revalidateGameDataAction(gameId);
     } catch (error) {
       console.error("Errore Aggiornamento Punteggio Medio Gioco:", error);
       toast({ title: "Errore Aggiornamento Punteggio", description: "Impossibile aggiornare il punteggio medio del gioco.", variant: "destructive" });
@@ -194,13 +203,13 @@ export function MultiStepRatingForm({
     mode: 'onChange', 
   });
 
- useEffect(() => {
-    // Only reset if not on summary step and default values actually change
+  useEffect(() => {
+    // Reset the form only if the existingReview prop changes (and thus defaultFormValues changes)
+    // and we are not on the summary step.
     if (currentStep <= totalInputSteps) {
-        form.reset(defaultFormValues);
+      form.reset(defaultFormValues);
     }
-  }, [defaultFormValues, form, currentStep]);
-
+  }, [defaultFormValues, form.reset]); // Removed currentStep and form from dependencies
 
   const processSubmitAndStay = async (data: RatingFormValues): Promise<boolean> => {
     setFormError(null);
@@ -270,7 +279,7 @@ export function MultiStepRatingForm({
         }
       }
       submissionSuccess = true;
-      await updateGameOverallRating(); // This already calls revalidate
+      await updateGameOverallRating();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
       toast({ title: "Errore", description: `Impossibile inviare la recensione: ${errorMessage}`, variant: "destructive" });
@@ -292,11 +301,11 @@ export function MultiStepRatingForm({
       onStepChange(currentStep + 1);
       setFormError(null);
     } else {
-       let stepName = getCurrentStepTitle();
-       setFormError(`Per favore correggi gli errori in ${stepName} prima di procedere.`);
+       const stepTitle = stepUITitles[currentStep] || `Passo ${currentStep}`;
+       setFormError(`Per favore correggi gli errori in ${stepTitle} prima di procedere.`);
        toast({
         title: "Errore di Validazione",
-        description: `Assicurati che tutti i campi in ${stepName} siano compilati correttamente.`,
+        description: `Assicurati che tutti i campi in ${stepTitle} siano compilati correttamente.`,
         variant: "destructive",
       });
     }
@@ -335,10 +344,11 @@ export function MultiStepRatingForm({
         }
       });
     } else {
-      setFormError(`Per favore correggi gli errori in ${getCurrentStepTitle()} prima di procedere.`);
+      const stepTitle = stepUITitles[totalInputSteps] || `Passo ${totalInputSteps}`;
+      setFormError(`Per favore correggi gli errori in ${stepTitle} prima di procedere.`);
       toast({
         title: "Errore di Validazione",
-        description: `Assicurati che tutti i campi in ${getCurrentStepTitle()} siano compilati correttamente.`,
+        description: `Assicurati che tutti i campi in ${stepTitle} siano compilati correttamente.`,
         variant: "destructive",
       });
     }
@@ -349,15 +359,7 @@ export function MultiStepRatingForm({
     onReviewSubmitted();
   };
 
-  const getCurrentStepTitle = () => {
-    if (currentStep === 1) return "Sentimento";
-    if (currentStep === 2) return "Design del Gioco";
-    if (currentStep === 3) return "Estetica e Immersione";
-    if (currentStep === 4) return "Apprendimento e Logistica";
-    return "";
-  };
-
-  const yourOverallAverage = calculateOverallCategoryAverage(form.getValues());
+  const yourOverallAverage = calculateOverallAverageFromUtils(form.getValues());
 
   return (
     <Form {...form}>
@@ -368,9 +370,9 @@ export function MultiStepRatingForm({
                 <div className="flex-1">
                     <h3 className="text-xl font-semibold flex items-center">
                       <StepIcon step={currentStep} />
-                      {getCurrentStepTitle()} ({currentStep} di {totalInputSteps})
+                      {stepUITitles[currentStep]} ({currentStep} di {totalInputSteps})
                     </h3>
-                    {stepUIDescriptions[currentStep] && (
+                    {stepUIDescriptions[currentStep] && currentStep <= totalInputSteps && (
                       <p className="text-sm text-muted-foreground mt-1">
                         {stepUIDescriptions[currentStep]}
                       </p>
@@ -385,7 +387,7 @@ export function MultiStepRatingForm({
                 <div className="flex justify-between items-baseline mb-2">
                     <div className="flex-1">
                         <CardTitle className="text-2xl md:text-3xl text-left">
-                         Riepilogo Valutazione
+                         {stepUITitles[currentStep]}
                         </CardTitle>
                          {stepUIDescriptions[currentStep] && (
                             <CardDescription className="text-left text-sm text-muted-foreground mt-1 whitespace-pre-line">
@@ -403,7 +405,6 @@ export function MultiStepRatingForm({
                 </div>
             </CardHeader>
         )}
-
 
         <div className="min-h-[240px] sm:min-h-[280px]">
           {currentStep === 1 && (
@@ -515,4 +516,3 @@ export function MultiStepRatingForm({
     </Form>
   );
 }
-
