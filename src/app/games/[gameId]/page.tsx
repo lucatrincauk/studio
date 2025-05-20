@@ -97,15 +97,16 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
       setRemainingReviews(gameData.reviews?.filter(r => r.id !== foundUserReview?.id) || []);
 
-      if (gameData.overallAverageRating !== undefined && gameData.overallAverageRating !== null) {
-        setGlobalGameAverage(gameData.overallAverageRating);
-      } else {
-        setGlobalGameAverage(null);
-      }
-
       if (gameData.reviews && gameData.reviews.length > 0) {
+        const categoryAvgs = calculateCategoryAverages(gameData.reviews);
+        if (categoryAvgs) {
+          setGlobalGameAverage(calculateOverallCategoryAverage(categoryAvgs));
+        } else {
+          setGlobalGameAverage(null);
+        }
         setGroupedCategoryAverages(calculateGroupedCategoryAverages(gameData.reviews));
       } else {
+        setGlobalGameAverage(null);
         setGroupedCategoryAverages(null);
       }
 
@@ -531,7 +532,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             )}
 
             {game.reviews && game.reviews.length > 0 && (
-              <div className="space-y-1 pt-4 border-t border-border">
+              <div className="w-full pt-4 border-t border-border">
                 <h3 className="text-lg font-semibold text-foreground mb-3">Valutazione Media:</h3>
                 <GroupedRatingsDisplay
                     groupedAverages={groupedCategoryAverages}
