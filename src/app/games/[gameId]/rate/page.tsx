@@ -60,7 +60,7 @@ export default function GameRatePage() {
   }, [game, currentUser]);
 
   useEffect(() => {
-    if (typeof window !== "undefined" && cardRef.current) {
+    if (typeof window !== "undefined") {
       setTimeout(() => {
         if (currentRatingFormStep === 5) { // Summary step
            window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -119,21 +119,14 @@ export default function GameRatePage() {
 
   return (
     <div className="max-w-2xl mx-auto py-8 px-4">
-      <Button 
-          onClick={() => router.back()} 
-          variant="outline" 
-          size="sm" 
-          className="mb-6"
-      >
-          <ArrowLeft className="mr-2 h-4 w-4" /> Torna al Gioco
-      </Button>
+      {/* Page-level "Torna al Gioco" button removed */}
       <Card ref={cardRef} className="shadow-xl border border-border rounded-lg">
-        {/* Page-level CardHeader removed entirely */}
+        {/* Conditional CardHeader removed entirely for steps 1-4, handled by MultiStepRatingForm */}
         <CardContent className={currentRatingFormStep === 5 ? 'pt-0' : 'pt-6'}>
           <MultiStepRatingForm
             gameId={game.id}
-            gameName={game.name} // Still pass gameName for the top-right image block
-            gameCoverArtUrl={game.coverArtUrl} // Pass cover art for the top-right image block
+            gameName={game.name} 
+            gameCoverArtUrl={game.coverArtUrl}
             currentUser={currentUser}
             existingReview={userReview}
             onReviewSubmitted={() => router.push(`/games/${gameId}`)}
