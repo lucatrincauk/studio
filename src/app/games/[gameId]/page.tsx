@@ -263,7 +263,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                   )}
                 </div>
                <span className="text-primary text-3xl font-bold">
-                  {globalGameAverage !== null && formatRatingNumber(globalGameAverage * 2)}
+                  {globalGameAverage !== null ? formatRatingNumber(globalGameAverage * 2) : ""}
                </span>
             </div>
             
@@ -421,33 +421,37 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                   </Alert>
             )}
           
-          {/* Conditionally render the "Altre Recensioni" section */}
-          { remainingReviews.length > 0 && (
+          {/* Player Reviews Section */}
+          {remainingReviews.length > 0 ? (
             <div>
               <Separator className="my-6" />
               <h2 className="text-2xl font-semibold text-foreground mb-6">
-                  Altre Recensioni ({remainingReviews.length})
+                {userReview ? `Altre Recensioni (${remainingReviews.length})` : `Recensioni (${remainingReviews.length})`}
               </h2>
               <ReviewList reviews={remainingReviews} />
             </div>
-          )}
-           {/* Message if only the current user has reviewed and there are no other reviews */}
-           {userReview && remainingReviews.length === 0 && game.reviews && game.reviews.length === 1 && (
-            <Alert variant="default" className="mt-6 bg-secondary/30 border-secondary">
-              <Info className="h-4 w-4 text-secondary-foreground" />
-              <AlertDescription className="text-secondary-foreground">
-                Nessun altro ha ancora recensito questo gioco.
-              </AlertDescription>
-            </Alert>
-          )}
-          {/* Message if NO reviews exist at all for the game (and user is not logged in, or has not reviewed) */}
-          {(!game.reviews || game.reviews.length === 0) && (
-            <Alert variant="default" className="mt-6 bg-secondary/30 border-secondary">
-              <Info className="h-4 w-4 text-secondary-foreground" />
-              <AlertDescription className="text-secondary-foreground">
-                Nessuna recensione ancora per questo gioco.
-              </AlertDescription>
-            </Alert>
+          ) : (
+            // No reviews in remainingReviews. Check why.
+            userReview && game.reviews && game.reviews.length === 1 ? (
+              // User has reviewed, and it's the only review
+              <Alert variant="default" className="mt-6 bg-secondary/30 border-secondary">
+                <Info className="h-4 w-4 text-secondary-foreground" />
+                <AlertDescription className="text-secondary-foreground">
+                  Nessun altro ha ancora recensito questo gioco.
+                </AlertDescription>
+              </Alert>
+            ) : (
+              // No userReview AND no reviews for the game at all (or remainingReviews is empty for other reasons not explicitly the above)
+              // We check game.reviews explicitly for the "no reviews at all" case.
+              (!game.reviews || game.reviews.length === 0) && (
+                <Alert variant="default" className="mt-6 bg-secondary/30 border-secondary">
+                  <Info className="h-4 w-4 text-secondary-foreground" />
+                  <AlertDescription className="text-secondary-foreground">
+                    Nessuna recensione ancora per questo gioco.
+                  </AlertDescription>
+                </Alert>
+              )
+            )
           )}
 
         </div>
