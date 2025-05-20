@@ -4,7 +4,7 @@
 import { useEffect, useState, useTransition, useCallback, use } from 'react';
 import Link from 'next/link';
 import { getGameDetails } from '@/lib/actions';
-import type { BoardGame, AiSummary, Review, Rating, GroupedCategoryAverages } from '@/lib/types';
+import type { BoardGame, AiSummary, Review, Rating as RatingType, GroupedCategoryAverages } from '@/lib/types';
 import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -17,7 +17,7 @@ import { calculateGroupedCategoryAverages, calculateCategoryAverages, calculateO
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { doc, deleteDoc, updateDoc, getDoc, collection, getDocs, query, where, limit } from 'firebase/firestore';
+import { doc, deleteDoc, updateDoc, getDoc, collection, getDocs, query, where, limit, writeBatch } from 'firebase/firestore';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { SafeImage } from '@/components/common/SafeImage';
 import { ReviewItem } from '@/components/boardgame/review-item';
+import { Progress } from '@/components/ui/progress';
 
 
 interface GameDetailPageProps {
@@ -81,12 +82,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       
       setRemainingReviews(gameData.reviews?.filter(r => r.id !== foundUserReview?.id) || []);
       
-      // Use stored overallAverageRating if available, otherwise calculate
-      if (gameData.overallAverageRating !== undefined) {
+      if (gameData.overallAverageRating !== undefined && gameData.overallAverageRating !== null) {
         setGlobalGameAverage(gameData.overallAverageRating);
-      } else if (gameData.reviews && gameData.reviews.length > 0) {
-         const categoryAvgs = calculateCategoryAverages(gameData.reviews);
-         setGlobalGameAverage(categoryAvgs ? calculateOverallCategoryAverage(categoryAvgs) : null);
       } else {
         setGlobalGameAverage(null);
       }
@@ -141,7 +138,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
   const updateGameOverallRatingAfterDelete = async () => {
     try {
       const reviewsCollectionRef = collection(db, "boardgames_collection", gameId, 'reviews');
-      const reviewsSnapshot = await getDocs(reviewsCollectionRef); // Fetch remaining reviews
+      const reviewsSnapshot = await getDocs(reviewsCollectionRef); 
       const allReviewsForGame: Review[] = reviewsSnapshot.docs.map(docSnap => {
         const data = docSnap.data();
         return { id: docSnap.id, ...data } as Review;
@@ -170,9 +167,9 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       try {
         const reviewDocRef = doc(db, "boardgames_collection", gameId, 'reviews', userReview.id);
         await deleteDoc(reviewDocRef);
-        await updateGameOverallRatingAfterDelete(); // Recalculate and update overall rating
+        await updateGameOverallRatingAfterDelete(); 
         toast({ title: "Recensione Eliminata", description: "La tua recensione è stata eliminata con successo." });
-        await fetchGameData(); // Re-fetch game data to update UI
+        await fetchGameData(); 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({ title: "Errore", description: `Impossibile eliminare la recensione: ${errorMessage}`, variant: "destructive" });
@@ -194,8 +191,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           title: "Stato Vetrina Aggiornato",
           description: `Il gioco è stato ${newPinStatus ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
         });
-        // No revalidatePath here, rely on local state and potential future full page reload
-        // Consider calling fetchGameData() if immediate consistent update of game.isPinned is crucial.
         setGame(prevGame => prevGame ? { ...prevGame, isPinned: newPinStatus } : null);
 
       } catch (error) {
@@ -205,7 +200,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `Impossibile aggiornare lo stato vetrina: ${errorMessage}`,
           variant: "destructive",
         });
-        setCurrentIsPinned(!newPinStatus); // Revert optimistic update on error
+        setCurrentIsPinned(!newPinStatus); 
       }
     });
   };
@@ -268,7 +263,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                   )}
                 </div>
                <span className="text-primary text-3xl font-bold">
-                  {globalGameAverage !== null ? formatRatingNumber(globalGameAverage * 2) : '-'}
+                  {globalGameAverage !== null && formatRatingNumber(globalGameAverage * 2)}
                </span>
             </div>
             
@@ -324,15 +319,17 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
               )}
             </div>
 
-            <div className="mt-4 space-y-1 md:border-t-0 border-t border-border pt-4 md:pt-0">
-              <h3 className="text-lg font-semibold text-foreground mb-3">Valutazione Media:</h3>
-                <GroupedRatingsDisplay
-                    groupedAverages={groupedCategoryAverages}
-                    noRatingsMessage="Nessuna valutazione per calcolare le medie."
-                    isLoading={isLoadingGame}
-                    defaultOpenSections={['Sentimento']}
-                />
-            </div>
+            {game.reviews && game.reviews.length > 0 && (
+              <div className="mt-4 space-y-1 md:border-t-0 border-t border-border pt-4 md:pt-0">
+                <h3 className="text-lg font-semibold text-foreground mb-3">Valutazione Media:</h3>
+                  <GroupedRatingsDisplay
+                      groupedAverages={groupedCategoryAverages}
+                      noRatingsMessage="Nessuna valutazione per calcolare le medie."
+                      isLoading={isLoadingGame}
+                      defaultOpenSections={['Sentimento']}
+                  />
+              </div>
+            )}
           </div>
 
           <div className="hidden md:block md:w-1/4 p-6 flex-shrink-0 self-start md:order-2"> 
@@ -359,7 +356,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           
           {currentUser && !authLoading && (
             userReview ? (
-              <div className="mb-6"> {/* Reduced mb-8 to mb-6 */}
+              <div className="mb-6">
                 <div className="flex justify-between items-center mb-4 flex-wrap">
                   <h3 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h3>
                   <div className="flex items-center gap-2 flex-shrink-0">
@@ -425,14 +422,32 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             )}
           
           {/* Conditionally render the "Altre Recensioni" section */}
-          { !(userReview && remainingReviews.length === 0) && (
+          { remainingReviews.length > 0 && (
             <div>
               <Separator className="my-6" />
               <h2 className="text-2xl font-semibold text-foreground mb-6">
-                  {userReview && remainingReviews.length > 0 ? `Altre Recensioni (${remainingReviews.length})` : `Recensioni dei Giocatori (${game.reviews.length})`}
+                  Altre Recensioni ({remainingReviews.length})
               </h2>
               <ReviewList reviews={remainingReviews} />
             </div>
+          )}
+           {/* Message if only the current user has reviewed and there are no other reviews */}
+           {userReview && remainingReviews.length === 0 && game.reviews && game.reviews.length === 1 && (
+            <Alert variant="default" className="mt-6 bg-secondary/30 border-secondary">
+              <Info className="h-4 w-4 text-secondary-foreground" />
+              <AlertDescription className="text-secondary-foreground">
+                Nessun altro ha ancora recensito questo gioco.
+              </AlertDescription>
+            </Alert>
+          )}
+          {/* Message if NO reviews exist at all for the game (and user is not logged in, or has not reviewed) */}
+          {(!game.reviews || game.reviews.length === 0) && (
+            <Alert variant="default" className="mt-6 bg-secondary/30 border-secondary">
+              <Info className="h-4 w-4 text-secondary-foreground" />
+              <AlertDescription className="text-secondary-foreground">
+                Nessuna recensione ancora per questo gioco.
+              </AlertDescription>
+            </Alert>
           )}
 
         </div>
