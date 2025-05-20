@@ -15,7 +15,7 @@ import type { User as FirebaseUser } from 'firebase/auth';
 import { CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Slider } from '@/components/ui/slider';
-import { calculateOverallCategoryAverage, calculateGroupedCategoryAverages, calculateCategoryAverages, formatRatingNumber } from '@/lib/utils'; // Added formatRatingNumber
+import { calculateOverallCategoryAverage, calculateGroupedCategoryAverages, calculateCategoryAverages, formatRatingNumber } from '@/lib/utils';
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, doc, updateDoc, query, where, getDocs, limit, writeBatch, getDoc } from 'firebase/firestore';
@@ -37,7 +37,7 @@ const RatingSliderInput: React.FC<RatingSliderInputProps> = ({ fieldName, contro
       control={control}
       name={fieldName}
       render={({ field }) => {
-        const currentFieldValue = Number(field.value); // Ensure it's a number
+        const currentFieldValue = Number(field.value); 
         const sliderValue = useMemo(() => [currentFieldValue], [currentFieldValue]);
 
         return (
@@ -162,7 +162,7 @@ export function MultiStepRatingForm({
 
       const categoryAvgs = calculateCategoryAverages(allReviewsForGame);
       const newOverallAverage = categoryAvgs ? calculateOverallCategoryAverage(categoryAvgs) : null;
-
+      
       const gameDocRef = doc(db, "boardgames_collection", gameId);
       await updateDoc(gameDocRef, {
         overallAverageRating: newOverallAverage,
@@ -231,7 +231,7 @@ export function MultiStepRatingForm({
       author: currentUser.displayName || 'Anonimo',
       authorPhotoURL: currentUser.photoURL || null,
       rating: ratingDataToSave,
-      comment: "", // Comments removed from form, save as empty
+      comment: "", 
       date: new Date().toISOString(),
     };
 
@@ -363,7 +363,7 @@ export function MultiStepRatingForm({
   return (
     <Form {...form}>
       <form className="space-y-6">
-        {(currentStep <= totalInputSteps) && (
+        {currentStep <= totalInputSteps && (
            <div className="mb-4">
              <div className="flex justify-between items-start">
                 <div className="flex-1">
@@ -377,6 +377,7 @@ export function MultiStepRatingForm({
                       </p>
                     )}
                 </div>
+                
              </div>
            </div>
         )}
@@ -396,7 +397,7 @@ export function MultiStepRatingForm({
                     </div>
                     {yourOverallAverage !== null && (
                         <div className="text-right -mt-2">
-                            <span className="text-primary text-2xl md:text-3xl font-bold whitespace-nowrap">
+                            <span className="text-primary text-3xl md:text-4xl font-bold whitespace-nowrap">
                                 {formatRatingNumber(yourOverallAverage * 2)}
                             </span>
                         </div>
@@ -482,7 +483,7 @@ export function MultiStepRatingForm({
 
         <div className={`flex ${currentStep === totalDisplaySteps ? 'justify-end' : 'justify-between'} items-center pt-4 border-t mt-6`}>
             <div>
-                {currentStep === 1 && (
+                 {currentStep === 1 && (
                     <Button type="button" variant="outline" onClick={() => router.push(`/games/${gameId}`)} disabled={isSubmitting}>
                         <ArrowLeft className="mr-2 h-4 w-4" />
                         Torna al Gioco
@@ -516,3 +517,4 @@ export function MultiStepRatingForm({
     </Form>
   );
 }
+
