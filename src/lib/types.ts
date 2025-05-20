@@ -59,7 +59,7 @@ export interface AugmentedReview extends Review {
 export interface AugmentedReviewWithGame extends Review {
   gameId: string;
   gameName: string;
-  gameCoverArtUrl?: string | null; // Ensure it can be null or undefined
+  gameCoverArtUrl?: string | null;
 }
 
 
@@ -116,3 +116,4 @@ export interface UserProfile {
   photoURL?: string | null;
   email?: string | null;
 }
+
