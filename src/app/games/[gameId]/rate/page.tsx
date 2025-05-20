@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useState, useEffect, useRef } from 'react';
+import { SafeImage } from '@/components/common/SafeImage'; // Import SafeImage
 
 interface GameRatePageParams {
   gameId: string;
@@ -60,9 +61,17 @@ export default function GameRatePage() {
   }, [game, currentUser]);
 
   useEffect(() => {
-    // Scroll to top of page on step change
-    if (typeof window !== "undefined") {
+    // Scroll to top of page or specific element on step change
+    if (typeof window !== "undefined" && cardRef.current) {
+      if (currentRatingFormStep === 5) { // Final summary step
         window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else if (currentRatingFormStep >= 1 && currentRatingFormStep <= 4) {
+        // Scroll to top of card for input steps
+        const cardTopOffset = cardRef.current.getBoundingClientRect().top + window.scrollY;
+        setTimeout(() => {
+          window.scrollTo({ top: cardTopOffset - 30, behavior: 'smooth' });
+        }, 50); // Small delay for DOM updates
+      }
     }
   }, [currentRatingFormStep]);
 
@@ -110,6 +119,7 @@ export default function GameRatePage() {
     )
   }
 
+  const fallbackSrc = `https://placehold.co/64x96.png?text=${encodeURIComponent(game.name?.substring(0,3) || 'N/A')}`;
 
   return (
     <div className="max-w-2xl mx-auto py-8 px-4">
@@ -120,14 +130,29 @@ export default function GameRatePage() {
         {currentRatingFormStep !== 5 && (
             <CardHeader>
                 <CardTitle className="text-2xl md:text-3xl">
-                    {userReview ? 'Modifica la Tua Recensione per:' : 'Valuta:'} <span className="text-primary">{game.name}</span>
+                  <div className="flex items-center gap-3">
+                    <div className="relative w-12 h-16 sm:w-16 sm:h-20 rounded-md overflow-hidden shadow-sm flex-shrink-0">
+                      <SafeImage
+                        src={game.coverArtUrl}
+                        alt={`${game.name} copertina`}
+                        fallbackSrc={fallbackSrc}
+                        fill
+                        className="object-cover"
+                        data-ai-hint={`board game ${game.name?.split(' ')[0]?.toLowerCase() || 'mini'}`}
+                        sizes="(max-width: 640px) 48px, 64px"
+                      />
+                    </div>
+                    <span className="flex-grow">
+                      {userReview ? 'Modifica la Tua Recensione per:' : 'Valuta:'} <span className="text-primary">{game.name}</span>
+                    </span>
+                  </div>
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className="mt-2"> {/* Added margin-top for spacing */}
                     Segui i passaggi sottostanti per inviare la tua valutazione.
                 </CardDescription>
             </CardHeader>
         )}
-        <CardContent className={currentRatingFormStep === 5 ? 'pt-6' : ''}>
+        <CardContent className={currentRatingFormStep === 5 ? 'pt-0' : ''}> {/* pt-0 for step 5 for tighter fit with form's own header */}
           <MultiStepRatingForm
             gameId={game.id}
             currentUser={currentUser}
@@ -143,4 +168,3 @@ export default function GameRatePage() {
 }
 
 export const dynamic = 'force-dynamic';
-
