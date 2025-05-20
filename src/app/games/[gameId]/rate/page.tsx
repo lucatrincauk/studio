@@ -61,11 +61,11 @@ export default function GameRatePage() {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      if (currentRatingFormStep === 5) { // Summary step
+      if (currentRatingFormStep === 5) { // Summary step, scroll to page top
         setTimeout(() => {
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }, 50);
-      } else if (cardRef.current && currentRatingFormStep >= 1 && currentRatingFormStep <= 4) {
+      } else if (cardRef.current && currentRatingFormStep >= 1 && currentRatingFormStep <= 4) { // Input steps
         const cardTopOffset = cardRef.current.getBoundingClientRect().top + window.scrollY;
         setTimeout(() => {
           window.scrollTo({ top: cardTopOffset - 30, behavior: 'smooth' });
@@ -120,30 +120,12 @@ export default function GameRatePage() {
 
   return (
     <div className="max-w-2xl mx-auto py-8 px-4">
-      {/* Removed Button:
-      <Button variant="outline" size="sm" className="mb-6" onClick={() => router.back()}>
-        <ArrowLeft className="mr-2 h-4 w-4" /> Torna al Gioco
-      </Button>
-      */}
       <Card ref={cardRef} className="shadow-xl border border-border rounded-lg">
-        {currentRatingFormStep === 1 && (
-            <CardHeader>
-                <CardTitle className="text-2xl md:text-3xl">
-                  {userReview ? 'Modifica la Tua Recensione per:' : 'Valuta:'} <span className="text-primary">{game.name}</span>
-                </CardTitle>
-                <CardDescription className="mt-2">
-                    Segui i passaggi sottostanti per inviare la tua valutazione.
-                </CardDescription>
-            </CardHeader>
-        )}
-        <CardContent className={
-            currentRatingFormStep > 1 && currentRatingFormStep < 5
-            ? 'pt-6'
-            : (currentRatingFormStep === 5 ? 'pt-0' : '')
-          }
-        >
+        {/* Main page CardHeader is removed */}
+        <CardContent className={currentRatingFormStep === 5 ? 'pt-0' : 'pt-6'}>
           <MultiStepRatingForm
             gameId={game.id}
+            gameName={game.name} // Pass game name for the form
             currentUser={currentUser}
             existingReview={userReview}
             onReviewSubmitted={() => router.push(`/games/${gameId}`)}
@@ -157,3 +139,4 @@ export default function GameRatePage() {
 }
 
 export const dynamic = 'force-dynamic';
+

@@ -24,6 +24,7 @@ import { revalidateGameDataAction } from '@/lib/actions';
 
 interface MultiStepRatingFormProps {
   gameId: string;
+  gameName: string; // Added for form headers
   onReviewSubmitted: () => void;
   currentUser: FirebaseUser;
   existingReview?: Review | null;
@@ -35,10 +36,10 @@ const totalInputSteps = 4;
 const totalDisplaySteps = 5; // Includes summary step
 
 const stepCategories: RatingCategory[][] = [
-  ['excitedToReplay', 'mentallyStimulating', 'fun'], // Step 1: Sentimento
-  ['decisionDepth', 'replayability', 'luck', 'lengthDowntime'], // Step 2: Design del Gioco
-  ['graphicDesign', 'componentsThemeLore'], // Step 3: Estetica e Immersione
-  ['effortToLearn', 'setupTeardown'], // Step 4: Apprendimento e Logistica
+  ['excitedToReplay', 'mentallyStimulating', 'fun'],
+  ['decisionDepth', 'replayability', 'luck', 'lengthDowntime'],
+  ['graphicDesign', 'componentsThemeLore'],
+  ['effortToLearn', 'setupTeardown'],
 ];
 
 const categoryDescriptions: Record<RatingCategory, string> = {
@@ -47,12 +48,12 @@ const categoryDescriptions: Record<RatingCategory, string> = {
   fun: "In generale, quanto è stata piacevole e divertente l'esperienza di gioco?",
   decisionDepth: "Quanto sono state significative e incisive le scelte che hai fatto durante il gioco?",
   replayability: "Quanto diversa ed entusiasmante potrebbe essere la prossima partita?",
-  luck: "Quanto poco il caso o la casualità influenzano l'esito del gioco?", // Assenza di Fortuna
-  lengthDowntime: "Quanto è appropriata la durata del gioco per la sua profondità e quanto è coinvolgente quando non è il tuo turno?", // Durata
-  graphicDesign: "Quanto è visivamente accattivante l'artwork, l'iconografia e il layout generale del gioco?", // Grafica e Componenti
-  componentsThemeLore: "Come valuti l'ambientazione e l'applicazione del tema al gioco?", // Tema e Ambientazione
-  effortToLearn: "Quanto è facile o difficile capire le regole e iniziare a giocare?", // Facilità di Apprendimento
-  setupTeardown: "Quanto è veloce e semplice preparare il gioco e rimetterlo a posto?", // Preparazione e Ripristino
+  luck: "Quanto poco il caso o la casualità influenzano l'esito del gioco?",
+  lengthDowntime: "Quanto è appropriata la durata del gioco per la sua profondità e quanto è coinvolgente quando non è il tuo turno?",
+  graphicDesign: "Quanto è visivamente accattivante l'artwork, l'iconografia e il layout generale del gioco?",
+  componentsThemeLore: "Come valuti l'ambientazione e l'applicazione del tema al gioco?",
+  effortToLearn: "Quanto è facile o difficile capire le regole e iniziare a giocare?",
+  setupTeardown: "Quanto è veloce e semplice preparare il gioco e rimetterlo a posto?",
 };
 
 const StepIcon = ({ step }: { step: number }) => {
@@ -108,6 +109,7 @@ const RatingSliderInput: React.FC<RatingSliderInputProps> = ({ fieldName, contro
 
 export function MultiStepRatingForm({
   gameId,
+  gameName,
   onReviewSubmitted,
   currentUser,
   existingReview,
@@ -310,6 +312,11 @@ export function MultiStepRatingForm({
     }
   };
 
+  const handleFinish = () => {
+    form.reset(defaultFormValues);
+    onReviewSubmitted();
+  };
+
   const getCurrentStepTitle = () => {
     if (currentStep === 1) return "Sentimento";
     if (currentStep === 2) return "Design del Gioco";
@@ -324,16 +331,19 @@ export function MultiStepRatingForm({
     <Form {...form}>
       <form className="space-y-6">
          {currentStep < totalDisplaySteps && ( 
-          <div className="mb-4" id={`rating-step-header-${currentStep}`}>
+          <div className="mb-4">
             <h3 className="text-xl font-semibold flex items-center">
               <StepIcon step={currentStep} />
               {getCurrentStepTitle()} ({currentStep} di {totalInputSteps})
             </h3>
+             <p className="text-sm text-muted-foreground mt-1">
+                {existingReview ? `Modifica la tua valutazione per ${gameName}.` : `Valuta ${gameName}.`}
+             </p>
           </div>
         )}
 
         {currentStep === totalDisplaySteps && (
-             <CardHeader className="px-0 pt-6 pb-4">
+             <CardHeader className="px-0 pt-0 pb-4"> {/* Adjusted padding */}
                 <div className="flex justify-between items-center mb-1">
                     <CardTitle className="text-2xl md:text-3xl text-left">
                        Riepilogo Valutazione
@@ -406,7 +416,7 @@ export function MultiStepRatingForm({
             : 'justify-end'
         } items-center pt-4 border-t mt-6`}>
           
-          {currentStep > 1 && currentStep <= totalInputSteps && (
+          {(currentStep > 1 && currentStep <= totalInputSteps) && (
             <Button
               type="button"
               variant="outline"
@@ -433,10 +443,17 @@ export function MultiStepRatingForm({
               ) : null}
               {existingReview ? 'Aggiorna Recensione' : 'Invia Recensione'}
             </Button>
+          ) : currentStep === totalDisplaySteps ? (
+            <Button
+                type="button"
+                onClick={handleFinish}
+                className="bg-primary hover:bg-primary/90 text-primary-foreground"
+            >
+                Termina e Torna al Gioco
+            </Button>
           ) : null }
         </div>
       </form>
     </Form>
   );
 }
-
