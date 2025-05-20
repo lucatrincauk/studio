@@ -56,10 +56,18 @@ export interface AugmentedReview extends Review {
   gameCoverArtUrl?: string;
 }
 
+export interface AugmentedReviewWithGame extends Review {
+  gameId: string;
+  gameName: string;
+  gameCoverArtUrl?: string | null; // Ensure it can be null or undefined
+}
+
+
 export interface BoardGame {
   id: string;
   name: string;
   coverArtUrl: string;
+  bggId: number;
   reviews: Review[];
   yearPublished?: number | null;
   minPlayers?: number | null;
@@ -68,7 +76,6 @@ export interface BoardGame {
   minPlaytime?: number | null;
   maxPlaytime?: number | null;
   averageWeight?: number | null;
-  bggId: number;
   overallAverageRating?: number | null;
   reviewCount?: number;
   isPinned?: boolean;
@@ -77,7 +84,7 @@ export interface BoardGame {
   designers?: string[];
   favoritedByUserIds?: string[];
   favoriteCount?: number;
-  wishlistedByUserIds?: string[]; // New field
+  wishlistedByUserIds?: string[];
 }
 
 export interface AiSummary {
