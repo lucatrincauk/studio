@@ -3,7 +3,7 @@ import { getFeaturedGamesAction, getAllGamesAction } from '@/lib/actions';
 import { GameCard } from '@/components/boardgame/game-card';
 import { Separator } from '@/components/ui/separator';
 import type { BoardGame } from '@/lib/types';
-import { Star, Edit, TrendingUp } from 'lucide-react'; 
+import { Star, Edit, TrendingUp, Library } from 'lucide-react'; 
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { formatRatingNumber } from '@/lib/utils';
@@ -65,7 +65,10 @@ export default async function HomePage() {
             </h2>
             <div className="space-y-4">
               {topRatedGames.map((game, index) => (
-                <div key={game.id} className="flex items-center gap-x-3 sm:gap-x-4 p-3 rounded-lg hover:bg-muted/50 transition-colors border border-border">
+                <div 
+                  key={game.id} 
+                  className="flex items-center gap-x-3 sm:gap-x-4 p-3 rounded-lg hover:bg-muted/50 transition-colors border border-border bg-[#f9fbf9]"
+                >
                   <div className="flex-shrink-0">
                     <span className="text-xl sm:text-2xl font-bold text-primary w-8 sm:w-10 flex items-center justify-center">
                       {index + 1}.
@@ -114,4 +117,3 @@ export default async function HomePage() {
 }
 
 export const revalidate = 3600;
-
