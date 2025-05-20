@@ -11,7 +11,6 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useState, useEffect, useRef } from 'react';
-import { SafeImage } from '@/components/common/SafeImage'; 
 
 interface GameRatePageParams {
   gameId: string;
@@ -61,12 +60,12 @@ export default function GameRatePage() {
   }, [game, currentUser]);
 
   useEffect(() => {
-    if (typeof window !== "undefined" && cardRef.current) {
+    if (typeof window !== "undefined") {
       if (currentRatingFormStep === 5) { 
         setTimeout(() => {
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }, 50);
-      } else if (currentRatingFormStep >= 1 && currentRatingFormStep <= 4) {
+      } else if (cardRef.current && currentRatingFormStep >= 1 && currentRatingFormStep <= 4) {
         const cardTopOffset = cardRef.current.getBoundingClientRect().top + window.scrollY;
         setTimeout(() => {
           window.scrollTo({ top: cardTopOffset - 30, behavior: 'smooth' });
@@ -125,7 +124,7 @@ export default function GameRatePage() {
         <ArrowLeft className="mr-2 h-4 w-4" /> Torna al Gioco
       </Button>
       <Card ref={cardRef} className="shadow-xl border border-border rounded-lg">
-        {currentRatingFormStep !== 5 && (
+        {currentRatingFormStep === 1 && ( // Only show this header on step 1
             <CardHeader>
                 <CardTitle className="text-2xl md:text-3xl">
                   {userReview ? 'Modifica la Tua Recensione per:' : 'Valuta:'} <span className="text-primary">{game.name}</span>
@@ -135,7 +134,12 @@ export default function GameRatePage() {
                 </CardDescription>
             </CardHeader>
         )}
-        <CardContent className={currentRatingFormStep === 5 ? 'pt-0' : ''}>
+        <CardContent className={
+            currentRatingFormStep > 1 && currentRatingFormStep < 5 
+            ? 'pt-6' 
+            : (currentRatingFormStep === 5 ? 'pt-0' : '')
+          }
+        >
           <MultiStepRatingForm
             gameId={game.id}
             currentUser={currentUser}
