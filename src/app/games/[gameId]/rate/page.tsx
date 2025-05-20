@@ -66,9 +66,9 @@ export default function GameRatePage() {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      setTimeout(() => {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }, 50);
+        setTimeout(() => {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }, 50);
     }
   }, [currentRatingFormStep]);
 
@@ -116,7 +116,7 @@ export default function GameRatePage() {
     )
   }
 
-  const pageTitle = existingReview ? "Modifica la Tua Valutazione per:" : "Valuta:";
+  const pageTitle = userReview ? "Modifica la Tua Valutazione per:" : "Valuta:";
 
   return (
     <div className="max-w-2xl mx-auto py-8 px-4">
