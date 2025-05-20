@@ -116,12 +116,12 @@ export default function UserDetailPage() {
   if (userReviews && userReviews.length > 0) {
     const totalScoreSum = userReviews.reduce((sum, review) => {
       const overallReviewAvg = calculateOverallCategoryAverage(review.rating);
+      // The overall average is on a 1-5 scale, multiply by 2 for 2-10 scale
       return sum + (overallReviewAvg * 2); 
     }, 0);
     averageScoreGiven = totalScoreSum / userReviews.length;
   }
 
-  const reviewsPreview = userReviews.slice(0, 3);
 
   return (
     <div className="space-y-10">
@@ -155,42 +155,34 @@ export default function UserDetailPage() {
       <section>
         <h2 className="text-2xl font-semibold mb-4 text-foreground flex items-center gap-3">
           <MessageSquareText className="h-6 w-6 text-primary" />
-          Attività Recensioni Recenti
+          Tutte le Recensioni di {viewedUser.name} ({userReviews.length})
         </h2>
         {isLoadingReviews ? (
            <div className="flex justify-center py-4"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
         ) : userReviews.length > 0 ? (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-              {reviewsPreview.map((review, index) => {
-                const gameForCard: BoardGame = {
-                  id: review.gameId,
-                  name: review.gameName || "Gioco Sconosciuto",
-                  coverArtUrl: review.gameCoverArtUrl || '',
-                  bggId: 0, // Not strictly needed for GameCard featured variant if linking externally
-                  reviews: [],
-                  overallAverageRating: calculateOverallCategoryAverage(review.rating), // User's score for this review
-                };
-                const reviewDetailHref = `/games/${review.gameId}/reviews/${review.id}`;
-                return (
-                  <GameCard 
-                    key={review.id} 
-                    game={gameForCard}
-                    variant="featured" 
-                    priority={index < 3} 
-                    showOverlayText={true}
-                    overrideHref={reviewDetailHref} 
-                  />
-                );
-              })}
-            </div>
-            {userReviews.length > 3 && (
-              <Button asChild variant="outline" className="mt-4 w-full sm:w-auto">
-                <Link href={`/users/${userId}/reviews`}>
-                  Vedi tutte le {userReviews.length} recensioni di {viewedUser.name} <ExternalLink className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
-            )}
+          <div className="flex space-x-4 overflow-x-auto pb-4">
+            {userReviews.map((review, index) => {
+              const gameForCard: BoardGame = {
+                id: review.gameId,
+                name: review.gameName || "Gioco Sconosciuto",
+                coverArtUrl: review.gameCoverArtUrl || '',
+                bggId: 0, 
+                reviews: [],
+                overallAverageRating: calculateOverallCategoryAverage(review.rating), 
+              };
+              const reviewDetailHref = `/games/${review.gameId}/reviews/${review.id}`;
+              return (
+                <div key={review.id} className="w-40 flex-shrink-0">
+                    <GameCard 
+                        game={gameForCard}
+                        variant="featured" 
+                        priority={index < 3} 
+                        showOverlayText={true}
+                        overrideHref={reviewDetailHref} 
+                    />
+                </div>
+              );
+            })}
           </div>
         ) : (
           <Alert variant="default" className="bg-secondary/30 border-secondary">
@@ -245,3 +237,4 @@ export default function UserDetailPage() {
     </div>
   );
 }
+
