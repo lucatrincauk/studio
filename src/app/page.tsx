@@ -69,32 +69,35 @@ export default async function HomePage() {
               {topRatedGames.map((game, index) => (
                 <div 
                   key={game.id} 
-                  className="flex items-center gap-x-3 sm:gap-x-4 p-3 rounded-lg hover:bg-muted/50 transition-colors border border-border bg-[#f9fbf9]"
+                  className="relative flex items-center gap-x-3 sm:gap-x-4 p-3 rounded-lg bg-[#f9fbf9] hover:bg-muted/60 transition-colors border border-border overflow-hidden"
                 >
-                  <div className="w-24 sm:w-28 md:w-32 flex-shrink-0"> 
-                    <GameCard game={game} variant="featured" priority={index < 5} showOverlayText={false} />
-                  </div>
-                  <div className="flex-grow min-w-0 ml-2 sm:ml-3 flex justify-between items-center">
-                    <Link href={`/games/${game.id}`} className="group flex-1">
-                      <h3 className="text-md sm:text-lg font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-3 hover:underline">
-                        {game.name}
-                      </h3>
-                      {game.yearPublished && (
-                        <p className="text-xs sm:text-sm text-muted-foreground">
-                          ({game.yearPublished})
+                  <span 
+                    aria-hidden="true"
+                    className="absolute -right-2 -bottom-8 sm:-bottom-10 md:-bottom-12 z-0 text-[100px] sm:text-[120px] md:text-[140px] font-bold text-muted-foreground/10 pointer-events-none select-none leading-none"
+                  >
+                    {index + 1}
+                  </span>
+                  <div className="relative z-10 flex items-center gap-x-3 sm:gap-x-4 flex-grow mr-10 sm:mr-12 md:mr-16"> {/* Added right margin for content */}
+                    <div className="w-24 sm:w-28 md:w-32 flex-shrink-0"> 
+                      <GameCard game={game} variant="featured" priority={index < 5} showOverlayText={false} />
+                    </div>
+                    <div className="flex-grow min-w-0 flex justify-between items-center">
+                      <Link href={`/games/${game.id}`} className="group flex-1">
+                        <h3 className="text-md sm:text-lg font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-3 hover:underline">
+                          {game.name}
+                        </h3>
+                        {game.yearPublished && (
+                          <p className="text-xs sm:text-sm text-muted-foreground">
+                            ({game.yearPublished})
+                          </p>
+                        )}
+                      </Link>
+                      {game.overallAverageRating !== null && typeof game.overallAverageRating === 'number' && (
+                        <p className="text-xl sm:text-2xl font-bold text-primary ml-4 flex-shrink-0">
+                          {formatRatingNumber(game.overallAverageRating * 2)}
                         </p>
                       )}
-                    </Link>
-                    {game.overallAverageRating !== null && typeof game.overallAverageRating === 'number' && (
-                      <p className="text-xl sm:text-2xl font-bold text-primary ml-4 flex-shrink-0">
-                        {formatRatingNumber(game.overallAverageRating * 2)}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex-shrink-0 ml-auto"> {/* Moved Rank to the right */}
-                    <span className="text-3xl font-bold text-primary w-10 text-center block">
-                      {index + 1}
-                    </span>
+                    </div>
                   </div>
                 </div>
               ))}
