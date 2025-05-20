@@ -3,12 +3,11 @@ import { getFeaturedGamesAction, getAllGamesAction } from '@/lib/actions';
 import { GameCard } from '@/components/boardgame/game-card';
 import { Separator } from '@/components/ui/separator';
 import type { BoardGame } from '@/lib/types';
-import { Star, Edit, TrendingUp, Library, AlertCircle } from 'lucide-react'; 
+import { Star, Edit, TrendingUp, Library, AlertCircle, Info } from 'lucide-react'; 
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { formatRatingNumber } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Info } from 'lucide-react';
 
 
 export default async function HomePage() {
@@ -70,14 +69,15 @@ export default async function HomePage() {
               {topRatedGames.map((game, index) => (
                 <div 
                   key={game.id} 
-                  className="flex items-start gap-x-3 sm:gap-x-4 p-3 rounded-lg hover:bg-muted/50 transition-colors border border-border bg-[#f9fbf9]"
+                  className="flex items-center gap-x-3 sm:gap-x-4 p-3 rounded-lg hover:bg-muted/50 transition-colors border border-border bg-[#f9fbf9]"
                 >
-                  <div className="flex-shrink-0 pt-1"> {/* Added pt-1 for slight top alignment adjustment with text */}
+                  <div className="flex-shrink-0"> {/* Removed pt-1 */}
                     <span className="text-xl sm:text-2xl font-bold text-primary w-8 sm:w-10 flex items-center justify-center">
                       {index + 1}.
                     </span>
                   </div>
-                  <div className="w-24 h-32 sm:w-28 sm:h-36 md:w-32 md:h-40 flex-shrink-0"> 
+                  {/* Container width controls card width, aspect-ratio on GameCard will control height */}
+                  <div className="w-24 sm:w-28 md:w-32 flex-shrink-0"> 
                     <GameCard game={game} variant="featured" priority={index < 5} showOverlayText={false} />
                   </div>
                   <div className="flex-grow min-w-0 ml-2 sm:ml-3 flex justify-between items-center">
