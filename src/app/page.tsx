@@ -71,10 +71,10 @@ export default async function HomePage() {
                   key={game.id} 
                   className="relative overflow-hidden flex items-center gap-x-3 sm:gap-x-4 p-3 rounded-lg hover:bg-muted/50 transition-colors border border-border bg-[#f9fbf9]"
                 >
-                  <span className="absolute -left-3 -top-5 z-0 text-[100px] sm:text-[120px] md:text-[140px] font-extrabold text-muted-foreground/10 pointer-events-none select-none leading-none">
+                  <span className="absolute -left-1 -top-2 z-0 text-[100px] sm:text-[120px] md:text-[140px] font-extrabold text-muted-foreground/10 pointer-events-none select-none leading-none">
                     {index + 1}
                   </span>
-                  <div className="relative z-10 flex items-center gap-x-3 sm:gap-x-4 w-full">
+                  <div className="relative z-10 flex items-center gap-x-3 sm:gap-x-4 w-full ml-2 sm:ml-3">
                     <div className="w-24 sm:w-28 md:w-32 flex-shrink-0"> 
                       <GameCard game={game} variant="featured" priority={index < 5} showOverlayText={false} />
                     </div>
@@ -119,3 +119,4 @@ export default async function HomePage() {
 }
 
 export const revalidate = 3600;
+
