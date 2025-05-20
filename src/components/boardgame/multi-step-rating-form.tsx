@@ -16,11 +16,11 @@ import { CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Slider } from '@/components/ui/slider';
 import { Progress } from '@/components/ui/progress';
-import { calculateOverallCategoryAverage, calculateGroupedCategoryAverages, formatRatingNumber } from '@/lib/utils';
+import { calculateOverallCategoryAverage, calculateGroupedCategoryAverages, formatRatingNumber, calculateCategoryAverages } from '@/lib/utils';
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, doc, updateDoc, query, where, getDocs, limit, writeBatch, getDoc } from 'firebase/firestore';
-import { revalidateGameDataAction } from '@/lib/actions'; // Keep for revalidation
+import { revalidateGameDataAction } from '@/lib/actions';
 
 interface MultiStepRatingFormProps {
   gameId: string;
@@ -35,10 +35,10 @@ const totalInputSteps = 4;
 const totalDisplaySteps = 5; // Includes summary step
 
 const stepCategories: RatingCategory[][] = [
-  ['excitedToReplay', 'mentallyStimulating', 'fun'],
-  ['decisionDepth', 'replayability', 'luck', 'lengthDowntime'],
-  ['graphicDesign', 'componentsThemeLore'],
-  ['effortToLearn', 'setupTeardown'],
+  ['excitedToReplay', 'mentallyStimulating', 'fun'], // Step 1: Sentimento
+  ['decisionDepth', 'replayability', 'luck', 'lengthDowntime'], // Step 2: Design del Gioco
+  ['graphicDesign', 'componentsThemeLore'], // Step 3: Estetica e Immersione
+  ['effortToLearn', 'setupTeardown'], // Step 4: Apprendimento e Logistica
 ];
 
 const categoryDescriptions: Record<RatingCategory, string> = {
@@ -47,12 +47,12 @@ const categoryDescriptions: Record<RatingCategory, string> = {
   fun: "In generale, quanto è stata piacevole e divertente l'esperienza di gioco?",
   decisionDepth: "Quanto sono state significative e incisive le scelte che hai fatto durante il gioco?",
   replayability: "Quanto diversa ed entusiasmante potrebbe essere la prossima partita?",
-  luck: "Quanto poco il caso o la casualità influenzano l'esito del gioco?",
-  lengthDowntime: "Quanto è appropriata la durata del gioco per la sua profondità e quanto è coinvolgente quando non è il tuo turno?",
-  graphicDesign: "Quanto è visivamente accattivante l'artwork, l'iconografia e il layout generale del gioco?",
-  componentsThemeLore: "Come valuti l'ambientazione e l'applicazione del tema al gioco?",
-  effortToLearn: "Quanto è facile o difficile capire le regole e iniziare a giocare?",
-  setupTeardown: "Quanto è veloce e semplice preparare il gioco e rimetterlo a posto?",
+  luck: "Quanto poco il caso o la casualità influenzano l'esito del gioco?", // Assenza di Fortuna
+  lengthDowntime: "Quanto è appropriata la durata del gioco per la sua profondità e quanto è coinvolgente quando non è il tuo turno?", // Durata
+  graphicDesign: "Quanto è visivamente accattivante l'artwork, l'iconografia e il layout generale del gioco?", // Grafica e Componenti
+  componentsThemeLore: "Come valuti l'ambientazione e l'applicazione del tema al gioco?", // Tema e Ambientazione
+  effortToLearn: "Quanto è facile o difficile capire le regole e iniziare a giocare?", // Facilità di Apprendimento
+  setupTeardown: "Quanto è veloce e semplice preparare il gioco e rimetterlo a posto?", // Preparazione e Ripristino
 };
 
 const StepIcon = ({ step }: { step: number }) => {
@@ -105,7 +105,6 @@ const RatingSliderInput: React.FC<RatingSliderInputProps> = ({ fieldName, contro
     />
   );
 };
-
 
 export function MultiStepRatingForm({
   gameId,
@@ -178,7 +177,7 @@ export function MultiStepRatingForm({
       await revalidateGameDataAction(gameId);
     } catch (error) {
       console.error("Errore durante l'aggiornamento del punteggio medio del gioco:", error);
-      // Consider a toast for the user if this fails silently
+      toast({ title: "Errore Aggiornamento Punteggio", description: "Impossibile aggiornare il punteggio medio del gioco.", variant: "destructive" });
     }
   };
 
@@ -294,11 +293,11 @@ export function MultiStepRatingForm({
             userId: currentUser.uid,
             authorPhotoURL: currentUser.photoURL || null,
             rating: currentRatings,
-            comment: '', // comment field is no longer in the form, but type expects it
+            comment: '',
             date: existingReview?.date || new Date().toISOString(),
           };
           setGroupedAveragesForSummary(calculateGroupedCategoryAverages([tempReviewForSummary]));
-          onStepChange(totalDisplaySteps); // Go to summary step
+          onStepChange(totalDisplaySteps); 
         }
       });
     } else {
@@ -324,7 +323,7 @@ export function MultiStepRatingForm({
   return (
     <Form {...form}>
       <form className="space-y-6">
-         {currentStep < totalDisplaySteps && ( // Show step header only for input steps
+         {currentStep < totalDisplaySteps && ( 
           <div className="mb-4" id={`rating-step-header-${currentStep}`}>
             <h3 className="text-xl font-semibold flex items-center">
               <StepIcon step={currentStep} />
@@ -340,7 +339,7 @@ export function MultiStepRatingForm({
                        Riepilogo Valutazione
                     </CardTitle>
                     {yourOverallAverage !== null && (
-                        <span className="text-primary text-3xl font-bold whitespace-nowrap">
+                        <span className="text-primary text-2xl md:text-3xl font-bold whitespace-nowrap">
                             {formatRatingNumber(yourOverallAverage * 2)}
                         </span>
                     )}
@@ -402,12 +401,11 @@ export function MultiStepRatingForm({
         )}
 
         <div className={`flex ${
-          (currentStep >= 2 && currentStep <= totalInputSteps) // For steps 2, 3, 4
+          (currentStep >= 2 && currentStep <= totalInputSteps)
             ? 'justify-between'
-            : 'justify-end' // For steps 1, 5
+            : 'justify-end'
         } items-center pt-4 border-t mt-6`}>
           
-          {/* Previous Button - Render for steps 2, 3, 4 */}
           {currentStep > 1 && currentStep <= totalInputSteps && (
             <Button
               type="button"
@@ -419,12 +417,11 @@ export function MultiStepRatingForm({
             </Button>
           )}
 
-          {/* Next/Submit/Finish Button */}
           {currentStep < totalInputSteps ? (
             <Button type="button" onClick={handleNext} disabled={isSubmitting} className="bg-primary hover:bg-primary/90 text-primary-foreground">
               Avanti
             </Button>
-          ) : currentStep === totalInputSteps ? ( // This is Step 4 - Submit
+          ) : currentStep === totalInputSteps ? (
             <Button
               type="button"
               onClick={handleStep4Submit} 
@@ -436,20 +433,10 @@ export function MultiStepRatingForm({
               ) : null}
               {existingReview ? 'Aggiorna Recensione' : 'Invia Recensione'}
             </Button>
-          ) : ( // This is Step 5 (summary)
-            <Button
-              type="button"
-              onClick={() => {
-                form.reset(defaultFormValues);
-                onReviewSubmitted();
-              }}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground"
-            >
-              Termina e Torna al Gioco
-            </Button>
-          )}
+          ) : null }
         </div>
       </form>
     </Form>
   );
 }
+
