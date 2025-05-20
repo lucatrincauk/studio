@@ -23,7 +23,7 @@ export const RATING_CATEGORIES: Record<RatingCategory, string> = {
   graphicDesign: 'Grafica e Componenti',
   componentsThemeLore: 'Tema e Ambientazione',
   effortToLearn: 'Facilità di Apprendimento',
-  setupTeardown: 'Preparazione e Ripristino', // Changed here
+  setupTeardown: 'Preparazione e Ripristino',
 };
 
 export interface Rating {
@@ -60,16 +60,17 @@ export interface BoardGame {
   id: string;
   name: string;
   coverArtUrl: string;
-  reviews: Review[]; // Typically empty for list views, populated for detail views
+  reviews: Review[]; // Populated for detail views or when calculating averages server-side
   yearPublished?: number | null;
   minPlayers?: number | null;
   maxPlayers?: number | null;
-  playingTime?: number | null; // Typical or stated playing time
-  minPlaytime?: number | null; // Minimum playing time from BGG
-  maxPlaytime?: number | null; // Maximum playing time from BGG
-  averageWeight?: number | null; // Complexity/weight rating from BGG
+  playingTime?: number | null;
+  minPlaytime?: number | null;
+  maxPlaytime?: number | null;
+  averageWeight?: number | null;
   bggId: number;
   overallAverageRating?: number | null;
+  reviewCount?: number;
   isPinned?: boolean;
 }
 
@@ -84,21 +85,20 @@ export interface BggSearchResult {
   rank: number;
 }
 
-// Types for grouped ratings display
-export interface SubRatingAverage {
-  name: string;
-  average: number;
-}
 export interface SectionAverage {
   sectionTitle: string;
   iconName?: string;
   sectionAverage: number;
   subRatings: SubRatingAverage[];
 }
+export interface SubRatingAverage {
+  name: string;
+  average: number;
+}
 export type GroupedCategoryAverages = SectionAverage[];
 
 export interface UserProfile {
-  id: string; // This will be the userId
+  id: string;
   name: string;
   photoURL?: string | null;
 }

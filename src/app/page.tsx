@@ -92,11 +92,18 @@ export default async function HomePage() {
                           </p>
                         )}
                       </Link>
-                      {game.overallAverageRating !== null && typeof game.overallAverageRating === 'number' && (
-                        <p className="text-xl sm:text-2xl font-bold text-primary ml-4 flex-shrink-0">
-                          {formatRatingNumber(game.overallAverageRating * 2)}
-                        </p>
-                      )}
+                      <div className="text-right ml-2 flex-shrink-0">
+                        {game.overallAverageRating !== null && typeof game.overallAverageRating === 'number' && (
+                          <p className="text-xl sm:text-2xl font-bold text-primary">
+                            {formatRatingNumber(game.overallAverageRating * 2)}
+                          </p>
+                        )}
+                        {game.reviewCount !== null && typeof game.reviewCount === 'number' && (
+                          <p className="text-xs text-muted-foreground">
+                            {game.reviewCount} {game.reviewCount === 1 ? 'recensione' : 'recensioni'}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -122,5 +129,3 @@ export default async function HomePage() {
 }
 
 export const revalidate = 3600;
-
-
