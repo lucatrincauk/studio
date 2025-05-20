@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useTransition, useMemo, useRef } from 'react';
@@ -19,7 +18,6 @@ import { calculateOverallCategoryAverage, calculateGroupedCategoryAverages, calc
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, doc, updateDoc, query, where, getDocs, limit, writeBatch, getDoc } from 'firebase/firestore';
-import { revalidateGameDataAction } from '@/lib/actions';
 import { useRouter } from 'next/navigation';
 import { SafeImage } from '@/components/common/SafeImage';
 
@@ -99,7 +97,7 @@ const categoryDescriptions: Record<RatingCategory, string> = {
   graphicDesign: "Quanto è visivamente accattivante l'artwork, l'iconografia e il layout generale del gioco?",
   componentsThemeLore: "Come valuti l'ambientazione e l'applicazione del tema al gioco?",
   effortToLearn: "Quanto è facile o difficile capire le regole e iniziare a giocare?",
-  setupTeardown: "Quanto è veloce e semplice preparare il gioco e rimetterlo a posto?",
+  setupTeardown: "Quanto è veloce e semplice preparare il gioco e rimettere a posto?",
 };
 
 const stepUIDescriptions: Record<number, string> = {
@@ -107,7 +105,7 @@ const stepUIDescriptions: Record<number, string> = {
   2: "Come giudichi gli aspetti legati al design del gioco?",
   3: "Valuta l'impatto visivo e l'immersione tematica.",
   4: "Quanto è stato facile apprendere e gestire il gioco?",
-  5: "La tua recensione è stata salvata. Ecco un riepilogo:",
+  5: "La tua recensione è stata salvata.\nEcco un riepilogo:",
 };
 
 
@@ -169,8 +167,6 @@ export function MultiStepRatingForm({
         reviewCount: allReviewsForGame.length
       });
 
-      await revalidateGameDataAction(gameId);
-
     } catch (error) {
       console.error("Errore Aggiornamento Punteggio Medio Gioco:", error);
       toast({ title: "Errore Aggiornamento Punteggio", description: "Impossibile aggiornare il punteggio medio del gioco.", variant: "destructive" });
@@ -194,11 +190,10 @@ export function MultiStepRatingForm({
   const form = useForm<RatingFormValues>({
     resolver: zodResolver(reviewFormSchema),
     defaultValues: defaultFormValues,
-    mode: 'onChange', // Validate on change for better UX with sliders
+    mode: 'onChange', 
   });
 
  useEffect(() => {
-    // Reset form when existingReview or currentStep changes, but only for input steps
     if (currentStep <= totalInputSteps) {
         form.reset(defaultFormValues);
     }
@@ -274,6 +269,7 @@ export function MultiStepRatingForm({
       }
       submissionSuccess = true;
       await updateGameOverallRating();
+      await revalidateGameDataAction(gameId);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
       toast({ title: "Errore", description: `Impossibile inviare la recensione: ${errorMessage}`, variant: "destructive" });
@@ -391,7 +387,7 @@ export function MultiStepRatingForm({
                          Riepilogo Valutazione
                         </CardTitle>
                          {stepUIDescriptions[currentStep] && (
-                            <CardDescription className="text-left text-sm text-muted-foreground mt-1">
+                            <CardDescription className="text-left text-sm text-muted-foreground mt-1 whitespace-pre-line">
                                 {stepUIDescriptions[currentStep]}
                             </CardDescription>
                         )}
