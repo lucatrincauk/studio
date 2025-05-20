@@ -22,7 +22,7 @@ export default function GameRatePage() {
   const { gameId } = params;
   const { user: currentUser, loading: authLoading } = useAuth();
 
-  const [game, setGame] = useState<BoardGame | null | undefined>(undefined); 
+  const [game, setGame] = useState<BoardGame | null | undefined>(undefined);
   const [userReview, setUserReview] = useState<Review | undefined>(undefined);
   const [isLoadingGame, setIsLoadingGame] = useState(true);
   const [currentRatingFormStep, setCurrentRatingFormStep] = useState(1);
@@ -33,7 +33,7 @@ export default function GameRatePage() {
     async function fetchGameData() {
       if (!gameId) {
         setIsLoadingGame(false);
-        setGame(null); 
+        setGame(null);
         return;
       }
       setIsLoadingGame(true);
@@ -45,23 +45,23 @@ export default function GameRatePage() {
   }, [gameId]);
 
   useEffect(() => {
-    if (game === undefined) return; 
+    if (game === undefined) return;
 
-    if (game) { 
+    if (game) {
       if (currentUser && game.reviews) {
         const foundReview = game.reviews.find(r => r.userId === currentUser.uid);
         setUserReview(foundReview);
       } else {
         setUserReview(undefined);
       }
-    } else { 
+    } else {
       setUserReview(undefined);
     }
   }, [game, currentUser]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      if (currentRatingFormStep === 5) { 
+      if (currentRatingFormStep === 5) { // Summary step
         setTimeout(() => {
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }, 50);
@@ -69,7 +69,7 @@ export default function GameRatePage() {
         const cardTopOffset = cardRef.current.getBoundingClientRect().top + window.scrollY;
         setTimeout(() => {
           window.scrollTo({ top: cardTopOffset - 30, behavior: 'smooth' });
-        }, 50); 
+        }, 50);
       }
     }
   }, [currentRatingFormStep]);
@@ -84,7 +84,7 @@ export default function GameRatePage() {
     );
   }
 
-  if (!game) { 
+  if (!game) {
     return (
       <div className="flex flex-col items-center justify-center text-center py-10">
         <AlertCircle className="h-12 w-12 text-destructive mb-4" />
@@ -120,11 +120,13 @@ export default function GameRatePage() {
 
   return (
     <div className="max-w-2xl mx-auto py-8 px-4">
+      {/* Removed Button:
       <Button variant="outline" size="sm" className="mb-6" onClick={() => router.back()}>
         <ArrowLeft className="mr-2 h-4 w-4" /> Torna al Gioco
       </Button>
+      */}
       <Card ref={cardRef} className="shadow-xl border border-border rounded-lg">
-        {currentRatingFormStep === 1 && ( // Only show this header on step 1
+        {currentRatingFormStep === 1 && (
             <CardHeader>
                 <CardTitle className="text-2xl md:text-3xl">
                   {userReview ? 'Modifica la Tua Recensione per:' : 'Valuta:'} <span className="text-primary">{game.name}</span>
@@ -135,8 +137,8 @@ export default function GameRatePage() {
             </CardHeader>
         )}
         <CardContent className={
-            currentRatingFormStep > 1 && currentRatingFormStep < 5 
-            ? 'pt-6' 
+            currentRatingFormStep > 1 && currentRatingFormStep < 5
+            ? 'pt-6'
             : (currentRatingFormStep === 5 ? 'pt-0' : '')
           }
         >
