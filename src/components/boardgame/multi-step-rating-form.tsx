@@ -15,7 +15,6 @@ import type { User as FirebaseUser } from 'firebase/auth';
 import { CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Slider } from '@/components/ui/slider';
-import { Progress } from '@/components/ui/progress';
 import { calculateOverallCategoryAverage, calculateGroupedCategoryAverages, formatRatingNumber, calculateCategoryAverages } from '@/lib/utils';
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 import { db } from '@/lib/firebase';
@@ -24,7 +23,7 @@ import { revalidateGameDataAction } from '@/lib/actions';
 
 interface MultiStepRatingFormProps {
   gameId: string;
-  gameName: string; // Added for form headers
+  gameName: string; 
   onReviewSubmitted: () => void;
   currentUser: FirebaseUser;
   existingReview?: Review | null;
@@ -78,7 +77,7 @@ const RatingSliderInput: React.FC<RatingSliderInputProps> = ({ fieldName, contro
       control={control}
       name={fieldName}
       render={({ field }) => {
-        const currentFieldValue = Number(field.value);
+        const currentFieldValue = Number(field.value); 
         const sliderValue = useMemo(() => [currentFieldValue], [currentFieldValue]);
 
         return (
@@ -143,7 +142,8 @@ export function MultiStepRatingForm({
 
   useEffect(() => {
     form.reset(defaultFormValues);
-  }, [defaultFormValues, form]);
+  }, [defaultFormValues, form, currentStep]); // Reset form if existingReview changes or on first step
+
 
   const updateGameOverallRating = async () => {
     try {
@@ -178,7 +178,6 @@ export function MultiStepRatingForm({
       
       await revalidateGameDataAction(gameId);
     } catch (error) {
-      console.error("Errore durante l'aggiornamento del punteggio medio del gioco:", error);
       toast({ title: "Errore Aggiornamento Punteggio", description: "Impossibile aggiornare il punteggio medio del gioco.", variant: "destructive" });
     }
   };
@@ -194,14 +193,14 @@ export function MultiStepRatingForm({
     }
 
     const ratingData: RatingType = { ...data };
-    const reviewDataToSave: Omit<Review, 'id'> = {
-      author: currentUser.displayName || 'Anonimo',
+    const reviewDataToSave: Omit<Review, 'id' | 'author'> = {
       userId: currentUser.uid,
       authorPhotoURL: currentUser.photoURL || null,
       rating: ratingData,
       comment: "", 
       date: new Date().toISOString(),
     };
+    const authorName = currentUser.displayName || 'Anonimo';
 
     try {
       const gameDocRef = doc(db, "boardgames_collection", gameId);
@@ -223,7 +222,7 @@ export function MultiStepRatingForm({
            setFormError("Recensione non trovata o non hai i permessi per modificarla.");
            return false;
         }
-        await updateDoc(reviewDocRef, reviewDataToSave);
+        await updateDoc(reviewDocRef, {...reviewDataToSave, author: authorName});
         toast({ title: "Successo!", description: "Recensione aggiornata con successo!", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
       } else {
         const existingReviewQuery = query(reviewsCollectionRef, where("userId", "==", currentUser.uid), limit(1));
@@ -231,10 +230,10 @@ export function MultiStepRatingForm({
 
         if (!existingReviewSnapshot.empty) {
            const reviewToUpdateRef = existingReviewSnapshot.docs[0].ref;
-           await updateDoc(reviewToUpdateRef, reviewDataToSave);
+           await updateDoc(reviewToUpdateRef, {...reviewDataToSave, author: authorName});
            toast({ title: "Aggiornato!", description: "La tua recensione esistente è stata aggiornata.", variant: "default", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
         } else {
-          await addDoc(reviewsCollectionRef, reviewDataToSave);
+          await addDoc(reviewsCollectionRef, {...reviewDataToSave, author: authorName});
           toast({ title: "Successo!", description: "Recensione inviata con successo!", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
         }
       }
@@ -330,20 +329,17 @@ export function MultiStepRatingForm({
   return (
     <Form {...form}>
       <form className="space-y-6">
-         {currentStep < totalDisplaySteps && ( 
+        {currentStep <= totalInputSteps && ( 
           <div className="mb-4">
             <h3 className="text-xl font-semibold flex items-center">
               <StepIcon step={currentStep} />
-              {getCurrentStepTitle()} ({currentStep} di {totalInputSteps})
+              {getCurrentStepTitle()} ({currentStep} di {totalInputSteps}) - {gameName}
             </h3>
-             <p className="text-sm text-muted-foreground mt-1">
-                {existingReview ? `Modifica la tua valutazione per ${gameName}.` : `Valuta ${gameName}.`}
-             </p>
           </div>
         )}
 
         {currentStep === totalDisplaySteps && (
-             <CardHeader className="px-0 pt-0 pb-4"> {/* Adjusted padding */}
+            <CardHeader className="px-0 pt-6 pb-4"> {/* Changed pt-0 to pt-6 */}
                 <div className="flex justify-between items-center mb-1">
                     <CardTitle className="text-2xl md:text-3xl text-left">
                        Riepilogo Valutazione
@@ -411,7 +407,7 @@ export function MultiStepRatingForm({
         )}
 
         <div className={`flex ${
-          (currentStep >= 2 && currentStep <= totalInputSteps)
+           (currentStep > 1 && currentStep <= totalInputSteps)
             ? 'justify-between'
             : 'justify-end'
         } items-center pt-4 border-t mt-6`}>
@@ -457,3 +453,4 @@ export function MultiStepRatingForm({
     </Form>
   );
 }
+
