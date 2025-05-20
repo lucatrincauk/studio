@@ -69,32 +69,32 @@ export default async function HomePage() {
               {topRatedGames.map((game, index) => (
                 <div 
                   key={game.id} 
-                  className="relative overflow-hidden flex items-center gap-x-3 sm:gap-x-4 p-3 rounded-lg hover:bg-muted/50 transition-colors border border-border bg-[#f9fbf9]"
+                  className="flex items-center gap-x-3 sm:gap-x-4 p-3 rounded-lg hover:bg-muted/50 transition-colors border border-border bg-[#f9fbf9]"
                 >
-                  <span className="absolute -left-1 -top-2 z-0 text-[100px] sm:text-[120px] md:text-[140px] font-extrabold text-muted-foreground/10 pointer-events-none select-none leading-none">
-                    {index + 1}
-                  </span>
-                  <div className="relative z-10 flex items-center gap-x-3 sm:gap-x-4 w-full ml-2 sm:ml-3">
-                    <div className="w-24 sm:w-28 md:w-32 flex-shrink-0"> 
-                      <GameCard game={game} variant="featured" priority={index < 5} showOverlayText={false} />
-                    </div>
-                    <div className="flex-grow min-w-0 ml-2 sm:ml-3 flex justify-between items-center">
-                      <Link href={`/games/${game.id}`} className="group flex-1">
-                        <h3 className="text-md sm:text-lg font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-3 hover:underline">
-                          {game.name}
-                        </h3>
-                        {game.yearPublished && (
-                          <p className="text-xs sm:text-sm text-muted-foreground">
-                            ({game.yearPublished})
-                          </p>
-                        )}
-                      </Link>
-                      {game.overallAverageRating !== null && typeof game.overallAverageRating === 'number' && (
-                        <p className="text-xl sm:text-2xl font-bold text-primary ml-4 flex-shrink-0">
-                          {formatRatingNumber(game.overallAverageRating * 2)}
+                  <div className="flex-shrink-0">
+                    <span className="text-3xl font-bold text-primary w-10 text-center block">
+                      {index + 1}
+                    </span>
+                  </div>
+                  <div className="w-24 sm:w-28 md:w-32 flex-shrink-0"> 
+                    <GameCard game={game} variant="featured" priority={index < 5} showOverlayText={false} />
+                  </div>
+                  <div className="flex-grow min-w-0 ml-2 sm:ml-3 flex justify-between items-center">
+                    <Link href={`/games/${game.id}`} className="group flex-1">
+                      <h3 className="text-md sm:text-lg font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-3 hover:underline">
+                        {game.name}
+                      </h3>
+                      {game.yearPublished && (
+                        <p className="text-xs sm:text-sm text-muted-foreground">
+                          ({game.yearPublished})
                         </p>
                       )}
-                    </div>
+                    </Link>
+                    {game.overallAverageRating !== null && typeof game.overallAverageRating === 'number' && (
+                      <p className="text-xl sm:text-2xl font-bold text-primary ml-4 flex-shrink-0">
+                        {formatRatingNumber(game.overallAverageRating * 2)}
+                      </p>
+                    )}
                   </div>
                 </div>
               ))}
