@@ -3,13 +3,13 @@
 
 import { useEffect, useState, useTransition, useCallback, use } from 'react';
 import Link from 'next/link';
-import { getGameDetails, revalidateGameDataAction } from '@/lib/actions';
+import { getGameDetails, toggleFavoriteGameAction } from '@/lib/actions'; // Removed revalidateGameDataAction as it's called by toggleFavoriteGameAction
 import type { BoardGame, AiSummary, Review, Rating as RatingType, GroupedCategoryAverages } from '@/lib/types';
 import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, Tag } from 'lucide-react';
+import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, Tag, Heart } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { summarizeReviews } from '@/ai/flows/summarize-reviews';
@@ -17,7 +17,8 @@ import { calculateGroupedCategoryAverages, calculateCategoryAverages, calculateO
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { doc, deleteDoc, updateDoc } from 'firebase/firestore'; 
+import { doc, deleteDoc, updateDoc, getDocs, collection } from 'firebase/firestore'; 
+import { revalidateGameDataAction } from '@/lib/actions';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -64,6 +65,10 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
   const [isPinToggling, startPinToggleTransition] = useTransition();
   const [currentIsPinned, setCurrentIsPinned] = useState(false);
 
+  const [isFavoriting, startFavoriteTransition] = useTransition();
+  const [isFavoritedByCurrentUser, setIsFavoritedByCurrentUser] = useState(false);
+  const [currentFavoriteCount, setCurrentFavoriteCount] = useState(0);
+
 
   const fetchGameData = useCallback(async () => {
     setIsLoadingGame(true);
@@ -73,10 +78,14 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
     if (gameData) {
       setCurrentIsPinned(gameData.isPinned || false);
+      setCurrentFavoriteCount(gameData.favoriteCount || 0);
       
       let foundUserReview: Review | undefined = undefined;
       if (currentUser && !authLoading && gameData.reviews) {
         foundUserReview = gameData.reviews.find(r => r.userId === currentUser.uid);
+        setIsFavoritedByCurrentUser(gameData.favoritedByUserIds?.includes(currentUser.uid) || false);
+      } else {
+        setIsFavoritedByCurrentUser(false);
       }
       setUserReview(foundUserReview);
       
@@ -96,6 +105,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
     } else {
       setCurrentIsPinned(false);
+      setIsFavoritedByCurrentUser(false);
+      setCurrentFavoriteCount(0);
       setUserReview(undefined);
       setRemainingReviews([]);
       setGroupedCategoryAverages(null);
@@ -112,8 +123,12 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
   useEffect(() => {
     if (game) {
       setCurrentIsPinned(game.isPinned || false);
+      setCurrentFavoriteCount(game.favoriteCount || 0);
+      if (currentUser) {
+        setIsFavoritedByCurrentUser(game.favoritedByUserIds?.includes(currentUser.uid) || false);
+      }
     }
-  }, [game?.isPinned]);
+  }, [game?.isPinned, game?.favoriteCount, game?.favoritedByUserIds, currentUser]);
 
   const handleGenerateSummary = async () => {
     if (!game || !game.reviews) return;
@@ -135,34 +150,45 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     });
   };
 
-  const updateGameOverallRatingAfterDelete = async () => {
+  const updateGameOverallRatingAfterReviewChange = async () => {
     if (!game) return;
     try {
-      // After deleting, refetch game data to get updated review list
-      const updatedGameData = await getGameDetails(game.id);
-      if (updatedGameData && updatedGameData.reviews) {
-        const categoryAvgs = calculateCategoryAverages(updatedGameData.reviews);
-        const newOverallAverage = categoryAvgs ? calculateOverallCategoryAverage(categoryAvgs) : null;
-        
-        const gameDocRef = doc(db, "boardgames_collection", game.id);
-        await updateDoc(gameDocRef, {
-          overallAverageRating: newOverallAverage,
-          reviewCount: updatedGameData.reviews.length
-        });
-        await revalidateGameDataAction(game.id); 
-      } else { // No reviews left or game data fetch failed
-        const gameDocRef = doc(db, "boardgames_collection", game.id);
-        await updateDoc(gameDocRef, {
-          overallAverageRating: null,
-          reviewCount: 0
-        });
-        await revalidateGameDataAction(game.id); 
-      }
+      const reviewsCollectionRef = collection(db, FIRESTORE_COLLECTION_NAME, game.id, 'reviews');
+      const reviewsSnapshot = await getDocs(reviewsCollectionRef);
+      const allReviewsForGame: Review[] = reviewsSnapshot.docs.map(docSnap => {
+        const reviewDocData = docSnap.data();
+        const rating: Rating = {
+          excitedToReplay: reviewDocData.rating?.excitedToReplay || 0,
+          mentallyStimulating: reviewDocData.rating?.mentallyStimulating || 0,
+          fun: reviewDocData.rating?.fun || 0,
+          decisionDepth: reviewDocData.rating?.decisionDepth || 0,
+          replayability: reviewDocData.rating?.replayability || 0,
+          luck: reviewDocData.rating?.luck || 0,
+          lengthDowntime: reviewDocData.rating?.lengthDowntime || 0,
+          graphicDesign: reviewDocData.rating?.graphicDesign || 0,
+          componentsThemeLore: reviewDocData.rating?.componentsThemeLore || 0,
+          effortToLearn: reviewDocData.rating?.effortToLearn || 0,
+          setupTeardown: reviewDocData.rating?.setupTeardown || 0,
+        };
+        return { id: docSnap.id, ...reviewDocData, rating } as Review;
+      });
+
+      const categoryAvgs = calculateCategoryAverages(allReviewsForGame);
+      const newOverallAverage = categoryAvgs ? calculateOverallCategoryAverage(categoryAvgs) : null;
+      
+      const gameDocRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
+      await updateDoc(gameDocRef, {
+        overallAverageRating: newOverallAverage,
+        reviewCount: allReviewsForGame.length
+      });
+      await revalidateGameDataAction(game.id);
+      await fetchGameData(); // Re-fetch to update all local state
     } catch (error) {
-      console.error("Error updating game's overall average rating after delete:", error);
+      console.error("Error updating game's overall average rating:", error);
       toast({ title: "Errore", description: "Impossibile aggiornare il punteggio medio del gioco.", variant: "destructive" });
     }
   };
+
 
   const confirmDeleteUserReview = async () => {
     setShowDeleteConfirmDialog(false);
@@ -173,11 +199,10 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
     startDeleteReviewTransition(async () => {
       try {
-        const reviewDocRef = doc(db, "boardgames_collection", gameId, 'reviews', userReview.id);
+        const reviewDocRef = doc(db, FIRESTORE_COLLECTION_NAME, gameId, 'reviews', userReview.id);
         await deleteDoc(reviewDocRef);
         toast({ title: "Recensione Eliminata", description: "La tua recensione è stata eliminata con successo." });
-        await updateGameOverallRatingAfterDelete(); // Update overall rating
-        await fetchGameData(); // Re-fetch all game data for the page
+        await updateGameOverallRatingAfterReviewChange(); 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({ title: "Errore", description: `Impossibile eliminare la recensione: ${errorMessage}`, variant: "destructive" });
@@ -190,7 +215,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     startPinToggleTransition(async () => {
       const newPinStatus = !currentIsPinned;
       try {
-        const gameRef = doc(db, "boardgames_collection", game.id);
+        const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
         await updateDoc(gameRef, {
           isPinned: newPinStatus
         });
@@ -199,9 +224,9 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           title: "Stato Vetrina Aggiornato",
           description: `Il gioco è stato ${newPinStatus ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
         });
+        // No longer calling revalidatePath here, relies on server action
+        await revalidateGameDataAction(game.id); // Call server action for revalidation
         setGame(prevGame => prevGame ? { ...prevGame, isPinned: newPinStatus } : null);
-        await revalidateGameDataAction(game.id);
-
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({
@@ -210,6 +235,34 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           variant: "destructive",
         });
         setCurrentIsPinned(!newPinStatus); 
+      }
+    });
+  };
+
+  const handleToggleFavorite = async () => {
+    if (!currentUser || !game || authLoading) {
+      toast({ title: "Azione non permessa", description: "Devi essere loggato per aggiungere ai preferiti.", variant: "destructive" });
+      return;
+    }
+    startFavoriteTransition(async () => {
+      const result = await toggleFavoriteGameAction(game.id, currentUser.uid);
+      if (result.success) {
+        setIsFavoritedByCurrentUser(prev => !prev);
+        setCurrentFavoriteCount(result.newFavoriteCount ?? currentFavoriteCount);
+        toast({
+          title: isFavoritedByCurrentUser ? "Rimosso dai Preferiti" : "Aggiunto ai Preferiti!",
+          description: `${game.name} è stato ${isFavoritedByCurrentUser ? 'rimosso dai' : 'aggiunto ai'} tuoi preferiti.`,
+        });
+        // Optimistically update local game state for favorite count
+        setGame(prevGame => prevGame ? { 
+          ...prevGame, 
+          favoriteCount: result.newFavoriteCount,
+          favoritedByUserIds: result.newFavoriteCount && result.newFavoriteCount > (prevGame.favoriteCount || 0) 
+            ? [...(prevGame.favoritedByUserIds || []), currentUser.uid]
+            : (prevGame.favoritedByUserIds || []).filter(uid => uid !== currentUser.uid)
+        } : null);
+      } else {
+        toast({ title: "Errore", description: result.error || "Impossibile aggiornare i preferiti.", variant: "destructive" });
       }
     });
   };
@@ -269,6 +322,23 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                     >
                         {isPinToggling ? <Loader2 className="h-5 w-5 animate-spin" /> : (currentIsPinned ? <PinOff className="h-5 w-5" /> : <Pin className="h-5 w-5" />)}
                     </Button>
+                  )}
+                  {currentUser && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleToggleFavorite}
+                      disabled={isFavoriting || authLoading}
+                      title={isFavoritedByCurrentUser ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
+                      className={`h-9 w-9 hover:bg-destructive/20 ${isFavoritedByCurrentUser ? 'text-destructive fill-destructive' : 'text-muted-foreground/60 hover:text-destructive'}`}
+                    >
+                      {isFavoriting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Heart className={`h-5 w-5 ${isFavoritedByCurrentUser ? 'fill-destructive' : ''}`} />}
+                    </Button>
+                  )}
+                   {currentFavoriteCount > 0 && (
+                    <span className="text-sm text-muted-foreground ml-0.5">
+                      ({currentFavoriteCount})
+                    </span>
                   )}
                 </div>
                <span className="text-primary text-3xl font-bold">
@@ -533,3 +603,4 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
+

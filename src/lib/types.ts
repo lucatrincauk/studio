@@ -19,10 +19,10 @@ export const RATING_CATEGORIES: Record<RatingCategory, string> = {
   decisionDepth: 'Profondità Decisionale',
   replayability: 'Varietà e Rigiocabilità',
   luck: 'Assenza di Fortuna',
-  lengthDowntime: 'Durata',
-  graphicDesign: 'Grafica e Componenti',
-  componentsThemeLore: 'Tema e Ambientazione',
-  effortToLearn: 'Facilità di Apprendimento',
+  lengthDowntime: 'Durata', // Was Ottimizzazione Durata e Tempi Morti
+  graphicDesign: 'Grafica e Componenti', // Was Design Grafico
+  componentsThemeLore: 'Tema e Ambientazione', // Was Componenti, Tema e Ambientazione
+  effortToLearn: 'Facilità di Apprendimento', // Was Impegno per Imparare
   setupTeardown: 'Preparazione e Ripristino',
 };
 
@@ -75,6 +75,8 @@ export interface BoardGame {
   mechanics?: string[];
   categories?: string[];
   designers?: string[];
+  favoritedByUserIds?: string[];
+  favoriteCount?: number;
 }
 
 export interface AiSummary {
@@ -88,6 +90,10 @@ export interface BggSearchResult {
   rank: number;
 }
 
+export interface SubRatingAverage {
+  name: string;
+  average: number;
+}
 export interface SectionAverage {
   sectionTitle: string;
   iconName?: string;
