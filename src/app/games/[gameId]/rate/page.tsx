@@ -26,9 +26,7 @@ export default function GameRatePage() {
   const [userReview, setUserReview] = useState<Review | undefined>(undefined);
   const [isLoadingGame, setIsLoadingGame] = useState(true);
   const [currentRatingFormStep, setCurrentRatingFormStep] = useState(1);
-  const cardRef = useRef<HTMLDivElement>(null);
-
-
+  
   useEffect(() => {
     async function fetchGameData() {
       if (!gameId) {
@@ -61,16 +59,10 @@ export default function GameRatePage() {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      if (currentRatingFormStep === 5) { // Summary step, scroll to page top
-        setTimeout(() => {
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }, 50);
-      } else if (cardRef.current && currentRatingFormStep >= 1 && currentRatingFormStep <= 4) { // Input steps
-        const cardTopOffset = cardRef.current.getBoundingClientRect().top + window.scrollY;
-        setTimeout(() => {
-          window.scrollTo({ top: cardTopOffset - 30, behavior: 'smooth' });
-        }, 50);
-      }
+      // Scroll to the top of the page whenever the step changes
+      setTimeout(() => {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 50);
     }
   }, [currentRatingFormStep]);
 
@@ -120,12 +112,11 @@ export default function GameRatePage() {
 
   return (
     <div className="max-w-2xl mx-auto py-8 px-4">
-      <Card ref={cardRef} className="shadow-xl border border-border rounded-lg">
-        {/* Main page CardHeader is removed */}
+      <Card className="shadow-xl border border-border rounded-lg">
         <CardContent className={currentRatingFormStep === 5 ? 'pt-0' : 'pt-6'}>
           <MultiStepRatingForm
             gameId={game.id}
-            gameName={game.name} // Pass game name for the form
+            gameName={game.name} 
             currentUser={currentUser}
             existingReview={userReview}
             onReviewSubmitted={() => router.push(`/games/${gameId}`)}
