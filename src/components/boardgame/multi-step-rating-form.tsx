@@ -15,12 +15,11 @@ import type { User as FirebaseUser } from 'firebase/auth';
 import { CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Slider } from '@/components/ui/slider';
-import { calculateOverallCategoryAverage, calculateGroupedCategoryAverages, formatRatingNumber, calculateCategoryAverages } from '@/lib/utils';
+import { calculateOverallCategoryAverage, calculateGroupedCategoryAverages, formatRatingNumber } from '@/lib/utils';
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, doc, updateDoc, query, where, getDocs, limit, writeBatch, getDoc } from 'firebase/firestore';
 import { revalidateGameDataAction } from '@/lib/actions';
-import { SafeImage } from '@/components/common/SafeImage';
 import { useRouter } from 'next/navigation';
 
 interface RatingSliderInputProps {
@@ -48,7 +47,7 @@ const RatingSliderInput: React.FC<RatingSliderInputProps> = ({ fieldName, contro
                 value={sliderValue}
                 onValueChange={(value: number[]) => {
                   const numericValue = value[0];
-                  if (numericValue !== currentFieldValue) { // Compare number with number
+                  if (numericValue !== currentFieldValue) { 
                     field.onChange(numericValue);
                   }
                 }}
@@ -65,6 +64,7 @@ const RatingSliderInput: React.FC<RatingSliderInputProps> = ({ fieldName, contro
   );
 };
 
+
 interface MultiStepRatingFormProps {
   gameId: string;
   gameName: string;
@@ -77,7 +77,7 @@ interface MultiStepRatingFormProps {
 }
 
 const totalInputSteps = 4;
-const totalDisplaySteps = 5; // Includes summary
+const totalDisplaySteps = 5; 
 
 const stepCategories: RatingCategory[][] = [
   ['excitedToReplay', 'mentallyStimulating', 'fun'],
@@ -105,7 +105,7 @@ const stepUIDescriptions: Record<number, string> = {
   2: "Come giudichi gli aspetti legati al design del gioco?",
   3: "Valuta l'impatto visivo e l'immersione tematica.",
   4: "Quanto è stato facile apprendere e gestire il gioco?",
-  5: "Controlla la tua valutazione prima di inviarla.",
+  5: "La tua recensione è stata salvata. Ecco un riepilogo:",
 };
 
 const StepIcon = ({ step }: { step: number }) => {
@@ -153,12 +153,12 @@ export function MultiStepRatingForm({
   const form = useForm<RatingFormValues>({
     resolver: zodResolver(reviewFormSchema),
     defaultValues: defaultFormValues,
-    mode: 'onChange',
+    mode: 'onChange', // Validate on change for better UX
   });
 
   useEffect(() => {
     form.reset(defaultFormValues);
-  }, [defaultFormValues, form, currentStep]); // Reset on step change too, if desired for initial step load
+  }, [defaultFormValues, form, currentStep]);
 
   const updateGameOverallRating = async () => {
     try {
@@ -191,7 +191,6 @@ export function MultiStepRatingForm({
         reviewCount: allReviewsForGame.length
       });
       
-      // Call server action to revalidate paths
       await revalidateGameDataAction(gameId);
 
     } catch (error) {
@@ -361,7 +360,6 @@ export function MultiStepRatingForm({
                   </p>
                 )}
               </div>
-              {/* Game Image and Name Block Removed from steps 1-4 headers */}
             </div>
           </div>
         )}
@@ -371,21 +369,22 @@ export function MultiStepRatingForm({
                 <div className="flex justify-between items-start mb-2">
                     <div className="flex-1">
                         <CardTitle className="text-2xl md:text-3xl text-left">
-                        Riepilogo Valutazione
+                         Riepilogo Valutazione
                         </CardTitle>
-                        <CardDescription className="text-left text-sm text-muted-foreground mt-1">
-                         La tua recensione è stata salvata. Ecco un riepilogo:
-                        </CardDescription>
+                         {stepUIDescriptions[currentStep] && (
+                            <CardDescription className="text-left text-sm text-muted-foreground mt-1"> 
+                                {stepUIDescriptions[currentStep]}
+                            </CardDescription>
+                        )}
                     </div>
-                    {/* Game image and title removed from Step 5 header */}
+                    {yourOverallAverage !== null && (
+                        <div className="text-right -mt-2">
+                            <span className="text-primary text-2xl md:text-3xl font-bold whitespace-nowrap">
+                                {formatRatingNumber(yourOverallAverage * 2)}
+                            </span>
+                        </div>
+                    )}
                 </div>
-                 {yourOverallAverage !== null && (
-                    <div className="text-right -mt-2">
-                        <span className="text-primary text-2xl md:text-3xl font-bold whitespace-nowrap">
-                            {formatRatingNumber(yourOverallAverage * 2)}
-                        </span>
-                    </div>
-                )}
             </CardHeader>
         )}
 
@@ -463,61 +462,41 @@ export function MultiStepRatingForm({
             </div>
         )}
 
-        <div className={`flex ${
-           (currentStep === 1 || currentStep === totalDisplaySteps) ? 'justify-end' : 'justify-between'
-        } items-center pt-4 border-t mt-6`}>
-          
-          {currentStep === 1 && (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => router.push(`/games/${gameId}`)}
-              disabled={isSubmitting}
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Torna al Gioco
-            </Button>
-          )}
+        <div className={`flex ${currentStep === totalDisplaySteps ? 'justify-end' : 'justify-between'} items-center pt-4 border-t mt-6`}>
+          <div> {/* Left-aligned buttons wrapper */}
+            {(currentStep > 1 && currentStep <= totalInputSteps) && (
+              <Button type="button" variant="outline" onClick={handlePrevious} disabled={isSubmitting}>
+                Indietro
+              </Button>
+            )}
+            {currentStep === 1 && (
+              <Button type="button" variant="outline" onClick={() => router.push(`/games/${gameId}`)} disabled={isSubmitting}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Torna al Gioco
+              </Button>
+            )}
+          </div>
 
-          {(currentStep > 1 && currentStep <= totalInputSteps) && (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handlePrevious}
-              disabled={isSubmitting}
-            >
-              Indietro
-            </Button>
-          )}
-
-          {currentStep < totalInputSteps ? (
-            <Button type="button" onClick={handleNext} disabled={isSubmitting} className="bg-primary hover:bg-primary/90 text-primary-foreground">
-              Avanti
-            </Button>
-          ) : currentStep === totalInputSteps ? (
-            <Button
-              type="button"
-              onClick={handleStep4Submit} 
-              disabled={isSubmitting}
-              className="bg-accent hover:bg-accent/90 text-accent-foreground"
-            >
-              {isSubmitting ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : null}
-              {existingReview ? 'Aggiorna Recensione' : 'Invia Recensione'}
-            </Button>
-          ) : currentStep === totalDisplaySteps ? (
-            <Button
-                type="button"
-                onClick={handleFinish}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground"
-            >
+          <div> {/* Right-aligned buttons wrapper */}
+            {currentStep < totalInputSteps ? (
+              <Button type="button" onClick={handleNext} disabled={isSubmitting} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                Avanti
+              </Button>
+            ) : currentStep === totalInputSteps ? (
+              <Button type="button" onClick={handleStep4Submit} disabled={isSubmitting} className="bg-accent hover:bg-accent/90 text-accent-foreground">
+                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {existingReview ? 'Aggiorna Recensione' : 'Invia Recensione'}
+              </Button>
+            ) : currentStep === totalDisplaySteps ? (
+              <Button type="button" onClick={handleFinish} className="bg-primary hover:bg-primary/90 text-primary-foreground">
                 Termina e Torna al Gioco
-            </Button>
-          ) : null }
+              </Button>
+            ) : null}
+          </div>
         </div>
       </form>
     </Form>
   );
 }
 
+    
