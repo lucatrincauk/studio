@@ -9,7 +9,7 @@ import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, Settings, DownloadCloud, MessageSquare, Repeat, Trophy, Medal, UserCircle2, Heart, ListPlus, ListChecks, BarChart3 } from 'lucide-react';
+import { AlertCircle, Loader2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, Settings, DownloadCloud, MessageSquare, Repeat, Trophy, Medal, UserCircle2, Heart, ListPlus, ListChecks, Sparkles } from 'lucide-react'; // Added Sparkles
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { calculateGroupedCategoryAverages, calculateCategoryAverages, calculateOverallCategoryAverage, formatRatingNumber, formatPlayDate, formatReviewDate } from '@/lib/utils';
@@ -230,7 +230,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `Il gioco è stato ${newPinStatus ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
         });
         setGame(prevGame => prevGame ? { ...prevGame, isPinned: newPinStatus } : null);
-        revalidateGameDataAction(game.id);
+        await revalidateGameDataAction(game.id);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({
@@ -385,7 +385,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
         await updateDoc(gameRef, serverActionResult.updateData);
         toast({ title: 'Dettagli Aggiornati', description: `Dettagli per ${game.name} aggiornati con successo.` });
-        revalidateGameDataAction(game.id);
+        await revalidateGameDataAction(game.id);
         await fetchGameData();
       } catch (dbError) {
         const errorMessage = dbError instanceof Error ? dbError.message : "Errore sconosciuto durante l'aggiornamento del DB.";
@@ -402,7 +402,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     const usernameToFetch = "lctr01"; 
 
     startFetchPlaysTransition(async () => {
-        const serverActionResult = await fetchUserPlaysForGameFromBggAction(game.bggId, usernameToFetch);
+        const serverActionResult = await fetchUserPlaysForGameFromBggAction(game.id, game.bggId, usernameToFetch);
 
         if (serverActionResult.success && serverActionResult.plays) {
             if (serverActionResult.plays.length > 0) {
@@ -414,6 +414,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                     const playDataForFirestore: BggPlayDetail = {
                         ...play, 
                         userId: usernameToFetch, 
+                        gameBggId: game.bggId,
                     };
                     batch.set(playDocRef, playDataForFirestore, { merge: true }); 
                 });
@@ -428,7 +429,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                         title: "Partite Caricate e Salvate",
                         description: serverActionResult.message || `Caricate e salvate ${serverActionResult.plays.length} partite per ${game.name} da BGG per ${usernameToFetch}. Conteggio aggiornato.`,
                     });
-                    revalidateGameDataAction(game.id);
+                    await revalidateGameDataAction(game.id);
                     await fetchGameData(); 
                 } catch (dbError) {
                     const errorMessage = dbError instanceof Error ? dbError.message : "Errore sconosciuto durante il salvataggio delle partite nel DB.";
@@ -619,7 +620,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                             disabled={isFetchingPlays || !game.bggId}
                             className="cursor-pointer"
                           >
-                            {isFetchingPlays ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BarChart3 className="mr-2 h-4 w-4" />}
+                            {isFetchingPlays ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Dices className="mr-2 h-4 w-4" />}
                             Carica Partite
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -657,13 +658,11 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             </div>
             
             <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
-                {hasDataForSection(game.designers) && (
-                  <div className="flex items-baseline gap-2">
+                <div className="flex items-baseline gap-2">
                     <span className="inline-flex items-center"><PenTool size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
                     <span className="font-medium hidden sm:inline">Autori:</span>
-                    <span>{game.designers!.join(', ')}</span>
-                  </div>
-                )}
+                    <span>{hasDataForSection(game.designers) ? game.designers!.join(', ') : 'N/D'}</span>
+                </div>
                 {game.yearPublished != null && (
                     <div className="flex items-baseline gap-2">
                     <span className="inline-flex items-center"><CalendarDays size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
@@ -880,8 +879,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                                                 </Badge>
                                             )}
                                             {player.isNew && (
-                                                <Badge variant="outline" size="sm" className="text-blue-600 border-blue-500 ml-1 whitespace-nowrap">
-                                                Nuovo
+                                                <Badge variant="outline" size="sm" className="border-blue-500 text-blue-600 p-0.5 ml-1 whitespace-nowrap">
+                                                  <Sparkles className="h-3 w-3" />
                                                 </Badge>
                                             )}
                                             </div>
@@ -1005,5 +1004,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
+
 
 
