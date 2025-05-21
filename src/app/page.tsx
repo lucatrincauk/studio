@@ -3,7 +3,7 @@ import { getAllGamesAction, getFeaturedGamesAction, getLastPlayedGameAction } fr
 import { GameCard } from '@/components/boardgame/game-card';
 import { Separator } from '@/components/ui/separator';
 import type { BoardGame, BggPlayDetail } from '@/lib/types';
-import { Star, TrendingUp, Library, Info, Dices, UserCircle2, Sparkles, Trophy, CalendarDays, Edit } from 'lucide-react';
+import { Star, TrendingUp, Library, Info, Dices, UserCircle2, Sparkles, Trophy, Clock, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { formatRatingNumber, formatReviewDate } from '@/lib/utils';
@@ -11,6 +11,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { SafeImage } from '@/components/common/SafeImage';
+import { cn } from '@/lib/utils';
 
 
 export default async function HomePage() {
@@ -107,7 +108,7 @@ export default async function HomePage() {
                         </Link>
                         </CardTitle>
                         <CardDescription className="text-xs text-muted-foreground mt-1">
-                        {formatReviewDate(lastPlayDetail.date)}
+                           {formatReviewDate(lastPlayDetail.date)}
                         </CardDescription>
                     </div>
                     {lastPlayedGame.overallAverageRating !== null && typeof lastPlayedGame.overallAverageRating === 'number' && (
@@ -119,7 +120,7 @@ export default async function HomePage() {
                     )}
                   </div>
               </CardHeader>
-              <CardContent className="space-y-1.5 text-sm pt-2">
+              <CardContent className="space-y-1.5 text-sm">
                   {lastPlayDetail.comments && lastPlayDetail.comments.trim() !== '' && (
                     <div>
                       <h4 className="text-xs font-semibold text-muted-foreground mb-0.5">Commenti:</h4>
@@ -134,10 +135,10 @@ export default async function HomePage() {
                           .slice()
                           .sort((a, b) => parseInt(b.score || "0", 10) - parseInt(a.score || "0", 10))
                           .map((player, pIndex) => (
-                            <li key={pIndex} className={`flex items-center justify-between text-xs border-b border-border last:border-b-0 py-0.5 odd:bg-muted/30 px-2`}>
+                            <li key={pIndex} className={cn(`flex items-center justify-between text-xs border-b border-border last:border-b-0 py-0.5 odd:bg-muted/30 px-2`)}>
                               <div className="flex items-center gap-1.5 flex-grow min-w-0">
                                 <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                                <span className={`truncate ${player.didWin ? 'font-semibold' : ''}`} title={player.name || player.username || 'Sconosciuto'}>
+                                <span className={cn("truncate", player.didWin ? 'font-semibold' : '')} title={player.name || player.username || 'Sconosciuto'}>
                                   {player.name || player.username || 'Sconosciuto'}
                                 </span>
                                 {player.didWin && (
@@ -148,7 +149,7 @@ export default async function HomePage() {
                                 )}
                               </div>
                               {player.score && (
-                                <span className={`font-mono text-xs whitespace-nowrap ml-2 ${player.didWin ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
+                                <span className={cn("font-mono text-xs whitespace-nowrap ml-2", player.didWin ? 'font-semibold text-foreground' : 'text-muted-foreground')}>
                                   {player.score} pt.
                                 </span>
                               )}
@@ -173,16 +174,16 @@ export default async function HomePage() {
               {topRatedGames.map((game, index) => (
                 <div
                   key={game.id}
-                  className="relative flex items-center gap-x-3 sm:gap-x-4 p-3 rounded-lg bg-[#f9fbf9] hover:bg-muted/50 transition-colors border border-border overflow-hidden"
+                  className="relative flex items-center gap-x-3 sm:gap-x-4 p-3 rounded-lg bg-card hover:bg-muted/50 transition-colors border border-border overflow-hidden"
                 >
-                  <span
+                   <span
                     aria-hidden="true"
-                    className={
-                        `absolute pointer-events-none select-none leading-none z-0 font-bold text-muted-foreground/10 ` + 
-                        `-bottom-[55px] -right-[30px] text-[255px] ` +                           // Default (mobile)
-                        `sm:-bottom-[65px] sm:-right-[30px] sm:text-[300px] ` +  // Small screens
+                    className={cn(
+                        `absolute pointer-events-none select-none leading-none z-0 font-bold text-muted-foreground/10 `,
+                        `-bottom-[55px] -right-[30px] text-[255px]`,                           // Default (mobile)
+                        `sm:-bottom-[65px] sm:-right-[30px] sm:text-[300px]`,  // Small screens
                         `lg:-bottom-[70px] lg:-right-[36px] lg:text-[340px]`     // Large screens
-                    }
+                    )}
                   >
                     {index + 1}
                   </span>
@@ -236,3 +237,4 @@ export default async function HomePage() {
 }
 
 export const revalidate = 3600;
+
