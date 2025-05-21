@@ -3,13 +3,13 @@
 
 import { useEffect, useState, useTransition, useCallback, use } from 'react';
 import Link from 'next/link';
-import { getGameDetails, revalidateGameDataAction, fetchAndUpdateBggGameDetailsAction } from '@/lib/actions';
-import type { BoardGame, AiSummary, Review, Rating as RatingType, GroupedCategoryAverages } from '@/lib/types';
+import { getGameDetails, fetchAndUpdateBggGameDetailsAction, revalidateGameDataAction, fetchGamePlaysFromBggAction } from '@/lib/actions';
+import type { BoardGame, AiSummary, Review, Rating as RatingType, GroupedCategoryAverages, BggPlayDetail } from '@/lib/types';
 import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, Tag, Heart, ListPlus, ListChecks, BarChart3, PenTool, Repeat, Settings, DownloadCloud } from 'lucide-react';
+import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Repeat, Settings, DownloadCloud, ListChecks, ListPlus, Heart, BarChart3 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { summarizeReviews } from '@/ai/flows/summarize-reviews';
@@ -81,6 +81,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
   const [isFetchingDetailsFor, setIsFetchingDetailsFor] = useState<string | null>(null);
   const [isPendingBggDetailsFetch, startBggDetailsFetchTransition] = useTransition();
+
+  const [isFetchingPlays, startFetchPlaysTransition] = useTransition(); // For BGG Plays fetch
 
 
   const fetchGameData = useCallback(async () => {
@@ -400,6 +402,26 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     });
   };
 
+  const handleFetchBggPlays = async () => {
+    if (!game || !game.bggId || authLoading || !isAdmin) return;
+    startFetchPlaysTransition(async () => {
+      const result = await fetchGamePlaysFromBggAction(game.bggId, "lctr01");
+      if (result.success && result.plays) {
+        toast({
+          title: "Partite Caricate",
+          description: result.message || `Caricate ${result.plays.length} partite per ${game.name} da BGG per lctr01.`,
+        });
+        // For now, we are just toasting. In the future, this data could be displayed or stored.
+      } else {
+        toast({
+          title: "Errore Caricamento Partite",
+          description: result.error || "Impossibile caricare le partite da BGG.",
+          variant: "destructive",
+        });
+      }
+    });
+  };
+
 
   if (isLoadingGame || authLoading) {
     return (
@@ -444,7 +466,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                       <ExternalLink size={16} className="h-4 w-4" />
                     </a>
                   )}
-                  {currentUser && (
+                   {currentUser && (
                     <>
                       <Button
                         variant="ghost"
@@ -491,6 +513,13 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                         >
                           {(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DownloadCloud className="mr-2 h-4 w-4" />}
                           Aggiorna Dati da BGG
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={handleFetchBggPlays}
+                          disabled={isFetchingPlays || !game.bggId}
+                        >
+                          {isFetchingPlays ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BarChart3 className="mr-2 h-4 w-4" />}
+                          Carica Partite BGG (lctr01)
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -767,3 +796,4 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
+

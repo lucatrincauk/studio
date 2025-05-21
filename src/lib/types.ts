@@ -56,7 +56,7 @@ export interface AugmentedReview extends Review {
   gameCoverArtUrl?: string | null;
 }
 
-export interface AugmentedReviewWithGame extends Review { // Used for single review page
+export interface AugmentedReviewWithGame extends Review {
   gameId: string;
   gameName: string;
   gameCoverArtUrl?: string | null;
@@ -86,7 +86,7 @@ export interface BoardGame {
   favoriteCount?: number;
   playlistedByUserIds?: string[];
   featuredReason?: 'pinned' | 'recent';
-  lctr01Plays?: number | null; // Added for lctr01's play count
+  lctr01Plays?: number | null;
 }
 
 export interface AiSummary {
@@ -120,3 +120,10 @@ export interface UserProfile {
   bggUsername?: string | null;
 }
 
+export interface BggPlayDetail {
+  playId: string;
+  date: string;
+  quantity: number;
+  comments: string | null;
+  // We can add more fields like players if needed later
+}
