@@ -3,12 +3,12 @@
 
 import { useEffect, useState, useTransition, useCallback, use, useMemo } from 'react';
 import Link from 'next/link';
-import { getGameDetails, revalidateGameDataAction, fetchUserPlaysForGameFromBggAction } from '@/lib/actions';
+import { getGameDetails, revalidateGameDataAction, fetchUserPlaysForGameFromBggAction, fetchAndUpdateBggGameDetailsAction } from '@/lib/actions';
 import type { BoardGame, Review, Rating as RatingType, GroupedCategoryAverages, BggPlayDetail, BggPlayerInPlay } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, MessageSquare, Heart, ListPlus, ListChecks, Settings, Trophy, Medal, UserCircle2, Brain, Star, Palette, ClipboardList, Repeat } from 'lucide-react';
+import { AlertCircle, Loader2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, MessageSquare, Heart, ListPlus, ListChecks, Settings, Trophy, Medal, UserCircle2, Brain, Star, Palette, ClipboardList, Repeat, Sparkles, DownloadCloud } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { calculateGroupedCategoryAverages, calculateOverallCategoryAverage as calculateGlobalOverallAverage, formatRatingNumber, formatPlayDate, formatReviewDate, calculateCategoryAverages as calculateCatAvgsFromUtils } from '@/lib/utils';
@@ -229,8 +229,9 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           title: "Stato Vetrina Aggiornato",
           description: `Il gioco è stato ${newPinStatus ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
         });
+        // Optimistically update local game state
         setGame(prevGame => prevGame ? { ...prevGame, isPinned: newPinStatus } : null);
-        await revalidateGameDataAction(game.id); // Call server action for revalidation
+        await revalidateGameDataAction(game.id); 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({
@@ -560,31 +561,31 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             {/* Main header: Title, Icons, Score */}
             <div className="flex justify-between items-start mb-2">
               {/* Left side: Title and Icons */}
-              <div className="flex-1 min-w-0 mr-2">
-                 <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
-                    {game.name}
-                    {game.bggId > 0 && (
-                        <a
-                        href={`https://boardgamegeek.com/boardgame/${game.bggId}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title="Vedi su BoardGameGeek"
-                        className="inline-flex items-center text-primary hover:text-primary/80 focus:outline-none focus:ring-2 focus:ring-ring rounded-md p-0.5 ml-1"
-                        >
-                        <ExternalLink size={16} className="h-4 w-4" />
-                        </a>
-                    )}
+              <div className="flex-1 flex flex-col sm:flex-row sm:items-center sm:gap-1 min-w-0 mr-2">
+                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
+                  {game.name}
+                  {game.bggId > 0 && (
+                      <a
+                      href={`https://boardgamegeek.com/boardgame/${game.bggId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Vedi su BoardGameGeek"
+                      className="inline-flex items-center text-primary hover:text-primary/80 focus:outline-none focus:ring-2 focus:ring-ring rounded-md p-0.5 ml-1"
+                      >
+                      <ExternalLink size={16} className="h-4 w-4" />
+                      </a>
+                  )}
                 </h1>
               </div>
 
               {/* Right side: Score and Action Icons */}
               <div className="flex-shrink-0 flex flex-col items-end">
                  {/* Score */}
-                {globalGameAverage !== null ? (
+                {globalGameAverage !== null && (
                   <span className="text-primary text-3xl md:text-4xl font-bold whitespace-nowrap">
                     {formatRatingNumber(globalGameAverage * 2)}
                   </span>
-                ) : null}
+                )}
                 {/* Action Icons (Favorite, Playlist, Admin Settings) */}
                 {currentUser && (
                   <div className="flex items-center gap-0.5 mt-1">
@@ -671,7 +672,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
             {/* Metadata Grid */}
              <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
-                <div className="flex items-baseline gap-2">
+                <div className="flex items-baseline gap-2 col-span-2">
                     <span className="inline-flex items-center relative top-px"><PenTool size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
                     <span className="font-medium hidden sm:inline">Autori:</span>
                     <span>{(game.designers && game.designers.length > 0) ? game.designers!.join(', ') : 'N/D'}</span>
@@ -732,14 +733,18 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             </div>
             
             {/* Average Ratings Section */}
-            <div className={cn("w-full pt-4 border-t border-border", !(game.reviews && game.reviews.length > 0) && "hidden")}>
-              <h3 className="text-lg font-semibold text-foreground mb-3">Valutazione Media:</h3>
-              <GroupedRatingsDisplay
-                  groupedAverages={groupedCategoryAverages}
-                  noRatingsMessage="Nessuna valutazione per calcolare le medie."
-                  isLoading={isLoadingGame}
-                  defaultOpenSections={['Sentimento']}
-              />
+            <div className={cn("w-full pt-4 border-t border-border", !(game.reviews && game.reviews.length > 0) && "border-none pt-0")}>
+              {game.reviews && game.reviews.length > 0 && (
+                <>
+                    <h3 className="text-lg font-semibold text-foreground mb-3">Valutazione Media:</h3>
+                    <GroupedRatingsDisplay
+                        groupedAverages={groupedCategoryAverages}
+                        noRatingsMessage="Nessuna valutazione per calcolare le medie."
+                        isLoading={isLoadingGame}
+                        defaultOpenSections={['Sentimento']}
+                    />
+                </>
+              )}
             </div>
           </div>
 
@@ -761,8 +766,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           </div>
         </div>
       </Card>
-
-      {/* Partite Registrate Section */}
+      
+      {/* Partite Registrate Section - moved here */}
       {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
           <Card className="shadow-md border border-border rounded-lg">
               <CardHeader className="flex flex-row justify-between items-center">
@@ -857,7 +862,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       <div className="space-y-8"> 
           {currentUser && !authLoading && (
             userReview ? (
-              <div className="relative"> 
+              <div> 
                 <div className="flex justify-between items-center gap-2 mb-4">
                   <h3 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h3>
                   <div className="flex items-center gap-2 flex-shrink-0">
@@ -962,4 +967,5 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
 
     
+
 
