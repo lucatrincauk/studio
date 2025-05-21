@@ -676,7 +676,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             
             <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
                  {hasDataForSection(game.designers) && (
-                    <div className="flex items-baseline gap-2 col-span-2"> 
+                    <div className="flex items-baseline gap-2"> {/* Removed col-span-2 */}
                         <span className="inline-flex items-center"><PenTool size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
                         <span className="font-medium hidden sm:inline">Autori:</span>
                         <span>{game.designers!.join(', ')}</span>
@@ -1021,11 +1021,5 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
-
-
-    
-
-
-
 
     
