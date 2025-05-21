@@ -11,14 +11,25 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 
 export default async function HomePage() {
-  const featuredGamesPromise = getFeaturedGamesAction();
-  const allGamesPromise = getAllGamesAction(); 
-  const lastPlayedGamePromise = getLastPlayedGameAction("lctr01");
+  console.log("[HOMEPAGE] Rendering HomePage server component.");
 
-  const [featuredGamesResult, allGamesResult, lastPlayedGame] = await Promise.all([
+  const featuredGamesPromise = getFeaturedGamesAction();
+  const allGamesPromise = getAllGamesAction();
+  
+  let lastPlayedGame: BoardGame | null = null;
+  try {
+    console.log("[HOMEPAGE] Attempting to fetch last played game...");
+    lastPlayedGame = await getLastPlayedGameAction("lctr01");
+    console.log("[HOMEPAGE] Last played game fetched:", lastPlayedGame ? lastPlayedGame.name : "None");
+  } catch (e) {
+    console.error("[HOMEPAGE - CATCH] Error directly calling getLastPlayedGameAction:", e);
+    // lastPlayedGame remains null, and the UI will handle its absence
+  }
+
+  const [featuredGamesResult, allGamesResult] = await Promise.all([
     featuredGamesPromise, 
     allGamesPromise,
-    lastPlayedGamePromise
+    // lastPlayedGame is already awaited
   ]);
 
   const featuredGames = Array.isArray(featuredGamesResult) ? featuredGamesResult : [];
@@ -76,7 +87,7 @@ export default async function HomePage() {
               <Dices className="h-7 w-7 text-primary" />
               Ultima Partita Giocata
             </h2>
-            <div className="w-full sm:w-1/2 md:w-1/3 lg:w-1/4 mx-auto sm:mx-0"> {/* Adjust width as needed */}
+            <div className="w-full sm:w-1/2 md:w-1/3 lg:w-1/4 mx-auto sm:mx-0">
               <GameCard
                 game={lastPlayedGame}
                 variant="featured"
@@ -161,4 +172,5 @@ export default async function HomePage() {
 }
 
 export const revalidate = 3600;
+
 
