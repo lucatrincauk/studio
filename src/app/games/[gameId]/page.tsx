@@ -208,7 +208,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         await deleteDoc(reviewDocRef);
         await updateGameOverallRatingAfterDelete(); 
         toast({ title: "Recensione Eliminata", description: "La tua recensione è stata eliminata con successo." });
-        await revalidateGameDataAction(game.id);
+        // No need to call revalidateGameDataAction here as updateGameOverallRatingAfterDelete already does
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({ title: "Errore", description: `Impossibile eliminare la recensione: ${errorMessage}`, variant: "destructive" });
@@ -652,7 +652,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             
              <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
                 {hasDataForSection(game.designers) && (
-                  <div className="flex items-baseline gap-2 col-span-2">
+                  <div className="flex items-baseline gap-2"> {/* Removed col-span-2 */}
                     <span className="inline-flex items-center"><PenTool size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
                     <span className="font-medium hidden sm:inline">Autori:</span>
                     <span>{game.designers!.join(', ')}</span>
@@ -769,7 +769,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         </div>
       </Card>
 
-      {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
+       {/* Sezione Partite Registrate */}
+       {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
         <Card className="shadow-md border border-border rounded-lg">
             <CardHeader className="flex flex-row justify-between items-center">
                 <CardTitle className="text-xl flex items-center gap-2">
@@ -847,6 +848,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             </CardContent>
         </Card>
       )}
+
     <div className="lg:col-span-2 space-y-8">
         {currentUser && !authLoading && userReview && (
         <div> 
@@ -854,15 +856,15 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             <h2 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h2>
             <div className="flex items-center gap-2 flex-shrink-0">
                 <Button asChild size="sm">
-                <Link href={`/games/${gameId}/rate`}>
+                  <Link href={`/games/${gameId}/rate`}>
                     <span className="flex items-center">
                         <Edit className="mr-0 sm:mr-2 h-4 w-4" />
                         <span className="hidden sm:inline">Modifica</span>
                     </span>
-                </Link>
+                  </Link>
                 </Button>
                 <AlertDialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
-                    <AlertDialogTrigger asChild>
+                   <AlertDialogTrigger asChild>
                     <Button variant="destructive" size="sm" disabled={isDeletingReview}>
                         <span className="flex items-center">
                         {isDeletingReview ? <Loader2 className="mr-0 sm:mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-0 sm:mr-2 h-4 w-4" />}
@@ -948,7 +950,3 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
-
-    
-
-    
