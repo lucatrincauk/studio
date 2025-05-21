@@ -26,7 +26,7 @@ import { Popover, PopoverTrigger, PopoverContent, PopoverAnchor } from "@/compon
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
-import Image from 'next/image';
+// Removed Image import as we're using emoji
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { BoardGame } from '@/lib/types';
 import { searchLocalGamesByNameAction } from '@/lib/actions';
@@ -45,6 +45,12 @@ function useDebounce<T>(value: T, delay: number): T {
   }, [value, delay]);
   return debouncedValue;
 }
+
+const PoopEmojiLogo = () => (
+  <span role="img" aria-label="Morchiometro Logo" className="text-3xl md:text-4xl leading-none">
+    💩
+  </span>
+);
 
 
 export function Header() {
@@ -81,8 +87,7 @@ export function Header() {
     const performSearch = async () => {
       if (debouncedSearchTerm.length < 2) {
         setSearchResults([]);
-        setIsDesktopPopoverOpen(false);
-        setIsMobilePopoverOpen(false);
+        // Do not automatically close popovers here, let focus and open prop handle it
         setIsSearching(false);
         return;
       }
@@ -97,21 +102,22 @@ export function Header() {
       } else {
         setSearchResults(result);
         if (result.length > 0) {
+          // Only open if corresponding input has focus
           if (desktopSearchInputRef.current === document.activeElement && !isMobileSheetOpen) {
             setIsDesktopPopoverOpen(true);
           } else if (mobileSearchInputRef.current === document.activeElement && isMobileSheetOpen) {
             setIsMobilePopoverOpen(true);
           }
         } else {
-          setIsDesktopPopoverOpen(false);
-          setIsMobilePopoverOpen(false);
+          setIsDesktopPopoverOpen(false); // Close if no results
+          setIsMobilePopoverOpen(false);  // Close if no results
         }
       }
       setIsSearching(false);
     };
 
     performSearch();
-  }, [debouncedSearchTerm, isMobileSheetOpen]);
+  }, [debouncedSearchTerm, isMobileSheetOpen]); // isMobileSheetOpen dependency ensures mobile popover logic re-evaluates
 
   const handleResultClick = () => {
     setSearchTerm('');
@@ -324,7 +330,7 @@ export function Header() {
       <header className="bg-primary text-primary-foreground shadow-md">
         <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
           <Link href="/" className="flex items-center gap-2 transition-opacity hover:opacity-80">
-            <Image src="/logo.svg" alt="Morchiometro Logo" width={65} height={32} priority />
+            <PoopEmojiLogo />
             <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Morchiometro</h1>
           </Link>
 
@@ -345,7 +351,7 @@ export function Header() {
                   <SheetTitle className="text-left">
                     <SheetClose asChild>
                       <Link href="/" className="flex items-center gap-2 text-primary transition-opacity hover:opacity-80">
-                        <Image src="/logo.svg" alt="Morchiometro Logo" width={50} height={24} />
+                        <PoopEmojiLogo />
                         <span className="text-lg font-bold">Morchiometro</span>
                       </Link>
                     </SheetClose>
@@ -355,10 +361,7 @@ export function Header() {
                 <div className="p-4">
                   <Popover 
                     open={isMobilePopoverOpen && searchTerm.length >=2 && searchResults.length > 0 && isMobileSheetOpen} 
-                    onOpenChange={(open) => {
-                      if (!open) setSearchTerm(''); // Clear search on popover close
-                      setIsMobilePopoverOpen(open);
-                    }}
+                    onOpenChange={setIsMobilePopoverOpen} // Simplified
                   >
                      <PopoverAnchor>
                         <div className="relative flex items-center mb-4">
@@ -419,10 +422,7 @@ export function Header() {
           <div className="relative">
             <Popover 
               open={isDesktopPopoverOpen && searchTerm.length >=2 && searchResults.length > 0 && !isMobileSheetOpen} 
-              onOpenChange={(open) => {
-                if (!open) setSearchTerm(''); // Clear search on popover close
-                setIsDesktopPopoverOpen(open);
-              }}
+              onOpenChange={setIsDesktopPopoverOpen} // Simplified
             >
               <PopoverAnchor>
                 <div className="relative flex items-center">

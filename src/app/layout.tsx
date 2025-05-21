@@ -23,13 +23,13 @@ export const metadata: Metadata = {
 };
 
 const SERVER_DEFAULT_THEME = 'forest-mist';
-const VALID_THEMES: Readonly<string[]> = ['light', 'dark', 'violet-dream', 'energetic-coral', 'forest-mist', 'forest-mist-dark'];
+const VALID_THEMES_FOR_SCRIPT: Readonly<string[]> = ['violet-dream', 'energetic-coral', 'forest-mist', 'forest-mist-dark']; // Removed 'light', 'dark'
 
 const NoFlashScript = () => {
   const storageKey = "morchiometro-theme";
   const autoThemeKey = "morchiometro-auto-theme-enabled";
   const defaultTheme = SERVER_DEFAULT_THEME;
-  const validThemes = VALID_THEMES;
+  const validThemes = VALID_THEMES_FOR_SCRIPT;
 
   const scriptContent = `
 (function() {
@@ -42,34 +42,31 @@ const NoFlashScript = () => {
 
   try {
     const storedAutoThemeEnabled = window.localStorage.getItem(localAutoKey);
-    // Default to true if not explicitly set to 'false'
-    const isAutoEnabled = storedAutoThemeEnabled !== 'false';
+    const isAutoEnabled = storedAutoThemeEnabled !== 'false'; // Defaults to true
     const storedTheme = window.localStorage.getItem(localKey);
 
     if (storedTheme && scriptValidThemes.includes(storedTheme)) {
-      themeToApply = storedTheme; // User has an explicit theme preference, auto is implicitly off
+      themeToApply = storedTheme; 
     } else if (isAutoEnabled) {
-      // No explicit theme OR auto is enabled, check OS preference
       if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
         if (scriptValidThemes.includes('forest-mist-dark')) {
           themeToApply = 'forest-mist-dark';
         }
       } else {
-        // OS prefers light or no preference, stick to app default
-        themeToApply = scriptDefaultTheme;
+        themeToApply = scriptDefaultTheme; // OS prefers light or no preference
       }
     }
     // If auto is disabled (isAutoEnabled is false) and no explicit theme, 
     // it will fall back to scriptDefaultTheme (already set as initial themeToApply).
   } catch (e) { /* ignore localStorage errors */ }
 
-  // Remove all known theme classes first to ensure a clean state
-  scriptValidThemes.forEach(function(t) {
+  const allPossibleThemes = ['light', 'dark', ...scriptValidThemes];
+  allPossibleThemes.forEach(function(t) {
     if (docEl.classList.contains(t)) {
       docEl.classList.remove(t);
     }
   });
-  // Add the chosen one
+  
   if (!docEl.classList.contains(themeToApply)) {
     docEl.classList.add(themeToApply);
   }

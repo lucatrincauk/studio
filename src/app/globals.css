@@ -8,79 +8,84 @@ body {
 }
 
 @layer base {
-  :root {
-    --background: 0 0% 96.1%; /* Light Gray #F5F5F5 */
-    --foreground: 0 0% 3.9%; /* Dark text for readability */
+  /* Removed :root and .dark theme definitions */
+
+  .forest-mist {
+    --background: 140 27% 95%; /* #EAF2ED Lighter Very Light Greenish Gray */
+    --foreground: 205 30% 20%; /* #243642 Dark Slate Blue */
     --card: 0 0% 100%; /* White cards */
-    --card-foreground: 0 0% 3.9%;
+    --card-foreground: 205 30% 20%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 122 46% 34%; /* Dark Green #2E7D32 */
-    --primary-foreground: 0 0% 98%; /* White text on primary */
-    --secondary: 0 0% 92%; /* Slightly darker gray than background for secondary elements */
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 85%; /* Muted gray */
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 55 99% 61%; /* Yellow #FFEB3B */
-    --accent-foreground: 0 0% 3.9%; /* Dark text on accent for good contrast */
+    --popover-foreground: 205 30% 20%;
+    --primary: 185 39% 34%; /* #387478 Dark Teal */
+    --primary-foreground: 140 27% 95%; /* Lighter Very Light Greenish Gray for text on primary */
+    --secondary: 185 25% 55%; /* #6FA5A9 Lighter Teal */
+    --secondary-foreground: 205 30% 20%; /* Dark Slate Blue */
+    --muted: 140 20% 90%; /* #E3EDE9 - Lighter than the new background for subtle differentiation */
+    --muted-foreground: 205 25% 35%;
+    --accent: 160 45% 75%; /* #AEE4D9 - Lighter, vibrant teal */
+    --accent-foreground: 160 30% 15%; /* #1C3832 - Dark teal text on light accent */
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 122 46% 34%; /* Primary color for focus rings */
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
+    --border: 140 15% 85%; /* #D3E0DC - Slightly adjusted grayer border */
+    --input: 140 15% 85%;
+    --ring: 185 39% 34%; /* Dark Teal */
     --radius: 0.5rem;
 
-    /* Sidebar variables (less critical for this app, but kept for consistency) */
-    --sidebar-background: 240 5.9% 10%; /* Default dark */
-    --sidebar-foreground: 0 0% 95%;
-    --sidebar-primary: 55 99% 61%; /* Accent yellow for active/hover items */
-    --sidebar-primary-foreground: 0 0% 3.9%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 0 0% 95%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 55 99% 61%;
+    --chart-1: 185 39% 34%; /* Dark Teal */
+    --chart-2: 160 45% 75%; /* Lighter vibrant teal (new accent) */
+    --chart-3: 185 25% 55%; /* Lighter Teal */
+    --chart-4: 190 30% 45%; /* Mid blue-green */
+    --chart-5: 150 20% 60%; /* Soft green */
+
+    /* Sidebar variables for forest-mist */
+    --sidebar-background: 205 30% 15%; /* Darker Dark Slate Blue */
+    --sidebar-foreground: 140 27% 90%; /* Lighter shade of main background for text */
+    --sidebar-primary: 160 45% 75%; /* Use new lighter accent for sidebar primary */
+    --sidebar-primary-foreground: 160 30% 15%; /* Dark teal text on light sidebar primary */
+    --sidebar-accent: 205 30% 20%; /* Dark Slate Blue (same as main foreground) */
+    --sidebar-accent-foreground: 140 27% 90%;
+    --sidebar-border: 205 30% 20%;
+    --sidebar-ring: 160 45% 75%; /* Use new lighter accent for sidebar ring */
   }
 
-  .dark {
-    --background: 0 0% 10%; /* Dark Gray for dark mode background */
-    --foreground: 0 0% 95%; /* Light text for dark mode */
-    --card: 0 0% 15%; /* Slightly lighter dark gray for cards */
-    --card-foreground: 0 0% 95%;
-    --popover: 0 0% 15%;
-    --popover-foreground: 0 0% 95%;
-    --primary: 122 46% 45%; /* Slightly lighter/brighter green for dark mode */
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 20%; /* Darker gray for secondary elements */
-    --secondary-foreground: 0 0% 95%;
-    --muted: 0 0% 25%; /* Muted dark gray */
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 55 99% 65%; /* Adjusted yellow for dark mode */
-    --accent-foreground: 0 0% 3.9%;
-    --destructive: 0 62.8% 30.6%;
+  .forest-mist-dark {
+    --background: 205 30% 15%; /* #1D2A33 Darker Dark Slate Blue */
+    --foreground: 140 27% 90%; /* #E3EDE9 Light Greenish Gray */
+    --card: 205 30% 20%; /* #243642 Dark Slate Blue (original foreground) */
+    --card-foreground: 140 27% 90%;
+    --popover: 205 30% 20%;
+    --popover-foreground: 140 27% 90%;
+    --primary: 185 39% 45%; /* #4A8A8F Slightly Lighter/Brighter Dark Teal */
+    --primary-foreground: 140 27% 95%; /* #EAF2ED Original forest-mist background */
+    --secondary: 185 25% 35%; /* #42676A Darker Lighter Teal */
+    --secondary-foreground: 140 27% 90%;
+    --muted: 205 30% 25%; /* #2A3B47 Darker Muted */
+    --muted-foreground: 140 27% 70%; /* #A8BEB6 Lighter Muted Foreground */
+    --accent: 160 45% 65%; /* #91D9C8 Slightly less vibrant Accent */
+    --accent-foreground: 205 30% 15%; /* Dark text on accent */
+    --destructive: 0 70% 45%; /* Adjusted destructive */
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 20%; /* Darker border for dark mode */
-    --input: 0 0% 20%; /* Darker input for dark mode */
-    --ring: 122 46% 45%; /* Primary color for focus rings in dark mode */
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+    --border: 185 25% 30%; /* #3A5A5D Darker Border */
+    --input: 185 25% 30%;
+    --ring: 185 39% 45%; /* Primary color for focus rings */
+    --radius: 0.5rem;
 
-    /* Dark Sidebar variables */
-    --sidebar-background: 0 0% 8%;
-    --sidebar-foreground: 0 0% 92%;
-    --sidebar-primary: 55 99% 65%;
-    --sidebar-primary-foreground: 0 0% 3.9%;
-    --sidebar-accent: 0 0% 12%;
-    --sidebar-accent-foreground: 0 0% 92%;
-    --sidebar-border: 0 0% 12%;
-    --sidebar-ring: 55 99% 65%;
+    --chart-1: 185 39% 45%; /* primary */
+    --chart-2: 160 45% 65%; /* accent */
+    --chart-3: 185 25% 35%; /* secondary */
+    --chart-4: 190 30% 55%; /* adjusted */
+    --chart-5: 150 20% 70%; /* adjusted */
+
+    /* Sidebar variables for forest-mist-dark */
+    --sidebar-background: 205 30% 10%; /* #131C21 Even Darker */
+    --sidebar-foreground: 140 27% 85%; /* #D3E0DC */
+    --sidebar-primary: 160 45% 65%; /* main accent */
+    --sidebar-primary-foreground: 205 30% 15%;
+    --sidebar-accent: 205 30% 15%; /* Darker shade of main background */
+    --sidebar-accent-foreground: 140 27% 85%;
+    --sidebar-border: 205 30% 15%;
+    --sidebar-ring: 160 45% 65%;
   }
 
   .violet-dream {
@@ -159,84 +164,6 @@ body {
     --sidebar-accent-foreground: 0 0% 100%; /* White */
     --sidebar-border: 210 50% 30%; /* Slightly Lighter Deep Navy */
     --sidebar-ring: 45 100% 70%;
-  }
-
-  .forest-mist {
-    --background: 140 27% 95%; /* #EAF2ED Lighter Very Light Greenish Gray */
-    --foreground: 205 30% 20%; /* #243642 Dark Slate Blue */
-    --card: 0 0% 100%; /* White cards */
-    --card-foreground: 205 30% 20%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 205 30% 20%;
-    --primary: 185 39% 34%; /* #387478 Dark Teal */
-    --primary-foreground: 140 27% 95%; /* Lighter Very Light Greenish Gray for text on primary */
-    --secondary: 185 25% 55%; /* #6FA5A9 Lighter Teal */
-    --secondary-foreground: 205 30% 20%; /* Dark Slate Blue */
-    --muted: 140 20% 90%; /* #E3EDE9 - Lighter than the new background for subtle differentiation */
-    --muted-foreground: 205 25% 35%;
-    --accent: 160 45% 75%; /* #AEE4D9 - Lighter, vibrant teal */
-    --accent-foreground: 160 30% 15%; /* #1C3832 - Dark teal text on light accent */
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 140 15% 85%; /* #D3E0DC - Slightly adjusted grayer border */
-    --input: 140 15% 85%;
-    --ring: 185 39% 34%; /* Dark Teal */
-    --radius: 0.5rem;
-
-    --chart-1: 185 39% 34%; /* Dark Teal */
-    --chart-2: 160 45% 75%; /* Lighter vibrant teal (new accent) */
-    --chart-3: 185 25% 55%; /* Lighter Teal */
-    --chart-4: 190 30% 45%; /* Mid blue-green */
-    --chart-5: 150 20% 60%; /* Soft green */
-
-    /* Sidebar variables for forest-mist */
-    --sidebar-background: 205 30% 15%; /* Darker Dark Slate Blue */
-    --sidebar-foreground: 140 27% 90%; /* Lighter shade of main background for text */
-    --sidebar-primary: 160 45% 75%; /* Use new lighter accent for sidebar primary */
-    --sidebar-primary-foreground: 160 30% 15%; /* Dark teal text on light sidebar primary */
-    --sidebar-accent: 205 30% 20%; /* Dark Slate Blue (same as main foreground) */
-    --sidebar-accent-foreground: 140 27% 90%;
-    --sidebar-border: 205 30% 20%;
-    --sidebar-ring: 160 45% 75%; /* Use new lighter accent for sidebar ring */
-  }
-
-  .forest-mist-dark {
-    --background: 205 30% 15%; /* #1D2A33 Darker Dark Slate Blue */
-    --foreground: 140 27% 90%; /* #E3EDE9 Light Greenish Gray */
-    --card: 205 30% 20%; /* #243642 Dark Slate Blue (original foreground) */
-    --card-foreground: 140 27% 90%;
-    --popover: 205 30% 20%;
-    --popover-foreground: 140 27% 90%;
-    --primary: 185 39% 45%; /* #4A8A8F Slightly Lighter/Brighter Dark Teal */
-    --primary-foreground: 140 27% 95%; /* #EAF2ED Original forest-mist background */
-    --secondary: 185 25% 35%; /* #42676A Darker Lighter Teal */
-    --secondary-foreground: 140 27% 90%;
-    --muted: 205 30% 25%; /* #2A3B47 Darker Muted */
-    --muted-foreground: 140 27% 70%; /* #A8BEB6 Lighter Muted Foreground */
-    --accent: 160 45% 65%; /* #91D9C8 Slightly less vibrant Accent */
-    --accent-foreground: 205 30% 15%; /* Dark text on accent */
-    --destructive: 0 70% 45%; /* Adjusted destructive */
-    --destructive-foreground: 0 0% 98%;
-    --border: 185 25% 30%; /* #3A5A5D Darker Border */
-    --input: 185 25% 30%;
-    --ring: 185 39% 45%; /* Primary color for focus rings */
-    --radius: 0.5rem;
-
-    --chart-1: 185 39% 45%; /* primary */
-    --chart-2: 160 45% 65%; /* accent */
-    --chart-3: 185 25% 35%; /* secondary */
-    --chart-4: 190 30% 55%; /* adjusted */
-    --chart-5: 150 20% 70%; /* adjusted */
-
-    /* Sidebar variables for forest-mist-dark */
-    --sidebar-background: 205 30% 10%; /* #131C21 Even Darker */
-    --sidebar-foreground: 140 27% 85%; /* #D3E0DC */
-    --sidebar-primary: 160 45% 65%; /* main accent */
-    --sidebar-primary-foreground: 205 30% 15%;
-    --sidebar-accent: 205 30% 15%; /* Darker shade of main background */
-    --sidebar-accent-foreground: 140 27% 85%;
-    --sidebar-border: 205 30% 15%;
-    --sidebar-ring: 160 45% 65%;
   }
 }
 

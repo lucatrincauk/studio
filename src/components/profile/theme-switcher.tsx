@@ -17,7 +17,7 @@ export function ThemeSwitcher() {
   };
 
   const handleThemeSelection = (newTheme: Theme) => {
-    setTheme(newTheme); // This will also set autoThemeEnabled to false in the context
+    setTheme(newTheme as Theme); 
   };
 
   return (
@@ -54,27 +54,11 @@ export function ThemeSwitcher() {
             {autoThemeEnabled ? "Il tema manuale è disabilitato. Disattiva il tema automatico per scegliere manualmente." : "Scegli un Tema Manuale:"}
           </p>
           <RadioGroup
-            value={autoThemeEnabled ? '' : theme} // Don't show selection if auto is on
+            value={autoThemeEnabled ? '' : theme} 
             onValueChange={(value) => handleThemeSelection(value as Theme)}
             className="space-y-2"
             disabled={autoThemeEnabled}
           >
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="light" id="theme-light" />
-              <Label htmlFor="theme-light" className={`cursor-pointer ${autoThemeEnabled ? 'text-muted-foreground' : ''}`}>Chiaro</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="dark" id="theme-dark" />
-              <Label htmlFor="theme-dark" className={`cursor-pointer ${autoThemeEnabled ? 'text-muted-foreground' : ''}`}>Scuro</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="violet-dream" id="theme-violet-dream" />
-              <Label htmlFor="theme-violet-dream" className={`cursor-pointer ${autoThemeEnabled ? 'text-muted-foreground' : ''}`}>Sogno Viola</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="energetic-coral" id="theme-energetic-coral" />
-              <Label htmlFor="theme-energetic-coral" className={`cursor-pointer ${autoThemeEnabled ? 'text-muted-foreground' : ''}`}>Corallo Energetico</Label>
-            </div>
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="forest-mist" id="theme-forest-mist" />
               <Label htmlFor="theme-forest-mist" className={`cursor-pointer ${autoThemeEnabled ? 'text-muted-foreground' : ''}`}>Nebbia Forestale</Label>
@@ -83,7 +67,14 @@ export function ThemeSwitcher() {
               <RadioGroupItem value="forest-mist-dark" id="theme-forest-mist-dark" />
               <Label htmlFor="theme-forest-mist-dark" className={`cursor-pointer ${autoThemeEnabled ? 'text-muted-foreground' : ''}`}>Nebbia Forestale (Scuro)</Label>
             </div>
-             {/* Removed Coral Slate option */}
+             <div className="flex items-center space-x-2">
+              <RadioGroupItem value="violet-dream" id="theme-violet-dream" />
+              <Label htmlFor="theme-violet-dream" className={`cursor-pointer ${autoThemeEnabled ? 'text-muted-foreground' : ''}`}>Sogno Viola</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="energetic-coral" id="theme-energetic-coral" />
+              <Label htmlFor="theme-energetic-coral" className={`cursor-pointer ${autoThemeEnabled ? 'text-muted-foreground' : ''}`}>Corallo Energetico</Label>
+            </div>
           </RadioGroup>
         </div>
       </CardContent>

@@ -4,8 +4,8 @@
 import type { ReactNode } from 'react';
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 
-type Theme = 'light' | 'dark' | 'violet-dream' | 'energetic-coral' | 'forest-mist' | 'forest-mist-dark';
-const VALID_THEMES: Readonly<Theme[]> = ['light', 'dark', 'violet-dream', 'energetic-coral', 'forest-mist', 'forest-mist-dark'];
+type Theme = 'violet-dream' | 'energetic-coral' | 'forest-mist' | 'forest-mist-dark';
+const VALID_THEMES: Readonly<Theme[]> = ['violet-dream', 'energetic-coral', 'forest-mist', 'forest-mist-dark'];
 const AUTO_THEME_STORAGE_KEY = 'morchiometro-auto-theme-enabled';
 
 
@@ -31,11 +31,10 @@ export function ThemeProvider({
 }: ThemeProviderProps) {
   const [autoThemeEnabled, setAutoThemeEnabledState] = useState<boolean>(() => {
     if (typeof window === 'undefined') {
-      return true; // Default to true for SSR or if localStorage is not available
+      return true; 
     }
     try {
       const storedAuto = window.localStorage.getItem(AUTO_THEME_STORAGE_KEY);
-      // Default to true if not explicitly set to 'false'
       return storedAuto !== 'false';
     } catch (e) {
       return true;
@@ -51,7 +50,7 @@ export function ThemeProvider({
       if (storedTheme && VALID_THEMES.includes(storedTheme)) {
         return storedTheme;
       }
-      // If auto theme is enabled (or just not disabled) and no explicit theme, check OS
+      
       const localAutoEnabled = window.localStorage.getItem(AUTO_THEME_STORAGE_KEY) !== 'false';
 
       if (localAutoEnabled && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
@@ -66,7 +65,9 @@ export function ThemeProvider({
   useEffect(() => {
     const root = window.document.documentElement;
     
-    VALID_THEMES.forEach(cls => {
+    // Remove all known theme classes first
+    const allPossibleThemes: string[] = ['light', 'dark', ...VALID_THEMES]; // Include old default light/dark to be safe
+    allPossibleThemes.forEach(cls => {
       root.classList.remove(cls);
     });
 
@@ -75,6 +76,7 @@ export function ThemeProvider({
         root.classList.add(theme);
       }
     } else {
+      // Fallback to propDefaultTheme if current theme state is somehow invalid
       if (!root.classList.contains(propDefaultTheme)) {
         root.classList.add(propDefaultTheme);
       }
@@ -90,7 +92,6 @@ export function ThemeProvider({
       try {
         window.localStorage.setItem(storageKey, newTheme);
         if (!isAutomaticUpdate) {
-          // If user explicitly picks a theme, disable auto mode
           window.localStorage.setItem(AUTO_THEME_STORAGE_KEY, 'false');
           setAutoThemeEnabledState(false);
         }
@@ -105,31 +106,29 @@ export function ThemeProvider({
     if (typeof window !== 'undefined') {
       window.localStorage.setItem(AUTO_THEME_STORAGE_KEY, String(enabled));
     }
-    setAutoThemeEnabledState(enabled); // Update state
+    setAutoThemeEnabledState(enabled); 
     if (enabled) {
-      // If auto mode is turned on, determine theme by OS and apply it
       let osTheme = propDefaultTheme;
       if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
         osTheme = 'forest-mist-dark';
       } else {
-        osTheme = propDefaultTheme; // which is 'forest-mist'
+        osTheme = 'forest-mist'; 
       }
       if (VALID_THEMES.includes(osTheme)) {
-        setTheme(osTheme, true); // Pass true to indicate it's an automatic update
+        setTheme(osTheme, true); 
       }
     }
   }, [propDefaultTheme, setTheme]);
 
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !autoThemeEnabled) return; // Only listen if auto is enabled
+    if (typeof window === 'undefined' || !autoThemeEnabled) return; 
 
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handleChange = (event: MediaQueryListEvent) => {
-      // This effect only runs if autoThemeEnabled is true, so we don't need to re-check it here.
       const newOsTheme = event.matches ? 'forest-mist-dark' : 'forest-mist';
       if (VALID_THEMES.includes(newOsTheme)) {
-        setTheme(newOsTheme, true); // Pass true for automatic update
+        setTheme(newOsTheme, true); 
       }
     };
 
