@@ -82,7 +82,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
   const [isFetchingDetailsFor, setIsFetchingDetailsFor] = useState<string | null>(null);
   const [isPendingBggDetailsFetch, startBggDetailsFetchTransition] = useTransition();
 
-  const [isFetchingPlays, startFetchPlaysTransition] = useTransition(); // For BGG Plays fetch
+  const [isFetchingPlays, startFetchPlaysTransition] = useTransition(); 
 
 
   const fetchGameData = useCallback(async () => {
@@ -222,6 +222,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         await deleteDoc(reviewDocRef);
         toast({ title: "Recensione Eliminata", description: "La tua recensione è stata eliminata con successo." });
         await updateGameOverallRatingAfterReviewChange(); 
+        await revalidateGameDataAction(gameId);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({ title: "Errore", description: `Impossibile eliminare la recensione: ${errorMessage}`, variant: "destructive" });
@@ -392,7 +393,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         await updateDoc(gameRef, bggFetchResult.updateData);
         toast({ title: 'Dettagli Aggiornati', description: `Dettagli per ${game.name} aggiornati con successo.` });
         await revalidateGameDataAction(game.id);
-        await fetchGameData(); // Re-fetch all game data to update UI
+        await fetchGameData(); 
       } catch (dbError) {
         const errorMessage = dbError instanceof Error ? dbError.message : "Errore sconosciuto durante l'aggiornamento del DB.";
         toast({ title: 'Errore Aggiornamento Database', description: errorMessage, variant: 'destructive' });
@@ -403,19 +404,20 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
   };
 
   const handleFetchBggPlays = async () => {
-    if (!game || !game.bggId || authLoading || !isAdmin) return;
+    if (!game || !game.id || !game.bggId || authLoading || !isAdmin) return;
     startFetchPlaysTransition(async () => {
-      const result = await fetchGamePlaysFromBggAction(game.bggId, "lctr01");
+      const result = await fetchGamePlaysFromBggAction(game.id, game.bggId, "lctr01");
       if (result.success && result.plays) {
         toast({
           title: "Partite Caricate",
-          description: result.message || `Caricate ${result.plays.length} partite per ${game.name} da BGG per lctr01.`,
+          description: result.message || `Caricate e salvate ${result.plays.length} partite per ${game.name} da BGG per lctr01.`,
         });
-        // For now, we are just toasting. In the future, this data could be displayed or stored.
+        // Optionally, refresh game data to reflect new play logs if displayed elsewhere
+        // await fetchGameData(); 
       } else {
         toast({
           title: "Errore Caricamento Partite",
-          description: result.error || "Impossibile caricare le partite da BGG.",
+          description: result.error || "Impossibile caricare o salvare le partite da BGG.",
           variant: "destructive",
         });
       }
@@ -535,13 +537,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             </div>
             
             <div className="text-sm text-muted-foreground space-y-1.5 pt-1 grid grid-cols-2 gap-x-4 gap-y-2">
-              {hasDataForSection(game.designers) && (
-                <div className="flex items-center gap-2">
-                  <PenTool size={16} className="text-primary/80" />
-                  <span className="hidden sm:inline">Autori:</span>
-                  <span>{game.designers!.join(', ')}</span>
-                </div>
-              )}
               {game.yearPublished != null && (
                 <div className="flex items-center gap-2">
                   <CalendarDays size={16} className="text-primary/80" />
@@ -574,6 +569,13 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                   <Weight size={16} className="text-primary/80" />
                   <span className="hidden sm:inline">Complessità:</span>
                   <span>{formatRatingNumber(game.averageWeight)} / 5</span>
+                </div>
+              )}
+               {hasDataForSection(game.designers) && (
+                <div className="flex items-center gap-2">
+                  <PenTool size={16} className="text-primary/80" />
+                  <span className="hidden sm:inline">Autori:</span>
+                  <span>{game.designers!.join(', ')}</span>
                 </div>
               )}
               {game.lctr01Plays !== null && typeof game.lctr01Plays === 'number' && (
@@ -616,7 +618,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             )}
           </div>
 
-          <div className="md:hidden my-4 max-w-[240px] mx-auto"> {/* Mobile Image */}
+          <div className="md:hidden my-4 max-w-[240px] mx-auto"> 
               <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
                 <SafeImage
                   src={game.coverArtUrl}
@@ -630,7 +632,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 />
               </div>
             </div>
-          <div className="hidden md:block md:w-1/4 p-6 flex-shrink-0 self-start md:order-2"> {/* Desktop Image */}
+          <div className="hidden md:block md:w-1/4 p-6 flex-shrink-0 self-start md:order-2"> 
             <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
               <SafeImage
                 src={game.coverArtUrl}
@@ -718,32 +720,32 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                   </Alert>
             )}
           
-          {remainingReviews.length > 0 ? (
-            <div>
+           {remainingReviews.length > 0 && (
+            <>
               <Separator className="my-6" />
               <h2 className="text-2xl font-semibold text-foreground mb-6">
                 {userReview ? `Altre Recensioni (${remainingReviews.length})` : `Recensioni (${remainingReviews.length})`}
               </h2>
               <ReviewList reviews={remainingReviews} />
-            </div>
-          ) : (
-            userReview && game.reviews && game.reviews.length === 1 ? (
-              <Alert variant="default" className="mt-6 bg-secondary/30 border-secondary">
-                <Info className="h-4 w-4 text-secondary-foreground" />
-                <AlertDescription className="text-secondary-foreground">
-                  Nessun altro ha ancora recensito questo gioco.
-                </AlertDescription>
-              </Alert>
-            ) : (
-              (!game.reviews || game.reviews.length === 0) && (
-                <Alert variant="default" className="mt-6 bg-secondary/30 border-secondary">
-                  <Info className="h-4 w-4 text-secondary-foreground" />
-                  <AlertDescription className="text-secondary-foreground">
-                    Nessuna recensione ancora per questo gioco.
-                  </AlertDescription>
-                </Alert>
-              )
-            )
+            </>
+          )}
+
+          {remainingReviews.length === 0 && userReview && game.reviews && game.reviews.length === 1 && (
+            <Alert variant="default" className="mt-6 bg-secondary/30 border-secondary">
+              <Info className="h-4 w-4 text-secondary-foreground" />
+              <AlertDescription className="text-secondary-foreground">
+                Nessun altro ha ancora recensito questo gioco.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {remainingReviews.length === 0 && !userReview && (!game.reviews || game.reviews.length === 0) && (
+            <Alert variant="default" className="mt-6 bg-secondary/30 border-secondary">
+              <Info className="h-4 w-4 text-secondary-foreground" />
+              <AlertDescription className="text-secondary-foreground">
+                Nessuna recensione ancora per questo gioco.
+              </AlertDescription>
+            </Alert>
           )}
         </div>
 
@@ -796,4 +798,5 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
+
 

@@ -121,9 +121,12 @@ export interface UserProfile {
 }
 
 export interface BggPlayDetail {
-  playId: string;
-  date: string;
-  quantity: number;
-  comments: string | null;
-  // We can add more fields like players if needed later
+  playId: string; // BGG's ID for the play
+  date: string; // Date of the play
+  quantity: number; // Number of times played on that date
+  comments: string | null; // User's comments for that play
+  // Fields for Firestore storage
+  userId?: string; // Firebase UID of the user who logged the play (e.g., 'lctr01' equivalent)
+  gameBggId?: number; // BGG ID of the game played
 }
+
