@@ -3,13 +3,13 @@
 
 import { useEffect, useState, useTransition, useCallback, use } from 'react';
 import Link from 'next/link';
-import { getGameDetails, revalidateGameDataAction } from '@/lib/actions';
+import { getGameDetails, revalidateGameDataAction, fetchAndUpdateBggGameDetailsAction } from '@/lib/actions';
 import type { BoardGame, AiSummary, Review, Rating as RatingType, GroupedCategoryAverages } from '@/lib/types';
 import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, Tag, Heart, ListPlus, ListChecks, BarChart3, PenTool, Repeat } from 'lucide-react'; // Added Repeat
+import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, Tag, Heart, ListPlus, ListChecks, BarChart3, PenTool, Repeat, Settings, DownloadCloud } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { summarizeReviews } from '@/ai/flows/summarize-reviews';
@@ -29,10 +29,15 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { SafeImage } from '@/components/common/SafeImage';
 import { ReviewItem } from '@/components/boardgame/review-item';
 import { Badge } from "@/components/ui/badge";
-import { Progress } from '@/components/ui/progress';
 
 
 const FIRESTORE_COLLECTION_NAME = 'boardgames_collection';
@@ -73,6 +78,9 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
   const [isPlaylisting, startPlaylistTransition] = useTransition();
   const [isPlaylistedByCurrentUser, setIsPlaylistedByCurrentUser] = useState(false);
+
+  const [isFetchingDetailsFor, setIsFetchingDetailsFor] = useState<string | null>(null);
+  const [isPendingBggDetailsFetch, startBggDetailsFetchTransition] = useTransition();
 
 
   const fetchGameData = useCallback(async () => {
@@ -358,6 +366,40 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     });
   };
 
+  const handleRefreshBggData = async () => {
+    if (!game || !game.id || !game.bggId) return;
+
+    setIsFetchingDetailsFor(game.id);
+    startBggDetailsFetchTransition(async () => {
+      const bggFetchResult = await fetchAndUpdateBggGameDetailsAction(game.bggId);
+
+      if (!bggFetchResult.success || !bggFetchResult.updateData) {
+        toast({ title: 'Errore Recupero Dati BGG', description: bggFetchResult.error || 'Impossibile recuperare dati da BGG.', variant: 'destructive' });
+        setIsFetchingDetailsFor(null);
+        return;
+      }
+
+      if (Object.keys(bggFetchResult.updateData).length === 0) {
+        toast({ title: 'Nessun Aggiornamento', description: `Nessun nuovo dettaglio da aggiornare per ${game.name} da BGG.` });
+        setIsFetchingDetailsFor(null);
+        return;
+      }
+
+      try {
+        const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
+        await updateDoc(gameRef, bggFetchResult.updateData);
+        toast({ title: 'Dettagli Aggiornati', description: `Dettagli per ${game.name} aggiornati con successo.` });
+        await revalidateGameDataAction(game.id);
+        await fetchGameData(); // Re-fetch all game data to update UI
+      } catch (dbError) {
+        const errorMessage = dbError instanceof Error ? dbError.message : "Errore sconosciuto durante l'aggiornamento del DB.";
+        toast({ title: 'Errore Aggiornamento Database', description: errorMessage, variant: 'destructive' });
+      } finally {
+        setIsFetchingDetailsFor(null);
+      }
+    });
+  };
+
 
   if (isLoadingGame || authLoading) {
     return (
@@ -431,17 +473,27 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                       </Button>
                     </>
                   )}
-                  {isAdmin && !isLoadingGame && game && (
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={handleTogglePinGame}
-                        disabled={isPinToggling}
-                        title={currentIsPinned ? "Rimuovi da Vetrina" : "Aggiungi a Vetrina"}
-                        className={`h-9 w-9 hover:bg-accent/20 ${currentIsPinned ? 'text-accent' : 'text-muted-foreground/60 hover:text-accent'}`}
-                    >
-                        {isPinToggling ? <Loader2 className="h-5 w-5 animate-spin" /> : (currentIsPinned ? <PinOff className="h-5 w-5" /> : <Pin className="h-5 w-5" />)}
-                    </Button>
+                   {isAdmin && game && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-9 w-9 hover:bg-primary/20 text-muted-foreground/80 hover:text-primary">
+                          <Settings className="h-5 w-5" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onSelect={handleTogglePinGame} disabled={isPinToggling}>
+                          {isPinToggling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (currentIsPinned ? <PinOff className="mr-2 h-4 w-4" /> : <Pin className="mr-2 h-4 w-4" />)}
+                          {currentIsPinned ? 'Rimuovi da Vetrina' : 'Aggiungi a Vetrina'}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={handleRefreshBggData}
+                          disabled={(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) || !game.id || !game.bggId}
+                        >
+                          {(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DownloadCloud className="mr-2 h-4 w-4" />}
+                          Aggiorna Dati da BGG
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   )}
                 </div>
                <div className="flex-shrink-0">
@@ -452,24 +504,9 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                   ) : ("")}
                </div>
             </div>
-
-            <div className="md:hidden my-4 max-w-[240px] mx-auto">
-              <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
-                <SafeImage
-                  src={game.coverArtUrl}
-                  alt={`${game.name} copertina`}
-                  fallbackSrc={fallbackSrc}
-                  fill
-                  priority
-                  className="object-cover"
-                  data-ai-hint={`board game ${game.name.split(' ')[0]?.toLowerCase() || 'detailed'}`}
-                  sizes="(max-width: 767px) 240px"
-                />
-              </div>
-            </div>
             
             <div className="text-sm text-muted-foreground space-y-1.5 pt-1 grid grid-cols-2 gap-x-4 gap-y-2">
-               {hasDataForSection(game.designers) && (
+              {hasDataForSection(game.designers) && (
                 <div className="flex items-center gap-2">
                   <PenTool size={16} className="text-primary/80" />
                   <span className="hidden sm:inline">Autori:</span>
@@ -550,7 +587,21 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             )}
           </div>
 
-          <div className="hidden md:block md:w-1/4 p-6 flex-shrink-0 self-start md:order-2">
+          <div className="md:hidden my-4 max-w-[240px] mx-auto"> {/* Mobile Image */}
+              <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
+                <SafeImage
+                  src={game.coverArtUrl}
+                  alt={`${game.name} copertina`}
+                  fallbackSrc={fallbackSrc}
+                  fill
+                  priority
+                  className="object-cover"
+                  data-ai-hint={`board game ${game.name.split(' ')[0]?.toLowerCase() || 'detailed'}`}
+                  sizes="(max-width: 767px) 240px"
+                />
+              </div>
+            </div>
+          <div className="hidden md:block md:w-1/4 p-6 flex-shrink-0 self-start md:order-2"> {/* Desktop Image */}
             <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
               <SafeImage
                 src={game.coverArtUrl}
@@ -577,7 +628,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 <h3 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h3>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <Button asChild size="sm">
-                    <Link href={`/games/${gameId}/rate`}>
+                   <Link href={`/games/${gameId}/rate`}>
                       <span className="flex items-center">
                           <Edit className="mr-0 sm:mr-2 h-4 w-4" />
                           <span className="hidden sm:inline">Modifica</span>
@@ -716,4 +767,3 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
-
