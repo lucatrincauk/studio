@@ -498,7 +498,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     <div className="space-y-8"> 
       <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
         <div className="flex flex-col md:flex-row">
-          <div className="flex-1 p-6 space-y-4"> 
+          <div className="flex-1 p-6 space-y-4 md:order-1"> 
              <div className="flex justify-between items-start mb-2">
                 <div className="flex items-center gap-2 flex-shrink min-w-0 mr-2"> 
                   <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground truncate">{game.name}</h1>
@@ -610,28 +610,28 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
                 {hasDataForSection(game.designers) && (
                   <div className="flex items-baseline gap-2"> 
-                      <PenTool size={16} className="text-primary/80 flex-shrink-0" />
+                      <PenTool size={14} className="text-primary/80 flex-shrink-0" />
                       <span className="font-medium hidden sm:inline">Autori:</span>
                       <span>{game.designers!.join(', ')}</span>
                   </div>
                 )}
                 {game.yearPublished != null && (
                     <div className="flex items-baseline gap-2">
-                    <CalendarDays size={16} className="text-primary/80 flex-shrink-0" />
+                    <CalendarDays size={14} className="text-primary/80 flex-shrink-0" />
                     <span className="font-medium hidden sm:inline">Anno:</span>
                     <span>{game.yearPublished}</span>
                     </div>
                 )}
                 {(game.minPlayers != null || game.maxPlayers != null) && (
                     <div className="flex items-baseline gap-2">
-                    <Users size={16} className="text-primary/80 flex-shrink-0" />
+                    <Users size={14} className="text-primary/80 flex-shrink-0" />
                     <span className="font-medium hidden sm:inline">Giocatori:</span>
                     <span>{game.minPlayers}{game.maxPlayers && game.minPlayers !== game.maxPlayers ? `-${game.maxPlayers}` : ''}</span>
                     </div>
                 )}
                 { (game.minPlaytime != null && game.maxPlaytime != null) || game.playingTime != null ? (
                     <div className="flex items-baseline gap-2">
-                    <Clock size={16} className="text-primary/80 flex-shrink-0" />
+                    <Clock size={14} className="text-primary/80 flex-shrink-0" />
                     <span className="font-medium hidden sm:inline">Durata:</span>
                     <span>
                         {game.minPlaytime != null && game.maxPlaytime != null ?
@@ -644,13 +644,13 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 ) : null}
                 {game.averageWeight !== null && typeof game.averageWeight === 'number' && (
                     <div className="flex items-baseline gap-2">
-                    <Weight size={16} className="text-primary/80 flex-shrink-0" />
+                    <Weight size={14} className="text-primary/80 flex-shrink-0" />
                     <span className="font-medium hidden sm:inline">Complessità:</span>
                     <span>{formatRatingNumber(game.averageWeight)} / 5</span>
                     </div>
                 )}
                 <div className="flex items-baseline gap-2">
-                    <Dices size={16} className="text-primary/80 flex-shrink-0" />
+                    <Dices size={14} className="text-primary/80 flex-shrink-0" />
                     <span className="font-medium hidden sm:inline">Partite:</span>
                     <span>{game.lctr01Plays ?? 0}</span>
                 </div>
@@ -690,7 +690,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           </div>
 
           {/* Desktop-only image column */}
-          <div className="hidden md:block md:w-1/4 p-6 flex-shrink-0 self-start"> 
+          <div className="hidden md:block md:w-1/4 p-6 flex-shrink-0 self-start md:order-2"> 
             <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
               <SafeImage
                 src={game.coverArtUrl}
@@ -926,3 +926,4 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
+
