@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { LogOut, UserPlus, LogIn, MessagesSquare, Users2, ShieldCheck, UserCircle, Menu, TrendingUp, Library, Edit, BarChart3, Search as SearchIcon, Loader2, LayoutList, Dices } from 'lucide-react';
+import { LogOut, UserPlus, LogIn, MessagesSquare, Users2, ShieldCheck, UserCircle, Menu, TrendingUp, Library, Edit, BarChart3, Search as SearchIcon, Loader2, LayoutList, Dices, GaugeCircle, Heart, ListPlus, ListChecks } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import {
   DropdownMenu,
@@ -84,17 +84,13 @@ export function Header() {
     { href: "/plays", label: "Partite", icon: <Dices size={18} /> },
   ];
 
- useEffect(() => {
+  useEffect(() => {
     const performSearch = async () => {
       if (debouncedSearchTerm.length < 2) {
         setSearchResults([]);
         setIsSearching(false);
-        if (desktopSearchInputRef.current !== document.activeElement) {
-            setIsDesktopPopoverOpen(false);
-        }
-        if (mobileSearchInputRef.current !== document.activeElement || !isMobileSheetOpen) {
-             setIsMobilePopoverOpen(false);
-        }
+        setIsDesktopPopoverOpen(false);
+        setIsMobilePopoverOpen(false);
         return;
       }
 
@@ -103,20 +99,14 @@ export function Header() {
 
       if ('error' in result) {
         setSearchResults([]);
-        if (desktopSearchInputRef.current === document.activeElement && !isMobileSheetOpen) setIsDesktopPopoverOpen(true);
-        if (mobileSearchInputRef.current === document.activeElement && isMobileSheetOpen) setIsMobilePopoverOpen(true);
       } else {
         setSearchResults(result);
         if (result.length > 0) {
           if (desktopSearchInputRef.current === document.activeElement && !isMobileSheetOpen) setIsDesktopPopoverOpen(true);
           if (mobileSearchInputRef.current === document.activeElement && isMobileSheetOpen) setIsMobilePopoverOpen(true);
         } else {
-          if (desktopSearchInputRef.current === document.activeElement && !isMobileSheetOpen) setIsDesktopPopoverOpen(true); 
-          else if (mobileSearchInputRef.current === document.activeElement && isMobileSheetOpen) setIsMobilePopoverOpen(true);
-          else {
-            setIsDesktopPopoverOpen(false);
-            setIsMobilePopoverOpen(false);
-          }
+          setIsDesktopPopoverOpen(false);
+          setIsMobilePopoverOpen(false);
         }
       }
       setIsSearching(false);
@@ -239,7 +229,7 @@ export function Header() {
 
   const mobileSearchPopoverContent = (
     <PopoverContent
-      className="w-[calc(100%-2rem)] p-0" 
+      className="w-[248px] p-0" 
       align="start"
       side="bottom"
       sideOffset={4}
@@ -277,22 +267,6 @@ export function Header() {
             <PoopEmojiLogo />
             <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Morchiometro</h1>
           </Link>
-
-          {/* This block was for centered desktop nav links, removed to avoid duplication */}
-          {/* <div className="hidden md:flex flex-grow items-center justify-center">
-            <nav className="flex items-center gap-4 lg:gap-6">
-              {mainNavLinks.map(link => (
-                <Link
-                  href={link.href}
-                  key={`desktop-nav-${link.href}`}
-                  className="flex items-center gap-1.5 text-sm font-medium text-primary-foreground/80 transition-colors hover:text-primary-foreground px-3 py-2 rounded-md"
-                >
-                  {link.icon}
-                  {link.label}
-                </Link>
-              ))}
-            </nav>
-          </div> */}
           
           <div className="flex items-center gap-2">
             {/* Desktop Search Bar - shown on md and up */}
@@ -313,9 +287,9 @@ export function Header() {
                       onFocus={() => {
                         if (searchTerm.length >=2 && !isMobileSheetOpen && (searchResults.length > 0 || isSearching || (debouncedSearchTerm.length >=2 && !isSearching))) setIsDesktopPopoverOpen(true);
                       }}
-                      className="h-8 w-48 lg:w-64 rounded-md pl-9 pr-3 text-sm bg-primary-foreground/10 text-primary-foreground placeholder-primary-foreground/60 border-primary-foreground/30 focus:ring-accent focus:bg-primary-foreground/20"
+                      className="h-8 w-48 lg:w-64 rounded-md pl-9 pr-3 text-sm bg-primary-foreground/10 text-foreground placeholder:text-muted-foreground border-border focus:ring-accent focus:bg-primary-foreground/20"
                     />
-                    {isSearching && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-primary-foreground/70" />}
+                    {isSearching && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />}
                   </div>
                 </PopoverAnchor>
                 {desktopSearchPopoverContent}
@@ -363,7 +337,7 @@ export function Header() {
                               value={searchTerm}
                               onChange={(e) => setSearchTerm(e.target.value)}
                               onFocus={() => {
-                                if (searchTerm.length >=2 && isMobileSheetOpen && searchResults.length > 0) setIsMobilePopoverOpen(true);
+                                if (searchTerm.length >=2 && isMobileSheetOpen && (searchResults.length > 0 || isSearching || (debouncedSearchTerm.length >=2 && !isSearching))) setIsMobilePopoverOpen(true);
                               }}
                               className="h-9 w-full rounded-md pl-9 pr-3 text-sm bg-background text-foreground border-input focus:ring-primary/50"
                             />
@@ -415,3 +389,4 @@ export function Header() {
     </div>
   );
 }
+
