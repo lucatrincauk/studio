@@ -1,17 +1,17 @@
 
 'use client';
 
-import { useEffect, useState, useTransition, useCallback, use, useMemo } from 'react';
+import { useEffect, useState, useTransition, useCallback, use } from 'react';
 import Link from 'next/link';
-import { getGameDetails, revalidateGameDataAction, fetchUserPlaysForGameFromBggAction, fetchAndUpdateBggGameDetailsAction } from '@/lib/actions';
+import { getGameDetails, revalidateGameDataAction, fetchUserPlaysForGameFromBggAction } from '@/lib/actions';
 import type { BoardGame, Review, Rating as RatingType, GroupedCategoryAverages, BggPlayDetail, BggPlayerInPlay } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, MessageSquare, Repeat, Settings, DownloadCloud, Trophy, Medal, UserCircle2, Heart, ListPlus, ListChecks, Sparkles } from 'lucide-react';
+import { AlertCircle, Loader2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, MessageSquare, Repeat, Settings, DownloadCloud, Trophy, Medal, UserCircle2, Heart, ListPlus, ListChecks, Sparkles, Star } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
-import { calculateGroupedCategoryAverages, calculateOverallCategoryAverage, formatRatingNumber, formatPlayDate, formatReviewDate, calculateCategoryAverages } from '@/lib/utils';
+import { calculateGroupedCategoryAverages, calculateOverallCategoryAverage, formatRatingNumber, formatPlayDate, formatReviewDate, calculateCategoryAverages as calculateCatAvgsFromUtils } from '@/lib/utils';
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
@@ -43,6 +43,7 @@ import { SafeImage } from '@/components/common/SafeImage';
 import { ReviewItem } from '@/components/boardgame/review-item';
 import { ReviewList } from '@/components/boardgame/review-list';
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 
 const FIRESTORE_COLLECTION_NAME = 'boardgames_collection';
@@ -111,7 +112,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       setRemainingReviews(gameData.reviews?.filter(r => r.id !== foundUserReview?.id) || []);
 
       if (gameData.reviews && gameData.reviews.length > 0) {
-        const categoryAvgs = calculateCategoryAverages(gameData.reviews);
+        const categoryAvgs = calculateCatAvgsFromUtils(gameData.reviews); // Use aliased import
         if (categoryAvgs) {
           setGlobalGameAverage(calculateOverallCategoryAverage(categoryAvgs));
         } else {
@@ -175,7 +176,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         return { id: docSnap.id, ...reviewDocData, rating } as Review;
       });
 
-      const categoryAvgs = calculateCategoryAverages(allReviewsForGame);
+      const categoryAvgs = calculateCatAvgsFromUtils(allReviewsForGame);
       const newOverallAverage = categoryAvgs ? calculateOverallCategoryAverage(categoryAvgs) : null;
       const gameDocRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
       await updateDoc(gameDocRef, {
@@ -400,7 +401,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     const usernameToFetch = "lctr01"; 
 
     startFetchPlaysTransition(async () => {
-        const serverActionResult = await fetchUserPlaysForGameFromBggAction(game.bggId, usernameToFetch);
+        const serverActionResult = await fetchUserPlaysForGameFromBggAction(game.id, game.bggId, usernameToFetch);
 
         if (!serverActionResult.success || !serverActionResult.plays) {
             toast({ title: 'Errore Caricamento Partite BGG', description: serverActionResult.error || serverActionResult.message || 'Impossibile caricare le partite da BGG.', variant: 'destructive' });
@@ -408,36 +409,13 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         }
 
         if (serverActionResult.plays.length > 0) {
-            const batch = writeBatch(db);
-            const playsSubCollectionRef = collection(db, FIRESTORE_COLLECTION_NAME, game.id, `plays_${usernameToFetch.toLowerCase()}`);
-            
-            serverActionResult.plays.forEach(play => {
-                const playDocRef = doc(playsSubCollectionRef, play.playId);
-                const playDataForFirestore: BggPlayDetail = {
-                    ...play, 
-                    userId: usernameToFetch, 
-                    gameBggId: game.bggId,
-                };
-                batch.set(playDocRef, playDataForFirestore, { merge: true }); 
+             toast({
+                title: "Partite Caricate e Salvate",
+                description: serverActionResult.message || `Caricate e salvate ${serverActionResult.plays.length} partite per ${game.name} da BGG per ${usernameToFetch}. Conteggio aggiornato.`,
             });
+            // No need to revalidate here, server action already does it.
+            await fetchGameData(); 
             
-            try {
-                await batch.commit();
-                
-                const gameDocRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
-                await updateDoc(gameDocRef, {
-                    lctr01Plays: serverActionResult.plays.length 
-                });
-                toast({
-                    title: "Partite Caricate e Salvate",
-                    description: serverActionResult.message || `Caricate e salvate ${serverActionResult.plays.length} partite per ${game.name} da BGG per ${usernameToFetch}. Conteggio aggiornato.`,
-                });
-                await revalidateGameDataAction(game.id);
-                await fetchGameData(); 
-            } catch (dbError) {
-                const errorMessage = dbError instanceof Error ? dbError.message : "Errore sconosciuto durante il salvataggio delle partite nel DB.";
-                toast({ title: 'Errore Salvataggio Partite DB', description: errorMessage, variant: 'destructive' });
-            }
         } else {
             toast({
                 title: "Nessuna Partita Trovata",
@@ -544,6 +522,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     <div className="space-y-8"> 
       <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
         <div className="flex flex-col md:flex-row">
+          {/* Main Content Column */}
           <div className="flex-1 p-6 space-y-4 md:order-1"> 
             <div className="flex justify-between items-start mb-2">
                 <div className="flex items-center gap-2 flex-shrink min-w-0 mr-2"> 
@@ -633,6 +612,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 </div>
             </div>
             
+            {/* Image for mobile, below title */}
             <div className="md:hidden my-4 max-w-[240px] mx-auto">
               <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
                 <SafeImage
@@ -648,6 +628,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
               </div>
             </div>
 
+            {/* Metadata Grid */}
             <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
                 <div className="flex items-baseline gap-2">
                     <span className="inline-flex items-center"><PenTool size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
@@ -709,23 +690,20 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 )}
             </div>
             
-            
-             <div className="w-full pt-4 border-t border-border">
-              {game.reviews && game.reviews.length > 0 ? (
-                <>
-                  <h3 className="text-lg font-semibold text-foreground mb-3">Valutazione Media:</h3>
-                  <GroupedRatingsDisplay
-                      groupedAverages={groupedCategoryAverages}
-                      noRatingsMessage="Nessuna valutazione per calcolare le medie."
-                      isLoading={isLoadingGame}
-                      defaultOpenSections={['Sentimento']}
-                  />
-                </>
-              ) : null }
+            {/* Average Ratings Section */}
+            <div className={cn("w-full pt-4", game.reviews && game.reviews.length > 0 && "border-t border-border")}>
+              <h3 className="text-lg font-semibold text-foreground mb-3">Valutazione Media:</h3>
+              <GroupedRatingsDisplay
+                  groupedAverages={groupedCategoryAverages}
+                  noRatingsMessage="Nessuna valutazione per calcolare le medie."
+                  isLoading={isLoadingGame}
+                  defaultOpenSections={['Sentimento']}
+              />
             </div>
           </div>
 
           
+          {/* Image Column for Desktop */}
           <div className="hidden md:block md:w-1/4 p-6 flex-shrink-0 self-start md:order-2"> 
             <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
               <SafeImage
@@ -744,6 +722,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         </div>
       </Card>
 
+      {/* Registered Plays Section */}
       {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
         <Card className="shadow-md border border-border rounded-lg">
             <CardHeader className="flex flex-row justify-between items-center">
@@ -835,6 +814,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         </Card>
       )}
 
+    {/* User Review Management and Other Reviews Section */}
       <div className="space-y-8"> 
           {currentUser && !authLoading && (
             userReview ? (
@@ -935,7 +915,4 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
-
-
-
-
+      
