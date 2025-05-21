@@ -103,19 +103,20 @@ export function Header() {
     } else {
       setSearchResults(result);
       if (result.length > 0) {
-        if (desktopSearchInputRef.current === document.activeElement && !isMobileSheetOpen) {
+        if (desktopSearchInputRef.current && desktopSearchInputRef.current === document.activeElement && !isMobileSheetOpen) {
             setIsDesktopPopoverOpen(true);
         }
-        if (mobileSearchInputRef.current === document.activeElement && isMobileSheetOpen) {
+        if (mobileSearchInputRef.current && mobileSearchInputRef.current === document.activeElement && isMobileSheetOpen) {
             setIsMobilePopoverOpen(true);
         }
       } else {
-        if (desktopSearchInputRef.current === document.activeElement && term.length >=2 && !isMobileSheetOpen) {
+        // Still show "no results" in popover if term is long enough and input is focused
+        if (desktopSearchInputRef.current && desktopSearchInputRef.current === document.activeElement && term.length >=2 && !isMobileSheetOpen) {
             setIsDesktopPopoverOpen(true); 
         } else {
             setIsDesktopPopoverOpen(false);
         }
-        if (mobileSearchInputRef.current === document.activeElement && term.length >=2 && isMobileSheetOpen) {
+        if (mobileSearchInputRef.current && mobileSearchInputRef.current === document.activeElement && term.length >=2 && isMobileSheetOpen) {
             setIsMobilePopoverOpen(true);
         } else {
             setIsMobilePopoverOpen(false);
@@ -134,6 +135,9 @@ export function Header() {
     setSearchResults([]);
     setIsDesktopPopoverOpen(false);
     setIsMobilePopoverOpen(false);
+    if (isMobileSheetOpen) {
+        setIsMobileSheetOpen(false);
+    }
   };
   
   const authBlock = (
@@ -240,7 +244,7 @@ export function Header() {
 
   const mobileSearchPopoverContent = (
     <PopoverContent
-      className="w-[248px] p-0"
+      className="w-[248px] p-0" 
       align="start"
       side="bottom"
       sideOffset={4}
@@ -282,7 +286,7 @@ export function Header() {
           <div className="flex items-center gap-2 md:gap-3">
             <div className="relative hidden md:block"> 
               <Popover 
-                open={isDesktopPopoverOpen && searchTerm.length >=2 && (searchResults.length > 0 || isSearching || (debouncedSearchTerm.length >=2 && !isSearching && desktopSearchInputRef.current === document.activeElement))}
+                open={isDesktopPopoverOpen && searchTerm.length >=2 && (searchResults.length > 0 || isSearching || (debouncedSearchTerm.length >=2 && !isSearching && !isMobileSheetOpen && desktopSearchInputRef.current === document.activeElement))}
                 onOpenChange={setIsDesktopPopoverOpen} 
               >
                 <PopoverAnchor>
@@ -295,11 +299,13 @@ export function Header() {
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       onFocus={() => {
-                        if (searchTerm.length >=2 && (searchResults.length > 0 || isSearching || (debouncedSearchTerm.length >=2 && !isSearching))) setIsDesktopPopoverOpen(true);
+                        if (searchTerm.length >=2 && (searchResults.length > 0 || isSearching || (debouncedSearchTerm.length >=2 && !isSearching))) {
+                            setIsDesktopPopoverOpen(true);
+                        }
                       }}
                       className="h-8 w-48 lg:w-64 rounded-md pl-9 pr-3 text-sm bg-primary-foreground/10 text-border placeholder:text-border/60 border-border focus:bg-primary-foreground/20 focus:ring-accent"
                     />
-                    {isSearching && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />}
+                    {isSearching && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-border" />}
                   </div>
                 </PopoverAnchor>
                 {desktopSearchPopoverContent}
@@ -330,7 +336,7 @@ export function Header() {
                   
                   <div className="p-4">
                     <Popover 
-                      open={isMobilePopoverOpen && searchTerm.length >=2 && searchResults.length > 0 && isMobileSheetOpen && mobileSearchInputRef.current === document.activeElement} 
+                      open={isMobilePopoverOpen && searchTerm.length >=2 && (searchResults.length > 0 || isSearching || (debouncedSearchTerm.length >=2 && !isSearching && isMobileSheetOpen && mobileSearchInputRef.current === document.activeElement))} 
                       onOpenChange={setIsMobilePopoverOpen} 
                     >
                       <PopoverAnchor>
@@ -343,7 +349,9 @@ export function Header() {
                               value={searchTerm}
                               onChange={(e) => setSearchTerm(e.target.value)}
                               onFocus={() => {
-                                if (searchTerm.length >=2 && isMobileSheetOpen && (searchResults.length > 0 || isSearching || (debouncedSearchTerm.length >=2 && !isSearching))) setIsMobilePopoverOpen(true);
+                                if (searchTerm.length >=2 && isMobileSheetOpen && (searchResults.length > 0 || isSearching || (debouncedSearchTerm.length >=2 && !isSearching))) {
+                                    setIsMobilePopoverOpen(true);
+                                }
                               }}
                               className="h-9 w-full rounded-md pl-9 pr-3 text-sm bg-background text-foreground border-input focus:ring-primary/50"
                             />
@@ -367,6 +375,7 @@ export function Header() {
                         </SheetClose>
                     ))}
                   </nav>
+                  {/* Mobile auth block removed from here as per previous request */}
                 </SheetContent>
               </Sheet>
             </div> 
@@ -394,4 +403,5 @@ export function Header() {
     </div>
   );
 }
+
 
