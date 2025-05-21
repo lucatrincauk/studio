@@ -9,7 +9,7 @@ import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Repeat, Settings, DownloadCloud, ListChecks, ListPlus, Heart, BarChart3, CheckSquare, CircleUserRound, MessageSquare, UserCircle2 } from 'lucide-react';
+import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Repeat, Settings, DownloadCloud, BarChart3, ListChecks, ListPlus, Heart, UserCircle2, MessageSquare } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { summarizeReviews } from '@/ai/flows/summarize-reviews';
@@ -263,7 +263,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `Impossibile aggiornare lo stato vetrina: ${errorMessage}`,
           variant: "destructive",
         });
-        setCurrentIsPinned(!newPinStatus);
+        setCurrentIsPinned(!newPinStatus); // Revert optimistic update
       }
     });
   };
@@ -514,6 +514,18 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                       <ExternalLink size={16} className="h-4 w-4" />
                     </a>
                   )}
+                   {isAdmin && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleTogglePinGame}
+                      disabled={isPinToggling || authLoading}
+                      title={currentIsPinned ? "Rimuovi da Vetrina" : "Aggiungi a Vetrina"}
+                      className={`h-8 w-8 hover:bg-accent/20 ${currentIsPinned ? 'text-accent' : 'text-muted-foreground/60 hover:text-accent'}`}
+                    >
+                      {isPinToggling ? <Loader2 className="h-4 w-4 animate-spin" /> : (currentIsPinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />)}
+                    </Button>
+                  )}
                 </div>
                <div className="flex items-center gap-2 flex-shrink-0"> 
                   {globalGameAverage !== null ? (
@@ -563,13 +575,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem
-                          onSelect={handleTogglePinGame}
-                          disabled={isPinToggling || authLoading}
-                        >
-                          {isPinToggling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (currentIsPinned ? <PinOff className="mr-2 h-4 w-4" /> : <Pin className="mr-2 h-4 w-4" />)}
-                          {currentIsPinned ? "Rimuovi da Vetrina" : "Aggiungi a Vetrina"}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
                           onSelect={handleRefreshBggData}
                           disabled={(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) || !game.id || !game.bggId}
                         >
@@ -591,7 +596,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             
             <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
                  {hasDataForSection(game.designers) && (
-                    <div className="col-span-2 flex items-baseline gap-2">
+                    <div className="flex items-baseline gap-2">
                         <PenTool size={16} className="text-primary/80" />
                         <span className="hidden sm:inline">Autori:</span>
                         <span>{game.designers!.join(', ')}</span>
@@ -706,7 +711,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
         <div className="lg:col-span-2 space-y-8">
-           {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
+            {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
              <Card className="shadow-md border border-border rounded-lg">
                 <CardHeader>
                     <CardTitle className="text-xl flex items-center gap-2">
@@ -769,7 +774,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
           {currentUser && !authLoading && userReview && (
              <Card className="p-6 border border-border rounded-lg shadow-md bg-card">
-              <div className="flex justify-between items-center mb-4 flex-wrap">
+              <div className="flex flex-wrap justify-between items-baseline gap-2 mb-4">
                 <div className="flex items-baseline gap-2">
                   <CardTitle className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</CardTitle>
                    {userReview && calculateOverallCategoryAverage(userReview.rating) !== null && (
@@ -921,7 +926,3 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
-
-
-
-    
