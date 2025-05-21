@@ -231,8 +231,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       try {
         const reviewDocRef = doc(db, FIRESTORE_COLLECTION_NAME, gameId, 'reviews', userReview.id);
         await deleteDoc(reviewDocRef);
+        await updateGameOverallRatingAfterDelete(); // This will re-fetch data and revalidate
         toast({ title: "Recensione Eliminata", description: "La tua recensione è stata eliminata con successo." });
-        await updateGameOverallRatingAfterDelete(); 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({ title: "Errore", description: `Impossibile eliminare la recensione: ${errorMessage}`, variant: "destructive" });
@@ -254,8 +254,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           title: "Stato Vetrina Aggiornato",
           description: `Il gioco è stato ${newPinStatus ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
         });
-        await revalidateGameDataAction(game.id);
         setGame(prevGame => prevGame ? { ...prevGame, isPinned: newPinStatus } : null);
+        await revalidateGameDataAction(game.id);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({
@@ -726,7 +726,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                                     <span>{formatReviewDate(play.date)} - {play.quantity} {play.quantity === 1 ? "partita" : "partite"}</span>
                                     {winners.length > 0 && (
                                         <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-300 whitespace-nowrap">
-                                            🏆 Vincitore/i: {winnerNames}
+                                            🏆 {winnerNames}
                                         </Badge>
                                     )}
                                 </div>
@@ -782,7 +782,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 <h2 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h2>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <Button asChild size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90">
-                     <Link href={`/games/${gameId}/rate`}>
+                    <Link href={`/games/${gameId}/rate`}>
                       <span className="flex items-center">
                           <Edit className="mr-0 sm:mr-2 h-4 w-4" />
                           <span className="hidden sm:inline">Modifica</span>
@@ -926,3 +926,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
 
 
+
+
+    
