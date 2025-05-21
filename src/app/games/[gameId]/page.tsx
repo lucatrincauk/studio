@@ -203,7 +203,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
       const categoryAvgs = calculateCategoryAverages(allReviewsForGame);
       const newOverallAverage = categoryAvgs ? calculateOverallCategoryAverage(categoryAvgs) : null;
-
       const gameDocRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
       await updateDoc(gameDocRef, {
         overallAverageRating: newOverallAverage,
@@ -479,13 +478,18 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       if (play.players && play.players.length > 0) {
         play.players.forEach(p => {
           if (p.didWin) {
-            const key = p.username || p.name;
-            if (key) {
-              const current = playerStats.get(key) || { wins: 0, totalScore: 0, name: key };
+            // Use BGG username as the primary key for stats if available, otherwise fallback to logged name.
+            // This helps uniquely identify players if multiple people log plays with the same common name.
+            const playerIdentifier = p.username || p.name; 
+            // For display, prioritize the logged name (p.name), then BGG username (p.username).
+            const displayName = p.name || p.username;
+
+            if (playerIdentifier && displayName) {
+              const current = playerStats.get(playerIdentifier) || { wins: 0, totalScore: 0, name: displayName };
               current.wins += (play.quantity || 1); 
               const score = parseInt(p.score || "0", 10);
               current.totalScore += isNaN(score) ? 0 : score;
-              playerStats.set(key, current);
+              playerStats.set(playerIdentifier, current);
             }
           }
         });
@@ -754,88 +758,88 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         </div>
       </Card>
       
+      {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
+          <Card className="shadow-md border border-border rounded-lg">
+              <CardHeader className="flex flex-row justify-between items-center">
+                  <CardTitle className="text-xl flex items-center gap-2">
+                      <BarChart3 className="h-5 w-5 text-primary"/>
+                      Partite Registrate
+                  </CardTitle>
+                  {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
+                      <Badge variant="secondary">{game.lctr01PlayDetails.length}</Badge>
+                  )}
+              </CardHeader>
+              <CardContent>
+                  <Accordion type="single" collapsible className="w-full">
+                      {game.lctr01PlayDetails.map((play) => {
+                          const winners = play.players?.filter(p => p.didWin) || [];
+                          const winnerNames = winners.map(p => p.name || p.username || 'Sconosciuto').join(', ');
+                          return (
+                          <AccordionItem value={`play-${play.playId}`} key={play.playId}>
+                              <AccordionTrigger className="hover:no-underline text-left py-3 text-sm">
+                                  <div className="flex justify-between w-full items-center pr-2 gap-2">
+                                  <div className="flex items-center gap-2">
+                                      <Dices size={16} className="text-muted-foreground/80 flex-shrink-0" />
+                                      <span className="font-medium">{formatReviewDate(play.date)}</span>
+                                      {play.quantity > 1 && (
+                                          <>
+                                              <span className="text-muted-foreground">-</span>
+                                              <span>{play.quantity} partite</span>
+                                          </>
+                                      )}
+                                  </div>
+                                      {winners.length > 0 && (
+                                          <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-300 whitespace-nowrap">
+                                              🏆 {winnerNames}
+                                          </Badge>
+                                      )}
+                                  </div>
+                              </AccordionTrigger>
+                              <AccordionContent className="pb-4 pt-2 text-sm">
+                              <div className="space-y-2">
+                                  {play.location && (
+                                  <div className="grid grid-cols-[auto_1fr] gap-x-2 items-baseline">
+                                      <strong className="text-muted-foreground text-xs">Luogo:</strong>
+                                      <span className="text-xs">{play.location}</span>
+                                  </div>
+                                  )}
+                                  {play.comments && (
+                                  <div className="grid grid-cols-[auto_1fr] gap-x-2 items-baseline">
+                                      <strong className="text-muted-foreground text-xs">Commenti:</strong>
+                                      <p className="text-xs whitespace-pre-wrap">{play.comments}</p>
+                                  </div>
+                                  )}
+                                  {play.players && play.players.length > 0 && (
+                                  <div>
+                                      <strong className="block mb-1.5 text-muted-foreground text-xs">Giocatori:</strong>
+                                      <ul className="space-y-1 pl-1">
+                                      {play.players.map((player, pIndex) => (
+                                          <li key={pIndex} className="flex items-center gap-2 text-xs">
+                                          <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                                          <span className="flex-grow truncate" title={player.name || player.username || 'Sconosciuto'}>
+                                              {player.name || player.username || 'Sconosciuto'}
+                                          </span>
+                                          {player.score && <Badge variant="secondary" size="sm" className="font-mono text-xs">{player.score} pt.</Badge>}
+                                          {player.didWin && <Badge variant="outline" size="sm" className="text-green-600 border-green-500">Vinto</Badge>}
+                                          {player.isNew && <Badge variant="outline" size="sm" className="text-blue-600 border-blue-500">Nuovo</Badge>}
+                                          </li>
+                                      ))}
+                                      </ul>
+                                  </div>
+                                  )}
+                              </div>
+                              </AccordionContent>
+                          </AccordionItem>
+                      );
+                  })}
+                  </Accordion>
+              </CardContent>
+          </Card>
+      )}
+
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
         <div className="lg:col-span-2 space-y-8">
             
-            {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
-                <Card className="shadow-md border border-border rounded-lg">
-                    <CardHeader className="flex flex-row justify-between items-center">
-                        <CardTitle className="text-xl flex items-center gap-2">
-                            <BarChart3 className="h-5 w-5 text-primary"/>
-                            Partite Registrate
-                        </CardTitle>
-                        {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
-                            <Badge variant="secondary">{game.lctr01PlayDetails.length}</Badge>
-                        )}
-                    </CardHeader>
-                    <CardContent>
-                        <Accordion type="single" collapsible className="w-full">
-                            {game.lctr01PlayDetails.map((play) => {
-                                const winners = play.players?.filter(p => p.didWin) || [];
-                                const winnerNames = winners.map(p => p.name || p.username || 'Sconosciuto').join(', ');
-                                return (
-                                <AccordionItem value={`play-${play.playId}`} key={play.playId}>
-                                    <AccordionTrigger className="hover:no-underline text-left py-3 text-sm">
-                                        <div className="flex justify-between w-full items-center pr-2 gap-2">
-                                        <div className="flex items-center gap-2">
-                                            <Dices size={16} className="text-muted-foreground/80 flex-shrink-0" />
-                                            <span className="font-medium">{formatReviewDate(play.date)}</span>
-                                            {play.quantity > 1 && (
-                                                <>
-                                                    <span className="text-muted-foreground">-</span>
-                                                    <span>{play.quantity} partite</span>
-                                                </>
-                                            )}
-                                        </div>
-                                            {winners.length > 0 && (
-                                                <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-300 whitespace-nowrap">
-                                                    🏆 {winnerNames}
-                                                </Badge>
-                                            )}
-                                        </div>
-                                    </AccordionTrigger>
-                                    <AccordionContent className="pb-4 pt-2 text-sm">
-                                    <div className="space-y-2">
-                                        {play.location && (
-                                        <div className="grid grid-cols-[auto_1fr] gap-x-2 items-baseline">
-                                            <strong className="text-muted-foreground text-xs">Luogo:</strong>
-                                            <span className="text-xs">{play.location}</span>
-                                        </div>
-                                        )}
-                                        {play.comments && (
-                                        <div className="grid grid-cols-[auto_1fr] gap-x-2 items-baseline">
-                                            <strong className="text-muted-foreground text-xs">Commenti:</strong>
-                                            <p className="text-xs whitespace-pre-wrap">{play.comments}</p>
-                                        </div>
-                                        )}
-                                        {play.players && play.players.length > 0 && (
-                                        <div>
-                                            <strong className="block mb-1.5 text-muted-foreground text-xs">Giocatori:</strong>
-                                            <ul className="space-y-1 pl-1">
-                                            {play.players.map((player, pIndex) => (
-                                                <li key={pIndex} className="flex items-center gap-2 text-xs">
-                                                <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                                                <span className="flex-grow truncate" title={player.name || player.username || 'Sconosciuto'}>
-                                                    {player.name || player.username || 'Sconosciuto'}
-                                                </span>
-                                                {player.score && <Badge variant="secondary" size="sm" className="font-mono text-xs">{player.score} pt.</Badge>}
-                                                {player.didWin && <Badge variant="outline" size="sm" className="text-green-600 border-green-500">Vinto</Badge>}
-                                                {player.isNew && <Badge variant="outline" size="sm" className="text-blue-600 border-blue-500">Nuovo</Badge>}
-                                                </li>
-                                            ))}
-                                            </ul>
-                                        </div>
-                                        )}
-                                    </div>
-                                    </AccordionContent>
-                                </AccordionItem>
-                            );
-                        })}
-                        </Accordion>
-                    </CardContent>
-                </Card>
-            )}
-
           {currentUser && !authLoading && userReview && (
              <div> 
               <div className="flex justify-between items-center gap-2 mb-4">
@@ -983,5 +987,3 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
-
-
