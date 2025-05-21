@@ -16,30 +16,45 @@ import { cn } from '@/lib/utils';
 
 export default async function HomePage() {
   const featuredGamesPromise = getFeaturedGamesAction();
-  const allGamesPromise = getAllGamesAction(); // Still needed for Top 10
+  const allGamesPromise = getAllGamesAction();
   const lastPlayedPromise = getLastPlayedGameAction("lctr01");
 
-  const [
-    featuredGamesResult,
-    allGamesData, // Renamed to avoid confusion
-    lastPlayedResult
-  ] = await Promise.all([
-    featuredGamesPromise,
-    allGamesPromise,
-    lastPlayedPromise
-  ]);
-
-  const featuredGames = featuredGamesResult || [];
-  const allGames = Array.isArray(allGamesData) ? allGamesData : [];
-  
+  let featuredGames: BoardGame[] = [];
+  let allGames: BoardGame[] = [];
   let lastPlayedGame: BoardGame | null = null;
   let lastPlayDetail: BggPlayDetail | null = null;
 
-  if (lastPlayedResult && lastPlayedResult.game && lastPlayedResult.lastPlayDetail) {
-    lastPlayedGame = lastPlayedResult.game;
-    lastPlayDetail = lastPlayedResult.lastPlayDetail;
-  }
+  try {
+    const results = await Promise.allSettled([
+      featuredGamesPromise,
+      allGamesPromise,
+      lastPlayedPromise
+    ]);
 
+    if (results[0].status === 'fulfilled' && results[0].value) {
+      featuredGames = results[0].value;
+    } else if (results[0].status === 'rejected') {
+      console.error("Error fetching featured games:", results[0].reason);
+    }
+
+    if (results[1].status === 'fulfilled' && Array.isArray(results[1].value)) {
+      allGames = results[1].value;
+    } else if (results[1].status === 'rejected') {
+      console.error("Error fetching all games:", results[1].reason);
+    }
+    
+    if (results[2].status === 'fulfilled' && results[2].value && results[2].value.game && results[2].value.lastPlayDetail) {
+      lastPlayedGame = results[2].value.game;
+      lastPlayDetail = results[2].value.lastPlayDetail;
+    } else if (results[2].status === 'rejected') {
+       console.error("Error fetching last played game:", results[2].reason);
+    }
+
+
+  } catch (error) {
+    console.error("Error fetching homepage data:", error);
+  }
+  
   const topRatedGames = allGames
     .filter(game => game.overallAverageRating !== null && game.overallAverageRating !== undefined && typeof game.overallAverageRating === 'number' && game.voteCount !== undefined && game.voteCount >= 0)
     .sort((a, b) => (b.overallAverageRating ?? -Infinity) - (a.overallAverageRating ?? -Infinity))
@@ -93,7 +108,7 @@ export default async function HomePage() {
               Ultima Partita Giocata
             </h2>
             <Card className="shadow-md border border-border rounded-lg overflow-hidden">
-              <CardHeader className="p-3 flex flex-row items-start gap-3">
+              <CardHeader className="bg-muted/30 p-3 flex flex-row items-start gap-3">
                 <div className="relative h-16 w-12 sm:h-20 sm:w-16 flex-shrink-0 rounded-sm overflow-hidden shadow-sm">
                   <SafeImage
                     src={lastPlayedGame.coverArtUrl}
@@ -118,7 +133,7 @@ export default async function HomePage() {
                   </div>
                   {lastPlayedGame.overallAverageRating !== null && typeof lastPlayedGame.overallAverageRating === 'number' && (
                       <div className="text-right flex-shrink-0">
-                      <span className="text-2xl font-semibold text-primary">
+                      <span className="text-lg font-semibold text-primary">
                           {formatRatingNumber(lastPlayedGame.overallAverageRating * 2)}
                       </span>
                       </div>
@@ -134,7 +149,7 @@ export default async function HomePage() {
                   )}
                   {lastPlayDetail.players && lastPlayDetail.players.length > 0 && (
                     <div>
-                      <ul className="pl-0"> {/* Removed space-y-0.5 to rely on li padding */}
+                      <ul className="pl-1">
                         {lastPlayDetail.players
                           .slice()
                           .sort((a, b) => parseInt(b.score || "0", 10) - parseInt(a.score || "0", 10))
@@ -180,50 +195,48 @@ export default async function HomePage() {
                   key={`top-rated-${game.id}`}
                   className="relative flex items-center gap-x-3 sm:gap-x-4 p-3 rounded-lg bg-card hover:bg-muted/50 transition-colors border border-border overflow-hidden"
                 >
-                  <div className="relative overflow-hidden w-24 sm:w-28 md:w-32 flex-shrink-0">
-                     <span
-                        aria-hidden="true"
-                        className={cn(
-                            "absolute z-0 font-bold text-muted-foreground/10 pointer-events-none select-none leading-none top-1/2 -translate-y-1/2",
-                            // Mobile
-                            "text-[255px] -right-[30px]",
-                            // Small screens
-                            "sm:text-[300px] sm:-right-[30px]",
-                            // Large screens
-                            "lg:text-[340px] lg:-right-[36px]"
-                        )}
-                        >
-                        {index + 1}
-                    </span>
-                    <div className="relative z-10"> {/* Ensure GameCard is on top */}
-                        <GameCard game={game} variant="featured" priority={index < 5} showOverlayText={false} />
-                    </div>
-                  </div>
-
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      "absolute z-0 font-bold text-muted-foreground/10 pointer-events-none select-none leading-none top-1/2 -translate-y-1/2",
+                      // Mobile
+                      "text-[255px] -right-[30px]",
+                      // Small screens
+                      "sm:text-[300px] sm:-right-[30px]",
+                      // Large screens
+                      "lg:text-[340px] lg:-right-[36px]"
+                    )}
+                  >
+                    {index + 1}
+                  </span>
                   <div className={cn(
-                      "relative z-10 flex-grow min-w-0 flex justify-between items-center",
-                      // Responsive right margin to accommodate the large background number
+                      "relative z-10 flex items-center gap-x-3 sm:gap-x-4 flex-grow",
                       "mr-5 sm:mr-8 lg:mr-10" 
                     )}>
-                    <Link href={`/games/${game.id}`} className="group flex-1">
-                      <h3 className="text-md sm:text-lg font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-3 hover:underline">
-                        {game.name}
-                        {game.yearPublished && (
-                          <span className="ml-1 text-xs text-muted-foreground">({game.yearPublished})</span>
+                    <div className="w-24 sm:w-28 md:w-32 flex-shrink-0">
+                        <GameCard game={game} variant="featured" priority={index < 5} showOverlayText={false} />
+                    </div>
+                    <div className="flex-grow min-w-0 flex justify-between items-center">
+                      <Link href={`/games/${game.id}`} className="group flex-1">
+                        <h3 className="text-md sm:text-lg font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-3 hover:underline">
+                          {game.name}
+                          {game.yearPublished && (
+                            <span className="ml-1 text-xs text-muted-foreground">({game.yearPublished})</span>
+                          )}
+                        </h3>
+                      </Link>
+                      <div className="text-right ml-2 flex-shrink-0">
+                        {game.overallAverageRating !== null && typeof game.overallAverageRating === 'number' && (
+                          <p className="text-xl sm:text-2xl font-bold text-primary">
+                            {formatRatingNumber(game.overallAverageRating * 2)}
+                          </p>
                         )}
-                      </h3>
-                    </Link>
-                    <div className="text-right ml-2 flex-shrink-0">
-                      {game.overallAverageRating !== null && typeof game.overallAverageRating === 'number' && (
-                        <p className="text-xl sm:text-2xl font-bold text-primary">
-                          {formatRatingNumber(game.overallAverageRating * 2)}
-                        </p>
-                      )}
-                      {game.voteCount !== null && typeof game.voteCount === 'number' && (
-                        <p className="text-xs text-muted-foreground">
-                          {game.voteCount} {game.voteCount === 1 ? 'voto' : 'voti'}
-                        </p>
-                      )}
+                        {game.voteCount !== null && typeof game.voteCount === 'number' && (
+                          <p className="text-xs text-muted-foreground">
+                            {game.voteCount} {game.voteCount === 1 ? 'voto' : 'voti'}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
