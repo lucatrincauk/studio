@@ -34,7 +34,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger, // Added AlertDialogTrigger
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
   DropdownMenu,
@@ -672,10 +672,10 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 />
               </div>
             </div>
-
-            <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
-                {hasDataForSection(game.designers) && (
-                  <div className="flex items-baseline gap-2"> 
+            
+             <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
+                 {hasDataForSection(game.designers) && (
+                  <div className="flex items-baseline gap-2 col-span-2"> 
                       <PenTool size={14} className="text-primary/80 flex-shrink-0" />
                       <span className="font-medium hidden sm:inline">Autori:</span>
                       <span>{game.designers!.join(', ')}</span>
@@ -738,7 +738,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             
             {(hasDataForSection(game.categories) || hasDataForSection(game.mechanics) ) && (
               <Accordion type="single" collapsible className="w-full pt-4 border-t border-border">
-                <AccordionItem value="dettagli-aggiuntivi">
+                <AccordionItem value="dettagli-aggiuntivi" className="border-b-0">
                   <AccordionTrigger className="hover:no-underline py-0">
                     <h3 className="text-lg font-semibold text-foreground">Dettagli Aggiuntivi</h3>
                   </AccordionTrigger>
@@ -791,8 +791,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           </div>
         </div>
       </Card>
-      
-       {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
+
+      {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
           <Card className="shadow-md border border-border rounded-lg">
               <CardHeader className="flex flex-row justify-between items-center">
                   <CardTitle className="text-xl flex items-center gap-2">
@@ -870,11 +870,10 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
               </CardContent>
           </Card>
       )}
-
+      
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
         <div className="lg:col-span-2 space-y-8">
-            
-          {currentUser && !authLoading && userReview && (
+             {currentUser && !authLoading && userReview && (
              <div> 
               <div className="flex justify-between items-center gap-2 mb-4">
                 <h2 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h2>
@@ -1021,3 +1020,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
+
+
+    
