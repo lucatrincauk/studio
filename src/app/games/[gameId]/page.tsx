@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useTransition, useCallback, use } from 'react';
 import Link from 'next/link';
-import { getGameDetails } from '@/lib/actions';
+import { getGameDetails, revalidateGameDataAction } from '@/lib/actions';
 import type { BoardGame, AiSummary, Review, Rating as RatingType, GroupedCategoryAverages } from '@/lib/types';
 import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
@@ -33,7 +33,6 @@ import { SafeImage } from '@/components/common/SafeImage';
 import { ReviewItem } from '@/components/boardgame/review-item';
 import { Badge } from "@/components/ui/badge";
 import { Progress } from '@/components/ui/progress';
-import { revalidateGameDataAction } from '@/lib/actions';
 
 
 const FIRESTORE_COLLECTION_NAME = 'boardgames_collection';
@@ -72,8 +71,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
   const [isFavoritedByCurrentUser, setIsFavoritedByCurrentUser] = useState(false);
   const [currentFavoriteCount, setCurrentFavoriteCount] = useState(0);
 
-  const [isPlaylisting, startPlaylistTransition] = useTransition(); // Renamed from isWishlisting
-  const [isPlaylistedByCurrentUser, setIsPlaylistedByCurrentUser] = useState(false); // Renamed from isWishlistedByCurrentUser
+  const [isPlaylisting, startPlaylistTransition] = useTransition();
+  const [isPlaylistedByCurrentUser, setIsPlaylistedByCurrentUser] = useState(false);
 
 
   const fetchGameData = useCallback(async () => {
@@ -90,10 +89,10 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       if (currentUser && !authLoading && gameData.reviews) {
         foundUserReview = gameData.reviews.find(r => r.userId === currentUser.uid);
         setIsFavoritedByCurrentUser(gameData.favoritedByUserIds?.includes(currentUser.uid) || false);
-        setIsPlaylistedByCurrentUser(gameData.playlistedByUserIds?.includes(currentUser.uid) || false); // Renamed
+        setIsPlaylistedByCurrentUser(gameData.playlistedByUserIds?.includes(currentUser.uid) || false);
       } else {
         setIsFavoritedByCurrentUser(false);
-        setIsPlaylistedByCurrentUser(false); // Renamed
+        setIsPlaylistedByCurrentUser(false);
       }
       setUserReview(foundUserReview);
 
@@ -116,7 +115,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       setCurrentIsPinned(false);
       setIsFavoritedByCurrentUser(false);
       setCurrentFavoriteCount(0);
-      setIsPlaylistedByCurrentUser(false); // Renamed
+      setIsPlaylistedByCurrentUser(false);
       setUserReview(undefined);
       setRemainingReviews([]);
       setGroupedCategoryAverages(null);
@@ -136,7 +135,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       setCurrentFavoriteCount(game.favoriteCount || 0);
       if (currentUser) {
         setIsFavoritedByCurrentUser(game.favoritedByUserIds?.includes(currentUser.uid) || false);
-        setIsPlaylistedByCurrentUser(game.playlistedByUserIds?.includes(currentUser.uid) || false); // Renamed
+        setIsPlaylistedByCurrentUser(game.playlistedByUserIds?.includes(currentUser.uid) || false);
       }
     }
   }, [game, currentUser]);
@@ -195,7 +194,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       await revalidateGameDataAction(game.id);
       await fetchGameData();
     } catch (error) {
-      // console.error("Error updating game's overall average rating:", error);
       toast({ title: "Errore", description: "Impossibile aggiornare il punteggio medio del gioco.", variant: "destructive" });
     }
   };
@@ -213,8 +211,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         const reviewDocRef = doc(db, FIRESTORE_COLLECTION_NAME, gameId, 'reviews', userReview.id);
         await deleteDoc(reviewDocRef);
         toast({ title: "Recensione Eliminata", description: "La tua recensione è stata eliminata con successo." });
-        await updateGameOverallRatingAfterReviewChange();
-        await revalidateGameDataAction(gameId);
+        await updateGameOverallRatingAfterReviewChange(); // This already calls revalidateGameDataAction and fetchGameData
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({ title: "Errore", description: `Impossibile eliminare la recensione: ${errorMessage}`, variant: "destructive" });
@@ -237,6 +234,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `Il gioco è stato ${newPinStatus ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
         });
         await revalidateGameDataAction(game.id);
+        // Optionally refetch or update local game state for immediate consistency
         setGame(prevGame => prevGame ? { ...prevGame, isPinned: newPinStatus } : null);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
@@ -309,12 +307,12 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     });
   };
 
-  const handleTogglePlaylist = async () => { // Renamed from handleToggleWishlist
+  const handleTogglePlaylist = async () => {
     if (!currentUser || !game || authLoading) {
       toast({ title: "Azione non permessa", description: "Devi essere loggato per aggiungere alla playlist.", variant: "destructive" });
       return;
     }
-    startPlaylistTransition(async () => { // Renamed from startWishlistTransition
+    startPlaylistTransition(async () => {
       const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
       try {
         const gameSnap = await getDoc(gameRef);
@@ -324,38 +322,38 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         }
 
         const gameData = gameSnap.data() as BoardGame;
-        const currentPlaylistedByUserIds = gameData.playlistedByUserIds || []; // Renamed from wishlistedByUserIds
-        let newPlaylistedStatus = false; // Renamed from newWishlistedStatus
+        const currentPlaylistedByUserIds = gameData.playlistedByUserIds || [];
+        let newPlaylistedStatus = false;
 
         if (currentPlaylistedByUserIds.includes(currentUser.uid)) {
           await updateDoc(gameRef, {
-            playlistedByUserIds: arrayRemove(currentUser.uid) // Renamed
+            playlistedByUserIds: arrayRemove(currentUser.uid)
           });
           newPlaylistedStatus = false;
         } else {
           await updateDoc(gameRef, {
-            playlistedByUserIds: arrayUnion(currentUser.uid) // Renamed
+            playlistedByUserIds: arrayUnion(currentUser.uid)
           });
           newPlaylistedStatus = true;
         }
 
-        setIsPlaylistedByCurrentUser(newPlaylistedStatus); // Renamed
+        setIsPlaylistedByCurrentUser(newPlaylistedStatus);
         setGame(prevGame => prevGame ? {
           ...prevGame,
-          playlistedByUserIds: newPlaylistedStatus // Renamed
+          playlistedByUserIds: newPlaylistedStatus
             ? [...(prevGame.playlistedByUserIds || []), currentUser.uid]
             : (prevGame.playlistedByUserIds || []).filter(uid => uid !== currentUser.uid)
         } : null);
 
         toast({
-          title: newPlaylistedStatus ? "Aggiunto alla Playlist!" : "Rimosso dalla Playlist", // Updated text
-          description: `${game.name} è stato ${newPlaylistedStatus ? 'aggiunto alla' : 'rimosso dalla'} tua playlist.`, // Updated text
+          title: newPlaylistedStatus ? "Aggiunto alla Playlist!" : "Rimosso dalla Playlist",
+          description: `${game.name} è stato ${newPlaylistedStatus ? 'aggiunto alla' : 'rimosso dalla'} tua playlist.`,
         });
 
         await revalidateGameDataAction(game.id);
 
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Impossibile aggiornare la playlist."; // Updated text
+        const errorMessage = error instanceof Error ? error.message : "Impossibile aggiornare la playlist.";
         toast({ title: "Errore", description: errorMessage, variant: "destructive" });
       }
     });
@@ -392,67 +390,69 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         <div className="flex flex-col md:flex-row">
           <div className="flex-1 p-6 space-y-4 md:order-1">
              <div className="flex justify-between items-start mb-2">
-                <div className="flex items-center gap-2 flex-1 mr-4">
-                  <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">{game.name}</h1>
+                <div className="flex items-center gap-2 flex-shrink min-w-0 mr-4">
+                  <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground truncate">{game.name}</h1>
                   {game.bggId > 0 && (
                     <a
                       href={`https://boardgamegeek.com/boardgame/${game.bggId}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       title="Vedi su BoardGameGeek"
-                      className="inline-flex items-center text-primary hover:text-primary/80 focus:outline-none focus:ring-2 focus:ring-ring rounded-md p-0.5"
+                      className="inline-flex items-center text-primary hover:text-primary/80 focus:outline-none focus:ring-2 focus:ring-ring rounded-md p-0.5 flex-shrink-0"
                     >
                       <ExternalLink size={16} className="h-4 w-4" />
                     </a>
                   )}
-                  {isAdmin && !isLoadingGame && game && (
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={handleTogglePinGame}
-                        disabled={isPinToggling}
-                        title={currentIsPinned ? "Rimuovi da Vetrina" : "Aggiungi a Vetrina"}
-                        className={`h-9 w-9 hover:bg-accent/20 ${currentIsPinned ? 'text-accent' : 'text-muted-foreground/60 hover:text-accent'}`}
-                    >
-                        {isPinToggling ? <Loader2 className="h-5 w-5 animate-spin" /> : (currentIsPinned ? <PinOff className="h-5 w-5" /> : <Pin className="h-5 w-5" />)}
-                    </Button>
-                  )}
-                  {currentUser && (
-                    <>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={handleToggleFavorite}
-                        disabled={isFavoriting || authLoading}
-                        title={isFavoritedByCurrentUser ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
-                        className={`h-9 w-9 hover:bg-destructive/20 ${isFavoritedByCurrentUser ? 'text-destructive fill-destructive' : 'text-muted-foreground/60 hover:text-destructive'}`}
-                      >
-                        {isFavoriting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Heart className={`h-5 w-5 ${isFavoritedByCurrentUser ? 'fill-destructive' : ''}`} />}
-                      </Button>
-                       {currentFavoriteCount > 0 && (
-                        <span className="text-sm text-muted-foreground -ml-2 mr-1">
-                          ({currentFavoriteCount})
-                        </span>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={handleTogglePlaylist} // Renamed
-                        disabled={isPlaylisting || authLoading} // Renamed
-                        title={isPlaylistedByCurrentUser ? "Rimuovi dalla Playlist" : "Aggiungi alla Playlist"} // Updated text
-                        className={`h-9 w-9 hover:bg-sky-500/20 ${isPlaylistedByCurrentUser ? 'text-sky-500' : 'text-muted-foreground/60 hover:text-sky-500'}`} // Renamed
-                      >
-                        {isPlaylisting ? <Loader2 className="h-5 w-5 animate-spin" /> : (isPlaylistedByCurrentUser ? <ListChecks className="h-5 w-5" /> : <ListPlus className="h-5 w-5" />)} 
-                      </Button>
-                    </>
-                  )}
                 </div>
-               <div className="flex-shrink-0 text-right">
+               <div className="flex items-start gap-3 sm:gap-4 flex-shrink-0">
                   {globalGameAverage !== null ? (
                      <span className="text-primary text-3xl md:text-4xl font-bold whitespace-nowrap">
                         {formatRatingNumber(globalGameAverage * 2)}
                       </span>
                   ) : ("")}
+                  <div className="flex items-center gap-1 mt-1">
+                    {currentUser && (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={handleToggleFavorite}
+                          disabled={isFavoriting || authLoading}
+                          title={isFavoritedByCurrentUser ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
+                          className={`h-9 w-9 hover:bg-destructive/20 ${isFavoritedByCurrentUser ? 'text-destructive fill-destructive' : 'text-muted-foreground/60 hover:text-destructive'}`}
+                        >
+                          {isFavoriting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Heart className={`h-5 w-5 ${isFavoritedByCurrentUser ? 'fill-destructive' : ''}`} />}
+                        </Button>
+                        {currentFavoriteCount > 0 && (
+                          <span className="text-sm text-muted-foreground -ml-2 mr-1">
+                            ({currentFavoriteCount})
+                          </span>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={handleTogglePlaylist}
+                          disabled={isPlaylisting || authLoading}
+                          title={isPlaylistedByCurrentUser ? "Rimuovi dalla Playlist" : "Aggiungi alla Playlist"}
+                          className={`h-9 w-9 hover:bg-sky-500/20 ${isPlaylistedByCurrentUser ? 'text-sky-500' : 'text-muted-foreground/60 hover:text-sky-500'}`}
+                        >
+                          {isPlaylisting ? <Loader2 className="h-5 w-5 animate-spin" /> : (isPlaylistedByCurrentUser ? <ListChecks className="h-5 w-5" /> : <ListPlus className="h-5 w-5" />)} 
+                        </Button>
+                      </>
+                    )}
+                    {isAdmin && !isLoadingGame && game && (
+                      <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={handleTogglePinGame}
+                          disabled={isPinToggling}
+                          title={currentIsPinned ? "Rimuovi da Vetrina" : "Aggiungi a Vetrina"}
+                          className={`h-9 w-9 hover:bg-accent/20 ${currentIsPinned ? 'text-accent' : 'text-muted-foreground/60 hover:text-accent'}`}
+                      >
+                          {isPinToggling ? <Loader2 className="h-5 w-5 animate-spin" /> : (currentIsPinned ? <PinOff className="h-5 w-5" /> : <Pin className="h-5 w-5" />)}
+                      </Button>
+                    )}
+                  </div>
                </div>
             </div>
 
@@ -470,6 +470,13 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 />
               </div>
             </div>
+            
+            {hasDataForSection(game.designers) && (
+              <div className="text-sm pt-1">
+                <strong className="text-muted-foreground">Autori: </strong>
+                <span>{game.designers!.join(', ')}</span>
+              </div>
+            )}
 
             <div className="text-sm text-muted-foreground space-y-1.5 pt-1 grid grid-cols-2 gap-x-4 gap-y-2">
               {game.yearPublished != null && (
@@ -507,7 +514,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 </div>
               )}
             </div>
-            {(hasDataForSection(game.categories) || hasDataForSection(game.mechanics) || hasDataForSection(game.designers) ) && (
+            {(hasDataForSection(game.categories) || hasDataForSection(game.mechanics) ) && (
               <div className="mt-6 pt-4 border-t border-border space-y-3">
                 <h3 className="text-lg font-semibold text-foreground">Dettagli Aggiuntivi</h3>
                 {hasDataForSection(game.categories) && (
@@ -520,12 +527,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                   <div className="text-sm">
                     <strong className="text-muted-foreground">Meccaniche: </strong>
                     {game.mechanics!.map(mech => <Badge key={mech} variant="secondary" className="mr-1 mb-1">{mech}</Badge>)}
-                  </div>
-                )}
-                {hasDataForSection(game.designers) && (
-                  <div className="text-sm">
-                    <strong className="text-muted-foreground">Autori: </strong>
-                    {game.designers!.join(', ')}
                   </div>
                 )}
               </div>
@@ -571,7 +572,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 <h3 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h3>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <Button asChild size="sm">
-                     <Link href={`/games/${gameId}/rate`}>
+                    <Link href={`/games/${gameId}/rate`}>
                       <span className="flex items-center">
                           <Edit className="mr-0 sm:mr-2 h-4 w-4" />
                           <span className="hidden sm:inline">Modifica</span>
@@ -579,7 +580,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                     </Link>
                   </Button>
                   <AlertDialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
-                      <AlertDialogTrigger asChild>
+                     <AlertDialogTrigger asChild>
                       <Button variant="destructive" size="sm" disabled={isDeletingReview}>
                           <span className="flex items-center">
                           {isDeletingReview ? <Loader2 className="mr-0 sm:mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-0 sm:mr-2 h-4 w-4" />}
@@ -632,9 +633,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                   </Alert>
             )}
 
-
-           {remainingReviews.length > 0 ? (
-             <div>
+          {remainingReviews.length > 0 ? (
+            <div>
               <Separator className="my-6" />
               <h2 className="text-2xl font-semibold text-foreground mb-6">
                 {userReview ? `Altre Recensioni (${remainingReviews.length})` : `Recensioni (${remainingReviews.length})`}
@@ -660,7 +660,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
               )
             )
           )}
-
         </div>
 
         <div className="lg:col-span-1 space-y-8 sticky top-24 self-start">
@@ -713,5 +712,4 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
   );
 }
 
-
-
+    
