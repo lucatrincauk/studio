@@ -9,7 +9,7 @@ import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, Tag, Heart, ListPlus, ListChecks, BarChart3, PenTool } from 'lucide-react';
+import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, Tag, Heart, ListPlus, ListChecks, BarChart3, PenTool, Repeat } from 'lucide-react'; // Added Repeat
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { summarizeReviews } from '@/ai/flows/summarize-reviews';
@@ -469,7 +469,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             </div>
             
             <div className="text-sm text-muted-foreground space-y-1.5 pt-1 grid grid-cols-2 gap-x-4 gap-y-2">
-              {hasDataForSection(game.designers) && (
+               {hasDataForSection(game.designers) && (
                 <div className="flex items-center gap-2">
                   <PenTool size={16} className="text-primary/80" />
                   <span className="hidden sm:inline">Autori:</span>
@@ -510,7 +510,15 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                   <span>{formatRatingNumber(game.averageWeight)} / 5</span>
                 </div>
               )}
+              {game.lctr01Plays !== null && typeof game.lctr01Plays === 'number' && (
+                <div className="flex items-center gap-2">
+                  <Repeat size={16} className="text-primary/80" />
+                  <span className="hidden sm:inline">Partite (lctr01):</span>
+                  <span>{game.lctr01Plays}</span>
+                </div>
+              )}
             </div>
+
             {(hasDataForSection(game.categories) || hasDataForSection(game.mechanics) ) && (
               <div className="mt-6 pt-4 border-t border-border space-y-3">
                 <h3 className="text-lg font-semibold text-foreground">Dettagli Aggiuntivi</h3>
@@ -708,3 +716,4 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
+
