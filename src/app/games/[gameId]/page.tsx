@@ -560,9 +560,9 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           <div className="flex-1 p-6 space-y-4 md:order-1"> 
             {/* Main header: Title, Icons, Score */}
             <div className="flex justify-between items-start mb-2">
-              {/* Left side: Title and Icons */}
+              {/* Left side: Title and BGG Icon */}
               <div className="flex-1 flex flex-col sm:flex-row sm:items-center sm:gap-1 min-w-0 mr-2">
-                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
+                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground flex items-center gap-1">
                   {game.name}
                   {game.bggId > 0 && (
                       <a
@@ -570,7 +570,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                       target="_blank"
                       rel="noopener noreferrer"
                       title="Vedi su BoardGameGeek"
-                      className="inline-flex items-center text-primary hover:text-primary/80 focus:outline-none focus:ring-2 focus:ring-ring rounded-md p-0.5 ml-1"
+                      className="inline-flex items-center text-primary hover:text-primary/80 focus:outline-none focus:ring-2 focus:ring-ring rounded-md p-0.5"
                       >
                       <ExternalLink size={16} className="h-4 w-4" />
                       </a>
@@ -580,13 +580,11 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
               {/* Right side: Score and Action Icons */}
               <div className="flex-shrink-0 flex flex-col items-end">
-                 {/* Score */}
                 {globalGameAverage !== null && (
                   <span className="text-primary text-3xl md:text-4xl font-bold whitespace-nowrap">
                     {formatRatingNumber(globalGameAverage * 2)}
                   </span>
                 )}
-                {/* Action Icons (Favorite, Playlist, Admin Settings) */}
                 {currentUser && (
                   <div className="flex items-center gap-0.5 mt-1">
                     <Button
@@ -672,7 +670,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
             {/* Metadata Grid */}
              <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
-                <div className="flex items-baseline gap-2 col-span-2">
+                <div className="flex items-baseline gap-2 col-span-2"> {/* Autori spans both columns */}
                     <span className="inline-flex items-center relative top-px"><PenTool size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
                     <span className="font-medium hidden sm:inline">Autori:</span>
                     <span>{(game.designers && game.designers.length > 0) ? game.designers!.join(', ') : 'N/D'}</span>
@@ -969,3 +967,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     
 
 
+
+
+    
