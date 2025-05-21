@@ -210,7 +210,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         reviewCount: allReviewsForGame.length
       });
       
-      // Call the server action to revalidate paths
       await revalidateGameDataAction(game.id);
       
       await fetchGameData(); 
@@ -255,7 +254,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           title: "Stato Vetrina Aggiornato",
           description: `Il gioco è stato ${newPinStatus ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
         });
-        await revalidateGameDataAction(game.id); // Call server action
+        await revalidateGameDataAction(game.id);
         setGame(prevGame => prevGame ? { ...prevGame, isPinned: newPinStatus } : null);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
@@ -502,17 +501,17 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
              <div className="flex justify-between items-start mb-2">
                 <div className="flex items-center gap-2 flex-shrink min-w-0 mr-2"> 
                   <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground truncate">{game.name}</h1>
-                   {game.bggId > 0 && (
+                  {game.bggId > 0 && (
                     <a
-                      href={`https://boardgamegeek.com/boardgame/${game.bggId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      title="Vedi su BoardGameGeek"
-                      className="inline-flex items-center text-primary hover:text-primary/80 focus:outline-none focus:ring-2 focus:ring-ring rounded-md p-0.5 flex-shrink-0"
+                        href={`https://boardgamegeek.com/boardgame/${game.bggId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Vedi su BoardGameGeek"
+                        className="inline-flex items-center text-primary hover:text-primary/80 focus:outline-none focus:ring-2 focus:ring-ring rounded-md p-0.5 flex-shrink-0"
                     >
-                      <ExternalLink size={16} className="h-4 w-4" />
+                        <ExternalLink size={16} className="h-4 w-4" />
                     </a>
-                  )}
+                   )}
                    {currentUser && (
                     <>
                       <Button
@@ -570,7 +569,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                               className="cursor-pointer"
                             >
                               {isFetchingPlays ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BarChart3 className="mr-2 h-4 w-4" />}
-                              Carica Partite BGG
+                              Carica Partite
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -608,7 +607,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             </div>
 
             <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
-                 {hasDataForSection(game.designers) && (
+                {hasDataForSection(game.designers) && (
                   <div className="flex items-baseline gap-2"> 
                       <PenTool size={14} className="text-primary/80 flex-shrink-0" />
                       <span className="font-medium hidden sm:inline">Autori:</span>
@@ -655,7 +654,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                     <span>{game.lctr01Plays ?? 0}</span>
                 </div>
             </div>
-            
+
             {(hasDataForSection(game.categories) || hasDataForSection(game.mechanics) ) && (
               <div className="w-full pt-4 border-t border-border">
                 <h3 className="text-lg font-semibold text-foreground mb-3">Dettagli Aggiuntivi</h3>
@@ -675,7 +674,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                  </div>
               </div>
             )}
-
+            
             {game.reviews && game.reviews.length > 0 && (
               <div className="w-full pt-4 border-t border-border">
                 <h3 className="text-lg font-semibold text-foreground mb-3">Valutazione Media:</h3>
@@ -706,8 +705,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           </div>
         </div>
       </Card>
-
-      {/* Play Logs Card */}
+      
       {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
          <Card className="shadow-md border border-border rounded-lg">
             <CardHeader>
@@ -718,13 +716,18 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             </CardHeader>
             <CardContent>
                 <Accordion type="single" collapsible className="w-full">
-                    {game.lctr01PlayDetails.map((play) => (
+                    {game.lctr01PlayDetails.map((play) => {
+                        const winners = play.players?.filter(p => p.didWin) || [];
+                        const winnerNames = winners.map(p => p.name || p.username || 'Sconosciuto').join(', ');
+                        return (
                         <AccordionItem value={`play-${play.playId}`} key={play.playId}>
                             <AccordionTrigger className="hover:no-underline text-left py-3 text-sm">
                                 <div className="flex justify-between w-full items-center pr-2 gap-2">
                                     <span>{formatReviewDate(play.date)} - {play.quantity} {play.quantity === 1 ? "partita" : "partite"}</span>
-                                    {play.players && play.players.some(p => p.username?.toLowerCase() === "lctr01" && p.didWin) && (
-                                        <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-300">Vittoria</Badge>
+                                    {winners.length > 0 && (
+                                        <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-300 whitespace-nowrap">
+                                            🏆 Vincitore/i: {winnerNames}
+                                        </Badge>
                                     )}
                                 </div>
                             </AccordionTrigger>
@@ -763,7 +766,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                               </div>
                             </AccordionContent>
                         </AccordionItem>
-                    ))}
+                    );
+                  })}
                 </Accordion>
             </CardContent>
          </Card>
@@ -919,5 +923,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
+
 
 
