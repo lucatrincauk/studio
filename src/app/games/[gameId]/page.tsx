@@ -499,7 +499,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     <div className="space-y-10">
       <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
         <div className="flex flex-col md:flex-row">
-          <div className="flex-1 p-6 space-y-4 md:order-1">
+          <div className="flex-1 p-6 space-y-4"> {/* md:order-1 removed, text always first in flow */}
              <div className="flex justify-between items-start mb-2">
                 <div className="flex items-center gap-2 flex-shrink min-w-0 mr-2"> 
                   <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground truncate">{game.name}</h1>
@@ -514,18 +514,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                       <ExternalLink size={16} className="h-4 w-4" />
                     </a>
                   )}
-                   {isAdmin && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={handleTogglePinGame}
-                      disabled={isPinToggling || authLoading}
-                      title={currentIsPinned ? "Rimuovi da Vetrina" : "Aggiungi a Vetrina"}
-                      className={`h-8 w-8 hover:bg-accent/20 ${currentIsPinned ? 'text-accent' : 'text-muted-foreground/60 hover:text-accent'}`}
-                    >
-                      {isPinToggling ? <Loader2 className="h-4 w-4 animate-spin" /> : (currentIsPinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />)}
-                    </Button>
-                  )}
+                   
                 </div>
                <div className="flex items-center gap-2 flex-shrink-0"> 
                   {globalGameAverage !== null ? (
@@ -567,59 +556,87 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                     </>
                   )}
                   {isAdmin && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-9 w-9 hover:bg-primary/20 text-muted-foreground/80 hover:text-primary">
-                          <Settings className="h-5 w-5" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onSelect={handleRefreshBggData}
-                          disabled={(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) || !game.id || !game.bggId}
-                        >
-                          {(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DownloadCloud className="mr-2 h-4 w-4" />}
-                          Aggiorna Dati da BGG
-                        </DropdownMenuItem>
-                         <DropdownMenuItem
-                          onSelect={handleFetchBggPlays}
-                          disabled={isFetchingPlays || !game.bggId}
-                        >
-                          {isFetchingPlays ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BarChart3 className="mr-2 h-4 w-4" />}
-                          Carica Partite da BGG
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={handleTogglePinGame}
+                        disabled={isPinToggling || authLoading}
+                        title={currentIsPinned ? "Rimuovi da Vetrina" : "Aggiungi a Vetrina"}
+                        className={`h-9 w-9 hover:bg-accent/20 ${currentIsPinned ? 'text-accent' : 'text-muted-foreground/60 hover:text-accent'}`}
+                      >
+                        {isPinToggling ? <Loader2 className="h-4 w-4 animate-spin" /> : (currentIsPinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />)}
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-9 w-9 hover:bg-primary/20 text-muted-foreground/80 hover:text-primary">
+                            <Settings className="h-5 w-5" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onSelect={handleRefreshBggData}
+                            disabled={(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) || !game.id || !game.bggId}
+                          >
+                            {(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DownloadCloud className="mr-2 h-4 w-4" />}
+                            Aggiorna Dati da BGG
+                          </DropdownMenuItem>
+                           <DropdownMenuItem
+                            onSelect={handleFetchBggPlays}
+                            disabled={isFetchingPlays || !game.bggId}
+                          >
+                            {isFetchingPlays ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BarChart3 className="mr-2 h-4 w-4" />}
+                            Carica Partite da BGG
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </>
                   )}
                </div>
             </div>
             
+            {/* Mobile-only image below title/score/icons */}
+            <div className="md:hidden my-4 max-w-[240px] mx-auto">
+              <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
+                <SafeImage
+                  src={game.coverArtUrl}
+                  alt={`${game.name} copertina`}
+                  fallbackSrc={fallbackSrc}
+                  fill
+                  priority
+                  className="object-cover"
+                  data-ai-hint={`board game ${game.name.split(' ')[0]?.toLowerCase() || 'detailed'}`}
+                  sizes="(max-width: 767px) 240px"
+                />
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
-                 {hasDataForSection(game.designers) && (
-                    <div className="flex items-baseline gap-2">
-                        <PenTool size={16} className="text-primary/80" />
-                        <span className="hidden sm:inline">Autori:</span>
-                        <span>{game.designers!.join(', ')}</span>
-                    </div>
+                {hasDataForSection(game.designers) && (
+                  <div className="flex items-baseline gap-2 col-span-2"> {/* Span full width for designers */}
+                      <PenTool size={16} className="text-primary/80 flex-shrink-0" />
+                      <span className="font-medium hidden sm:inline">Autori:</span>
+                      <span>{game.designers!.join(', ')}</span>
+                  </div>
                 )}
                 {game.yearPublished != null && (
                     <div className="flex items-baseline gap-2">
-                    <CalendarDays size={16} className="text-primary/80" />
-                    <span className="hidden sm:inline">Anno:</span>
+                    <CalendarDays size={16} className="text-primary/80 flex-shrink-0" />
+                    <span className="font-medium hidden sm:inline">Anno:</span>
                     <span>{game.yearPublished}</span>
                     </div>
                 )}
                 {(game.minPlayers != null || game.maxPlayers != null) && (
                     <div className="flex items-baseline gap-2">
-                    <Users size={16} className="text-primary/80" />
-                    <span className="hidden sm:inline">Giocatori:</span>
+                    <Users size={16} className="text-primary/80 flex-shrink-0" />
+                    <span className="font-medium hidden sm:inline">Giocatori:</span>
                     <span>{game.minPlayers}{game.maxPlayers && game.minPlayers !== game.maxPlayers ? `-${game.maxPlayers}` : ''}</span>
                     </div>
                 )}
                 { (game.minPlaytime != null && game.maxPlaytime != null) || game.playingTime != null ? (
                     <div className="flex items-baseline gap-2">
-                    <Clock size={16} className="text-primary/80" />
-                    <span className="hidden sm:inline">Durata:</span>
+                    <Clock size={16} className="text-primary/80 flex-shrink-0" />
+                    <span className="font-medium hidden sm:inline">Durata:</span>
                     <span>
                         {game.minPlaytime != null && game.maxPlaytime != null ?
                         (game.minPlaytime === game.maxPlaytime ? `${game.minPlaytime} min` : `${game.minPlaytime} - ${game.maxPlaytime} min`)
@@ -631,14 +648,14 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 ) : null}
                 {game.averageWeight !== null && typeof game.averageWeight === 'number' && (
                     <div className="flex items-baseline gap-2">
-                    <Weight size={16} className="text-primary/80" />
-                    <span className="hidden sm:inline">Complessità:</span>
+                    <Weight size={16} className="text-primary/80 flex-shrink-0" />
+                    <span className="font-medium hidden sm:inline">Complessità:</span>
                     <span>{formatRatingNumber(game.averageWeight)} / 5</span>
                     </div>
                 )}
                 <div className="flex items-baseline gap-2">
-                    <Repeat size={16} className="text-primary/80" />
-                    <span className="hidden sm:inline">Partite:</span>
+                    <Repeat size={16} className="text-primary/80 flex-shrink-0" />
+                    <span className="font-medium hidden sm:inline">Partite:</span>
                     <span>{game.lctr01Plays ?? 0}</span>
                 </div>
             </div>
@@ -676,21 +693,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             )}
           </div>
 
-          <div className="md:hidden my-4 max-w-[240px] mx-auto">
-              <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
-                <SafeImage
-                  src={game.coverArtUrl}
-                  alt={`${game.name} copertina`}
-                  fallbackSrc={fallbackSrc}
-                  fill
-                  priority
-                  className="object-cover"
-                  data-ai-hint={`board game ${game.name.split(' ')[0]?.toLowerCase() || 'detailed'}`}
-                  sizes="(max-width: 767px) 240px"
-                />
-              </div>
-            </div>
-          <div className="hidden md:block md:w-1/4 p-6 flex-shrink-0 self-start md:order-2">
+          {/* Desktop-only image column */}
+          <div className="hidden md:block md:w-1/4 p-6 flex-shrink-0 self-start"> {/* md:order-2 removed */}
             <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
               <SafeImage
                 src={game.coverArtUrl}
@@ -773,10 +777,10 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           )}
 
           {currentUser && !authLoading && userReview && (
-             <Card className="p-6 border border-border rounded-lg shadow-md bg-card">
+             <div className="p-6 border border-border rounded-lg shadow-md bg-card"> {/* Replaced Card with styled div */}
               <div className="flex flex-wrap justify-between items-baseline gap-2 mb-4">
                 <div className="flex items-baseline gap-2">
-                  <CardTitle className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</CardTitle>
+                  <h2 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h2> {/* Changed to h2 */}
                    {userReview && calculateOverallCategoryAverage(userReview.rating) !== null && (
                         <span className="text-xl font-bold text-primary">
                             {formatRatingNumber(calculateOverallCategoryAverage(userReview.rating)! * 2)}
@@ -819,7 +823,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 </div>
               </div>
               <ReviewItem review={userReview} />
-            </Card>
+            </div>
           )}
           
           {currentUser && !authLoading && !userReview && (
@@ -926,3 +930,4 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
+
