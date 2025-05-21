@@ -2,38 +2,35 @@
 import { getFeaturedGamesAction, getAllGamesAction, getLastPlayedGameAction } from '@/lib/actions'; 
 import { GameCard } from '@/components/boardgame/game-card';
 import { Separator } from '@/components/ui/separator';
-import type { BoardGame } from '@/lib/types';
-import { Star, Edit, TrendingUp, Library, AlertCircle, Info, BarChart3, Clock, Pin, Dices } from 'lucide-react'; 
+import type { BoardGame, BggPlayDetail } from '@/lib/types';
+import { Star, Edit, TrendingUp, Library, AlertCircle, Info, BarChart3, Clock, Pin, Dices, UserCircle2, Sparkles, Trophy } from 'lucide-react'; 
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { formatRatingNumber } from '@/lib/utils';
+import { formatRatingNumber, formatReviewDate } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 
 
 export default async function HomePage() {
-  console.log("[HOMEPAGE] Rendering HomePage server component.");
-
   const featuredGamesPromise = getFeaturedGamesAction();
   const allGamesPromise = getAllGamesAction();
   
-  let lastPlayedGame: BoardGame | null = null;
+  let lastPlayedData: { game: BoardGame | null, lastPlayDetail: BggPlayDetail | null } = { game: null, lastPlayDetail: null };
   try {
-    console.log("[HOMEPAGE] Attempting to fetch last played game...");
-    lastPlayedGame = await getLastPlayedGameAction("lctr01");
-    console.log("[HOMEPAGE] Last played game fetched:", lastPlayedGame ? lastPlayedGame.name : "None");
+    lastPlayedData = await getLastPlayedGameAction("lctr01");
   } catch (e) {
-    console.error("[HOMEPAGE - CATCH] Error directly calling getLastPlayedGameAction:", e);
-    // lastPlayedGame remains null, and the UI will handle its absence
+    // lastPlayedData remains null, and the UI will handle its absence
   }
 
   const [featuredGamesResult, allGamesResult] = await Promise.all([
     featuredGamesPromise, 
     allGamesPromise,
-    // lastPlayedGame is already awaited
   ]);
 
   const featuredGames = Array.isArray(featuredGamesResult) ? featuredGamesResult : [];
   const allGames = Array.isArray(allGamesResult) ? allGamesResult : [];
+  const lastPlayedGame = lastPlayedData.game;
+  const lastPlayDetail = lastPlayedData.lastPlayDetail;
 
   const topRatedGames = allGames 
     .filter(game => game.overallAverageRating !== null && game.overallAverageRating !== undefined)
@@ -81,19 +78,67 @@ export default async function HomePage() {
           </div>
         )}
 
-        {lastPlayedGame && (
+        {lastPlayedGame && lastPlayDetail && (
           <div className="mb-12">
             <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mb-6 text-left flex items-center gap-2">
               <Dices className="h-7 w-7 text-primary" />
               Ultima Partita Giocata
             </h2>
-            <div className="w-full max-w-xs mx-auto"> {/* Changed container for better sizing */}
-              <GameCard
-                game={lastPlayedGame}
-                variant="featured"
-                priority={true}
-                showOverlayText={true} 
-              />
+            <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-start">
+              <div className="w-full md:w-1/3 lg:w-1/4 flex-shrink-0">
+                <GameCard
+                  game={lastPlayedGame}
+                  variant="featured"
+                  priority={true}
+                  showOverlayText={true} 
+                />
+              </div>
+              <div className="flex-1 space-y-3 p-1 md:p-0">
+                <div className="flex justify-between items-baseline text-sm text-muted-foreground">
+                   <span>{formatReviewDate(lastPlayDetail.date)}</span>
+                   {lastPlayDetail.quantity > 1 && <span>{lastPlayDetail.quantity} partite</span>}
+                </div>
+                {lastPlayDetail.location && (
+                   <p className="text-xs text-muted-foreground"><strong>Luogo:</strong> {lastPlayDetail.location}</p>
+                )}
+                {lastPlayDetail.comments && (
+                  <div>
+                    <h4 className="text-xs font-semibold text-muted-foreground mb-0.5">Commenti:</h4>
+                    <p className="text-xs text-foreground/80 whitespace-pre-wrap">{lastPlayDetail.comments}</p>
+                  </div>
+                )}
+                {lastPlayDetail.players && lastPlayDetail.players.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-semibold text-muted-foreground mb-1">Giocatori:</h4>
+                    <ul className="space-y-1">
+                      {lastPlayDetail.players
+                        .slice()
+                        .sort((a, b) => parseInt(b.score || "0", 10) - parseInt(a.score || "0", 10))
+                        .map((player, pIndex) => (
+                        <li key={pIndex} className={`flex items-center justify-between text-xs py-1 border-b border-border last:border-b-0 ${pIndex % 2 === 0 ? 'bg-muted/30' : ''} px-1.5 rounded-sm`}>
+                          <div className="flex items-center gap-1.5 flex-grow min-w-0">
+                            <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                            <span className={`truncate ${player.didWin ? 'font-semibold' : ''}`} title={player.name || player.username || 'Sconosciuto'}>
+                              {player.name || player.username || 'Sconosciuto'}
+                            </span>
+                            {player.didWin && (
+                              <Trophy className="h-3.5 w-3.5 text-green-600 ml-1 flex-shrink-0" />
+                            )}
+                            {player.isNew && (
+                                <Sparkles className="h-3.5 w-3.5 text-blue-600 ml-1 flex-shrink-0" />
+                            )}
+                          </div>
+                          {player.score && (
+                            <span className={`font-mono text-xs whitespace-nowrap ml-2 ${player.didWin ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
+                              {player.score} pt.
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
             </div>
             <Separator className="my-10" />
           </div>
@@ -172,5 +217,3 @@ export default async function HomePage() {
 }
 
 export const revalidate = 3600;
-
-

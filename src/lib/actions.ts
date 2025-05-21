@@ -222,10 +222,8 @@ function parseBggCollectionXml(xmlText: string): BoardGame[] {
 
 async function fetchWithRetry(url: string, retries = 3, delay = 1500, attempt = 1): Promise<string> {
   try {
-      console.log(`[SERVER ACTION - fetchWithRetry] Attempt ${attempt} for ${url}`);
       const response = await fetch(url, { cache: 'no-store' });
       const responseText = await response.text();
-      console.log(`[SERVER ACTION - fetchWithRetry] Response status for ${url}: ${response.status}`);
 
       if (response.status === 200) {
           const isLikelyValidCollectionOrPlays = responseText.includes('<items') || responseText.includes("<item ") || responseText.includes("<plays") || responseText.includes("<play ");
@@ -245,7 +243,6 @@ async function fetchWithRetry(url: string, retries = 3, delay = 1500, attempt = 
           if(responseText.includes("<error>")){
               throw new Error(`BGG API returned an error: ${responseText.substring(0, 200)}`);
           }
-          // console.log(`[SERVER ACTION - fetchWithRetry] Received XML for ${url}: \n`, responseText.substring(0, 2000));
           return responseText;
       } else if (response.status === 202 && attempt < retries) {
           console.warn(`[SERVER ACTION - fetchWithRetry] BGG API 202 (Accepted) for ${url}, retrying (attempt ${attempt + 1}/${retries})...`);
@@ -282,7 +279,6 @@ export async function getGameDetails(gameId: string): Promise<BoardGame | null> 
     if (docSnap.exists()) {
       const data = docSnap.data();
       if (!data) {
-          console.error(`[GETGAMEDETAILS] No data found for gameId: "${gameId}" even though document exists.`);
           return null;
       }
 
@@ -317,7 +313,7 @@ export async function getGameDetails(gameId: string): Promise<BoardGame | null> 
           };
         });
       } catch (reviewError) {
-          console.error(`[GETGAMEDETAILS] Error fetching reviews for game ${gameId}:`, reviewError);
+          // Error fetching reviews
       }
 
       let lctr01PlayDetails: BggPlayDetail[] = [];
@@ -327,7 +323,7 @@ export async function getGameDetails(gameId: string): Promise<BoardGame | null> 
         const playsSnapshot = await getDocs(playsQuery);
         lctr01PlayDetails = playsSnapshot.docs.map(playDoc => playDoc.data() as BggPlayDetail);
       } catch (playError) {
-          console.error(`[GETGAMEDETAILS] Error fetching lctr01 plays for game ${gameId}:`, playError);
+         // Error fetching plays
       }
 
       const game: BoardGame = {
@@ -357,11 +353,9 @@ export async function getGameDetails(gameId: string): Promise<BoardGame | null> 
       };
       return game;
     } else {
-      console.log(`[GETGAMEDETAILS] No document found for gameId: "${gameId}"`);
       return null;
     }
   } catch (error) {
-    console.error(`[GETGAMEDETAILS - CATCH] Error in getGameDetails for gameId ${gameId}:`, error);
     return null;
   }
 }
@@ -384,67 +378,68 @@ export async function getBoardGamesFromFirestoreAction(
   const { skipRatingCalculation = false } = options;
   try {
     const querySnapshot = await getDocs(collection(db, FIRESTORE_COLLECTION_NAME));
-    const gamesPromises = querySnapshot.docs.map(async (docSnap) => {
-      const data = docSnap.data();
-      let overallAverageRating = data.overallAverageRating === undefined ? null : data.overallAverageRating;
-      let reviewCount = data.reviewCount === undefined ? 0 : data.reviewCount;
+    const games: BoardGame[] = [];
 
-      if (!skipRatingCalculation && (overallAverageRating === null || reviewCount === 0)) {
-        const reviewsCollectionRef = collection(db, FIRESTORE_COLLECTION_NAME, docSnap.id, 'reviews');
-        const reviewsSnapshot = await getDocs(reviewsCollectionRef);
-        const reviews: Review[] = reviewsSnapshot.docs.map(reviewDoc => {
-            const reviewData = reviewDoc.data();
-            const rating: RatingType = {
-                excitedToReplay: reviewData.rating?.excitedToReplay || 0,
-                mentallyStimulating: reviewData.rating?.mentallyStimulating || 0,
-                fun: reviewData.rating?.fun || 0,
-                decisionDepth: reviewData.rating?.decisionDepth || 0,
-                replayability: reviewData.rating?.replayability || 0,
-                luck: reviewData.rating?.luck || 0,
-                lengthDowntime: reviewData.rating?.lengthDowntime || 0,
-                graphicDesign: reviewData.rating?.graphicDesign || 0,
-                componentsThemeLore: reviewData.rating?.componentsThemeLore || 0,
-                effortToLearn: reviewData.rating?.effortToLearn || 0,
-                setupTeardown: reviewData.rating?.setupTeardown || 0,
-              };
-            return { id: reviewDoc.id, ...reviewData, rating } as Review;
-        });
-        reviewCount = reviews.length;
-        if (reviewCount > 0) {
-          const categoryAvgs = calculateCategoryAverages(reviews);
-          overallAverageRating = categoryAvgs ? calculateOverallCategoryAverage(categoryAvgs) : null;
-        } else {
-          overallAverageRating = null;
+    for (const docSnap of querySnapshot.docs) {
+        const data = docSnap.data();
+        let overallAverageRating = data.overallAverageRating === undefined ? null : data.overallAverageRating;
+        let reviewCount = data.reviewCount === undefined ? 0 : data.reviewCount;
+
+        if (!skipRatingCalculation && (overallAverageRating === null || reviewCount === 0)) {
+            const reviewsCollectionRef = collection(db, FIRESTORE_COLLECTION_NAME, docSnap.id, 'reviews');
+            const reviewsSnapshot = await getDocs(reviewsCollectionRef);
+            const reviews: Review[] = reviewsSnapshot.docs.map(reviewDoc => {
+                const reviewData = reviewDoc.data();
+                const rating: RatingType = {
+                    excitedToReplay: reviewData.rating?.excitedToReplay || 0,
+                    mentallyStimulating: reviewData.rating?.mentallyStimulating || 0,
+                    fun: reviewData.rating?.fun || 0,
+                    decisionDepth: reviewData.rating?.decisionDepth || 0,
+                    replayability: reviewData.rating?.replayability || 0,
+                    luck: reviewData.rating?.luck || 0,
+                    lengthDowntime: reviewData.rating?.lengthDowntime || 0,
+                    graphicDesign: reviewData.rating?.graphicDesign || 0,
+                    componentsThemeLore: reviewData.rating?.componentsThemeLore || 0,
+                    effortToLearn: reviewData.rating?.effortToLearn || 0,
+                    setupTeardown: reviewData.rating?.setupTeardown || 0,
+                };
+                return { id: reviewDoc.id, ...reviewData, rating } as Review;
+            });
+            reviewCount = reviews.length;
+            if (reviewCount > 0) {
+                const categoryAvgs = calculateCategoryAverages(reviews);
+                overallAverageRating = categoryAvgs ? calculateOverallCategoryAverage(categoryAvgs) : null;
+            } else {
+                overallAverageRating = null;
+            }
         }
-      }
 
-      return {
-        id: docSnap.id,
-        bggId: data.bggId ?? 0,
-        name: data.name || "Gioco Senza Nome",
-        coverArtUrl: data.coverArtUrl || `https://placehold.co/100x150.png?text=N/A`,
-        yearPublished: data.yearPublished ?? null,
-        minPlayers: data.minPlayers ?? null,
-        maxPlayers: data.maxPlayers ?? null,
-        playingTime: data.playingTime ?? null,
-        minPlaytime: data.minPlaytime ?? null,
-        maxPlaytime: data.maxPlaytime ?? null,
-        averageWeight: data.averageWeight ?? null,
-        categories: data.categories ?? [],
-        mechanics: data.mechanics ?? [],
-        designers: data.designers ?? [],
-        reviews: [], 
-        overallAverageRating: overallAverageRating,
-        reviewCount: reviewCount,
-        isPinned: data.isPinned || false,
-        favoritedByUserIds: data.favoritedByUserIds ?? [],
-        favoriteCount: data.favoriteCount ?? 0,
-        playlistedByUserIds: data.playlistedByUserIds ?? [],
-        lctr01Plays: data.lctr01Plays === undefined ? null : data.lctr01Plays,
-        lctr01PlayDetails: [], 
-      } as BoardGame;
-    });
-    const games = await Promise.all(gamesPromises);
+        games.push({
+            id: docSnap.id,
+            bggId: data.bggId ?? 0,
+            name: data.name || "Gioco Senza Nome",
+            coverArtUrl: data.coverArtUrl || `https://placehold.co/100x150.png?text=N/A`,
+            yearPublished: data.yearPublished ?? null,
+            minPlayers: data.minPlayers ?? null,
+            maxPlayers: data.maxPlayers ?? null,
+            playingTime: data.playingTime ?? null,
+            minPlaytime: data.minPlaytime ?? null,
+            maxPlaytime: data.maxPlaytime ?? null,
+            averageWeight: data.averageWeight ?? null,
+            categories: data.categories ?? [],
+            mechanics: data.mechanics ?? [],
+            designers: data.designers ?? [],
+            reviews: [], // Reviews are not deeply populated here for list views
+            overallAverageRating: overallAverageRating,
+            reviewCount: reviewCount,
+            isPinned: data.isPinned || false,
+            favoritedByUserIds: data.favoritedByUserIds ?? [],
+            favoriteCount: data.favoriteCount ?? 0,
+            playlistedByUserIds: data.playlistedByUserIds ?? [],
+            lctr01Plays: data.lctr01Plays === undefined ? null : data.lctr01Plays,
+            lctr01PlayDetails: [], // Details not populated for list view
+        });
+    }
     return games;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Si è verificato un errore sconosciuto.';
@@ -676,7 +671,7 @@ export async function getAllReviewsAction(): Promise<AugmentedReview[]> {
     const gamesSnapshot = await getDocs(collection(db, FIRESTORE_COLLECTION_NAME));
 
     for (const gameDoc of gamesSnapshot.docs) {
-      const gameData = gameDoc.data() as Omit<BoardGame, 'id' | 'reviews' | 'overallAverageRating' | 'lctr01PlayDetails'>;
+      const gameData = gameDoc.data() as Omit<BoardGame, 'id' | 'reviews' | 'overallAverageRating' | 'lctr01PlayDetails' | 'reviewCount' >;
       const gameId = gameDoc.id;
 
       const reviewsCollectionRef = collection(db, FIRESTORE_COLLECTION_NAME, gameId, 'reviews');
@@ -805,6 +800,7 @@ export async function getFeaturedGamesAction(): Promise<BoardGame[]> {
         const featuredGameIds = new Set<string>();
 
         for (const game of pinnedGames) {
+            if (finalFeaturedGames.length >= 3) break;
             if (game.id && !featuredGameIds.has(game.id)) {
                 const { _latestReviewDate, ...gameToAdd } = game;
                 finalFeaturedGames.push(gameToAdd);
@@ -822,7 +818,7 @@ export async function getFeaturedGamesAction(): Promise<BoardGame[]> {
                 }
             }
         }
-        return finalFeaturedGames.slice(0, 3);
+        return finalFeaturedGames;
 
     } catch (error) {
         console.error("Error in getFeaturedGamesAction:", error);
@@ -831,9 +827,10 @@ export async function getFeaturedGamesAction(): Promise<BoardGame[]> {
 }
 
 
-export async function getAllGamesAction(): Promise<BoardGame[]> {
-  const result = await getBoardGamesFromFirestoreAction();
+export async function getAllGamesAction(options: { skipRatingCalculation?: boolean } = {}): Promise<BoardGame[]> {
+  const result = await getBoardGamesFromFirestoreAction(options);
   if ('error' in result) {
+    console.error("Error in getAllGamesAction calling getBoardGamesFromFirestoreAction:", result.error);
     return [];
   }
   return result;
@@ -1056,7 +1053,7 @@ export async function batchUpdateMissingBggDetailsAction(): Promise<{ success: b
 
 export async function searchLocalGamesByNameAction(term: string): Promise<BoardGame[] | { error: string }> {
   try {
-    const allGamesResult = await getBoardGamesFromFirestoreAction({ skipRatingCalculation: true });
+    const allGamesResult = await getAllGamesAction({ skipRatingCalculation: true });
     if ('error' in allGamesResult) {
       return { error: allGamesResult.error };
     }
@@ -1070,9 +1067,9 @@ export async function searchLocalGamesByNameAction(term: string): Promise<BoardG
         name: game.name,
         coverArtUrl: game.coverArtUrl,
         yearPublished: game.yearPublished,
-        overallAverageRating: game.overallAverageRating ?? null, // Ensure this is read from DB
-        reviewCount: game.reviewCount ?? 0, // Ensure this is read from DB
-        reviews: [], // Not needed for selector
+        overallAverageRating: game.overallAverageRating ?? null,
+        reviewCount: game.reviewCount ?? 0,
+        reviews: [],
         minPlayers: null,
         maxPlayers: null,
         playingTime: null,
@@ -1340,7 +1337,7 @@ export async function fetchUserPlaysForGameFromBggAction(
         return {
             success: true,
             plays: parsedPlays,
-            message: `Caricate ${parsedPlays.length} partite da BGG.`,
+            message: `Caricate ${parsedPlays.length} partite da BGG per ${username}.`,
         };
     } else {
          return {
@@ -1435,56 +1432,45 @@ export async function getAllUserPlaysAction(username: string): Promise<Augmented
   }
 }
 
-export async function getLastPlayedGameAction(username: string): Promise<BoardGame | null> {
-  console.log(`[SERVER ACTION ENTRY] getLastPlayedGameAction called for username: ${username}`);
+export async function getLastPlayedGameAction(username: string): Promise<{ game: BoardGame | null, lastPlayDetail: BggPlayDetail | null }> {
   try {
     const playsQuery = query(
       collectionGroup(db, `plays_${username.toLowerCase()}`),
       orderBy('date', 'desc'),
       limit(1)
     );
-    console.log(`[SERVER ACTION] getLastPlayedGameAction: Executing plays query for plays_${username.toLowerCase()}`);
     const playsSnapshot = await getDocs(playsQuery);
-    console.log(`[SERVER ACTION] getLastPlayedGameAction: Plays query executed. Found ${playsSnapshot.docs.length} plays.`);
 
     if (playsSnapshot.empty) {
-      console.log(`[SERVER ACTION] getLastPlayedGameAction: No plays found for ${username}.`);
-      return null;
+      return { game: null, lastPlayDetail: null };
     }
 
-    const lastPlayDoc = playsSnapshot.docs[0];
-    const gameDocRef = lastPlayDoc.ref.parent.parent;
+    const lastPlayDocSnap = playsSnapshot.docs[0];
+    const lastPlayData = lastPlayDocSnap.data() as BggPlayDetail;
+    const gameDocRef = lastPlayDocSnap.ref.parent.parent;
 
     if (!gameDocRef) {
       console.error("[SERVER ACTION ERROR] getLastPlayedGameAction: Could not find parent game document reference for the last play.");
-      return null;
+      return { game: null, lastPlayDetail: null };
     }
-    console.log(`[SERVER ACTION] getLastPlayedGameAction: Found parent game ref: ${gameDocRef.path}. Fetching details...`);
 
     const game = await getGameDetails(gameDocRef.id);
-    if (!game) {
-      console.log(`[SERVER ACTION] getLastPlayedGameAction: getGameDetails returned null for game ID ${gameDocRef.id}.`);
+
+    if (game) {
+      // Ensure the game object's play details only contain this specific last play
+      game.lctr01PlayDetails = [{
+          ...lastPlayData,
+          playId: lastPlayDocSnap.id, // Ensure playId is from the doc itself
+          userId: username,
+          // gameBggId is already part of lastPlayData as per BggPlayDetail type
+      }];
+      return { game, lastPlayDetail: game.lctr01PlayDetails[0] };
     } else {
-      console.log(`[SERVER ACTION] getLastPlayedGameAction: Successfully fetched last played game: ${game.name}`);
+      return { game: null, lastPlayDetail: lastPlayData }; // Return play data even if game fetch fails
     }
-    return game;
 
   } catch (error) {
     console.error("[SERVER ACTION CATCH - getLastPlayedGameAction] Error fetching last played game:", error);
-    if (error instanceof Error) {
-      console.error("[SERVER ACTION CATCH - getLastPlayedGameAction] Error name:", error.name);
-      console.error("[SERVER ACTION CATCH - getLastPlayedGameAction] Error message:", error.message);
-      const firebaseError = error as any;
-      if (firebaseError.code) {
-        console.error("[SERVER ACTION CATCH - getLastPlayedGameAction] Firebase error code:", firebaseError.code);
-      }
-    }
-    return null;
+    return { game: null, lastPlayDetail: null };
   }
 }
-
-    
-    
-   
-    
-
