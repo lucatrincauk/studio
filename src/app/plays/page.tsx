@@ -89,7 +89,7 @@ export default function AllPlaysPage() {
       <Card className="shadow-lg border border-border rounded-lg">
         <CardHeader>
           <CardTitle className="text-2xl sm:text-3xl flex items-center gap-3">
-            <LayoutList className="h-7 w-7 text-primary" />
+            <Dices className="h-7 w-7 text-primary" /> {/* Changed icon */}
             Tutte le Partite Registrate
           </CardTitle>
           <CardDescription>
@@ -161,17 +161,13 @@ export default function AllPlaysPage() {
                               </AccordionTrigger>
                               <AccordionContent className="pb-4 text-sm">
                                 <div className="space-y-3">
-                                   {(play.location || play.date) && (
-                                    <div className="flex justify-between items-baseline text-xs mt-2 pt-2 border-t border-border/50">
-                                      {play.location && (
-                                        <div className="flex items-baseline gap-1">
-                                          <strong className="text-muted-foreground">Luogo:</strong>
-                                          <p>{play.location}</p>
-                                        </div>
-                                      )}
+                                   {play.location && play.location.trim() !== '' && ( // Refined condition
+                                    <div className="grid grid-cols-[auto_1fr] gap-x-2 items-baseline pt-1">
+                                      <strong className="text-muted-foreground text-xs">Luogo:</strong>
+                                      <p className="text-xs whitespace-pre-wrap">{play.location}</p>
                                     </div>
                                   )}
-                                  {play.comments && (
+                                  {play.comments && play.comments.trim() !== '' && ( // Refined condition
                                     <div className="grid grid-cols-[auto_1fr] gap-x-2 items-baseline pt-1">
                                       <strong className="text-muted-foreground text-xs">Commenti:</strong>
                                       <p className="text-xs whitespace-pre-wrap">{play.comments}</p>
