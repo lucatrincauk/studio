@@ -3,12 +3,13 @@ import { getFeaturedGamesAction, getAllGamesAction, getLastPlayedGameAction } fr
 import { GameCard } from '@/components/boardgame/game-card';
 import { Separator } from '@/components/ui/separator';
 import type { BoardGame, BggPlayDetail } from '@/lib/types';
-import { Star, Edit, TrendingUp, Library, AlertCircle, Info, BarChart3, Clock, Pin, Dices, UserCircle2, Sparkles, Trophy } from 'lucide-react'; 
+import { Star, Edit, TrendingUp, Library, AlertCircle, Info, BarChart3, Clock, Pin, Dices, UserCircle2, Sparkles, Trophy, CalendarDays } from 'lucide-react'; 
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { formatRatingNumber, formatReviewDate } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
 
 export default async function HomePage() {
@@ -19,6 +20,7 @@ export default async function HomePage() {
   try {
     lastPlayedData = await getLastPlayedGameAction("lctr01");
   } catch (e) {
+    console.error("Error fetching last played game on homepage:", e);
     // lastPlayedData remains null, and the UI will handle its absence
   }
 
@@ -33,7 +35,7 @@ export default async function HomePage() {
   const lastPlayDetail = lastPlayedData.lastPlayDetail;
 
   const topRatedGames = allGames 
-    .filter(game => game.overallAverageRating !== null && game.overallAverageRating !== undefined)
+    .filter(game => game.overallAverageRating !== null && game.overallAverageRating !== undefined && typeof game.overallAverageRating === 'number')
     .sort((a, b) => (b.overallAverageRating ?? 0) - (a.overallAverageRating ?? 0))
     .slice(0, 10);
 
@@ -85,7 +87,7 @@ export default async function HomePage() {
               Ultima Partita Giocata
             </h2>
             <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-start">
-              <div className="w-full max-w-[160px] sm:max-w-none sm:w-1/3 md:w-1/4 flex-shrink-0">
+              <div className="w-full max-w-[180px] sm:max-w-[200px] md:w-1/3 lg:w-1/4 flex-shrink-0"> {/* Smaller image container */}
                 <GameCard
                   game={lastPlayedGame}
                   variant="featured"
@@ -93,52 +95,61 @@ export default async function HomePage() {
                   showOverlayText={true} 
                 />
               </div>
-              <div className="flex-1 space-y-1.5 p-1 md:p-0 text-sm">
-                <div className="flex justify-between items-baseline text-xs text-muted-foreground">
-                   <span>{formatReviewDate(lastPlayDetail.date)}</span>
-                   {lastPlayDetail.quantity > 1 && <span>{lastPlayDetail.quantity} partite</span>}
-                </div>
-                {lastPlayDetail.location && (
-                   <p className="text-xs text-muted-foreground"><strong>Luogo:</strong> {lastPlayDetail.location}</p>
-                )}
-                {lastPlayDetail.comments && lastPlayDetail.comments.length > 0 && (
-                  <div>
-                    <h4 className="text-xs font-semibold text-muted-foreground mb-0.5">Commenti:</h4>
-                    <p className="text-xs text-foreground/80 whitespace-pre-wrap">{lastPlayDetail.comments}</p>
+              <Card className="flex-1 shadow-md border border-border rounded-lg">
+                <CardHeader className="pb-3">
+                  <div className="flex justify-between items-center">
+                    <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                      <CalendarDays size={18} className="text-muted-foreground" />
+                      {formatReviewDate(lastPlayDetail.date)}
+                    </CardTitle>
+                    {lastPlayDetail.quantity > 1 && (
+                      <Badge variant="secondary">{lastPlayDetail.quantity} partite</Badge>
+                    )}
                   </div>
-                )}
-                {lastPlayDetail.players && lastPlayDetail.players.length > 0 && (
-                  <div>
-                    <h4 className="text-xs font-semibold text-muted-foreground mb-1">Giocatori:</h4>
-                    <ul className="space-y-0.5">
-                      {lastPlayDetail.players
-                        .slice()
-                        .sort((a, b) => parseInt(b.score || "0", 10) - parseInt(a.score || "0", 10))
-                        .map((player, pIndex) => (
-                        <li key={pIndex} className={`flex items-center justify-between text-xs py-0.5 border-b border-border last:border-b-0 ${pIndex % 2 === 0 ? 'bg-muted/30' : ''} px-1 rounded-sm`}>
-                          <div className="flex items-center gap-1.5 flex-grow min-w-0">
-                            <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                            <span className={`truncate ${player.didWin ? 'font-semibold' : ''}`} title={player.name || player.username || 'Sconosciuto'}>
-                              {player.name || player.username || 'Sconosciuto'}
-                            </span>
-                            {player.didWin && (
-                              <Trophy className="h-3.5 w-3.5 text-green-600 ml-1 flex-shrink-0" />
+                  {lastPlayDetail.location && (
+                     <CardDescription className="text-xs text-muted-foreground pt-1">Luogo: {lastPlayDetail.location}</CardDescription>
+                  )}
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm pt-0">
+                  {lastPlayDetail.comments && lastPlayDetail.comments.trim() !== '' && (
+                    <div>
+                      <h4 className="text-xs font-semibold text-muted-foreground mb-0.5">Commenti:</h4>
+                      <p className="text-xs text-foreground/80 whitespace-pre-wrap">{lastPlayDetail.comments}</p>
+                    </div>
+                  )}
+                  {lastPlayDetail.players && lastPlayDetail.players.length > 0 && (
+                    <div>
+                      <h4 className="text-xs font-semibold text-muted-foreground mb-1">Giocatori:</h4>
+                      <ul className="space-y-0.5">
+                        {lastPlayDetail.players
+                          .slice()
+                          .sort((a, b) => parseInt(b.score || "0", 10) - parseInt(a.score || "0", 10))
+                          .map((player, pIndex) => (
+                          <li key={pIndex} className={`flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5 px-1 ${pIndex % 2 === 0 ? 'bg-muted/30' : ''} rounded-sm`}>
+                            <div className="flex items-center gap-1.5 flex-grow min-w-0">
+                              <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                              <span className={`truncate ${player.didWin ? 'font-semibold' : ''}`} title={player.name || player.username || 'Sconosciuto'}>
+                                {player.name || player.username || 'Sconosciuto'}
+                              </span>
+                              {player.didWin && (
+                                <Trophy className="h-3.5 w-3.5 text-green-600 ml-1 flex-shrink-0" />
+                              )}
+                              {player.isNew && (
+                                  <Sparkles className="h-3.5 w-3.5 text-blue-600 ml-1 flex-shrink-0" />
+                              )}
+                            </div>
+                            {player.score && (
+                              <span className={`font-mono text-xs whitespace-nowrap ml-2 ${player.didWin ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
+                                {player.score} pt.
+                              </span>
                             )}
-                            {player.isNew && (
-                                <Sparkles className="h-3.5 w-3.5 text-blue-600 ml-1 flex-shrink-0" />
-                            )}
-                          </div>
-                          {player.score && (
-                            <span className={`font-mono text-xs whitespace-nowrap ml-2 ${player.didWin ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
-                              {player.score} pt.
-                            </span>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </div>
             <Separator className="my-10" />
           </div>
@@ -159,9 +170,9 @@ export default async function HomePage() {
                   <span 
                     aria-hidden="true"
                     className="absolute pointer-events-none select-none leading-none z-0 font-bold text-muted-foreground/10
-                               text-[255px] -bottom-[55px] -right-[30px] 
-                               sm:text-[300px] sm:-bottom-[65px] sm:-right-[30px] 
-                               lg:text-[340px] lg:-bottom-[75px] lg:-right-[36px]"
+                               -bottom-[55px] -right-[30px] text-[255px]
+                               sm:-bottom-[65px] sm:-right-[30px] sm:text-[300px] 
+                               lg:-bottom-[75px] lg:-right-[36px] lg:text-[340px]"
                   >
                     {index + 1}
                   </span>
