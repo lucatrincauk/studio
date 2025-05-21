@@ -208,8 +208,11 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         overallAverageRating: newOverallAverage,
         reviewCount: allReviewsForGame.length
       });
+      
+      // Revalidate relevant paths
       await revalidateGameDataAction(game.id);
-      await fetchGameData();
+      
+      await fetchGameData(); // Re-fetch to update local state
     } catch (error) {
       console.error("Errore durante l'aggiornamento del punteggio medio del gioco:", error);
       toast({ title: "Errore", description: "Impossibile aggiornare il punteggio medio del gioco.", variant: "destructive" });
@@ -229,7 +232,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         const reviewDocRef = doc(db, FIRESTORE_COLLECTION_NAME, gameId, 'reviews', userReview.id);
         await deleteDoc(reviewDocRef);
         toast({ title: "Recensione Eliminata", description: "La tua recensione è stata eliminata con successo." });
-        await updateGameOverallRatingAfterDelete();
+        await updateGameOverallRatingAfterDelete(); // This will re-fetch and revalidate
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({ title: "Errore", description: `Impossibile eliminare la recensione: ${errorMessage}`, variant: "destructive" });
@@ -416,7 +419,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     const usernameToFetch = "lctr01";
 
     startFetchPlaysTransition(async () => {
-      const bggFetchResult = await fetchUserPlaysForGameFromBggAction(game.bggId, usernameToFetch);
+      const bggFetchResult = await fetchUserPlaysForGameFromBggAction(game.id, game.bggId, usernameToFetch);
 
       if (bggFetchResult.success && bggFetchResult.plays) {
         if (bggFetchResult.plays.length > 0) {
@@ -425,12 +428,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
           bggFetchResult.plays.forEach(play => {
             const playDocRef = doc(playsSubCollectionRef, play.playId);
-            const playDataForFirestore: BggPlayDetail = {
-              ...play,
-              userId: usernameToFetch,
-              gameBggId: game.bggId, // Ensure gameBggId is part of the stored play data
-            };
-            batch.set(playDocRef, playDataForFirestore, { merge: true });
+            // The play object from fetchUserPlaysForGameFromBggAction already includes userId and gameBggId
+            batch.set(playDocRef, play, { merge: true });
           });
 
           try {
@@ -440,7 +439,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
               description: bggFetchResult.message || `Caricate e salvate ${bggFetchResult.plays.length} partite per ${game.name} da BGG per ${usernameToFetch}.`,
             });
             await revalidateGameDataAction(game.id);
-            await fetchGameData(); // Re-fetch to get lctr01PlayDetails
+            await fetchGameData(); 
           } catch (dbError) {
              const errorMessage = dbError instanceof Error ? dbError.message : "Errore sconosciuto durante il salvataggio delle partite nel DB.";
              toast({ title: 'Errore Salvataggio Partite DB', description: errorMessage, variant: 'destructive' });
@@ -565,14 +564,18 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                   )}
                 </div>
                <div className="flex-shrink-0">
-                  {globalGameAverage !== null && (
+                  {globalGameAverage !== null ? (
                      <span className="text-primary text-3xl md:text-4xl font-bold whitespace-nowrap">
                         {formatRatingNumber(globalGameAverage * 2)}
                       </span>
+                  ) : (
+                    <span className="text-muted-foreground text-lg md:text-xl font-medium whitespace-nowrap">
+                      -
+                    </span>
                   )}
                </div>
             </div>
-
+            
             <div className="text-sm text-muted-foreground space-y-1.5 pt-1 grid grid-cols-2 gap-x-4 gap-y-2">
               <div className="flex items-center gap-2">
                 <PenTool size={16} className="text-primary/80" />
@@ -613,16 +616,14 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                   <span>{formatRatingNumber(game.averageWeight)} / 5</span>
                 </div>
               )}
-              {game.lctr01Plays !== null && typeof game.lctr01Plays === 'number' && (
-                <div className="flex items-center gap-2">
-                  <Repeat size={16} className="text-primary/80" />
-                  <span className="hidden sm:inline">Partite (lctr01):</span>
-                  <span>{game.lctr01Plays ?? 0}</span>
-                </div>
-              )}
+              <div className="flex items-center gap-2">
+                <Repeat size={16} className="text-primary/80" />
+                <span className="hidden sm:inline">Partite (lctr01):</span>
+                <span>{game.lctr01Plays ?? 0}</span>
+              </div>
             </div>
-
-             {(hasDataForSection(game.categories) || hasDataForSection(game.mechanics) ) && (
+            
+            {(hasDataForSection(game.categories) || hasDataForSection(game.mechanics) ) && (
               <div className="w-full pt-4 border-t border-border mt-4">
                 <h3 className="text-lg font-semibold text-foreground mb-3">Dettagli Aggiuntivi</h3>
                  <div className="space-y-3">
@@ -881,3 +882,4 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
+
