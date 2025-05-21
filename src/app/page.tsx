@@ -20,11 +20,9 @@ export default async function HomePage() {
   
   let lastPlayedData: { game: BoardGame | null, lastPlayDetail: BggPlayDetail | null } = { game: null, lastPlayDetail: null };
   try {
-    // For now, hardcoding the username. This could be dynamic if users have BGG usernames linked.
     lastPlayedData = await getLastPlayedGameAction("lctr01");
   } catch (e) {
     console.error("Error fetching last played game on homepage:", e);
-    // Silently fail for this non-critical section, or set a specific error state
   }
 
   const [featuredGamesResult, allGamesResult] = await Promise.all([
@@ -137,7 +135,7 @@ export default async function HomePage() {
                           .slice()
                           .sort((a, b) => parseInt(b.score || "0", 10) - parseInt(a.score || "0", 10))
                           .map((player, pIndex) => (
-                            <li key={pIndex} className={cn(`flex items-center justify-between text-xs border-b border-border last:border-b-0 py-0.5 px-2`, pIndex % 2 === 0 ? 'bg-muted/30' : '')}>
+                            <li key={pIndex} className={cn(`flex items-center justify-between text-xs border-b border-border last:border-b-0 py-0.5`, pIndex % 2 === 0 ? 'bg-muted/30' : '', 'px-2')}>
                               <div className="flex items-center gap-1.5 flex-grow min-w-0">
                                 <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                                 <span className={cn("truncate", player.didWin ? 'font-semibold' : '')} title={player.name || player.username || 'Sconosciuto'}>
@@ -176,20 +174,20 @@ export default async function HomePage() {
               {topRatedGames.map((game, index) => (
                 <div
                   key={game.id}
-                  className="relative flex items-center gap-x-3 sm:gap-x-4 p-3 rounded-lg bg-card hover:bg-muted/50 transition-colors border border-border overflow-hidden"
+                  className="relative flex items-start gap-x-3 sm:gap-x-4 p-3 rounded-lg bg-card hover:bg-muted/50 transition-colors border border-border overflow-hidden"
                 >
                    <span
                     aria-hidden="true"
                     className={cn(
                         `absolute pointer-events-none select-none leading-none z-0 font-bold text-muted-foreground/10`,
-                        `text-[255px] -bottom-[55px] -right-[30px]`,                           // Default (mobile)
-                        `sm:text-[300px] sm:-bottom-[65px] sm:-right-[30px]`,  // Small screens
-                        `lg:text-[340px] lg:-bottom-[75px] lg:-right-[36px]`     // Large screens
+                        `-right-[30px] text-[255px]`,                         // Default (mobile)
+                        `sm:-right-[30px] sm:text-[300px]`,  // Small screens
+                        `lg:-right-[36px] lg:text-[340px]`     // Large screens
                     )}
                   >
                     {index + 1}
                   </span>
-                  <div className="relative z-10 flex items-center gap-x-3 sm:gap-x-4 flex-grow mr-6 sm:mr-8 lg:mr-10">
+                  <div className="relative z-10 flex items-center gap-x-3 sm:gap-x-4 flex-grow mr-5 sm:mr-8 lg:mr-10">
                     <div className="w-24 h-32 sm:w-28 sm:h-36 md:w-32 md:h-40 flex-shrink-0"> 
                       <GameCard game={game} variant="featured" priority={index < 5} showOverlayText={false} />
                     </div>
