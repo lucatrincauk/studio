@@ -87,14 +87,14 @@ export default async function HomePage() {
               Ultima Partita Giocata
             </h2>
             <Card className="shadow-md border border-border rounded-lg">
-              <CardHeader className="flex flex-col sm:flex-row items-start gap-4 p-4">
-                <div className="relative w-20 h-28 flex-shrink-0 rounded-md overflow-hidden shadow-sm">
+              <CardHeader className="flex flex-row items-start gap-4 p-4"> {/* Always flex-row */}
+                <div className="relative w-20 h-28 flex-shrink-0 rounded-md overflow-hidden shadow-sm"> {/* Adjusted size */}
                   <SafeImage
                     src={lastPlayedGame.coverArtUrl}
                     alt={`${lastPlayedGame.name} copertina`}
                     fallbackSrc={`https://placehold.co/80x112.png?text=${encodeURIComponent(lastPlayedGame.name.substring(0,3))}`}
                     fill
-                    sizes="80px"
+                    sizes="80px" // Simplified sizes for small image
                     className="object-cover"
                     data-ai-hint={`board game ${lastPlayedGame.name.split(' ')[0]?.toLowerCase() || 'mini'}`}
                   />
@@ -112,9 +112,7 @@ export default async function HomePage() {
                       <Badge variant="secondary" className="ml-auto">{lastPlayDetail.quantity} partite</Badge>
                     )}
                   </div>
-                  {lastPlayDetail.location && (
-                    <p className="text-xs text-muted-foreground mt-1">Luogo: {lastPlayDetail.location}</p>
-                  )}
+                  {/* Location display removed */}
                 </div>
               </CardHeader>
               <CardContent className="pt-0 px-4 pb-4 space-y-3 text-sm">
@@ -169,11 +167,11 @@ export default async function HomePage() {
             </h2>
             <div className="space-y-4">
               {topRatedGames.map((game, index) => (
-                <div 
-                  key={game.id} 
+                <div
+                  key={game.id}
                   className="relative flex items-center gap-x-3 sm:gap-x-4 p-3 rounded-lg bg-[#f9fbf9] hover:bg-muted/50 transition-colors border border-border overflow-hidden"
                 >
-                  <span 
+                  <span
                     aria-hidden="true"
                     className="absolute pointer-events-none select-none leading-none z-0 font-bold text-muted-foreground/10
                                -bottom-[55px] -right-[30px] text-[255px]
@@ -190,12 +188,10 @@ export default async function HomePage() {
                       <Link href={`/games/${game.id}`} className="group flex-1">
                         <h3 className="text-md sm:text-lg font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-3 hover:underline">
                           {game.name}
+                          {game.yearPublished && (
+                            <span className="ml-1 text-xs text-muted-foreground">({game.yearPublished})</span>
+                          )}
                         </h3>
-                        {game.yearPublished && (
-                          <p className="text-xs sm:text-sm text-muted-foreground">
-                            ({game.yearPublished})
-                          </p>
-                        )}
                       </Link>
                       <div className="text-right ml-2 flex-shrink-0">
                         {game.overallAverageRating !== null && typeof game.overallAverageRating === 'number' && (
