@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/auth-context';
-import { useRouter, useSearchParams } from 'next/navigation'; // Added useSearchParams
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, Loader2 } from "lucide-react";
 import Link from 'next/link';
@@ -43,8 +43,8 @@ const GoogleIcon = () => (
 
 export function SigninForm() {
   const { signIn, signInWithGoogle, loading, error, clearError } = useAuth();
-  const router = useRouter(); // Keep for potential other uses, though context handles redirect
-  const searchParams = useSearchParams(); // Get search params
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   const form = useForm<SigninFormValues>({
@@ -59,7 +59,6 @@ export function SigninForm() {
     clearError();
     const redirectPath = searchParams.get('redirect');
     await signIn(values.email, values.password, redirectPath);
-    // Redirection is now handled by AuthContext
   }
 
   async function handleGoogleSignIn() {
@@ -68,7 +67,6 @@ export function SigninForm() {
     const redirectPath = searchParams.get('redirect');
     await signInWithGoogle(redirectPath);
     setIsGoogleLoading(false);
-    // Redirection is now handled by AuthContext
   }
 
   return (
@@ -81,6 +79,25 @@ export function SigninForm() {
             <AlertDescription>{error.message}</AlertDescription>
           </Alert>
         )}
+
+        <Button
+          type="button"
+          variant="outline"
+          onClick={handleGoogleSignIn}
+          disabled={loading || isGoogleLoading}
+          className="w-full flex items-center justify-center"
+        >
+          {isGoogleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <GoogleIcon />}
+          Accedi con Google
+        </Button>
+
+        <div className="relative my-4">
+          <Separator />
+          <div className="absolute inset-0 flex items-center">
+            <span className="mx-auto bg-card px-2 text-xs text-muted-foreground">O</span>
+          </div>
+        </div>
+        
         <FormField
           control={form.control}
           name="email"
@@ -110,24 +127,6 @@ export function SigninForm() {
         <Button type="submit" disabled={loading || isGoogleLoading} className="w-full">
           {(loading && !isGoogleLoading) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
           Accedi con Email
-        </Button>
-
-        <div className="relative my-4">
-          <Separator />
-          <div className="absolute inset-0 flex items-center">
-            <span className="mx-auto bg-card px-2 text-xs text-muted-foreground">O</span>
-          </div>
-        </div>
-
-        <Button
-          type="button"
-          variant="outline"
-          onClick={handleGoogleSignIn}
-          disabled={loading || isGoogleLoading}
-          className="w-full flex items-center justify-center"
-        >
-          {isGoogleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <GoogleIcon />}
-          Accedi con Google
         </Button>
 
         <div className="text-sm text-center space-y-2 mt-6">
