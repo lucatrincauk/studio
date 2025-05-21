@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useTransition, useCallback, use, useMemo } from 'react';
 import Link from 'next/link';
-import { getGameDetails, revalidateGameDataAction, fetchUserPlaysForGameFromBggAction } from '@/lib/actions';
+import { getGameDetails, revalidateGameDataAction } from '@/lib/actions';
 import type { BoardGame, Review, Rating as RatingType, GroupedCategoryAverages, BggPlayDetail } from '@/lib/types';
 import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
@@ -184,9 +184,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         reviewCount: allReviewsForGame.length
       });
       
-      // No client-side revalidatePath, rely on state update or navigation
-      
       await fetchGameData(); 
+      await revalidateGameDataAction(game.id);
     } catch (error) {
       console.error("Errore durante l'aggiornamento del punteggio medio del gioco:", error);
       toast({ title: "Errore", description: "Impossibile aggiornare il punteggio medio del gioco.", variant: "destructive" });
@@ -658,7 +657,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 />
               </div>
             </div>
-            
+
             <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
                 <div className="flex items-baseline gap-2">
                     <span className="inline-flex items-center"><PenTool size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
@@ -770,7 +769,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 sizes="25vw"
               />
             </div>
-            <Accordion type="single" collapsible className="w-full pt-4" defaultValue={[]}>
+            <Accordion type="single" collapsible className="w-full pt-4 border-b-0" defaultValue={[]}>
               <AccordionItem value="dettagli-aggiuntivi" className="border-b-0">
                 <AccordionTrigger className="hover:no-underline py-0">
                   <h3 className="text-lg font-semibold text-foreground">Dettagli Aggiuntivi</h3>
@@ -869,10 +868,10 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                                             return scoreB - scoreA;
                                         })
                                         .map((player, pIndex) => (
-                                        <li key={pIndex} className="flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5 even:bg-muted/30">
+                                        <li key={pIndex} className={`flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5 ${pIndex % 2 !== 0 ? 'bg-muted/30' : ''}`}>
                                             <div className="flex items-center gap-1.5 flex-grow min-w-0">
                                             <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                                            <span className="truncate" title={player.name || player.username || 'Sconosciuto'}>
+                                            <span className={`truncate ${player.didWin ? 'font-semibold' : ''}`} title={player.name || player.username || 'Sconosciuto'}>
                                                 {player.name || player.username || 'Sconosciuto'}
                                             </span>
                                             {player.didWin && (
@@ -883,7 +882,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                                             )}
                                             </div>
                                             {player.score && (
-                                            <span className="font-mono text-xs whitespace-nowrap ml-2 text-foreground">
+                                            <span className={`font-mono text-xs whitespace-nowrap ml-2 text-foreground ${player.didWin ? 'font-semibold' : ''}`}>
                                                 {player.score} pt.
                                             </span>
                                             )}
@@ -907,7 +906,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             userReview ? (
               <div className="relative"> 
                 <div className="flex flex-row justify-between items-center gap-2 mb-4">
-                  <h2 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h2>
+                  <h3 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h3>
                   <div className="flex items-center gap-2 flex-shrink-0">
                       <Button asChild size="sm">
                         <Link href={`/games/${gameId}/rate`}>
@@ -1002,8 +1001,3 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
-
-
-
-
-
