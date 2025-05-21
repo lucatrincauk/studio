@@ -153,7 +153,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     }
   }, [game, currentUser]);
 
-
   const updateGameOverallRatingAfterDelete = async () => {
     if (!game) return;
     try {
@@ -185,7 +184,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         reviewCount: allReviewsForGame.length
       });
       
-      revalidateGameDataAction(game.id); 
+      await revalidateGameDataAction(game.id); 
       
       await fetchGameData(); 
     } catch (error) {
@@ -293,7 +292,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `${game.name} è stato ${newFavoritedStatus ? 'aggiunto ai' : 'rimosso dai'} tuoi preferiti.`,
         });
 
-        revalidateGameDataAction(game.id);
+        await revalidateGameDataAction(game.id);
 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Impossibile aggiornare i preferiti.";
@@ -345,7 +344,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `${game.name} è stato ${newPlaylistedStatus ? 'aggiunto alla' : 'rimosso dalla'} tua playlist.`,
         });
 
-        revalidateGameDataAction(game.id);
+        await revalidateGameDataAction(game.id);
 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Impossibile aggiornare la playlist.";
@@ -402,7 +401,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     const usernameToFetch = "lctr01"; 
 
     startFetchPlaysTransition(async () => {
-        const serverActionResult = await fetchUserPlaysForGameFromBggAction(game.id, game.bggId, usernameToFetch);
+        const serverActionResult = await fetchUserPlaysForGameFromBggAction(game.bggId, usernameToFetch);
 
         if (serverActionResult.success && serverActionResult.plays) {
             if (serverActionResult.plays.length > 0) {
@@ -414,13 +413,14 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                     const playDataForFirestore: BggPlayDetail = {
                         ...play, 
                         userId: usernameToFetch, 
-                        gameBggId: game.bggId,
+                        gameBggId: game.bggId, // Ensure gameBggId is set
                     };
                     batch.set(playDocRef, playDataForFirestore, { merge: true }); 
                 });
                 
                 try {
                     await batch.commit();
+                    // Update the lctr01Plays count on the main game document
                     const gameDocRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
                     await updateDoc(gameDocRef, {
                         lctr01Plays: serverActionResult.plays.length 
@@ -551,7 +551,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         <div className="flex flex-col md:flex-row">
           <div className="flex-1 p-6 space-y-4 md:order-1"> 
             <div className="flex justify-between items-start mb-2">
-              <div className="flex items-center gap-2 flex-shrink min-w-0 mr-2"> {/* Left side: Title and action icons */}
+              <div className="flex items-center gap-2 flex-shrink min-w-0 mr-2"> 
                 <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground truncate">{game.name}</h1>
                 {game.bggId > 0 && (
                   <a
@@ -629,7 +629,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                   </>
                 )}
               </div>
-              <div className="flex-shrink-0"> {/* Right side: Score */}
+              <div className="flex-shrink-0"> 
                 {globalGameAverage !== null ? (
                    <span className="text-primary text-3xl md:text-4xl font-bold whitespace-nowrap">
                       {formatRatingNumber(globalGameAverage * 2)}
@@ -828,7 +828,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                                 </div>
                                     {winners.length > 0 && (
                                         <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-300 whitespace-nowrap">
-                                            🏆 {winnerNames}
+                                            <Trophy className="mr-1 h-3.5 w-3.5"/> {winnerNames}
                                         </Badge>
                                     )}
                                 </div>
@@ -875,12 +875,12 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                                             </span>
                                             {player.didWin && (
                                                 <Badge variant="outline" size="sm" className="border-green-500 text-green-600 p-0.5 ml-1">
-                                                <Trophy className="h-3 w-3" />
+                                                <Trophy className="h-3.5 w-3.5" />
                                                 </Badge>
                                             )}
                                             {player.isNew && (
                                                 <Badge variant="outline" size="sm" className="border-blue-500 text-blue-600 p-0.5 ml-1 whitespace-nowrap">
-                                                  <Sparkles className="h-3 w-3" />
+                                                  <Sparkles className="h-3.5 w-3.5" />
                                                 </Badge>
                                             )}
                                             </div>
@@ -912,7 +912,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                   <h2 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h2>
                   <div className="flex items-center gap-2 flex-shrink-0">
                       <Button asChild size="sm">
-                         <Link href={`/games/${gameId}/rate`}>
+                        <Link href={`/games/${gameId}/rate`}>
                             <span className="flex items-center">
                                 <Edit className="mr-0 sm:mr-2 h-4 w-4" />
                                 <span className="hidden sm:inline">Modifica</span>
@@ -1004,6 +1004,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
+
 
 
 
