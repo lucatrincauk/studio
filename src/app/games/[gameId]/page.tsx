@@ -9,7 +9,7 @@ import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, Settings, DownloadCloud, BarChart3, ListChecks, ListPlus, Heart, UserCircle2, MessageSquare } from 'lucide-react'; // Changed Repeat to Dices
+import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, Settings, DownloadCloud, BarChart3, ListChecks, ListPlus, Heart, UserCircle2, MessageSquare } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { summarizeReviews } from '@/ai/flows/summarize-reviews';
@@ -431,8 +431,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             // Ensure all fields required by BggPlayDetail are present
             const playDataForFirestore: BggPlayDetail = {
                 ...play,
-                userId: usernameToFetch, // ensure userId is set
-                gameBggId: game.bggId, // ensure gameBggId is set
+                userId: usernameToFetch, 
+                gameBggId: game.bggId, 
             };
             batch.set(playDocRef, playDataForFirestore, { merge: true });
           });
@@ -495,7 +495,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
   const hasDataForSection = (arr?: string[]) => arr && arr.length > 0;
 
   return (
-    <div className="space-y-8"> {/* Changed from space-y-10 to space-y-8 */}
+    <div className="space-y-8"> 
       <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
         <div className="flex flex-col md:flex-row">
           <div className="flex-1 p-6 space-y-4"> 
@@ -690,7 +690,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           </div>
 
           {/* Desktop-only image column */}
-          <div className="hidden md:block md:w-1/4 p-6 flex-shrink-0 self-start"> {/* md:order-2 ensures this is second on md+ */}
+          <div className="hidden md:block md:w-1/4 p-6 flex-shrink-0 self-start"> 
             <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
               <SafeImage
                 src={game.coverArtUrl}
@@ -707,7 +707,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         </div>
       </Card>
 
-      {/* Play Logs Card - Moved outside main game info card */}
+      {/* Play Logs Card */}
       {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
          <Card className="shadow-md border border-border rounded-lg">
             <CardHeader>
@@ -774,7 +774,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         <div className="lg:col-span-2 space-y-8">
           {currentUser && !authLoading && userReview && (
              <div> 
-              <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
+              <div className="flex justify-between items-baseline gap-2 mb-4">
                 <div className="flex items-baseline gap-2">
                   <h2 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h2>
                    {userReview && calculateOverallCategoryAverage(userReview.rating) !== null && (
@@ -878,7 +878,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         </div>
 
         <div className="lg:col-span-1 space-y-8 sticky top-24 self-start">
-          {isAdmin && game.reviews && game.reviews.length > 0 && ( // Added condition for game.reviews
+          {isAdmin && game.reviews && game.reviews.length > 0 && ( 
             <Card className="shadow-md border border-border rounded-lg">
               <CardHeader>
                 <CardTitle className="text-xl flex items-center gap-2">
@@ -926,4 +926,3 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
-
