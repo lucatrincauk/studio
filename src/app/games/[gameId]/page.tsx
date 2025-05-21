@@ -9,7 +9,7 @@ import type { BoardGame, Review, Rating as RatingType, GroupedCategoryAverages, 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Info, Edit, Trash2, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, MessageSquare, Heart, ListPlus, ListChecks, Settings, Trophy, Medal, UserCircle2, Brain, Star, Palette, ClipboardList, Repeat, Sparkles, Pin, PinOff, DownloadCloud } from 'lucide-react';
+import { AlertCircle, Loader2, Info, Edit, Trash2, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, MessageSquare, Heart, ListPlus, ListChecks, Settings, Trophy, Medal, UserCircle2, Brain, Star, Palette, ClipboardList, Repeat, Sparkles, Pin, PinOff, DownloadCloud, Wand2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { calculateGroupedCategoryAverages, calculateOverallCategoryAverage as calculateGlobalOverallAverage, formatRatingNumber, formatPlayDate, formatReviewDate, calculateCategoryAverages as calculateCatAvgsFromUtils } from '@/lib/utils';
@@ -585,22 +585,22 @@ const handleGenerateRecommendations = async () => {
           {/* Main Content Column */}
           <div className="flex-1 p-6 space-y-4 md:order-1">
             {/* Main header: Title, Icons, Score */}
-             <div className="flex justify-between items-start mb-2">
+            <div className="flex justify-between items-start mb-2">
                 <div className="flex-1 flex-shrink min-w-0 mr-2">
-                  <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
-                    {game.name}
-                    {game.bggId > 0 && (
-                      <a
-                        href={`https://boardgamegeek.com/boardgame/${game.bggId}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title="Vedi su BoardGameGeek"
-                        className="inline-flex items-center text-primary hover:text-primary/80 focus:outline-none focus:ring-2 focus:ring-ring rounded-md p-0.5 ml-1"
-                      >
-                        <ExternalLink size={16} className="h-4 w-4" />
-                      </a>
-                    )}
-                  </h1>
+                    <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground inline-flex items-center gap-1">
+                        {game.name}
+                        {game.bggId > 0 && (
+                        <a
+                            href={`https://boardgamegeek.com/boardgame/${game.bggId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="Vedi su BoardGameGeek"
+                            className="inline-flex items-center text-primary hover:text-primary/80 focus:outline-none focus:ring-2 focus:ring-ring rounded-md p-0.5 ml-1"
+                        >
+                            <ExternalLink size={16} className="h-4 w-4" />
+                        </a>
+                        )}
+                    </h1>
                 </div>
                 <div className="flex-shrink-0 flex flex-col items-end">
                     {globalGameAverage !== null ? (
@@ -890,7 +890,7 @@ const handleGenerateRecommendations = async () => {
             userReview ? (
               <div>
                 <div className="flex justify-between items-center gap-2 mb-4">
-                  <h3 className="text-xl font-semibold text-foreground mr-2 flex-grow">Il Tuo Voto</h3>
+                  <h3 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h3>
                   <div className="flex items-center gap-2 flex-shrink-0">
                       <Button asChild size="sm" variant="default">
                         <Link href={`/games/${gameId}/rate`}>
@@ -1039,3 +1039,5 @@ const handleGenerateRecommendations = async () => {
     </div>
   );
 }
+
+```
