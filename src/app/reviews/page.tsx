@@ -46,7 +46,7 @@ export default function AllReviewsPage() {
         const reviewsData = await getAllReviewsAction();
         setAllReviews(reviewsData);
       } catch (e) {
-        setError('Impossibile caricare le recensioni.');
+        setError('Impossibile caricare i voti.');
         console.error(e);
       } finally {
         setIsLoading(false);
@@ -128,7 +128,7 @@ export default function AllReviewsPage() {
     return (
       <div className="flex flex-col justify-center items-center min-h-[calc(100vh-200px)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="mt-4 text-lg text-muted-foreground">Caricamento di tutte le recensioni...</p>
+        <p className="mt-4 text-lg text-muted-foreground">Caricamento di tutti i voti...</p>
       </div>
     );
   }
@@ -137,7 +137,7 @@ export default function AllReviewsPage() {
     return (
       <Alert variant="destructive" className="max-w-md mx-auto my-10">
         <Info className="h-4 w-4" />
-        <AlertTitle>Errore nel Caricamento delle Recensioni</AlertTitle>
+        <AlertTitle>Errore nel Caricamento dei Voti</AlertTitle>
         <AlertDescription>{error}</AlertDescription>
       </Alert>
     );
@@ -157,10 +157,10 @@ export default function AllReviewsPage() {
         <CardHeader>
           <CardTitle className="text-2xl sm:text-3xl flex items-center gap-3">
             <MessageSquareText className="h-7 w-7 text-primary" />
-            Sfoglia Tutte le Recensioni
+            Sfoglia Tutti i Voti
           </CardTitle>
           <CardDescription>
-            Esplora tutte le recensioni inviate dagli utenti per l'intera collezione di giochi. Usa i filtri sottostanti per affinare la ricerca.
+            Esplora tutti i voti inviati dagli utenti per l'intera collezione di giochi. Usa i filtri sottostanti per affinare la ricerca.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -234,7 +234,7 @@ export default function AllReviewsPage() {
               <label htmlFor="sort-order" className="block text-sm font-medium text-muted-foreground mb-1">Ordina per</label>
               <Select value={sortOrder} onValueChange={(value) => setSortOrder(value as SortOrder)}>
                 <SelectTrigger id="sort-order" className="w-full">
-                  <SelectValue placeholder="Ordina recensioni" />
+                  <SelectValue placeholder="Ordina voti" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="mostRecent">Più Recenti</SelectItem>
@@ -256,15 +256,15 @@ export default function AllReviewsPage() {
       <Separator />
 
       <div className="mb-4 text-lg font-semibold">
-        Mostrando {filteredAndSortedReviews.length} di {allReviews.length} recensioni
+        Mostrando {filteredAndSortedReviews.length} di {allReviews.length} voti
       </div>
 
       {Object.keys(reviewsByGame).length === 0 ? (
          <Alert variant="default" className="bg-secondary/30 border-secondary">
             <Info className="h-4 w-4" />
-            <AlertTitle>Nessuna Recensione Trovata</AlertTitle>
+            <AlertTitle>Nessun Voto Trovato</AlertTitle>
             <AlertDescription>
-              Nessuna recensione corrisponde ai tuoi criteri di filtro. Prova a modificare i filtri o{' '}
+              Nessun voto corrisponde ai tuoi criteri di filtro. Prova a modificare i filtri o{' '}
               { hasActiveFilters && 
                 <Button variant="link" className="p-0 h-auto inline" onClick={clearFilters}>azzera tutti i filtri</Button>
               }.
@@ -281,7 +281,7 @@ export default function AllReviewsPage() {
                 <CardHeader className="bg-muted/30 p-3 flex flex-row items-center gap-3">
                   <Link href={`/games/${firstReviewForGame.gameId}`} className="flex items-center gap-3 hover:opacity-80 transition-opacity w-full">
                     <div className="relative h-16 w-12 flex-shrink-0 rounded-sm overflow-hidden shadow-sm">
-                      <SafeImage
+                       <SafeImage
                         src={firstReviewForGame.gameCoverArtUrl}
                         fallbackSrc={fallbackGameHeaderSrc}
                         alt={`${firstReviewForGame.gameName || 'Gioco'} copertina`}
@@ -295,7 +295,7 @@ export default function AllReviewsPage() {
                       <h3 className="text-md font-semibold text-primary leading-tight">
                         {firstReviewForGame.gameName}
                       </h3>
-                      <p className="text-xs text-muted-foreground">Vedi Dettagli Gioco</p>
+                       <p className="text-xs text-muted-foreground">Vedi Dettagli Gioco</p>
                     </div>
                   </Link>
                 </CardHeader>

@@ -19,7 +19,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: 'Morchiometro',
-  description: 'Valuta e recensisci i tuoi giochi da tavolo preferiti.',
+  description: 'Valuta e dai un voto ai tuoi giochi da tavolo preferiti.',
 };
 
 const SERVER_DEFAULT_THEME = 'forest-mist';
@@ -28,7 +28,7 @@ const VALID_THEMES_FOR_SCRIPT: Readonly<string[]> = ['violet-dream', 'energetic-
 const NoFlashScript = () => {
   const storageKey = "morchiometro-theme";
   const autoThemeKey = "morchiometro-auto-theme-enabled";
-  const defaultThemeForScript = SERVER_DEFAULT_THEME; // Use the same constant
+  const defaultThemeForScript = SERVER_DEFAULT_THEME; 
   const scriptValidThemes = VALID_THEMES_FOR_SCRIPT;
 
   const scriptContent = `
@@ -42,30 +42,25 @@ const NoFlashScript = () => {
 
   try {
     const storedAutoThemeEnabled = window.localStorage.getItem(localAutoKey);
-    // Default to true if the setting is not found or not explicitly 'false'
     const isAutoEnabled = storedAutoThemeEnabled !== 'false'; 
     const storedTheme = window.localStorage.getItem(localKey);
 
     if (storedTheme && scriptValidThemes.includes(storedTheme)) {
       themeToApply = storedTheme; 
-      // If a theme is explicitly stored, auto mode should be considered off for this initial load logic
-      // The ThemeProvider will handle the switch state later
     } else if (isAutoEnabled) {
       if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
         if (scriptValidThemes.includes('forest-mist-dark')) {
           themeToApply = 'forest-mist-dark';
         } else {
-           themeToApply = scriptDefaultTheme; // Fallback to light default if dark variant not available
+           themeToApply = scriptDefaultTheme; 
         }
       } else {
-        themeToApply = scriptDefaultTheme; // OS prefers light or no preference
+        themeToApply = scriptDefaultTheme; 
       }
     }
-    // If auto is disabled (isAutoEnabled is false) and no explicit theme in localStorage,
-    // it will fall back to scriptDefaultTheme (already set as initial themeToApply).
   } catch (e) { /* ignore localStorage errors */ }
 
-  const allPossibleThemes = ['light', 'dark', ...scriptValidThemes, scriptDefaultTheme];
+  const allPossibleThemes = ['light', 'dark', ...scriptValidThemes, scriptDefaultTheme]; // Include old defaults just in case
   allPossibleThemes.forEach(function(t) {
     if (docEl.classList.contains(t)) {
       docEl.classList.remove(t);

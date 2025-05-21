@@ -15,14 +15,14 @@ import type { User as FirebaseUser } from 'firebase/auth';
 import { CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Slider } from '@/components/ui/slider';
-import { calculateOverallCategoryAverage, calculateGroupedCategoryAverages, calculateCategoryAverages, formatRatingNumber } from '@/lib/utils';
+import { calculateOverallCategoryAverage as calculateGlobalOverallAverage, calculateGroupedCategoryAverages, formatRatingNumber } from '@/lib/utils';
+import { calculateCategoryAverages, calculateOverallCategoryAverage } from '@/lib/utils';
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, doc, updateDoc, query, where, getDocs, limit, writeBatch, getDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { SafeImage } from '@/components/common/SafeImage';
 import { revalidateGameDataAction } from '@/lib/actions';
-import { calculateOverallCategoryAverage as calculateOverallAverageFromUtils, calculateCategoryAverages as calculateCatAvgsFromUtils } from '@/lib/utils'; // Renamed imports
 
 interface RatingSliderInputProps {
   fieldName: RatingCategory;
@@ -37,7 +37,7 @@ const RatingSliderInput: React.FC<RatingSliderInputProps> = ({ fieldName, contro
       control={control}
       name={fieldName}
       render={({ field }) => {
-        const currentFieldValue = Number(field.value);
+        const currentFieldValue = Number(field.value); 
         const sliderValue = useMemo(() => [currentFieldValue], [currentFieldValue]);
 
         return (
@@ -115,7 +115,7 @@ const stepUIDescriptions: Record<number, string> = {
   2: "Come giudichi gli aspetti legati al design del gioco?",
   3: "Valuta l'impatto visivo e l'immersione tematica.",
   4: "Quanto è stato facile apprendere e gestire il gioco?",
-  5: "La tua recensione è stata salvata.\nEcco un riepilogo:",
+  5: "Il tuo voto è stato salvato.\nEcco un riepilogo:",
 };
 
 
@@ -168,13 +168,14 @@ export function MultiStepRatingForm({
         return { id: docSnap.id, ...data, rating } as Review;
       });
 
-      const categoryAvgs = calculateCatAvgsFromUtils(allReviewsForGame); // Use aliased import
-      const newOverallAverage = categoryAvgs ? calculateOverallAverageFromUtils(categoryAvgs) : null; // Use aliased import
+      const categoryAvgs = calculateCategoryAverages(allReviewsForGame);
+      const newOverallAverage = categoryAvgs ? calculateOverallCategoryAverage(categoryAvgs) : null;
+      const newVoteCount = allReviewsForGame.length; 
       
       const gameDocRef = doc(db, "boardgames_collection", gameId);
       await updateDoc(gameDocRef, {
         overallAverageRating: newOverallAverage,
-        reviewCount: allReviewsForGame.length
+        voteCount: newVoteCount 
       });
       await revalidateGameDataAction(gameId);
     } catch (error) {
@@ -204,19 +205,15 @@ export function MultiStepRatingForm({
   });
 
   useEffect(() => {
-    // Reset the form only if the existingReview prop changes (and thus defaultFormValues changes)
-    // and we are not on the summary step.
-    if (currentStep <= totalInputSteps) {
-      form.reset(defaultFormValues);
-    }
-  }, [defaultFormValues, form.reset]); // Removed currentStep and form from dependencies
+    form.reset(defaultFormValues);
+  }, [defaultFormValues, form.reset]); 
 
   const processSubmitAndStay = async (data: RatingFormValues): Promise<boolean> => {
     setFormError(null);
     let submissionSuccess = false;
 
     if (!currentUser) {
-      toast({ title: "Errore", description: "Devi essere loggato per inviare una recensione.", variant: "destructive" });
+      toast({ title: "Errore", description: "Devi essere loggato per inviare un voto.", variant: "destructive" });
       setFormError("Autenticazione richiesta.");
       return false;
     }
@@ -248,8 +245,8 @@ export function MultiStepRatingForm({
       const gameDocSnap = await getDoc(gameDocRef);
 
       if (!gameDocSnap.exists()) {
-        toast({ title: "Errore", description: "Gioco non trovato. Impossibile inviare la recensione.", variant: "destructive" });
-        setFormError("Gioco non trovato. Impossibile inviare la recensione.");
+        toast({ title: "Errore", description: "Gioco non trovato. Impossibile inviare il voto.", variant: "destructive" });
+        setFormError("Gioco non trovato. Impossibile inviare il voto.");
         return false;
       }
 
@@ -259,12 +256,12 @@ export function MultiStepRatingForm({
         const reviewDocRef = doc(reviewsCollectionRef, existingReview.id);
         const reviewSnapshot = await getDoc(reviewDocRef);
         if (!reviewSnapshot.exists() || reviewSnapshot.data()?.userId !== currentUser.uid) {
-           toast({ title: "Errore", description: "Recensione non trovata o non hai i permessi per modificarla.", variant: "destructive" });
-           setFormError("Recensione non trovata o non hai i permessi per modificarla.");
+           toast({ title: "Errore", description: "Voto non trovato o non hai i permessi per modificarlo.", variant: "destructive" });
+           setFormError("Voto non trovato o non hai i permessi per modificarlo.");
            return false;
         }
         await updateDoc(reviewDocRef, reviewData);
-        toast({ title: "Successo!", description: "Recensione aggiornata con successo!", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
+        toast({ title: "Successo!", description: "Voto aggiornato con successo!", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
       } else {
         const existingReviewQuery = query(reviewsCollectionRef, where("userId", "==", currentUser.uid), limit(1));
         const existingReviewSnapshot = await getDocs(existingReviewQuery);
@@ -272,18 +269,18 @@ export function MultiStepRatingForm({
         if (!existingReviewSnapshot.empty) {
            const reviewToUpdateRef = existingReviewSnapshot.docs[0].ref;
            await updateDoc(reviewToUpdateRef, reviewData);
-           toast({ title: "Aggiornato!", description: "La tua recensione esistente è stata aggiornata.", variant: "default", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
+           toast({ title: "Aggiornato!", description: "Il tuo voto esistente è stato aggiornato.", variant: "default", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
         } else {
           await addDoc(reviewsCollectionRef, reviewData);
-          toast({ title: "Successo!", description: "Recensione inviata con successo!", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
+          toast({ title: "Successo!", description: "Voto inviato con successo!", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
         }
       }
       submissionSuccess = true;
       await updateGameOverallRating();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
-      toast({ title: "Errore", description: `Impossibile inviare la recensione: ${errorMessage}`, variant: "destructive" });
-      setFormError(`Impossibile inviare la recensione: ${errorMessage}`);
+      toast({ title: "Errore", description: `Impossibile inviare il voto: ${errorMessage}`, variant: "destructive" });
+      setFormError(`Impossibile inviare il voto: ${errorMessage}`);
       submissionSuccess = false;
     }
     return submissionSuccess;
@@ -359,7 +356,7 @@ export function MultiStepRatingForm({
     onReviewSubmitted();
   };
 
-  const yourOverallAverage = calculateOverallAverageFromUtils(form.getValues());
+  const yourOverallAverage = calculateGlobalOverallAverage(form.getValues());
 
   return (
     <Form {...form}>
@@ -503,7 +500,7 @@ export function MultiStepRatingForm({
                 ) : currentStep === totalInputSteps ? (
                 <Button type="button" onClick={handleStep4Submit} disabled={isSubmitting} className="bg-accent hover:bg-accent/90 text-accent-foreground">
                     {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    {existingReview ? 'Aggiorna Recensione' : 'Invia Recensione'}
+                    {existingReview ? 'Aggiorna Voto' : 'Invia Voto'}
                 </Button>
                 ) : currentStep === totalDisplaySteps ? (
                 <Button type="button" onClick={handleFinish} className="bg-primary hover:bg-primary/90 text-primary-foreground">

@@ -77,7 +77,7 @@ export interface BoardGame {
   maxPlaytime?: number | null;
   averageWeight?: number | null;
   overallAverageRating?: number | null;
-  reviewCount?: number;
+  voteCount?: number; // Changed from reviewCount
   isPinned?: boolean;
   mechanics?: string[];
   categories?: string[];
@@ -90,8 +90,17 @@ export interface BoardGame {
   lctr01PlayDetails?: BggPlayDetail[];
 }
 
-export interface AiSummary {
-  summary: string;
+export interface SectionAverage {
+  sectionTitle: string;
+  iconName?: string;
+  sectionAverage: number;
+  subRatings: SubRatingAverage[];
+}
+export type GroupedCategoryAverages = SectionAverage[];
+
+export interface SubRatingAverage {
+  name: string;
+  average: number;
 }
 
 export interface BggSearchResult {
@@ -100,18 +109,6 @@ export interface BggSearchResult {
   yearPublished?: number;
   rank: number;
 }
-
-export interface SubRatingAverage {
-  name: string;
-  average: number;
-}
-export interface SectionAverage {
-  sectionTitle: string;
-  iconName?: string;
-  sectionAverage: number;
-  subRatings: SubRatingAverage[];
-}
-export type GroupedCategoryAverages = SectionAverage[];
 
 export interface UserProfile {
   id: string;
@@ -148,3 +145,18 @@ export interface AugmentedBggPlayDetail extends BggPlayDetail {
   gameName: string;
   gameCoverArtUrl?: string | null;
 }
+
+// For AI Flow: recommend-games.ts
+export type CatalogGame = { id: string, name: string };
+export type RecommendGamesInput = {
+  referenceGameName: string;
+  catalogGames: CatalogGame[];
+};
+export type RecommendedGame = {
+  id: string;
+  name: string;
+  reason: string;
+};
+export type RecommendGamesOutput = {
+  recommendations: RecommendedGame[];
+};

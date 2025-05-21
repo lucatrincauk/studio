@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter }
 from 'next/navigation';
-import { getUserDetailsAndReviewsAction, getFavoritedGamesForUserAction, getPlaylistedGamesForUserAction } from '@/lib/actions'; // Renamed action
+import { getUserDetailsAndReviewsAction, getFavoritedGamesForUserAction, getPlaylistedGamesForUserAction } from '@/lib/actions'; 
 import type { AugmentedReview, UserProfile, BoardGame } from '@/lib/types';
 import { ReviewItem } from '@/components/boardgame/review-item';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -30,12 +30,12 @@ export default function UserDetailPage() {
   const [viewedUser, setViewedUser] = useState<UserProfile | null>(null);
   const [userReviews, setUserReviews] = useState<AugmentedReview[]>([]);
   const [favoritedGames, setFavoritedGames] = useState<BoardGame[]>([]);
-  const [playlistedGames, setPlaylistedGames] = useState<BoardGame[]>([]); // Renamed from wishlistedGames
+  const [playlistedGames, setPlaylistedGames] = useState<BoardGame[]>([]); 
   
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [isLoadingReviews, setIsLoadingReviews] = useState(true);
   const [isLoadingFavorites, setIsLoadingFavorites] = useState(true);
-  const [isLoadingPlaylist, setIsLoadingPlaylist] = useState(true); // Renamed from isLoadingWishlist
+  const [isLoadingPlaylist, setIsLoadingPlaylist] = useState(true); 
   const [error, setError] = useState<string | null>(null);
 
   const fetchUserData = useCallback(async () => {
@@ -44,14 +44,14 @@ export default function UserDetailPage() {
     setIsLoadingProfile(true);
     setIsLoadingReviews(true);
     setIsLoadingFavorites(true);
-    setIsLoadingPlaylist(true); // Renamed
+    setIsLoadingPlaylist(true); 
     setError(null);
 
     try {
-      const [profileAndReviewsData, favData, playlistData] = await Promise.all([ // Renamed from wishData
+      const [profileAndReviewsData, favData, playlistData] = await Promise.all([ 
         getUserDetailsAndReviewsAction(userId),
         getFavoritedGamesForUserAction(userId),
-        getPlaylistedGamesForUserAction(userId) // Renamed action
+        getPlaylistedGamesForUserAction(userId) 
       ]);
 
       if (profileAndReviewsData.user) {
@@ -66,16 +66,15 @@ export default function UserDetailPage() {
       setFavoritedGames(favData);
       setIsLoadingFavorites(false);
       
-      setPlaylistedGames(playlistData); // Renamed
-      setIsLoadingPlaylist(false); // Renamed
+      setPlaylistedGames(playlistData); 
+      setIsLoadingPlaylist(false); 
 
     } catch (e) {
-      // console.error("Failed to fetch user data:", e);
       setError('Impossibile caricare i dati dell\'utente.');
       setIsLoadingProfile(false);
       setIsLoadingReviews(false);
       setIsLoadingFavorites(false);
-      setIsLoadingPlaylist(false); // Renamed
+      setIsLoadingPlaylist(false); 
     }
   }, [userId]);
 
@@ -137,7 +136,7 @@ export default function UserDetailPage() {
               {viewedUser.name}
             </CardTitle>
             <div className="text-sm text-muted-foreground mt-1.5 space-y-0.5">
-                <p>{userReviews.length} {userReviews.length === 1 ? 'Recensione Inviata' : 'Recensioni Inviate'}</p>
+                <p>{userReviews.length} {userReviews.length === 1 ? 'Voto Inviato' : 'Voti Inviati'}</p>
                 {averageScoreGiven !== null && (
                     <p className="flex items-center justify-center sm:justify-start gap-1">
                         <Star className="h-4 w-4 text-accent fill-accent" />
@@ -154,7 +153,7 @@ export default function UserDetailPage() {
       <section>
          <h2 className="text-2xl font-semibold mb-4 text-foreground flex items-center gap-3">
             <MessageSquareText className="h-6 w-6 text-primary" />
-            Tutte le Recensioni di {viewedUser.name} ({userReviews.length})
+            Tutti i Voti di {viewedUser.name} ({userReviews.length})
         </h2>
         {isLoadingReviews ? (
            <div className="flex justify-center py-4"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
@@ -186,9 +185,9 @@ export default function UserDetailPage() {
         ) : (
           <Alert variant="default" className="bg-secondary/30 border-secondary">
             <Gamepad2 className="h-4 w-4" />
-            <AlertTitle>Nessuna Recensione</AlertTitle>
+            <AlertTitle>Nessun Voto</AlertTitle>
             <AlertDescription>
-              {viewedUser.name} non ha ancora inviato recensioni.
+              {viewedUser.name} non ha ancora inviato voti.
             </AlertDescription>
           </Alert>
         )}
@@ -219,21 +218,20 @@ export default function UserDetailPage() {
       <section>
         <h2 className="text-2xl font-semibold mb-6 text-foreground flex items-center gap-2">
           <ListChecks className="h-6 w-6 text-sky-500" />
-          Playlist di {viewedUser.name} ({playlistedGames.length}) {/* Renamed */}
+          Playlist di {viewedUser.name} ({playlistedGames.length}) 
         </h2>
-        {isLoadingPlaylist ? ( // Renamed
+        {isLoadingPlaylist ? ( 
           <div className="flex justify-center py-4"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
-        ) : playlistedGames.length > 0 ? ( // Renamed
+        ) : playlistedGames.length > 0 ? ( 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {playlistedGames.map((game, index) => ( // Renamed
+            {playlistedGames.map((game, index) => ( 
               <GameCard key={game.id} game={game} variant="featured" priority={index < 5} showOverlayText={true} />
             ))}
           </div>
         ) : (
-          <p className="text-muted-foreground">La playlist di {viewedUser.name} è vuota.</p> // Updated text
+          <p className="text-muted-foreground">La playlist di {viewedUser.name} è vuota.</p> 
         )}
       </section>
     </div>
   );
 }
-

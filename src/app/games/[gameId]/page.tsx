@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useTransition, useCallback, use, useMemo } from 'react';
 import Link from 'next/link';
-import { getGameDetails, revalidateGameDataAction, fetchUserPlaysForGameFromBggAction, fetchAndUpdateBggGameDetailsAction, getAllGamesAction } from '@/lib/actions';
+import { getGameDetails, revalidateGameDataAction, fetchUserPlaysForGameFromBggAction, fetchAndUpdateBggGameDetailsAction } from '@/lib/actions';
 import { recommendGames } from '@/ai/flows/recommend-games';
 import type { BoardGame, Review, Rating as RatingType, GroupedCategoryAverages, BggPlayDetail, BggPlayerInPlay, RecommendedGame as AIRecommendedGame } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -160,7 +160,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     }
   }, [game, currentUser]);
 
-  const updateGameOverallRating = useCallback(async () => {
+  const updateGameOverallRatingAfterDelete = useCallback(async () => {
     if (!game) return;
     try {
       const reviewsCollectionRef = collection(db, FIRESTORE_COLLECTION_NAME, game.id, 'reviews');
@@ -185,15 +185,15 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
       const categoryAvgs = calculateCatAvgsFromUtils(allReviewsForGame);
       const newOverallAverage = categoryAvgs ? calculateGlobalOverallAverage(categoryAvgs) : null;
-      const newReviewCount = allReviewsForGame.length;
+      const newVoteCount = allReviewsForGame.length; // Changed from reviewCount
       
       const gameDocRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
       await updateDoc(gameDocRef, {
         overallAverageRating: newOverallAverage,
-        reviewCount: newReviewCount
+        voteCount: newVoteCount // Changed from reviewCount
       });
       
-      revalidateGameDataAction(game.id);
+      await revalidateGameDataAction(game.id);
       fetchGameData(); 
     } catch (error) {
       console.error("Errore durante l'aggiornamento del punteggio medio del gioco:", error);
@@ -204,7 +204,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
   const confirmDeleteUserReview = async () => {
     setShowDeleteConfirmDialog(false);
     if (!currentUser || !userReview?.id || !gameId) {
-      toast({ title: "Errore", description: "Impossibile eliminare la recensione. Utente o recensione non trovati.", variant: "destructive" });
+      toast({ title: "Errore", description: "Impossibile eliminare il voto. Utente o voto non trovati.", variant: "destructive" });
       return;
     }
 
@@ -212,12 +212,11 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       try {
         const reviewDocRef = doc(db, FIRESTORE_COLLECTION_NAME, gameId, 'reviews', userReview.id);
         await deleteDoc(reviewDocRef);
-        await updateGameOverallRating(); 
-        // fetchGameData(); // No longer needed here, updateGameOverallRating calls it
-        toast({ title: "Recensione Eliminata", description: "La tua recensione è stata eliminata con successo." });
+        await updateGameOverallRatingAfterDelete(); 
+        toast({ title: "Voto Eliminato", description: "Il tuo voto è stato eliminato con successo." });
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
-        toast({ title: "Errore", description: `Impossibile eliminare la recensione: ${errorMessage}`, variant: "destructive" });
+        toast({ title: "Errore", description: `Impossibile eliminare il voto: ${errorMessage}`, variant: "destructive" });
       }
     });
   };
@@ -237,7 +236,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `Il gioco è stato ${newPinStatus ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
         });
         setGame(prevGame => prevGame ? { ...prevGame, isPinned: newPinStatus } : null);
-        revalidateGameDataAction(game.id);
+        await revalidateGameDataAction(game.id);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({
@@ -300,7 +299,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `${game.name} è stato ${newFavoritedStatus ? 'aggiunto ai' : 'rimosso dai'} tuoi preferiti.`,
         });
 
-        revalidateGameDataAction(game.id);
+        await revalidateGameDataAction(game.id);
 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Impossibile aggiornare i preferiti.";
@@ -352,7 +351,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `${game.name} è stato ${newPlaylistedStatus ? 'aggiunto alla' : 'rimosso dalla'} tua playlist.`,
         });
 
-        revalidateGameDataAction(game.id);
+        await revalidateGameDataAction(game.id);
 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Impossibile aggiornare la playlist.";
@@ -384,7 +383,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
         await updateDoc(gameRef, serverActionResult.updateData);
         toast({ title: 'Dettagli Aggiornati', description: `Dettagli per ${game.name} aggiornati con successo.` });
-        revalidateGameDataAction(game.id);
+        await revalidateGameDataAction(game.id);
         await fetchGameData();
       } catch (dbError) {
         const errorMessage = dbError instanceof Error ? dbError.message : "Errore sconosciuto durante l'aggiornamento del DB.";
@@ -434,7 +433,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                   title: "Partite Caricate e Salvate",
                   description: bggFetchResult.message || `Caricate e salvate ${playsToSave.length} partite per ${game.name} da BGG per ${usernameToFetch}. Conteggio aggiornato.`,
               });
-              revalidateGameDataAction(game.id);
+              await revalidateGameDataAction(game.id);
               await fetchGameData(); 
           } catch (dbError) {
               const errorMessage = dbError instanceof Error ? dbError.message : "Impossibile salvare le partite nel database.";
@@ -447,7 +446,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           });
           try {
               await updateDoc(gameRef, { lctr01Plays: 0 });
-              revalidateGameDataAction(game.id);
+              await revalidateGameDataAction(game.id);
               await fetchGameData();
           } catch (dbError) {
                // Silently ignore if update to 0 fails
@@ -463,13 +462,8 @@ const handleGenerateRecommendations = async () => {
 
     startFetchingRecommendationsTransition(async () => {
       try {
-        const allGamesResult = await getAllGamesAction(); 
-        if ('error' in allGamesResult) {
-          setRecommendationError(allGamesResult.error);
-          toast({ title: "Errore nel Caricamento del Catalogo", description: allGamesResult.error, variant: "destructive" });
-          return;
-        }
-        const catalogGamesForAI = allGamesResult.map(g => ({ id: g.id, name: g.name }));
+        const allGamesCollection = await getDocs(collection(db, FIRESTORE_COLLECTION_NAME));
+        const catalogGamesForAI = allGamesCollection.docs.map(doc => ({ id: doc.id, name: doc.data().name as string }));
 
         const result = await recommendGames({
           referenceGameName: game.name,
@@ -589,7 +583,7 @@ const handleGenerateRecommendations = async () => {
             {/* Main header: Title, Icons, Score */}
              <div className="flex justify-between items-start mb-2">
                 <div className="flex-1 flex flex-col sm:flex-row sm:items-center sm:gap-1 min-w-0 mr-2">
-                  <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
+                  <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground flex items-center gap-1">
                     {game.name}
                     {game.bggId > 0 && (
                       <a
@@ -597,7 +591,7 @@ const handleGenerateRecommendations = async () => {
                         target="_blank"
                         rel="noopener noreferrer"
                         title="Vedi su BoardGameGeek"
-                        className="inline-flex items-center text-primary hover:text-primary/80 focus:outline-none focus:ring-2 focus:ring-ring rounded-md p-0.5 ml-1"
+                        className="inline-flex items-center text-primary hover:text-primary/80 focus:outline-none focus:ring-2 focus:ring-ring rounded-md p-0.5"
                       >
                         <ExternalLink size={16} className="h-4 w-4" />
                       </a>
@@ -605,11 +599,11 @@ const handleGenerateRecommendations = async () => {
                   </h1>
                 </div>
                 <div className="flex-shrink-0 flex flex-col items-end">
-                    {globalGameAverage !== null && (
+                    {globalGameAverage !== null ? (
                     <span className="text-primary text-3xl md:text-4xl font-bold whitespace-nowrap">
                         {formatRatingNumber(globalGameAverage * 2)}
                     </span>
-                    )}
+                    ) : (<span className="text-primary text-3xl md:text-4xl font-bold whitespace-nowrap"></span>) }
                     {currentUser && (
                     <div className="flex items-center gap-0.5 mt-1">
                         <Button
@@ -759,7 +753,7 @@ const handleGenerateRecommendations = async () => {
             
             {/* Average Ratings Section */}
             <div className={cn("w-full pt-4 border-t border-border mt-4", !(game.reviews && game.reviews.length > 0) && "border-none pt-0")}>
-              {game.reviews && game.reviews.length > 0 && (
+              {(game.reviews && game.reviews.length > 0) && (
                 <>
                     <h3 className="text-lg font-semibold text-foreground mb-3">Valutazione Media:</h3>
                     <GroupedRatingsDisplay
@@ -892,7 +886,7 @@ const handleGenerateRecommendations = async () => {
             userReview ? (
               <div className="mt-4"> 
                 <div className="flex justify-between items-center gap-2 mb-4">
-                  <h3 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h3>
+                  <h3 className="text-xl font-semibold text-foreground mr-2 flex-grow">Il Tuo Voto</h3>
                   <div className="flex items-center gap-2 flex-shrink-0">
                       <Button asChild size="sm">
                          <Link href={`/games/${gameId}/rate`}>
@@ -915,7 +909,7 @@ const handleGenerateRecommendations = async () => {
                           <AlertDialogHeader>
                           <AlertDialogTitle>Sei sicuro?</AlertDialogTitle>
                           <AlertDialogDescription>
-                              Questa azione non può essere annullata. Eliminerà permanentemente la tua recensione per {game.name}.
+                              Questa azione non può essere annullata. Eliminerà permanentemente il tuo voto per {game.name}.
                           </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
@@ -950,7 +944,7 @@ const handleGenerateRecommendations = async () => {
                   <Alert variant="default" className="bg-secondary/30 border-secondary">
                   <Info className="h-4 w-4 text-secondary-foreground" />
                   <AlertDescription className="text-secondary-foreground">
-                      <Link href={`/signin?redirect=/games/${gameId}/rate`} className="font-semibold underline">Accedi</Link> per aggiungere una recensione.
+                      <Link href={`/signin?redirect=/games/${gameId}/rate`} className="font-semibold underline">Accedi</Link> per dare un voto.
                   </AlertDescription>
                   </Alert>
           )}
@@ -960,7 +954,7 @@ const handleGenerateRecommendations = async () => {
               <Separator className="my-6" />
               <h2 className="text-2xl font-semibold text-foreground mb-6 flex items-center gap-2">
               <MessageSquare className="h-6 w-6 text-primary"/>
-              {userReview ? `Altre Recensioni (${remainingReviews.length})` : `Recensioni (${remainingReviews.length})`}
+              {userReview ? `Altri Voti (${remainingReviews.length})` : `Voti (${remainingReviews.length})`}
               </h2>
               <ReviewList reviews={remainingReviews} />
           </>
@@ -970,7 +964,7 @@ const handleGenerateRecommendations = async () => {
           <Alert variant="default" className="mt-6 bg-secondary/30 border-secondary">
               <Info className="h-4 w-4 text-secondary-foreground" />
               <AlertDescription className="text-secondary-foreground">
-              Nessun altro ha ancora recensito questo gioco.
+              Nessun altro ha ancora dato un voto a questo gioco.
               </AlertDescription>
           </Alert>
           )}
@@ -979,7 +973,7 @@ const handleGenerateRecommendations = async () => {
           <Alert variant="default" className="mt-6 bg-secondary/30 border-secondary">
               <Info className="h-4 w-4 text-secondary-foreground" />
               <AlertDescription className="text-secondary-foreground">
-              Nessuna recensione ancora per questo gioco.
+              Nessun voto ancora per questo gioco.
               </AlertDescription>
           </Alert>
           )}
@@ -1041,5 +1035,3 @@ const handleGenerateRecommendations = async () => {
     </div>
   );
 }
-
-    

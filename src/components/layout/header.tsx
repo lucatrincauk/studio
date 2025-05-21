@@ -80,7 +80,7 @@ export function Header() {
     { href: "/top-10", label: "Top 10", icon: <TrendingUp size={18} /> },
     { href: "/all-games", label: "Catalogo", icon: <Library size={18} /> },
     { href: "/users", label: "Utenti", icon: <Users2 size={18} /> },
-    { href: "/reviews", label: "Recensioni", icon: <MessagesSquare size={18} /> },
+    { href: "/reviews", label: "Voti", icon: <MessagesSquare size={18} /> },
     { href: "/plays", label: "Partite", icon: <Dices size={18} /> },
   ];
 
@@ -88,8 +88,9 @@ export function Header() {
     if (term.length < 2) {
       setSearchResults([]);
       setIsSearching(false);
-      setIsDesktopPopoverOpen(false);
-      setIsMobilePopoverOpen(false);
+      // Keep popovers open if search term is too short but input is focused
+      if(desktopSearchInputRef.current && desktopSearchInputRef.current !== document.activeElement) setIsDesktopPopoverOpen(false);
+      if(mobileSearchInputRef.current && mobileSearchInputRef.current !== document.activeElement) setIsMobilePopoverOpen(false);
       return;
     }
     setIsSearching(true);
@@ -102,24 +103,19 @@ export function Header() {
       setIsMobilePopoverOpen(false);
     } else {
       setSearchResults(result);
-      if (result.length > 0) {
-        if (desktopSearchInputRef.current && desktopSearchInputRef.current === document.activeElement && !isMobileSheetOpen) {
-            setIsDesktopPopoverOpen(true);
-        }
-        if (mobileSearchInputRef.current && mobileSearchInputRef.current === document.activeElement && isMobileSheetOpen) {
-            setIsMobilePopoverOpen(true);
-        }
-      } else {
-        // Still show "no results" in popover if term is long enough and input is focused
+      const hasResults = result.length > 0;
+      const shouldShowDesktopPopover = hasResults && desktopSearchInputRef.current && desktopSearchInputRef.current === document.activeElement && !isMobileSheetOpen;
+      const shouldShowMobilePopover = hasResults && mobileSearchInputRef.current && mobileSearchInputRef.current === document.activeElement && isMobileSheetOpen;
+      
+      setIsDesktopPopoverOpen(shouldShowDesktopPopover);
+      setIsMobilePopoverOpen(shouldShowMobilePopover);
+
+      if (!hasResults) {
         if (desktopSearchInputRef.current && desktopSearchInputRef.current === document.activeElement && term.length >=2 && !isMobileSheetOpen) {
-            setIsDesktopPopoverOpen(true); 
-        } else {
-            setIsDesktopPopoverOpen(false);
+          setIsDesktopPopoverOpen(true); 
         }
         if (mobileSearchInputRef.current && mobileSearchInputRef.current === document.activeElement && term.length >=2 && isMobileSheetOpen) {
-            setIsMobilePopoverOpen(true);
-        } else {
-            setIsMobilePopoverOpen(false);
+          setIsMobilePopoverOpen(true);
         }
       }
     }
@@ -375,7 +371,6 @@ export function Header() {
                         </SheetClose>
                     ))}
                   </nav>
-                  {/* Mobile auth block removed from here as per previous request */}
                 </SheetContent>
               </Sheet>
             </div> 
@@ -403,5 +398,3 @@ export function Header() {
     </div>
   );
 }
-
-

@@ -7,18 +7,19 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Link from 'next/link';
 import { formatRatingNumber } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
 
 export default async function Top10Page() {
   const allGames = await getAllGamesAction();
 
-  const topRatedGames = [...allGames] // Create a copy to avoid modifying the original
+  const topRatedGames = [...allGames] 
     .filter(game => game.overallAverageRating !== null && game.overallAverageRating !== undefined)
     .sort((a, b) => (b.overallAverageRating ?? 0) - (a.overallAverageRating ?? 0))
     .slice(0, 10);
 
-  const mostReviewedGames = [...allGames] // Create a copy
-    .filter(game => typeof game.reviewCount === 'number' && game.reviewCount > 0)
-    .sort((a, b) => (b.reviewCount ?? 0) - (a.reviewCount ?? 0))
+  const mostReviewedGames = [...allGames] 
+    .filter(game => typeof game.voteCount === 'number' && game.voteCount > 0) // Changed from reviewCount
+    .sort((a, b) => (b.voteCount ?? 0) - (a.voteCount ?? 0)) // Changed from reviewCount
     .slice(0, 10);
 
   return (
@@ -47,15 +48,23 @@ export default async function Top10Page() {
               {topRatedGames.map((game, index) => (
                 <div
                   key={`top-rated-${game.id}`}
-                  className="relative flex items-center gap-x-3 sm:gap-x-4 p-3 rounded-lg bg-[#f9fbf9] hover:bg-muted/50 transition-colors border border-border overflow-hidden"
+                  className="relative flex items-center gap-x-3 sm:gap-x-4 p-3 rounded-lg bg-card hover:bg-muted/50 transition-colors border border-border overflow-hidden"
                 >
-                  <span
+                   <span
                     aria-hidden="true"
-                    className="absolute -right-[30px] -bottom-[55px] text-[255px] sm:-right-[30px] sm:-bottom-[65px] sm:text-[300px] lg:-right-[36px] lg:-bottom-[75px] lg:text-[340px] font-bold text-muted-foreground/10 pointer-events-none select-none leading-none z-0"
+                    className={cn(
+                        "absolute z-0 font-bold text-muted-foreground/10 pointer-events-none select-none leading-none",
+                        "-bottom-[55px] -right-[30px] text-[255px]",
+                        "sm:-bottom-[65px] sm:-right-[30px] sm:text-[300px]",
+                        "lg:-bottom-[75px] lg:-right-[36px] lg:text-[340px]"
+                    )}
                   >
                     {index + 1}
                   </span>
-                  <div className="relative z-10 flex items-center gap-x-3 sm:gap-x-4 flex-grow mr-6 sm:mr-8 lg:mr-10">
+                  <div className={cn(
+                      "relative z-10 flex items-center gap-x-3 sm:gap-x-4 flex-grow",
+                      "mr-5 sm:mr-8 lg:mr-10" 
+                    )}>
                     <div className="w-24 sm:w-28 md:w-32 flex-shrink-0">
                       <GameCard game={game} variant="featured" priority={index < 5} showOverlayText={false} />
                     </div>
@@ -76,9 +85,9 @@ export default async function Top10Page() {
                             {formatRatingNumber(game.overallAverageRating * 2)}
                           </p>
                         )}
-                        {game.reviewCount !== null && typeof game.reviewCount === 'number' && (
+                        {game.voteCount !== null && typeof game.voteCount === 'number' && ( // Changed from reviewCount
                           <p className="text-xs text-muted-foreground">
-                            {game.reviewCount} {game.reviewCount === 1 ? 'recensione' : 'recensioni'}
+                            {game.voteCount} {game.voteCount === 1 ? 'voto' : 'voti'} 
                           </p>
                         )}
                       </div>
@@ -97,19 +106,19 @@ export default async function Top10Page() {
         <CardHeader>
           <CardTitle className="text-2xl sm:text-3xl flex items-center gap-3">
             <MessageSquareText className="h-7 w-7 text-primary" />
-            Top 10 Giochi Più Recensiti
+            Top 10 Giochi con Più Voti
           </CardTitle>
           <CardDescription>
-            Scopri i giochi da tavolo che hanno generato più discussioni e recensioni.
+            Scopri i giochi da tavolo che hanno generato più discussioni e voti.
           </CardDescription>
         </CardHeader>
         <CardContent>
           {mostReviewedGames.length === 0 ? (
             <Alert variant="default" className="bg-secondary/30 border-secondary">
               <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Nessun Gioco Recensito</AlertTitle>
+              <AlertTitle>Nessun Gioco con Voti</AlertTitle>
               <AlertDescription>
-                Non ci sono ancora recensioni per mostrare questa classifica.
+                Non ci sono ancora voti per mostrare questa classifica.
               </AlertDescription>
             </Alert>
           ) : (
@@ -117,15 +126,23 @@ export default async function Top10Page() {
               {mostReviewedGames.map((game, index) => (
                 <div
                   key={`most-reviewed-${game.id}`}
-                  className="relative flex items-center gap-x-3 sm:gap-x-4 p-3 rounded-lg bg-[#f9fbf9] hover:bg-muted/50 transition-colors border border-border overflow-hidden"
+                  className="relative flex items-center gap-x-3 sm:gap-x-4 p-3 rounded-lg bg-card hover:bg-muted/50 transition-colors border border-border overflow-hidden"
                 >
                    <span 
                     aria-hidden="true"
-                    className="absolute -right-[30px] -bottom-[55px] text-[255px] sm:-right-[30px] sm:-bottom-[65px] sm:text-[300px] lg:-right-[36px] lg:-bottom-[75px] lg:text-[340px] font-bold text-muted-foreground/10 pointer-events-none select-none leading-none z-0"
+                    className={cn(
+                        "absolute z-0 font-bold text-muted-foreground/10 pointer-events-none select-none leading-none",
+                        "-bottom-[55px] -right-[30px] text-[255px]",
+                        "sm:-bottom-[65px] sm:-right-[30px] sm:text-[300px]",
+                        "lg:-bottom-[75px] lg:-right-[36px] lg:text-[340px]"
+                    )}
                   >
                     {index + 1}
                   </span>
-                  <div className="relative z-10 flex items-center gap-x-3 sm:gap-x-4 flex-grow mr-6 sm:mr-8 lg:mr-10">
+                  <div className={cn(
+                      "relative z-10 flex items-center gap-x-3 sm:gap-x-4 flex-grow",
+                      "mr-5 sm:mr-8 lg:mr-10"
+                    )}>
                     <div className="w-24 sm:w-28 md:w-32 flex-shrink-0">
                       <GameCard game={game} variant="featured" priority={index < 5} showOverlayText={false} />
                     </div>
@@ -141,13 +158,13 @@ export default async function Top10Page() {
                         )}
                       </Link>
                       <div className="text-right ml-2 flex-shrink-0">
-                        {game.reviewCount !== null && typeof game.reviewCount === 'number' && (
+                        {game.voteCount !== null && typeof game.voteCount === 'number' && ( // Changed from reviewCount
                           <p className="text-xl sm:text-2xl font-bold text-primary">
-                            {game.reviewCount}
+                            {game.voteCount}
                           </p>
                         )}
                         <p className="text-xs text-muted-foreground">
-                           {game.reviewCount === 1 ? 'Recensione' : 'Recensioni'}
+                           {game.voteCount === 1 ? 'Voto' : 'Voti'} 
                         </p>
                       </div>
                     </div>
@@ -162,4 +179,4 @@ export default async function Top10Page() {
   );
 }
 
-export const revalidate = 3600; // Revalidate every hour
+export const revalidate = 3600; 

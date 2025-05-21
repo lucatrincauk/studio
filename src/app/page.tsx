@@ -42,7 +42,7 @@ export default async function HomePage() {
 
 
   const topRatedGames = allGames
-    .filter(game => game.overallAverageRating !== null && game.overallAverageRating !== undefined && typeof game.overallAverageRating === 'number' && game.reviewCount !== undefined && game.reviewCount >= 0)
+    .filter(game => game.overallAverageRating !== null && game.overallAverageRating !== undefined && typeof game.overallAverageRating === 'number' && game.voteCount !== undefined && game.voteCount >= 0) // Changed from reviewCount
     .sort((a, b) => (b.overallAverageRating ?? -Infinity) - (a.overallAverageRating ?? -Infinity))
     .slice(0, 10);
 
@@ -54,12 +54,12 @@ export default async function HomePage() {
             Benvenuto su Morchiometro!
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-6">
-            Scopri, valuta e recensisci un mondo di avventure da tavolo.
+            Scopri, valuta e dai un voto ai tuoi giochi da tavolo preferiti.
           </p>
           <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground text-lg px-8 py-6 rounded-lg shadow-md hover:shadow-lg transition-all duration-300">
             <Link href="/rate-a-game/select-game">
               <Edit className="mr-2 h-5 w-5" />
-              Valuta un Gioco
+              Dai un Voto
             </Link>
           </Button>
         </div>
@@ -185,9 +185,9 @@ export default async function HomePage() {
                     aria-hidden="true"
                     className={cn(
                       "absolute z-0 font-bold text-muted-foreground/10 pointer-events-none select-none leading-none",
-                      "-bottom-[55px] -right-[30px] text-[255px]", // Default (mobile)
-                      "sm:-bottom-[65px] sm:-right-[30px] sm:text-[300px]", // Small screens
-                      "lg:-bottom-[75px] lg:-right-[36px] lg:text-[340px]" // Large screens
+                      "-bottom-[55px] -right-[30px] text-[255px]", 
+                      "sm:-bottom-[65px] sm:-right-[30px] sm:text-[300px]", 
+                      "lg:-bottom-[75px] lg:-right-[36px] lg:text-[340px]" 
                     )}
                   >
                     {index + 1}
@@ -214,9 +214,9 @@ export default async function HomePage() {
                             {formatRatingNumber(game.overallAverageRating * 2)}
                           </p>
                         )}
-                        {game.reviewCount !== null && typeof game.reviewCount === 'number' && (
+                        {game.voteCount !== null && typeof game.voteCount === 'number' && ( // Changed from reviewCount
                           <p className="text-xs text-muted-foreground">
-                            {game.reviewCount} {game.reviewCount === 1 ? 'recensione' : 'recensioni'}
+                            {game.voteCount} {game.voteCount === 1 ? 'voto' : 'voti'}
                           </p>
                         )}
                       </div>
@@ -234,7 +234,7 @@ export default async function HomePage() {
               <Info className="h-4 w-4" />
               <AlertTitle>Catalogo in Costruzione!</AlertTitle>
               <AlertDescription>
-                Non ci sono ancora giochi in evidenza, nella top 10, o partite registrate. Torna più tardi o inizia ad aggiungere giochi e valutazioni tramite la sezione Admin!
+                Non ci sono ancora giochi in evidenza, nella top 10, o partite registrate. Torna più tardi o inizia ad aggiungere giochi e voti tramite la sezione Admin!
               </AlertDescription>
             </Alert>
         )}
