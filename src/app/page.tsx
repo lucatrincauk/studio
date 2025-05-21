@@ -181,15 +181,14 @@ export default async function HomePage() {
                     aria-hidden="true"
                     className={cn(
                       "absolute font-bold text-muted-foreground/10 pointer-events-none select-none leading-none z-0",
-                      // Responsive positioning and font size for the rank number
-                      "text-[255px] -bottom-[55px] -right-[30px]", // Default mobile
-                      "sm:text-[300px] sm:-bottom-[65px] sm:-right-[30px]", // Small screens
-                      "lg:text-[340px] lg:-bottom-[75px] lg:-right-[36px]" // Large screens
+                      "-right-[30px] -bottom-[55px] text-[255px]",
+                      "sm:-right-[30px] sm:-bottom-[65px] sm:text-[300px]",
+                      "lg:-right-[36px] lg:-bottom-[75px] lg:text-[340px]"
                     )}
                   >
                     {index + 1}
                   </span>
-                  {/* Container for GameCard and Textual Details */}
+                  {/* Game content: image and text */}
                   <div className={cn(
                       "relative z-10 flex items-center gap-x-3 sm:gap-x-4 flex-grow",
                        // Responsive right margin to make space for the large background number
