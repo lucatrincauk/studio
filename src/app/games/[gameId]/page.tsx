@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useTransition, useCallback, use } from 'react';
 import Link from 'next/link';
-import { getGameDetails, revalidateGameDataAction, fetchGamePlaysFromBggAction, fetchAndUpdateBggGameDetailsAction } from '@/lib/actions';
+import { getGameDetails, revalidateGameDataAction, fetchGamePlaysFromBggAction } from '@/lib/actions';
 import type { BoardGame, AiSummary, Review, Rating as RatingType, GroupedCategoryAverages, BggPlayDetail } from '@/lib/types';
 import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
@@ -246,7 +246,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `Il gioco è stato ${newPinStatus ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
         });
         await revalidateGameDataAction(game.id);
-        // No need to call fetchGameData here for just pin, as local state and revalidate action should suffice
         setGame(prevGame => prevGame ? { ...prevGame, isPinned: newPinStatus } : null);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
@@ -376,15 +375,15 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
     setIsFetchingDetailsFor(game.id);
     startBggDetailsFetchTransition(async () => {
-      const bggFetchResult = await fetchAndUpdateBggGameDetailsAction(game.bggId);
+      const serverActionResult = await fetchAndUpdateBggGameDetailsAction(game.bggId);
 
-      if (!bggFetchResult.success || !bggFetchResult.updateData) {
-        toast({ title: 'Errore Recupero Dati BGG', description: bggFetchResult.error || 'Impossibile recuperare dati da BGG.', variant: 'destructive' });
+      if (!serverActionResult.success || !serverActionResult.updateData) {
+        toast({ title: 'Errore Recupero Dati BGG', description: serverActionResult.error || 'Impossibile recuperare dati da BGG.', variant: 'destructive' });
         setIsFetchingDetailsFor(null);
         return;
       }
 
-      if (Object.keys(bggFetchResult.updateData).length === 0) {
+      if (Object.keys(serverActionResult.updateData).length === 0) {
         toast({ title: 'Nessun Aggiornamento', description: `Nessun nuovo dettaglio da aggiornare per ${game.name} da BGG.` });
         setIsFetchingDetailsFor(null);
         return;
@@ -392,7 +391,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
       try {
         const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
-        await updateDoc(gameRef, bggFetchResult.updateData);
+        await updateDoc(gameRef, serverActionResult.updateData);
         toast({ title: 'Dettagli Aggiornati', description: `Dettagli per ${game.name} aggiornati con successo.` });
         await revalidateGameDataAction(game.id);
         await fetchGameData(); 
@@ -567,7 +566,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                </div>
             </div>
             
-             <div className="text-sm text-muted-foreground space-y-1.5 pt-1 grid grid-cols-2 gap-x-4 gap-y-2">
+            <div className="text-sm text-muted-foreground space-y-1.5 pt-1 grid grid-cols-2 gap-x-4 gap-y-2">
               {hasDataForSection(game.designers) && (
                 <div className="flex items-center gap-2">
                   <PenTool size={16} className="text-primary/80" />
@@ -618,22 +617,23 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
               )}
             </div>
 
-
-            {(hasDataForSection(game.categories) || hasDataForSection(game.mechanics) ) && (
-              <div className="mt-6 pt-4 border-t border-border space-y-3">
-                <h3 className="text-lg font-semibold text-foreground">Dettagli Aggiuntivi</h3>
-                {hasDataForSection(game.categories) && (
-                  <div className="text-sm">
-                    <strong className="text-muted-foreground">Categorie: </strong>
-                    {game.categories!.map(cat => <Badge key={cat} variant="secondary" className="mr-1 mb-1">{cat}</Badge>)}
-                  </div>
-                )}
-                {hasDataForSection(game.mechanics) && (
-                  <div className="text-sm">
-                    <strong className="text-muted-foreground">Meccaniche: </strong>
-                    {game.mechanics!.map(mech => <Badge key={mech} variant="secondary" className="mr-1 mb-1">{mech}</Badge>)}
-                  </div>
-                )}
+             {(hasDataForSection(game.categories) || hasDataForSection(game.mechanics) ) && (
+              <div className="w-full pt-4 border-t border-border mt-4">
+                <h3 className="text-lg font-semibold text-foreground mb-3">Dettagli Aggiuntivi</h3>
+                 <div className="space-y-3">
+                    {hasDataForSection(game.categories) && (
+                    <div className="text-sm">
+                        <strong className="text-muted-foreground">Categorie: </strong>
+                        {game.categories!.map(cat => <Badge key={cat} variant="secondary" className="mr-1 mb-1">{cat}</Badge>)}
+                    </div>
+                    )}
+                    {hasDataForSection(game.mechanics) && (
+                    <div className="text-sm">
+                        <strong className="text-muted-foreground">Meccaniche: </strong>
+                        {game.mechanics!.map(mech => <Badge key={mech} variant="secondary" className="mr-1 mb-1">{mech}</Badge>)}
+                    </div>
+                    )}
+                 </div>
               </div>
             )}
 
@@ -831,3 +831,5 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
   );
 }
 
+
+    
