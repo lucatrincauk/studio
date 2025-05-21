@@ -11,7 +11,7 @@ import { Separator } from '@/components/ui/separator';
 import { AlertCircle, Loader2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, MessageSquare, Repeat, Settings, DownloadCloud, Trophy, Medal, UserCircle2, Heart, ListPlus, ListChecks, Sparkles } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
-import { calculateGroupedCategoryAverages, calculateCategoryAverages, calculateOverallCategoryAverage, formatRatingNumber, formatPlayDate, formatReviewDate } from '@/lib/utils';
+import { calculateGroupedCategoryAverages, calculateOverallCategoryAverage, formatRatingNumber, formatPlayDate, formatReviewDate } from '@/lib/utils';
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
@@ -836,20 +836,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                                     </ul>
                                 </div>
                                 )}
-                                <div className="flex justify-between items-baseline text-xs mt-3 pt-2 border-t border-border/50">
-                                    {play.location ? (
-                                    <div>
-                                        <strong className="text-muted-foreground">Luogo:</strong>
-                                        <span className="ml-1">{play.location}</span>
-                                    </div>
-                                    ) : <div />} 
-                                    {play.date && (
-                                    <div>
-                                        <strong className="text-muted-foreground">Data:</strong>
-                                        <span className="ml-1">{formatPlayDate(play.date)}</span>
-                                    </div>
-                                    )}
-                                </div>
+                                
                             </div>
                             </AccordionContent>
                         </AccordionItem>
@@ -960,3 +947,4 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
+
