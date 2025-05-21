@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useTransition, useCallback, use } from 'react';
 import Link from 'next/link';
-import { getGameDetails, revalidateGameDataAction, fetchGamePlaysFromBggAction } from '@/lib/actions';
+import { getGameDetails, revalidateGameDataAction, fetchUserPlaysForGameFromBggAction } from '@/lib/actions';
 import type { BoardGame, AiSummary, Review, Rating as RatingType, GroupedCategoryAverages, BggPlayDetail } from '@/lib/types';
 import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
@@ -410,7 +410,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     const usernameToFetch = "lctr01"; 
 
     startFetchPlaysTransition(async () => {
-      const bggFetchResult = await fetchGamePlaysFromBggAction(game.bggId, usernameToFetch);
+      const bggFetchResult = await fetchUserPlaysForGameFromBggAction(game.bggId, usernameToFetch);
       
       if (bggFetchResult.success && bggFetchResult.plays) {
         if (bggFetchResult.plays.length > 0) {
@@ -422,7 +422,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             const playDataForFirestore: BggPlayDetail = {
               ...play,
               userId: usernameToFetch, 
-              gameBggId: game.bggId,
+              gameBggId: game.bggId, // Already part of play, but ensuring it's there
             };
             batch.set(playDocRef, playDataForFirestore, { merge: true });
           });
@@ -434,6 +434,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
               description: bggFetchResult.message || `Caricate e salvate ${bggFetchResult.plays.length} partite per ${game.name} da BGG per ${usernameToFetch}.`,
             });
             await revalidateGameDataAction(game.id);
+            // Consider if fetchGameData() is needed here to update local game.lctr01Plays if it's derived from this subcollection
+            // For now, we assume lctr01Plays on the main game doc is updated by a different mechanism (e.g. collection sync)
           } catch (dbError) {
              const errorMessage = dbError instanceof Error ? dbError.message : "Errore sconosciuto durante il salvataggio delle partite nel DB.";
              toast({ title: 'Errore Salvataggio Partite DB', description: errorMessage, variant: 'destructive' });
@@ -685,12 +687,27 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
         <div className="lg:col-span-2 space-y-8">
+          {currentUser && !authLoading && !userReview && (
+            <Card className="p-6 border border-border rounded-lg shadow-md bg-card">
+              <CardTitle className="text-xl font-semibold text-foreground mb-1">Condividi la Tua Opinione</CardTitle>
+              <CardDescription className="mb-4">
+                Aiuta gli altri condividendo la tua esperienza con questo gioco.
+              </CardDescription>
+              <Button asChild className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90">
+                <Link href={`/games/${gameId}/rate`}>
+                  <Edit className="mr-2 h-4 w-4" />
+                  Valuta questo Gioco
+                </Link>
+              </Button>
+            </Card>
+          )}
+
            {currentUser && !authLoading && userReview && (
             <div className="mb-6">
               <div className="flex justify-between items-center mb-4 flex-wrap">
                 <h3 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h3>
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  <Button asChild size="sm">
+                  <Button asChild size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90">
                    <Link href={`/games/${gameId}/rate`}>
                       <span className="flex items-center">
                           <Edit className="mr-0 sm:mr-2 h-4 w-4" />
@@ -728,21 +745,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             </div>
           )}
 
-          {currentUser && !authLoading && !userReview && (
-            <Card className="p-6 border border-border rounded-lg shadow-md bg-card">
-              <CardTitle className="text-xl font-semibold text-foreground mb-1">Condividi la Tua Opinione</CardTitle>
-              <CardDescription className="mb-4">
-                Aiuta gli altri condividendo la tua esperienza con questo gioco.
-              </CardDescription>
-              <Button asChild className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90">
-                <Link href={`/games/${gameId}/rate`}>
-                  <Edit className="mr-2 h-4 w-4" />
-                  Valuta questo Gioco
-                </Link>
-              </Button>
-            </Card>
-          )}
-
            {!currentUser && !authLoading && (
                  <Alert variant="default" className="mt-4 bg-secondary/30 border-secondary">
                     <Info className="h-4 w-4 text-secondary-foreground" />
@@ -762,7 +764,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             </>
           )}
 
-          {remainingReviews.length === 0 && userReview && game.reviews && game.reviews.length === 1 && (
+          {remainingReviews.length === 0 && userReview && (
             <Alert variant="default" className="mt-6 bg-secondary/30 border-secondary">
               <Info className="h-4 w-4 text-secondary-foreground" />
               <AlertDescription className="text-secondary-foreground">
