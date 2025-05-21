@@ -120,7 +120,7 @@ export default async function HomePage() {
                   {lastPlayDetail.players && lastPlayDetail.players.length > 0 && (
                     <div>
                       <h4 className="text-xs font-semibold text-muted-foreground mb-1">Giocatori:</h4>
-                      <ul className="space-y-0.5">
+                      <ul className="pl-1"> {/* Removed space-y-0.5 */}
                         {lastPlayDetail.players
                           .slice()
                           .sort((a, b) => parseInt(b.score || "0", 10) - parseInt(a.score || "0", 10))
@@ -222,4 +222,5 @@ export default async function HomePage() {
 }
 
 export const revalidate = 3600;
+
 
