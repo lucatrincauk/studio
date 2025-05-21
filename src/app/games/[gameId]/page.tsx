@@ -3,13 +3,12 @@
 
 import { useEffect, useState, useTransition, useCallback, use, useMemo } from 'react';
 import Link from 'next/link';
-import { getGameDetails, revalidateGameDataAction } from '@/lib/actions';
+import { getGameDetails, revalidateGameDataAction, fetchUserPlaysForGameFromBggAction } from '@/lib/actions';
 import type { BoardGame, Review, Rating as RatingType, GroupedCategoryAverages, BggPlayDetail } from '@/lib/types';
-import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, Settings, DownloadCloud, MessageSquare, Repeat, Trophy, Medal, UserCircle2, Heart, ListPlus, ListChecks, Sparkles } from 'lucide-react';
+import { AlertCircle, Loader2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, MessageSquare, Repeat, Settings, DownloadCloud, Trophy, Medal, UserCircle2, Heart, ListPlus, ListChecks, Sparkles } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { calculateGroupedCategoryAverages, calculateCategoryAverages, calculateOverallCategoryAverage, formatRatingNumber, formatPlayDate, formatReviewDate } from '@/lib/utils';
@@ -17,8 +16,6 @@ import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-di
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { doc, deleteDoc, updateDoc, getDocs, collection, getDoc, arrayUnion, arrayRemove, increment, writeBatch } from 'firebase/firestore';
-import { fetchUserPlaysForGameFromBggAction, fetchAndUpdateBggGameDetailsAction } from '@/lib/actions';
-
 import {
   Accordion,
   AccordionContent,
@@ -185,8 +182,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         reviewCount: allReviewsForGame.length
       });
       
-      await fetchGameData(); 
       await revalidateGameDataAction(game.id);
+      await fetchGameData(); 
     } catch (error) {
       console.error("Errore durante l'aggiornamento del punteggio medio del gioco:", error);
       toast({ title: "Errore", description: "Impossibile aggiornare il punteggio medio del gioco.", variant: "destructive" });
@@ -719,32 +716,36 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 )}
             </div>
             
-            <Accordion type="single" collapsible className="w-full pt-4 border-t border-border md:hidden" defaultValue={[]}>
-              <AccordionItem value="dettagli-aggiuntivi" className="border-b-0">
-                <AccordionTrigger className="hover:no-underline py-0">
-                  <h3 className="text-lg font-semibold text-foreground">Dettagli Aggiuntivi</h3>
-                </AccordionTrigger>
-                <AccordionContent className="pt-3">
-                  <div className="space-y-3">
-                    {hasDataForSection(game.categories) && (
-                    <div className="text-sm">
-                        <strong className="text-muted-foreground">Categorie: </strong> 
-                        {game.categories!.map(cat => <Badge key={cat} variant="secondary" className="mr-1 mb-1">{cat}</Badge>)}
+            {/* Mobile Only Accordion for Categories/Mechanics */}
+            {(hasDataForSection(game.categories) || hasDataForSection(game.mechanics)) && (
+              <Accordion type="single" collapsible className="w-full pt-4 border-t border-border hidden" defaultValue={[]}>
+                <AccordionItem value="dettagli-aggiuntivi-mobile" className="border-b-0">
+                  <AccordionTrigger className="hover:no-underline py-0">
+                    <h3 className="text-lg font-semibold text-foreground">Dettagli Aggiuntivi</h3>
+                  </AccordionTrigger>
+                  <AccordionContent className="pt-3">
+                    <div className="space-y-3">
+                      {hasDataForSection(game.categories) && (
+                      <div className="text-sm">
+                          <strong className="text-muted-foreground">Categorie: </strong> 
+                          {game.categories!.map(cat => <Badge key={cat} variant="secondary" className="mr-1 mb-1">{cat}</Badge>)}
+                      </div>
+                      )}
+                      {hasDataForSection(game.mechanics) && (
+                      <div className="text-sm">
+                          <strong className="text-muted-foreground">Meccaniche: </strong> 
+                          {game.mechanics!.map(mech => <Badge key={mech} variant="secondary" className="mr-1 mb-1">{mech}</Badge>)}
+                      </div>
+                      )}
                     </div>
-                    )}
-                    {hasDataForSection(game.mechanics) && (
-                    <div className="text-sm">
-                        <strong className="text-muted-foreground">Meccaniche: </strong> 
-                        {game.mechanics!.map(mech => <Badge key={mech} variant="secondary" className="mr-1 mb-1">{mech}</Badge>)}
-                    </div>
-                    )}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            )}
             
+            {/* Average Player Ratings (GroupedRatingsDisplay) */}
             {game.reviews && game.reviews.length > 0 && (
-              <div className="w-full pt-4 border-t border-border">
+              <div className="w-full pt-4 border-t border-border"> 
                 <h3 className="text-lg font-semibold text-foreground mb-3">Valutazione Media:</h3>
                 <GroupedRatingsDisplay
                     groupedAverages={groupedCategoryAverages}
@@ -756,6 +757,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             )}
           </div>
 
+          {/* Desktop Image Column */}
           <div className="hidden md:block md:w-1/4 p-6 flex-shrink-0 self-start md:order-2"> 
             <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
               <SafeImage
@@ -769,29 +771,32 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 sizes="25vw"
               />
             </div>
-            <Accordion type="single" collapsible className="w-full pt-4 border-b-0" defaultValue={[]}>
-              <AccordionItem value="dettagli-aggiuntivi" className="border-b-0">
-                <AccordionTrigger className="hover:no-underline py-0">
-                  <h3 className="text-lg font-semibold text-foreground">Dettagli Aggiuntivi</h3>
-                </AccordionTrigger>
-                <AccordionContent className="pt-3">
-                  <div className="space-y-3">
-                    {hasDataForSection(game.categories) && (
-                    <div className="text-sm">
-                        <strong className="text-muted-foreground">Categorie: </strong> 
-                        {game.categories!.map(cat => <Badge key={cat} variant="secondary" className="mr-1 mb-1">{cat}</Badge>)}
-                    </div>
-                    )}
-                    {hasDataForSection(game.mechanics) && (
-                    <div className="text-sm">
-                        <strong className="text-muted-foreground">Meccaniche: </strong> 
-                        {game.mechanics!.map(mech => <Badge key={mech} variant="secondary" className="mr-1 mb-1">{mech}</Badge>)}
-                    </div>
-                    )}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
+            {/* Desktop Only Accordion for Categories/Mechanics */}
+            {(hasDataForSection(game.categories) || hasDataForSection(game.mechanics)) && (
+                <Accordion type="single" collapsible className="w-full pt-4 border-b-0 hidden md:block" defaultValue={[]}>
+                  <AccordionItem value="dettagli-aggiuntivi-desktop" className="border-b-0">
+                    <AccordionTrigger className="hover:no-underline py-0">
+                      <h3 className="text-lg font-semibold text-foreground">Dettagli Aggiuntivi</h3>
+                    </AccordionTrigger>
+                    <AccordionContent className="pt-3">
+                      <div className="space-y-3">
+                        {hasDataForSection(game.categories) && (
+                        <div className="text-sm">
+                            <strong className="text-muted-foreground">Categorie: </strong> 
+                            {game.categories!.map(cat => <Badge key={cat} variant="secondary" className="mr-1 mb-1">{cat}</Badge>)}
+                        </div>
+                        )}
+                        {hasDataForSection(game.mechanics) && (
+                        <div className="text-sm">
+                            <strong className="text-muted-foreground">Meccaniche: </strong> 
+                            {game.mechanics!.map(mech => <Badge key={mech} variant="secondary" className="mr-1 mb-1">{mech}</Badge>)}
+                        </div>
+                        )}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+            )}
           </div>
         </div>
       </Card>
@@ -905,7 +910,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           {currentUser && !authLoading && (
             userReview ? (
               <div className="relative"> 
-                <div className="flex flex-row justify-between items-center gap-2 mb-4">
+                <div className="flex items-center justify-between gap-2 mb-4">
                   <h3 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h3>
                   <div className="flex items-center gap-2 flex-shrink-0">
                       <Button asChild size="sm">
@@ -1001,4 +1006,3 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
-
