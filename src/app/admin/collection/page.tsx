@@ -13,8 +13,7 @@ import {
   batchUpdateMissingBggDetailsAction,
   revalidateGameDataAction,
   fetchAllUserPlaysFromBggAction,
-  fetchUserPlaysForGameFromBggAction,
-  batchFetchOriginalImageUrlsAction // Added import
+  fetchUserPlaysForGameFromBggAction
 } from '@/lib/actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -455,41 +454,6 @@ export default function AdminCollectionPage() {
     });
   };
 
-  const handleBatchUpdateThumbnails = () => {
-    startBatchUpdateTransition(async () => { // Reuse batch update transition state
-      const result = await batchFetchOriginalImageUrlsAction();
-      if (result.success && result.gamesToUpdateClientSide) {
-        if (result.gamesToUpdateClientSide.length > 0) {
-          const batch = writeBatch(db);
-          result.gamesToUpdateClientSide.forEach(item => {
-            const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, item.gameId);
-            if (item.updateData && item.updateData.coverArtUrl) {
-                batch.update(gameRef, { coverArtUrl: item.updateData.coverArtUrl });
-            }
-          });
-          try {
-            await batch.commit();
-            toast({ title: 'Aggiornamento Miniature Completato', description: `${result.gamesToUpdateClientSide.length} URL di immagini aggiornati. ${result.message.replace(`${result.gamesToUpdateClientSide.length} URL di immagini pronti per l'aggiornamento.`, '')}` });
-            
-            for (const item of result.gamesToUpdateClientSide) {
-                await revalidateGameDataAction(item.gameId);
-            }
-            await loadDbCollection();
-          } catch (dbError) {
-            const errorMessage = dbError instanceof Error ? dbError.message : "Errore sconosciuto durante l'aggiornamento batch delle URL delle immagini nel DB.";
-            toast({ title: 'Errore Aggiornamento Batch URL Immagini DB', description: errorMessage, variant: 'destructive' });
-          }
-        } else {
-           toast({ title: 'Aggiornamento Miniature', description: result.message || 'Nessuna miniatura da aggiornare.' });
-        }
-      } else if (!result.success) {
-        toast({ title: 'Errore Aggiornamento Miniature', description: result.error || result.message || 'Si è verificato un errore sconosciuto.', variant: 'destructive' });
-      } else {
-         toast({ title: 'Aggiornamento Miniature', description: result.message || 'Nessuna miniatura da aggiornare o operazione completata.' });
-      }
-    });
-  };
-
 
   return (
     <div className="space-y-8">
@@ -499,7 +463,7 @@ export default function AdminCollectionPage() {
           <CardDescription>Gestisci la collezione di giochi da tavolo sincronizzandola con BoardGameGeek e Firebase. Puoi anche fissare i giochi per la sezione "Vetrina" della homepage e aggiornare i dettagli dei giochi da BGG.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <Button onClick={handleFetchBggCollection} disabled={isBggFetching} className="bg-primary hover:bg-primary/90 text-primary-foreground">
               {isBggFetching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Sincronizza con BGG ({BGG_USERNAME})
@@ -519,14 +483,6 @@ export default function AdminCollectionPage() {
             >
               {isBatchUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DatabaseZap className="mr-2 h-4 w-4" />}
               Arricchisci Dati Mancanti
-            </Button>
-             <Button 
-              onClick={handleBatchUpdateThumbnails} 
-              disabled={isBatchUpdating} // Reuse same loading state for simplicity
-              className="bg-purple-600 hover:bg-purple-700 text-white"
-            >
-              {isBatchUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DownloadCloud className="mr-2 h-4 w-4" />}
-              Aggiorna Miniature BGG
             </Button>
           </div>
           <div className="flex items-center gap-2 pt-4 border-t">
@@ -826,7 +782,3 @@ export default function AdminCollectionPage() {
     </div>
   );
 }
-
-    
-
-    
