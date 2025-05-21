@@ -438,7 +438,7 @@ export default function AdminCollectionPage() {
               className="bg-blue-600 hover:bg-blue-700 text-white"
             >
               {isSyncingAllPlays ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BarChart3 className="mr-2 h-4 w-4" />}
-              Sincr. Partite ({BGG_USERNAME}, Pag. 1)
+              Sincronizza Partite (Pag. 1)
             </Button>
           </div>
           {error && (
@@ -720,4 +720,5 @@ export default function AdminCollectionPage() {
     </div>
   );
 }
+
 

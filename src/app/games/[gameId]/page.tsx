@@ -427,7 +427,12 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
           bggFetchResult.plays.forEach(play => {
             const playDocRef = doc(playsSubCollectionRef, play.playId);
-            batch.set(playDocRef, play, { merge: true });
+            const playDataForFirestore: BggPlayDetail = {
+                ...play,
+                userId: usernameToFetch, 
+                gameBggId: game.bggId,
+            };
+            batch.set(playDocRef, playDataForFirestore, { merge: true });
           });
 
           try {
@@ -559,7 +564,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                               disabled={isFetchingPlays || !game.bggId}
                             >
                               {isFetchingPlays ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BarChart3 className="mr-2 h-4 w-4" />}
-                              Carica Partite BGG (lctr01)
+                              Carica Partite da BGG
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -622,7 +627,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
               )}
               <div className="flex items-center gap-2">
                 <Repeat size={16} className="text-primary/80" />
-                <span className="hidden sm:inline">Partite (lctr01):</span>
+                <span className="hidden sm:inline">Partite Giocate:</span>
                 <span>{game.lctr01Plays ?? 0}</span>
               </div>
             </div>
@@ -841,7 +846,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 <CardHeader>
                     <CardTitle className="text-xl flex items-center gap-2">
                         <BarChart3 className="h-5 w-5 text-primary"/>
-                        Partite Registrate (lctr01)
+                        Partite Registrate
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -886,4 +891,5 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
+
 
