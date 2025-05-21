@@ -3,7 +3,7 @@ import { getFeaturedGamesAction, getAllGamesAction } from '@/lib/actions';
 import { GameCard } from '@/components/boardgame/game-card';
 import { Separator } from '@/components/ui/separator';
 import type { BoardGame } from '@/lib/types';
-import { Star, Edit, TrendingUp, Library, AlertCircle, Info, BarChart3 } from 'lucide-react'; 
+import { Star, Edit, TrendingUp, Library, AlertCircle, Info, BarChart3, Clock, Pin } from 'lucide-react'; 
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { formatRatingNumber } from '@/lib/utils';
@@ -51,7 +51,13 @@ export default async function HomePage() {
             <div className="flex space-x-4 overflow-x-auto pb-4 md:grid md:grid-cols-3 md:gap-4 md:space-x-0 md:pb-0 md:overflow-x-visible">
               {featuredGames.map((game, index) => (
                 <div key={game.id} className="w-40 flex-shrink-0 md:w-auto">
-                  <GameCard game={game} variant="featured" priority={index < 3} showOverlayText={true} />
+                  <GameCard 
+                    game={game} 
+                    variant="featured" 
+                    priority={index < 3} 
+                    showOverlayText={true} 
+                    featuredReason={game.featuredReason} // Pass the reason
+                  />
                 </div>
               ))}
             </div>

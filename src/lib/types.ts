@@ -56,7 +56,7 @@ export interface AugmentedReview extends Review {
   gameCoverArtUrl?: string | null;
 }
 
-export interface AugmentedReviewWithGame extends Review {
+export interface AugmentedReviewWithGame extends Review { // Used for single review page
   gameId: string;
   gameName: string;
   gameCoverArtUrl?: string | null;
@@ -85,6 +85,7 @@ export interface BoardGame {
   favoritedByUserIds?: string[];
   favoriteCount?: number;
   playlistedByUserIds?: string[];
+  featuredReason?: 'pinned' | 'recent'; // For UI display in featured sections
 }
 
 export interface AiSummary {
@@ -112,8 +113,9 @@ export type GroupedCategoryAverages = SectionAverage[];
 
 export interface UserProfile {
   id: string;
-  name: string; // This is displayName
+  name: string;
   photoURL?: string | null;
   email?: string | null;
-  bggUsername?: string | null; // Added BGG username
+  bggUsername?: string | null;
 }
+

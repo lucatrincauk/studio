@@ -3,7 +3,7 @@ import Link from 'next/link';
 import type { BoardGame } from '@/lib/types';
 import { Card, CardContent, CardFooter, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Users, Clock, Star, CalendarDays } from 'lucide-react';
+import { Users, Clock, Star, CalendarDays, Pin, Activity } from 'lucide-react'; // Added Pin, Activity
 import { SafeImage } from '@/components/common/SafeImage';
 import { formatRatingNumber } from '@/lib/utils';
 import { cn } from '@/lib/utils';
@@ -15,6 +15,7 @@ interface GameCardProps {
   linkTarget?: 'detail' | 'rate';
   showOverlayText?: boolean;
   overrideHref?: string;
+  featuredReason?: 'pinned' | 'recent'; // New prop
 }
 
 export function GameCard({
@@ -24,6 +25,7 @@ export function GameCard({
   linkTarget = 'detail',
   showOverlayText = true,
   overrideHref,
+  featuredReason, // Destructure new prop
 }: GameCardProps) {
   const fallbackSrc = `https://placehold.co/200x300.png?text=${encodeURIComponent(game.name?.substring(0,10) || 'N/A')}`;
   
@@ -35,9 +37,15 @@ export function GameCard({
       <Link href={finalHref} className="block group w-full h-full">
         <Card className={cn(
           "relative overflow-hidden transition-all duration-300 ease-in-out w-full aspect-[3/4]",
-          "shadow-lg hover:shadow-xl rounded-lg border border-border group-hover:border-primary/50"
-          // Removed: !showOverlayText && "bg-[#f9fbf9]" - Card will use default bg-card
+          "shadow-lg hover:shadow-xl rounded-lg border border-border group-hover:border-primary/50",
+           // Removed hardcoded background for Top 10, will default to bg-card
         )}>
+          {featuredReason && (
+            <div className="absolute top-1.5 left-1.5 z-20 rounded-full bg-black/60 p-1 shadow-md">
+              {featuredReason === 'pinned' && <Pin className="h-3 w-3 text-accent" fill="currentColor" />}
+              {featuredReason === 'recent' && <Clock className="h-3 w-3 text-white" />}
+            </div>
+          )}
           <SafeImage
             src={game.coverArtUrl}
             alt={`${game.name || 'Gioco'} copertina`}
@@ -45,7 +53,7 @@ export function GameCard({
             fill
             className={cn(
               "object-cover group-hover:scale-105 transition-transform duration-300",
-              "rounded-lg"
+              "rounded-lg" 
             )}
             data-ai-hint={game.name ? `board game ${game.name.split(' ')[0]?.toLowerCase()}` : 'board game thumbnail'}
             priority={priority}
@@ -123,4 +131,3 @@ export function GameCard({
     </Card>
   );
 }
-
