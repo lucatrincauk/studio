@@ -3,7 +3,8 @@
 
 import { useEffect, useState, useTransition, useCallback, use, useMemo } from 'react';
 import Link from 'next/link';
-import { getGameDetails, revalidateGameDataAction, fetchUserPlaysForGameFromBggAction, fetchAndUpdateBggGameDetailsAction, getAllGamesAction, recommendGames } from '@/lib/actions'; // Added recommendGames
+import { getGameDetails, revalidateGameDataAction, fetchUserPlaysForGameFromBggAction, fetchAndUpdateBggGameDetailsAction, getAllGamesAction } from '@/lib/actions';
+import { recommendGames } from '@/ai/flows/recommend-games'; // Corrected import path
 import type { BoardGame, Review, Rating as RatingType, GroupedCategoryAverages, BggPlayDetail, BggPlayerInPlay, RecommendedGame as AIRecommendedGame } from '@/lib/types'; // Added AIRecommendedGame
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -408,14 +409,15 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     const usernameToFetch = "lctr01"; 
 
     startFetchPlaysTransition(async () => {
-      const serverActionResult = await fetchUserPlaysForGameFromBggAction(game.bggId, usernameToFetch);
+      const bggFetchResult = await fetchUserPlaysForGameFromBggAction(game.bggId, usernameToFetch);
 
-      if (!serverActionResult.success || !serverActionResult.plays) {
-          toast({ title: 'Errore Caricamento Partite BGG', description: serverActionResult.error || serverActionResult.message || 'Impossibile caricare le partite da BGG.', variant: 'destructive' });
+      if (!bggFetchResult.success || !bggFetchResult.plays) {
+          toast({ title: 'Errore Caricamento Partite BGG', description: bggFetchResult.error || bggFetchResult.message || 'Impossibile caricare le partite da BGG.', variant: 'destructive' });
           return;
       }
       
-      const playsToSave = serverActionResult.plays;
+      const playsToSave = bggFetchResult.plays;
+      const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
 
       if (playsToSave.length > 0) {
           const batch = writeBatch(db);
@@ -430,16 +432,15 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
               };
               batch.set(playDocRef, playDataForFirestore, { merge: true });
           });
+          // Also update the lctr01Plays count on the main game document
+          batch.update(gameRef, { lctr01Plays: playsToSave.length });
+
 
           try {
               await batch.commit();
-              const gameDocRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
-              await updateDoc(gameDocRef, {
-                  lctr01Plays: playsToSave.length 
-              });
               toast({
                   title: "Partite Caricate e Salvate",
-                  description: serverActionResult.message || `Caricate e salvate ${playsToSave.length} partite per ${game.name} da BGG per ${usernameToFetch}. Conteggio aggiornato.`,
+                  description: bggFetchResult.message || `Caricate e salvate ${playsToSave.length} partite per ${game.name} da BGG per ${usernameToFetch}. Conteggio aggiornato.`,
               });
               await revalidateGameDataAction(game.id);
               await fetchGameData(); 
@@ -450,11 +451,10 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       } else {
           toast({
               title: "Nessuna Partita Trovata",
-              description: serverActionResult.message || `Nessuna partita trovata su BGG per ${usernameToFetch} per questo gioco.`,
+              description: bggFetchResult.message || `Nessuna partita trovata su BGG per ${usernameToFetch} per questo gioco.`,
           });
           try {
-              const gameDocRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
-              await updateDoc(gameDocRef, { lctr01Plays: 0 });
+              await updateDoc(gameRef, { lctr01Plays: 0 });
               await revalidateGameDataAction(game.id);
               await fetchGameData();
           } catch (dbError) {
@@ -764,37 +764,6 @@ const handleGenerateRecommendations = async () => {
                     </div>
                 )}
             </div>
-
-             {/* Categories, Mechanics, Designers */}
-             {(game.categories && game.categories.length > 0 || game.mechanics && game.mechanics.length > 0) && (
-                <div className="w-full pt-3 border-t border-border mt-3">
-                    <Accordion type="single" collapsible className="w-full">
-                    <AccordionItem value="details" className="border-b-0">
-                        <AccordionTrigger className="hover:no-underline text-left py-2 text-md font-medium">
-                        Dettagli Aggiuntivi
-                        </AccordionTrigger>
-                        <AccordionContent className="space-y-3 pt-2 text-xs">
-                        {game.categories && game.categories.length > 0 && (
-                            <div>
-                            <h4 className="font-semibold text-muted-foreground mb-1">Categorie:</h4>
-                            <div className="flex flex-wrap gap-1">
-                                {game.categories.map(cat => <Badge key={cat} variant="secondary">{cat}</Badge>)}
-                            </div>
-                            </div>
-                        )}
-                        {game.mechanics && game.mechanics.length > 0 && (
-                            <div>
-                            <h4 className="font-semibold text-muted-foreground mb-1">Meccaniche:</h4>
-                            <div className="flex flex-wrap gap-1">
-                                {game.mechanics.map(mech => <Badge key={mech} variant="secondary">{mech}</Badge>)}
-                            </div>
-                            </div>
-                        )}
-                        </AccordionContent>
-                    </AccordionItem>
-                    </Accordion>
-                </div>
-            )}
             
             {/* Average Ratings Section */}
             <div className={cn("w-full pt-4 border-t border-border mt-4", !(game.reviews && game.reviews.length > 0) && "border-none pt-0")}>
@@ -890,7 +859,7 @@ const handleGenerateRecommendations = async () => {
                                           .map((player, pIndex) => (
                                           <li key={pIndex} className={cn(
                                             "flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5",
-                                            pIndex % 2 === 0 ? 'bg-muted/30' : '', // even rows (0-indexed) get highlight
+                                            pIndex % 2 === 0 ? 'bg-muted/30' : '', 
                                             "px-2"
                                           )}>
                                               <div className="flex items-center gap-1.5 flex-grow min-w-0">
@@ -935,7 +904,7 @@ const handleGenerateRecommendations = async () => {
                   <h3 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h3>
                   <div className="flex items-center gap-2 flex-shrink-0">
                       <Button asChild size="sm">
-                        <Link href={`/games/${gameId}/rate`}>
+                         <Link href={`/games/${gameId}/rate`}>
                            <span className="flex items-center">
                              <Edit className="mr-0 sm:mr-2 h-4 w-4" />
                              <span className="hidden sm:inline">Modifica</span>
@@ -1081,3 +1050,5 @@ const handleGenerateRecommendations = async () => {
     </div>
   );
 }
+
+    
