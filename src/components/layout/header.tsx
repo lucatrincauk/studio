@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { LogOut, UserPlus, LogIn, MessagesSquare, Users2, ShieldCheck, UserCircle, Menu, TrendingUp, Library, Edit, BarChart3, Search as SearchIcon, Loader2, LayoutList } from 'lucide-react';
+import { LogOut, UserPlus, LogIn, MessagesSquare, Users2, ShieldCheck, UserCircle, Menu, TrendingUp, Library, Edit, BarChart3, Search as SearchIcon, Loader2, LayoutList, Dices } from 'lucide-react'; // Added Dices
 import { useAuth } from '@/contexts/auth-context';
 import {
   DropdownMenu,
@@ -81,7 +81,7 @@ export function Header() {
     { href: "/all-games", label: "Catalogo", icon: <Library size={18} /> },
     { href: "/users", label: "Utenti", icon: <Users2 size={18} /> },
     { href: "/reviews", label: "Tutte le Recensioni", icon: <MessagesSquare size={18} /> },
-    { href: "/plays", label: "Partite", icon: <LayoutList size={18} /> },
+    { href: "/plays", label: "Partite", icon: <Dices size={18} /> }, // Changed icon here
   ];
 
  useEffect(() => {
@@ -89,8 +89,7 @@ export function Header() {
       if (debouncedSearchTerm.length < 2) {
         setSearchResults([]);
         setIsSearching(false);
-        // Only close the popover if the input is not currently focused,
-        // or if the sheet status dictates it.
+        
         if (desktopSearchInputRef.current !== document.activeElement) {
             setIsDesktopPopoverOpen(false);
         }
@@ -105,8 +104,7 @@ export function Header() {
 
       if ('error' in result) {
         setSearchResults([]);
-        setIsDesktopPopoverOpen(false);
-        setIsMobilePopoverOpen(false);
+        // Do not automatically close popover on error, user might want to retry or see a message
       } else {
         setSearchResults(result);
         if (result.length > 0) {
@@ -117,11 +115,14 @@ export function Header() {
           }
         } else {
           // Keep popover open to show "No results" if input is focused
-          if (desktopSearchInputRef.current !== document.activeElement) {
+          // and we want to show a "no results" message in the popover itself
+          if (desktopSearchInputRef.current === document.activeElement && !isMobileSheetOpen) {
+            setIsDesktopPopoverOpen(true); // Keep open to show "No results"
+          } else if (mobileSearchInputRef.current === document.activeElement && isMobileSheetOpen) {
+            setIsMobilePopoverOpen(true); // Keep open to show "No results"
+          } else { // Input not focused or sheet closed
             setIsDesktopPopoverOpen(false); 
-          }
-          if (mobileSearchInputRef.current !== document.activeElement || !isMobileSheetOpen) {
-             setIsMobilePopoverOpen(false); 
+            setIsMobilePopoverOpen(false); 
           }
         }
       }
@@ -137,7 +138,7 @@ export function Header() {
     setIsDesktopPopoverOpen(false);
     setIsMobilePopoverOpen(false);
     if (isMobileSheetOpen) {
-      setIsMobileSheetOpen(false); // Close sheet on result click for mobile
+      setIsMobileSheetOpen(false); 
     }
   };
 
@@ -294,7 +295,7 @@ export function Header() {
       }}
     >
       <div className="max-h-60 overflow-y-auto">
-        {searchResults.map(game => (
+        {searchResults.length > 0 ? searchResults.map(game => (
           <Link
             key={`desktop-search-${game.id}`}
             href={`/games/${game.id}`}
@@ -304,14 +305,16 @@ export function Header() {
             {game.name}
             {game.yearPublished && <span className="ml-2 text-xs text-muted-foreground">({game.yearPublished})</span>}
           </Link>
-        ))}
+        )) : (
+          <p className="p-3 text-sm text-muted-foreground text-center">Nessun gioco trovato.</p>
+        )}
       </div>
     </PopoverContent>
   );
 
   const mobileSearchPopoverContent = (
     <PopoverContent
-      className="w-[calc(100%-2rem)] p-0" 
+      className="w-[248px] p-0" 
       align="start"
       side="bottom"
       sideOffset={4}
@@ -323,7 +326,7 @@ export function Header() {
       }}
     >
       <div className="max-h-60 overflow-y-auto">
-        {searchResults.map(game => (
+         {searchResults.length > 0 ? searchResults.map(game => (
           <SheetClose asChild key={`mobile-search-${game.id}`}>
             <Link
               href={`/games/${game.id}`}
@@ -334,7 +337,9 @@ export function Header() {
               {game.yearPublished && <span className="ml-2 text-xs text-muted-foreground">({game.yearPublished})</span>}
             </Link>
           </SheetClose>
-        ))}
+        )) : (
+          <p className="p-3 text-sm text-muted-foreground text-center">Nessun gioco trovato.</p>
+        )}
       </div>
     </PopoverContent>
   );
@@ -374,7 +379,7 @@ export function Header() {
                 
                 <div className="p-4">
                   <Popover 
-                    open={isMobilePopoverOpen && searchTerm.length >=2 && searchResults.length > 0 && isMobileSheetOpen} 
+                    open={isMobilePopoverOpen && searchTerm.length >=2 && isMobileSheetOpen} 
                     onOpenChange={setIsMobilePopoverOpen} 
                   >
                      <PopoverAnchor>
@@ -435,7 +440,7 @@ export function Header() {
           </ul>
           <div className="relative">
             <Popover 
-              open={isDesktopPopoverOpen && searchTerm.length >=2 && searchResults.length > 0 && !isMobileSheetOpen} 
+              open={isDesktopPopoverOpen && searchTerm.length >=2 && !isMobileSheetOpen} 
               onOpenChange={setIsDesktopPopoverOpen} 
             >
               <PopoverAnchor>
@@ -463,3 +468,4 @@ export function Header() {
     </div>
   );
 }
+
