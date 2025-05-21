@@ -185,7 +185,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         reviewCount: allReviewsForGame.length
       });
       
-      // No need to call revalidatePath here as it's client-side
+      await revalidateGameDataAction(game.id);
       await fetchGameData(); 
     } catch (error) {
       console.error("Errore durante l'aggiornamento del punteggio medio del gioco:", error);
@@ -205,7 +205,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         const reviewDocRef = doc(db, FIRESTORE_COLLECTION_NAME, gameId, 'reviews', userReview.id);
         await deleteDoc(reviewDocRef);
         await updateGameOverallRatingAfterReviewChange(); 
-        // No need to call revalidatePath here
+        await revalidateGameDataAction(gameId);
         await fetchGameData();
         toast({ title: "Recensione Eliminata", description: "La tua recensione è stata eliminata con successo." });
       } catch (error) {
@@ -230,7 +230,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `Il gioco è stato ${newPinStatus ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
         });
         setGame(prevGame => prevGame ? { ...prevGame, isPinned: newPinStatus } : null);
-        // Call server action for revalidation if needed for other pages
         await revalidateGameDataAction(game.id);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
@@ -403,7 +402,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     const usernameToFetch = "lctr01"; 
 
     startFetchPlaysTransition(async () => {
-      const serverActionResult = await fetchUserPlaysForGameFromBggAction(game.bggId, usernameToFetch);
+      const serverActionResult = await fetchUserPlaysForGameFromBggAction(game.id, game.bggId, usernameToFetch);
 
       if (!serverActionResult.success || !serverActionResult.plays) {
           toast({ title: 'Errore Caricamento Partite BGG', description: serverActionResult.error || serverActionResult.message || 'Impossibile caricare le partite da BGG.', variant: 'destructive' });
@@ -561,20 +560,20 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             {/* Main header: Title, Icons, Score */}
             <div className="flex justify-between items-start mb-2">
                 <div className="flex-1 flex flex-col sm:flex-row sm:items-center sm:gap-1 min-w-0 mr-2">
-                    <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground flex items-center">
+                  <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground flex items-center">
                     {game.name}
                     {game.bggId > 0 && (
-                        <a
+                      <a
                         href={`https://boardgamegeek.com/boardgame/${game.bggId}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         title="Vedi su BoardGameGeek"
                         className="inline-flex items-center text-primary hover:text-primary/80 focus:outline-none focus:ring-2 focus:ring-ring rounded-md p-0.5 ml-1"
-                        >
+                      >
                         <ExternalLink size={16} className="h-4 w-4" />
-                        </a>
+                      </a>
                     )}
-                    </h1>
+                  </h1>
                 </div>
                 <div className="flex-shrink-0 flex flex-col items-end">
                     {globalGameAverage !== null && (
@@ -796,7 +795,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                                       )}
                                   </div>
                                       {winners.length > 0 && (
-                                          <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-300 whitespace-nowrap">
+                                          <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300 whitespace-nowrap">
                                               <Trophy className="mr-1 h-3.5 w-3.5"/> {winnerNames}
                                           </Badge>
                                       )}
@@ -969,3 +968,4 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
 
     
+
