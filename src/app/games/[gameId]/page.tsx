@@ -13,7 +13,7 @@ import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Cl
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { summarizeReviews } from '@/ai/flows/summarize-reviews';
-import { calculateGroupedCategoryAverages, calculateCategoryAverages, calculateOverallCategoryAverage, formatRatingNumber, formatReviewDate } from '@/lib/utils';
+import { calculateGroupedCategoryAverages, calculateCategoryAverages, calculateOverallCategoryAverage, formatRatingNumber, formatPlayDate } from '@/lib/utils';
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
@@ -232,7 +232,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         await deleteDoc(reviewDocRef);
         await updateGameOverallRatingAfterDelete(); 
         toast({ title: "Recensione Eliminata", description: "La tua recensione è stata eliminata con successo." });
-        // No need to call revalidateGameDataAction here, updateGameOverallRatingAfterDelete already does
+        await revalidateGameDataAction(game.id);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({ title: "Errore", description: `Impossibile eliminare la recensione: ${errorMessage}`, variant: "destructive" });
@@ -674,9 +674,9 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
               </div>
             </div>
             
-             <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
-                {hasDataForSection(game.designers) && (
-                    <div className="flex items-baseline gap-2"> 
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
+                 {hasDataForSection(game.designers) && (
+                    <div className="flex items-baseline gap-2 col-span-2"> 
                         <span className="inline-flex items-center"><PenTool size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
                         <span className="font-medium hidden sm:inline">Autori:</span>
                         <span>{game.designers!.join(', ')}</span>
@@ -738,7 +738,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             </div>
             
             {(hasDataForSection(game.categories) || hasDataForSection(game.mechanics) ) && (
-              <Accordion type="single" collapsible className="w-full pt-4 border-t border-border">
+              <Accordion type="single" collapsible className="w-full pt-4 border-t border-border hidden md:block" defaultValue={[]}>
                 <AccordionItem value="dettagli-aggiuntivi" className="border-b-0">
                   <AccordionTrigger className="hover:no-underline py-0">
                     <h3 className="text-lg font-semibold text-foreground">Dettagli Aggiuntivi</h3>
@@ -815,7 +815,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                                 <div className="flex justify-between w-full items-center pr-2 gap-2">
                                 <div className="flex items-center gap-2">
                                     <Dices size={16} className="text-muted-foreground/80 flex-shrink-0" />
-                                    <span className="font-medium">{formatReviewDate(play.date)}</span>
+                                    <span className="font-medium">{formatPlayDate(play.date)}</span>
                                     {play.quantity > 1 && (
                                         <>
                                             <span className="text-muted-foreground">-</span>
@@ -873,7 +873,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       )}
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
         <div className="lg:col-span-2 space-y-8">
-             {currentUser && !authLoading && userReview && (
+            
+            {currentUser && !authLoading && userReview && (
              <div> 
               <div className="flex justify-between items-center gap-2 mb-4">
                 <h2 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h2>
