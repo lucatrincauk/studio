@@ -18,6 +18,12 @@ import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { doc, deleteDoc, updateDoc, getDocs, collection, getDoc, arrayUnion, arrayRemove, increment, writeBatch } from 'firebase/firestore';
 import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -36,6 +42,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { SafeImage } from '@/components/common/SafeImage';
 import { ReviewItem } from '@/components/boardgame/review-item';
+import { Badge } from '@/components/ui/badge';
 
 
 const FIRESTORE_COLLECTION_NAME = 'boardgames_collection';
@@ -395,49 +402,46 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     startFetchPlaysTransition(async () => {
         const serverActionResult = await fetchUserPlaysForGameFromBggAction(game.bggId, usernameToFetch);
 
-        if (serverActionResult.success && serverActionResult.plays) {
-            if (serverActionResult.plays.length > 0) {
-                const batch = writeBatch(db);
-                const playsSubCollectionRef = collection(db, FIRESTORE_COLLECTION_NAME, game.id, `plays_${usernameToFetch.toLowerCase()}`);
+        if (!serverActionResult.success || !serverActionResult.plays) {
+            toast({ title: 'Errore Caricamento Partite BGG', description: serverActionResult.error || serverActionResult.message || 'Impossibile caricare le partite da BGG.', variant: 'destructive' });
+            return;
+        }
+
+        if (serverActionResult.plays.length > 0) {
+            const batch = writeBatch(db);
+            const playsSubCollectionRef = collection(db, FIRESTORE_COLLECTION_NAME, game.id, `plays_${usernameToFetch.toLowerCase()}`);
+            
+            serverActionResult.plays.forEach(play => {
+                const playDocRef = doc(playsSubCollectionRef, play.playId);
+                const playDataForFirestore: BggPlayDetail = {
+                    ...play, 
+                    userId: usernameToFetch, 
+                    gameBggId: game.bggId,
+                };
+                batch.set(playDocRef, playDataForFirestore, { merge: true }); 
+            });
+            
+            try {
+                await batch.commit();
                 
-                serverActionResult.plays.forEach(play => {
-                    const playDocRef = doc(playsSubCollectionRef, play.playId);
-                    const playDataForFirestore: BggPlayDetail = {
-                        ...play, 
-                        userId: usernameToFetch, 
-                        gameBggId: game.bggId,
-                    };
-                    batch.set(playDocRef, playDataForFirestore, { merge: true }); 
+                const gameDocRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
+                await updateDoc(gameDocRef, {
+                    lctr01Plays: serverActionResult.plays.length 
                 });
-                
-                try {
-                    await batch.commit();
-                    
-                    const gameDocRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
-                    await updateDoc(gameDocRef, {
-                        lctr01Plays: serverActionResult.plays.length 
-                    });
-                    toast({
-                        title: "Partite Caricate e Salvate",
-                        description: serverActionResult.message || `Caricate e salvate ${serverActionResult.plays.length} partite per ${game.name} da BGG per ${usernameToFetch}. Conteggio aggiornato.`,
-                    });
-                    await revalidateGameDataAction(game.id);
-                    await fetchGameData(); 
-                } catch (dbError) {
-                    const errorMessage = dbError instanceof Error ? dbError.message : "Errore sconosciuto durante il salvataggio delle partite nel DB.";
-                    toast({ title: 'Errore Salvataggio Partite DB', description: errorMessage, variant: 'destructive' });
-                }
-            } else {
                 toast({
-                    title: "Nessuna Partita Trovata",
-                    description: serverActionResult.message || `Nessuna partita trovata su BGG per ${usernameToFetch} per questo gioco.`,
+                    title: "Partite Caricate e Salvate",
+                    description: serverActionResult.message || `Caricate e salvate ${serverActionResult.plays.length} partite per ${game.name} da BGG per ${usernameToFetch}. Conteggio aggiornato.`,
                 });
+                await revalidateGameDataAction(game.id);
+                await fetchGameData(); 
+            } catch (dbError) {
+                const errorMessage = dbError instanceof Error ? dbError.message : "Errore sconosciuto durante il salvataggio delle partite nel DB.";
+                toast({ title: 'Errore Salvataggio Partite DB', description: errorMessage, variant: 'destructive' });
             }
         } else {
             toast({
-                title: "Errore Caricamento Partite BGG",
-                description: serverActionResult.error || "Impossibile caricare le partite da BGG.",
-                variant: "destructive",
+                title: "Nessuna Partita Trovata",
+                description: serverActionResult.message || `Nessuna partita trovata su BGG per ${usernameToFetch} per questo gioco.`,
             });
         }
     });
@@ -709,10 +713,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 )}
             </div>
             
-            {/* Dettagli Aggiuntivi Accordion - Mobile Only */}
-            {/* This section has been removed */}
             
-            {/* Average Player Ratings (GroupedRatingsDisplay) */}
              <div className="w-full pt-4 border-t border-border">
               {game.reviews && game.reviews.length > 0 ? (
                 <>
@@ -735,7 +736,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             </div>
           </div>
 
-          {/* Desktop Image Column */}
+          
           <div className="hidden md:block md:w-1/4 p-6 flex-shrink-0 self-start md:order-2"> 
             <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
               <SafeImage
@@ -749,13 +750,12 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 sizes="25vw"
               />
             </div>
-            {/* Desktop Only Accordion for Categories/Mechanics */}
-             {/* This section has been removed */}
+            
           </div>
         </div>
       </Card>
 
-      {/* Partite Registrate Section */}
+      
       {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
         <Card className="shadow-md border border-border rounded-lg">
             <CardHeader className="flex flex-row justify-between items-center">
@@ -960,3 +960,4 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
+
