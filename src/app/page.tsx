@@ -86,75 +86,67 @@ export default async function HomePage() {
               <Dices className="h-7 w-7 text-primary" />
               Ultima Partita Giocata
             </h2>
-            <Card className="shadow-md border border-border rounded-lg">
-              <CardHeader className="flex flex-row items-start gap-4 p-4"> {/* Always flex-row */}
-                <div className="relative w-20 h-28 flex-shrink-0 rounded-md overflow-hidden shadow-sm"> {/* Adjusted size */}
-                  <SafeImage
-                    src={lastPlayedGame.coverArtUrl}
-                    alt={`${lastPlayedGame.name} copertina`}
-                    fallbackSrc={`https://placehold.co/80x112.png?text=${encodeURIComponent(lastPlayedGame.name.substring(0,3))}`}
-                    fill
-                    sizes="80px" // Simplified sizes for small image
-                    className="object-cover"
-                    data-ai-hint={`board game ${lastPlayedGame.name.split(' ')[0]?.toLowerCase() || 'mini'}`}
-                  />
-                </div>
-                <div className="flex-1">
-                  <CardTitle className="text-xl font-semibold mb-1">
-                    <Link href={`/games/${lastPlayedGame.id}`} className="hover:text-primary hover:underline">
-                      {lastPlayedGame.name}
-                    </Link>
+            <div className="flex flex-col md:flex-row gap-4 items-start">
+              <div className="w-full max-w-[180px] sm:max-w-[200px] md:w-1/3 lg:w-1/4 flex-shrink-0">
+                <GameCard 
+                  game={lastPlayedGame} 
+                  variant="featured" 
+                  priority={true} 
+                  showOverlayText={true} 
+                />
+              </div>
+              <Card className="flex-1 shadow-md border border-border rounded-lg w-full">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg font-semibold text-foreground">
+                    Dettagli Partita del {formatReviewDate(lastPlayDetail.date)}
                   </CardTitle>
-                  <div className="text-sm text-muted-foreground flex items-center gap-2 mb-1">
-                    <CalendarDays size={16} />
-                    <span>{formatReviewDate(lastPlayDetail.date)}</span>
-                    {lastPlayDetail.quantity > 1 && (
-                      <Badge variant="secondary" className="ml-auto">{lastPlayDetail.quantity} partite</Badge>
-                    )}
-                  </div>
-                  {/* Location display removed */}
-                </div>
-              </CardHeader>
-              <CardContent className="pt-0 px-4 pb-4 space-y-3 text-sm">
-                {lastPlayDetail.comments && lastPlayDetail.comments.trim() !== '' && (
-                  <div>
-                    <h4 className="text-xs font-semibold text-muted-foreground mb-0.5">Commenti:</h4>
-                    <p className="text-xs text-foreground/80 whitespace-pre-wrap">{lastPlayDetail.comments}</p>
-                  </div>
-                )}
-                {lastPlayDetail.players && lastPlayDetail.players.length > 0 && (
-                  <div>
-                    <h4 className="text-xs font-semibold text-muted-foreground mb-1">Giocatori:</h4>
-                    <ul className="space-y-0.5">
-                      {lastPlayDetail.players
-                        .slice()
-                        .sort((a, b) => parseInt(b.score || "0", 10) - parseInt(a.score || "0", 10))
-                        .map((player, pIndex) => (
-                          <li key={pIndex} className={`flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5 px-1 ${pIndex % 2 === 0 ? 'bg-muted/30' : ''} rounded-sm`}>
-                            <div className="flex items-center gap-1.5 flex-grow min-w-0">
-                              <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                              <span className={`truncate ${player.didWin ? 'font-semibold' : ''}`} title={player.name || player.username || 'Sconosciuto'}>
-                                {player.name || player.username || 'Sconosciuto'}
-                              </span>
-                              {player.didWin && (
-                                <Trophy className="h-3.5 w-3.5 text-green-600 ml-1 flex-shrink-0" />
+                  {lastPlayDetail.location && (
+                    <CardDescription className="text-sm text-muted-foreground">
+                      Luogo: {lastPlayDetail.location}
+                    </CardDescription>
+                  )}
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm">
+                  {lastPlayDetail.comments && lastPlayDetail.comments.trim() !== '' && (
+                    <div>
+                      <h4 className="text-xs font-semibold text-muted-foreground mb-0.5">Commenti:</h4>
+                      <p className="text-xs text-foreground/80 whitespace-pre-wrap">{lastPlayDetail.comments}</p>
+                    </div>
+                  )}
+                  {lastPlayDetail.players && lastPlayDetail.players.length > 0 && (
+                    <div>
+                      <h4 className="text-xs font-semibold text-muted-foreground mb-1">Giocatori:</h4>
+                      <ul className="space-y-0.5">
+                        {lastPlayDetail.players
+                          .slice()
+                          .sort((a, b) => parseInt(b.score || "0", 10) - parseInt(a.score || "0", 10))
+                          .map((player, pIndex) => (
+                            <li key={pIndex} className={`flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5 px-1 ${pIndex % 2 === 0 ? 'bg-muted/30' : ''} rounded-sm`}>
+                              <div className="flex items-center gap-1.5 flex-grow min-w-0">
+                                <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                                <span className={`truncate ${player.didWin ? 'font-semibold' : ''}`} title={player.name || player.username || 'Sconosciuto'}>
+                                  {player.name || player.username || 'Sconosciuto'}
+                                </span>
+                                {player.didWin && (
+                                  <Trophy className="h-3.5 w-3.5 text-green-600 ml-1 flex-shrink-0" />
+                                )}
+                                {player.isNew && (
+                                    <Sparkles className="h-3.5 w-3.5 text-blue-600 ml-1 flex-shrink-0" />
+                                )}
+                              </div>
+                              {player.score && (
+                                <span className={`font-mono text-xs whitespace-nowrap ml-2 ${player.didWin ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
+                                  {player.score} pt.
+                                </span>
                               )}
-                              {player.isNew && (
-                                  <Sparkles className="h-3.5 w-3.5 text-blue-600 ml-1 flex-shrink-0" />
-                              )}
-                            </div>
-                            {player.score && (
-                              <span className={`font-mono text-xs whitespace-nowrap ml-2 ${player.didWin ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
-                                {player.score} pt.
-                              </span>
-                            )}
-                          </li>
-                        ))}
-                    </ul>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                            </li>
+                          ))}
+                      </ul>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
             <Separator className="my-10" />
           </div>
         )}
@@ -230,4 +222,3 @@ export default async function HomePage() {
 }
 
 export const revalidate = 3600;
-
