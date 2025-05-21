@@ -12,7 +12,7 @@ import {
   fetchAndUpdateBggGameDetailsAction,
   batchUpdateMissingBggDetailsAction,
   revalidateGameDataAction,
-  fetchAllUserPlaysFromBggAction // New action
+  fetchAllUserPlaysFromBggAction
 } from '@/lib/actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -86,6 +86,7 @@ export default function AdminCollectionPage() {
   const [showOnlyMissingDetails, setShowOnlyMissingDetails] = useState(false);
 
   const [isSyncingAllPlays, startSyncAllPlaysTransition] = useTransition();
+  const [playsPageToFetch, setPlaysPageToFetch] = useState(1);
 
 
   const { toast } = useToast();
@@ -357,8 +358,12 @@ export default function AdminCollectionPage() {
   };
 
   const handleSyncAllLctr01Plays = () => {
+    if (playsPageToFetch < 1) {
+      toast({ title: "Pagina Non Valida", description: "Il numero di pagina deve essere almeno 1.", variant: "destructive" });
+      return;
+    }
     startSyncAllPlaysTransition(async () => {
-        const serverActionResult = await fetchAllUserPlaysFromBggAction(BGG_USERNAME, 1); // Fetch page 1 for now
+        const serverActionResult = await fetchAllUserPlaysFromBggAction(BGG_USERNAME, playsPageToFetch);
 
         if (!serverActionResult.success || !serverActionResult.plays) {
             toast({ title: 'Errore Sincronizzazione Partite', description: serverActionResult.error || serverActionResult.message || 'Impossibile caricare le partite da BGG.', variant: 'destructive' });
@@ -366,7 +371,7 @@ export default function AdminCollectionPage() {
         }
 
         if (serverActionResult.plays.length === 0) {
-            toast({ title: 'Nessuna Nuova Partita', description: serverActionResult.message || `Nessuna partita trovata da sincronizzare per ${BGG_USERNAME} (pagina 1).` });
+            toast({ title: 'Nessuna Nuova Partita', description: serverActionResult.message || `Nessuna partita trovata da sincronizzare per ${BGG_USERNAME} (pagina ${playsPageToFetch}).` });
             return;
         }
 
@@ -389,15 +394,14 @@ export default function AdminCollectionPage() {
         if (playsToSyncCount > 0) {
             try {
                 await batch.commit();
-                toast({ title: 'Sincronizzazione Partite Completata', description: `${playsToSyncCount} partite sincronizzate con successo per ${BGG_USERNAME} (da pagina 1).` });
-                // Optionally revalidate paths for affected games, though this might be extensive
-                // await revalidateGameDataAction(); 
+                toast({ title: 'Sincronizzazione Partite Completata', description: `${playsToSyncCount} partite sincronizzate con successo per ${BGG_USERNAME} (da pagina ${playsPageToFetch}). ${serverActionResult.message || ''}` });
+                await revalidateGameDataAction(); 
             } catch (dbError) {
                 const errorMessage = dbError instanceof Error ? dbError.message : "Errore sconosciuto durante il salvataggio batch delle partite nel DB.";
                 toast({ title: 'Errore Salvataggio Batch Partite DB', description: errorMessage, variant: 'destructive' });
             }
         } else {
-            toast({ title: 'Nessuna Partita da Salvare', description: `Nessuna delle ${serverActionResult.plays.length} partite caricate da BGG corrisponde a giochi nella collezione locale, o si è verificato un errore.` });
+            toast({ title: 'Nessuna Partita da Salvare', description: `Nessuna delle ${serverActionResult.plays.length} partite caricate da BGG (pagina ${playsPageToFetch}) corrisponde a giochi nella collezione locale, o si è verificato un errore.` });
         }
     });
   };
@@ -411,7 +415,7 @@ export default function AdminCollectionPage() {
           <CardDescription>Gestisci la collezione di giochi da tavolo sincronizzandola con BoardGameGeek e Firebase. Puoi anche fissare i giochi per la sezione "Vetrina" della homepage e aggiornare i dettagli dei giochi da BGG.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <Button onClick={handleFetchBggCollection} disabled={isBggFetching} className="bg-primary hover:bg-primary/90 text-primary-foreground">
               {isBggFetching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Sincronizza con BGG ({BGG_USERNAME})
@@ -432,13 +436,23 @@ export default function AdminCollectionPage() {
               {isBatchUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DatabaseZap className="mr-2 h-4 w-4" />}
               Arricchisci Dati Mancanti
             </Button>
+          </div>
+          <div className="flex items-center gap-2 pt-4 border-t">
+            <Input 
+                type="number"
+                value={playsPageToFetch}
+                onChange={(e) => setPlaysPageToFetch(Math.max(1, parseInt(e.target.value,10) || 1))}
+                min="1"
+                className="w-20 h-9 text-sm"
+                aria-label="Numero pagina per sincronizzazione partite"
+            />
             <Button 
               onClick={handleSyncAllLctr01Plays} 
               disabled={isSyncingAllPlays}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="bg-blue-600 hover:bg-blue-700 text-white h-9 text-sm"
             >
               {isSyncingAllPlays ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BarChart3 className="mr-2 h-4 w-4" />}
-              Sincronizza Partite (Pag. 1)
+              Sinc. Partite Pag. {playsPageToFetch}
             </Button>
           </div>
           {error && (
