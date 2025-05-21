@@ -3,7 +3,7 @@ import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import type { Review, Rating, RatingCategory, GroupedCategoryAverages, SectionAverage, SubRatingAverage } from "./types";
 import { RATING_CATEGORIES } from "./types";
-import { formatDistanceToNow, format as formatDateFns } from 'date-fns';
+import { formatDistanceToNow, format as formatDateFns, differenceInYears } from 'date-fns';
 import { it } from 'date-fns/locale';
 
 export function cn(...inputs: ClassValue[]) {
@@ -52,12 +52,12 @@ export function calculateOverallCategoryAverage(rating: Rating | null): number {
 }
 
 
-export function calculateCategoryAverages(reviews: Review[]): Rating | null {
-  if (!reviews || reviews.length === 0) {
+export function calculateCategoryAverages(reviewsOrRatings: Review[] | Rating[]): Rating | null {
+  if (!reviewsOrRatings || reviewsOrRatings.length === 0) {
     return null;
   }
 
-  const numReviews = reviews.length;
+  const numItems = reviewsOrRatings.length;
   const sumOfRatings: Rating = {
     excitedToReplay: 0,
     mentallyStimulating: 0,
@@ -72,16 +72,17 @@ export function calculateCategoryAverages(reviews: Review[]): Rating | null {
     setupTeardown: 0,
   };
 
-  reviews.forEach(review => {
+  reviewsOrRatings.forEach(item => {
+    const rating = 'rating' in item ? item.rating : item; // Handle both Review[] and Rating[]
     (Object.keys(sumOfRatings) as Array<keyof Rating>).forEach(key => {
-      const ratingValue = typeof review.rating[key] === 'number' ? review.rating[key] : 0;
+      const ratingValue = typeof rating[key] === 'number' ? rating[key] : 0;
       sumOfRatings[key] += ratingValue;
     });
   });
 
   const averageRatings: Rating = {} as Rating;
   (Object.keys(sumOfRatings) as Array<keyof Rating>).forEach(key => {
-    averageRatings[key] = Math.round((sumOfRatings[key] / numReviews) * 10) / 10;
+    averageRatings[key] = Math.round((sumOfRatings[key] / numItems) * 10) / 10;
   });
 
   return averageRatings;
@@ -89,7 +90,12 @@ export function calculateCategoryAverages(reviews: Review[]): Rating | null {
 
 
 export function calculateGroupedCategoryAverages(reviews: Review[]): GroupedCategoryAverages | null {
-  const individualSubCategoryAverages = calculateCategoryAverages(reviews);
+  if (!reviews || reviews.length === 0) {
+    return null;
+  }
+  const allRatings = reviews.map(r => r.rating);
+  const individualSubCategoryAverages = calculateCategoryAverages(allRatings);
+
 
   if (!individualSubCategoryAverages) {
     return null;
@@ -136,22 +142,34 @@ export function calculateGroupedCategoryAverages(reviews: Review[]): GroupedCate
 
 export function formatReviewDate(dateString: string): string {
   try {
-    return formatDistanceToNow(new Date(dateString), { addSuffix: true, locale: it });
-  } catch (error) {
-    console.error("Error formatting review date:", error);
-    const d = new Date(dateString);
-    if (isNaN(d.getTime())) {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) {
       return "Data non valida";
     }
-    return d.toLocaleDateString('it-IT');
+
+    const yearsDifference = differenceInYears(new Date(), date);
+
+    if (yearsDifference >= 1) {
+      return formatDateFns(date, 'dd/MM/yyyy', { locale: it });
+    } else {
+      return formatDistanceToNow(date, { addSuffix: true, locale: it });
+    }
+  } catch (error) {
+    console.error("Error formatting review date:", error);
+    return "Data non valida";
   }
 }
 
 export function formatPlayDate(dateString: string): string {
   try {
-    return formatDateFns(new Date(dateString), 'dd/MM/yyyy', { locale: it });
+    const date = new Date(dateString);
+     if (isNaN(date.getTime())) {
+      return "Data non valida";
+    }
+    return formatDateFns(date, 'dd/MM/yyyy', { locale: it });
   } catch (error) {
     console.error("Error formatting play date:", error);
     return "Data non valida";
   }
 }
+
