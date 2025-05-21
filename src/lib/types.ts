@@ -87,6 +87,7 @@ export interface BoardGame {
   playlistedByUserIds?: string[];
   featuredReason?: 'pinned' | 'recent';
   lctr01Plays?: number | null;
+  lctr01PlayDetails?: BggPlayDetail[]; // Added to store detailed plays for lctr01
 }
 
 export interface AiSummary {
@@ -122,7 +123,7 @@ export interface UserProfile {
 
 export interface BggPlayerInPlay {
   username?: string | null;
-  name?: string | null; 
+  name?: string | null;
   userIdBgg?: string | null;
   score?: string | null;
   isNew?: boolean;
@@ -132,13 +133,12 @@ export interface BggPlayerInPlay {
 }
 
 export interface BggPlayDetail {
-  playId: string; 
-  date: string; 
-  quantity: number; 
-  comments: string | null; 
+  playId: string;
+  date: string;
+  quantity: number;
+  comments: string | null;
   location?: string | null;
   players?: BggPlayerInPlay[];
-  // Fields for Firestore storage or linking
-  userId?: string; 
-  gameBggId: number; 
+  userId?: string; // User for whom this play is logged (e.g., 'lctr01')
+  gameBggId: number; // BGG ID of the game played
 }
