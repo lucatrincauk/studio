@@ -419,14 +419,14 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     const usernameToFetch = "lctr01"; 
 
     startFetchPlaysTransition(async () => {
-      const bggFetchResult = await fetchUserPlaysForGameFromBggAction(game.bggId, usernameToFetch);
+      const serverActionResult = await fetchUserPlaysForGameFromBggAction(game.bggId, usernameToFetch);
 
-      if (bggFetchResult.success && bggFetchResult.plays) {
-        if (bggFetchResult.plays.length > 0) {
+      if (serverActionResult.success && serverActionResult.plays) {
+        if (serverActionResult.plays.length > 0) {
           const batch = writeBatch(db);
           const playsSubCollectionRef = collection(db, FIRESTORE_COLLECTION_NAME, game.id, `plays_${usernameToFetch.toLowerCase()}`);
 
-          bggFetchResult.plays.forEach(play => {
+          serverActionResult.plays.forEach(play => {
             const playDocRef = doc(playsSubCollectionRef, play.playId);
             const playDataForFirestore: BggPlayDetail = {
                 ...play,
@@ -441,12 +441,12 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             
             const gameDocRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
             await updateDoc(gameDocRef, {
-                lctr01Plays: bggFetchResult.plays.length 
+                lctr01Plays: serverActionResult.plays.length 
             });
 
             toast({
               title: "Partite Caricate e Salvate",
-              description: bggFetchResult.message || `Caricate e salvate ${bggFetchResult.plays.length} partite per ${game.name} da BGG per ${usernameToFetch}. Conteggio aggiornato.`,
+              description: serverActionResult.message || `Caricate e salvate ${serverActionResult.plays.length} partite per ${game.name} da BGG per ${usernameToFetch}. Conteggio aggiornato.`,
             });
             await revalidateGameDataAction(game.id);
             await fetchGameData(); 
@@ -457,13 +457,13 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         } else {
            toast({
             title: "Nessuna Partita Trovata",
-            description: bggFetchResult.message || `Nessuna partita trovata su BGG per ${usernameToFetch} per questo gioco.`,
+            description: serverActionResult.message || `Nessuna partita trovata su BGG per ${usernameToFetch} per questo gioco.`,
           });
         }
       } else {
         toast({
           title: "Errore Caricamento Partite BGG",
-          description: bggFetchResult.error || "Impossibile caricare le partite da BGG.",
+          description: serverActionResult.error || "Impossibile caricare le partite da BGG.",
           variant: "destructive",
         });
       }
@@ -589,55 +589,53 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                </div>
             </div>
             
-            <div className="text-sm text-muted-foreground pt-1">
-                 <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                    {hasDataForSection(game.designers) && (
-                        <div className="col-span-2 flex items-baseline gap-2">
-                            <PenTool size={16} className="text-primary/80" />
-                            <span className="hidden sm:inline">Autori:</span>
-                            <span>{game.designers!.join(', ')}</span>
-                        </div>
-                    )}
-                    {game.yearPublished != null && (
-                        <div className="flex items-baseline gap-2">
-                        <CalendarDays size={16} className="text-primary/80" />
-                        <span className="hidden sm:inline">Anno:</span>
-                        <span>{game.yearPublished}</span>
-                        </div>
-                    )}
-                    {(game.minPlayers != null || game.maxPlayers != null) && (
-                        <div className="flex items-baseline gap-2">
-                        <Users size={16} className="text-primary/80" />
-                        <span className="hidden sm:inline">Giocatori:</span>
-                        <span>{game.minPlayers}{game.maxPlayers && game.minPlayers !== game.maxPlayers ? `-${game.maxPlayers}` : ''}</span>
-                        </div>
-                    )}
-                    { (game.minPlaytime != null && game.maxPlaytime != null) || game.playingTime != null ? (
-                        <div className="flex items-baseline gap-2">
-                        <Clock size={16} className="text-primary/80" />
-                        <span className="hidden sm:inline">Durata:</span>
-                        <span>
-                            {game.minPlaytime != null && game.maxPlaytime != null ?
-                            (game.minPlaytime === game.maxPlaytime ? `${game.minPlaytime} min` : `${game.minPlaytime} - ${game.maxPlaytime} min`)
-                            : (game.playingTime != null ? `${game.playingTime} min` : 'N/D')
-                            }
-                            {game.minPlaytime != null && game.maxPlaytime != null && game.playingTime != null && game.playingTime !== game.minPlaytime && game.playingTime !== game.maxPlaytime && ` (Tipica: ${game.playingTime} min)`}
-                        </span>
-                        </div>
-                    ) : null}
-                    {game.averageWeight !== null && typeof game.averageWeight === 'number' && (
-                        <div className="flex items-baseline gap-2">
-                        <Weight size={16} className="text-primary/80" />
-                        <span className="hidden sm:inline">Complessità:</span>
-                        <span>{formatRatingNumber(game.averageWeight)} / 5</span>
-                        </div>
-                    )}
-                    <div className="flex items-baseline gap-2">
-                        <Repeat size={16} className="text-primary/80" />
-                        <span className="hidden sm:inline">Partite:</span>
-                        <span>{game.lctr01Plays ?? 0}</span>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
+                 {hasDataForSection(game.designers) && (
+                    <div className="col-span-2 flex items-baseline gap-2">
+                        <PenTool size={16} className="text-primary/80" />
+                        <span className="hidden sm:inline">Autori:</span>
+                        <span>{game.designers!.join(', ')}</span>
                     </div>
-                 </div>
+                )}
+                {game.yearPublished != null && (
+                    <div className="flex items-baseline gap-2">
+                    <CalendarDays size={16} className="text-primary/80" />
+                    <span className="hidden sm:inline">Anno:</span>
+                    <span>{game.yearPublished}</span>
+                    </div>
+                )}
+                {(game.minPlayers != null || game.maxPlayers != null) && (
+                    <div className="flex items-baseline gap-2">
+                    <Users size={16} className="text-primary/80" />
+                    <span className="hidden sm:inline">Giocatori:</span>
+                    <span>{game.minPlayers}{game.maxPlayers && game.minPlayers !== game.maxPlayers ? `-${game.maxPlayers}` : ''}</span>
+                    </div>
+                )}
+                { (game.minPlaytime != null && game.maxPlaytime != null) || game.playingTime != null ? (
+                    <div className="flex items-baseline gap-2">
+                    <Clock size={16} className="text-primary/80" />
+                    <span className="hidden sm:inline">Durata:</span>
+                    <span>
+                        {game.minPlaytime != null && game.maxPlaytime != null ?
+                        (game.minPlaytime === game.maxPlaytime ? `${game.minPlaytime} min` : `${game.minPlaytime} - ${game.maxPlaytime} min`)
+                        : (game.playingTime != null ? `${game.playingTime} min` : 'N/D')
+                        }
+                        {game.minPlaytime != null && game.maxPlaytime != null && game.playingTime != null && game.playingTime !== game.minPlaytime && game.playingTime !== game.maxPlaytime && ` (Tipica: ${game.playingTime} min)`}
+                    </span>
+                    </div>
+                ) : null}
+                {game.averageWeight !== null && typeof game.averageWeight === 'number' && (
+                    <div className="flex items-baseline gap-2">
+                    <Weight size={16} className="text-primary/80" />
+                    <span className="hidden sm:inline">Complessità:</span>
+                    <span>{formatRatingNumber(game.averageWeight)} / 5</span>
+                    </div>
+                )}
+                <div className="flex items-baseline gap-2">
+                    <Repeat size={16} className="text-primary/80" />
+                    <span className="hidden sm:inline">Partite:</span>
+                    <span>{game.lctr01Plays ?? 0}</span>
+                </div>
             </div>
             
             {(hasDataForSection(game.categories) || hasDataForSection(game.mechanics) ) && (
