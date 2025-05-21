@@ -184,7 +184,7 @@ export default function AllPlaysPage() {
                                             return scoreB - scoreA; 
                                           })
                                           .map((player, pIndex) => (
-                                          <li key={pIndex} className={`flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5 ${pIndex % 2 === 0 ? 'bg-muted/30' : ''}`}>
+                                          <li key={pIndex} className={`flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5 even:bg-muted/30 px-2`}>
                                             <div className="flex items-center gap-1.5 flex-grow min-w-0">
                                               <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 relative top-px" />
                                               <span className={`truncate ${player.didWin ? 'font-semibold' : ''}`} title={player.name || player.username || 'Sconosciuto'}>
@@ -224,4 +224,5 @@ export default function AllPlaysPage() {
     </div>
   );
 }
+
 
