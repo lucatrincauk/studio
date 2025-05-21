@@ -3,7 +3,7 @@ import { getAllGamesAction, getFeaturedGamesAction, getLastPlayedGameAction } fr
 import { GameCard } from '@/components/boardgame/game-card';
 import { Separator } from '@/components/ui/separator';
 import type { BoardGame, BggPlayDetail } from '@/lib/types';
-import { Star, TrendingUp, Library, Info, Dices, UserCircle2, Sparkles, Trophy, Edit, BarChart3, LayoutList } from 'lucide-react';
+import { Star, TrendingUp, Library, Info, Dices, UserCircle2, Sparkles, Trophy, Edit, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { formatRatingNumber, formatReviewDate } from '@/lib/utils';
@@ -180,10 +180,13 @@ export default async function HomePage() {
                   <span
                     aria-hidden="true"
                     className={cn(
-                      "absolute font-bold text-muted-foreground/10 pointer-events-none select-none leading-none z-0",
-                      "-right-[30px] -bottom-[55px] text-[255px]",
-                      "sm:-right-[30px] sm:-bottom-[65px] sm:text-[300px]",
-                      "lg:-right-[36px] lg:-bottom-[75px] lg:text-[340px]"
+                      "absolute pointer-events-none select-none leading-none z-0 text-muted-foreground/10",
+                      // Mobile
+                      "text-[255pt] -bottom-[55px] -right-[30px]",
+                      // Small screens
+                      "sm:text-[300pt] sm:-bottom-[65px] sm:-right-[30px]",
+                      // Large screens
+                      "lg:text-[340pt] lg:-bottom-[75px] lg:-right-[36px]"
                     )}
                   >
                     {index + 1}
@@ -191,8 +194,8 @@ export default async function HomePage() {
                   {/* Game content: image and text */}
                   <div className={cn(
                       "relative z-10 flex items-center gap-x-3 sm:gap-x-4 flex-grow",
-                       // Responsive right margin to make space for the large background number
-                      "mr-5 sm:mr-8 lg:mr-10"
+                      // Responsive right margin to make space for the large background number
+                      "mr-5 sm:mr-8 lg:mr-10" 
                     )}>
                     <div className="w-24 sm:w-28 md:w-32 flex-shrink-0"> 
                       <GameCard game={game} variant="featured" priority={index < 5} showOverlayText={false} />
