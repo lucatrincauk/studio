@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState, useTransition, useCallback, use } from 'react';
+import { useEffect, useState, useTransition, useCallback, use, useMemo } from 'react';
 import Link from 'next/link';
 import { getGameDetails, revalidateGameDataAction, fetchUserPlaysForGameFromBggAction } from '@/lib/actions';
 import type { BoardGame, Review, Rating as RatingType, GroupedCategoryAverages, BggPlayDetail, BggPlayerInPlay } from '@/lib/types';
@@ -112,7 +112,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       setRemainingReviews(gameData.reviews?.filter(r => r.id !== foundUserReview?.id) || []);
 
       if (gameData.reviews && gameData.reviews.length > 0) {
-        const categoryAvgs = calculateCatAvgsFromUtils(gameData.reviews); // Use aliased import
+        const categoryAvgs = calculateCatAvgsFromUtils(gameData.reviews); 
         if (categoryAvgs) {
           setGlobalGameAverage(calculateOverallCategoryAverage(categoryAvgs));
         } else {
@@ -409,11 +409,12 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         }
 
         if (serverActionResult.plays.length > 0) {
-             toast({
+            // Server action already handles saving to Firestore and revalidation
+            // Just need to re-fetch local game data to update the UI
+            toast({
                 title: "Partite Caricate e Salvate",
                 description: serverActionResult.message || `Caricate e salvate ${serverActionResult.plays.length} partite per ${game.name} da BGG per ${usernameToFetch}. Conteggio aggiornato.`,
             });
-            // No need to revalidate here, server action already does it.
             await fetchGameData(); 
             
         } else {
@@ -629,29 +630,29 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             </div>
 
             {/* Metadata Grid */}
-            <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
+             <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
                 <div className="flex items-baseline gap-2">
-                    <span className="inline-flex items-center"><PenTool size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
+                    <span className="inline-flex items-center relative top-px"><PenTool size={14} className="text-primary/80 flex-shrink-0" /></span>
                     <span className="font-medium hidden sm:inline">Autori:</span>
                     <span>{(game.designers && game.designers.length > 0) ? game.designers!.join(', ') : 'N/D'}</span>
                 </div>
                 {game.yearPublished != null && (
                     <div className="flex items-baseline gap-2">
-                    <span className="inline-flex items-center"><CalendarDays size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
+                    <span className="inline-flex items-center relative top-px"><CalendarDays size={14} className="text-primary/80 flex-shrink-0" /></span>
                     <span className="font-medium hidden sm:inline">Anno:</span>
                     <span>{game.yearPublished}</span>
                     </div>
                 )}
                 {(game.minPlayers != null || game.maxPlayers != null) && (
                     <div className="flex items-baseline gap-2">
-                    <span className="inline-flex items-center"><Users size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
+                    <span className="inline-flex items-center relative top-px"><Users size={14} className="text-primary/80 flex-shrink-0" /></span>
                     <span className="font-medium hidden sm:inline">Giocatori:</span>
                     <span>{game.minPlayers}{game.maxPlayers && game.minPlayers !== game.maxPlayers ? `-${game.maxPlayers}` : ''}</span>
                     </div>
                 )}
                 { (game.minPlaytime != null && game.maxPlaytime != null) || game.playingTime != null ? (
                     <div className="flex items-baseline gap-2">
-                    <span className="inline-flex items-center"><Clock size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
+                    <span className="inline-flex items-center relative top-px"><Clock size={14} className="text-primary/80 flex-shrink-0" /></span>
                     <span className="font-medium hidden sm:inline">Durata:</span>
                     <span>
                         {game.minPlaytime != null && game.maxPlaytime != null ?
@@ -664,26 +665,26 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 ) : null}
                 {game.averageWeight !== null && typeof game.averageWeight === 'number' && (
                     <div className="flex items-baseline gap-2">
-                    <span className="inline-flex items-center"><Weight size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
+                    <span className="inline-flex items-center relative top-px"><Weight size={14} className="text-primary/80 flex-shrink-0" /></span>
                     <span className="font-medium hidden sm:inline">Complessità:</span>
                     <span>{formatRatingNumber(game.averageWeight)} / 5</span>
                     </div>
                 )}
                 <div className="flex items-baseline gap-2">
-                    <span className="inline-flex items-center"><Dices size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
+                    <span className="inline-flex items-center relative top-px"><Dices size={14} className="text-primary/80 flex-shrink-0" /></span>
                     <span className="font-medium hidden sm:inline">Partite:</span>
                     <span>{game.lctr01Plays ?? 0}</span>
                 </div>
                 {topWinnerStats && (
                   <div className="flex items-baseline gap-2">
-                    <span className="inline-flex items-center"><Trophy size={14} className="text-amber-500 flex-shrink-0 relative top-px" /></span>
+                    <span className="inline-flex items-center relative top-px"><Trophy size={14} className="text-amber-500 flex-shrink-0" /></span>
                     <span className="font-medium hidden sm:inline">Campione:</span>
                     <span>{topWinnerStats.name} ({topWinnerStats.wins} {topWinnerStats.wins === 1 ? 'vittoria' : 'vittorie'})</span>
                   </div>
                 )}
                  {highestScoreAchieved !== null && (
                     <div className="flex items-baseline gap-2">
-                        <span className="inline-flex items-center"><Medal size={14} className="text-amber-500 flex-shrink-0 relative top-px" /></span>
+                        <span className="inline-flex items-center relative top-px"><Medal size={14} className="text-amber-500 flex-shrink-0" /></span>
                         <span className="font-medium hidden sm:inline">Miglior Punteggio:</span>
                         <span>{formatRatingNumber(highestScoreAchieved)} pt.</span>
                     </div>
@@ -823,7 +824,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                   <h3 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h3>
                   <div className="flex items-center gap-2 flex-shrink-0">
                       <Button asChild size="sm">
-                         <Link href={`/games/${gameId}/rate`}>
+                        <Link href={`/games/${gameId}/rate`}>
                            <span className="flex items-center">
                              <Edit className="mr-0 sm:mr-2 h-4 w-4" />
                              <span className="hidden sm:inline">Modifica</span>
