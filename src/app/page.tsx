@@ -85,7 +85,7 @@ export default async function HomePage() {
               Ultima Partita Giocata
             </h2>
             <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-start">
-              <div className="w-full md:w-1/3 lg:w-1/4 flex-shrink-0">
+              <div className="w-full max-w-[160px] sm:max-w-none sm:w-1/3 md:w-1/4 flex-shrink-0">
                 <GameCard
                   game={lastPlayedGame}
                   variant="featured"
@@ -93,15 +93,15 @@ export default async function HomePage() {
                   showOverlayText={true} 
                 />
               </div>
-              <div className="flex-1 space-y-3 p-1 md:p-0">
-                <div className="flex justify-between items-baseline text-sm text-muted-foreground">
+              <div className="flex-1 space-y-1.5 p-1 md:p-0 text-sm">
+                <div className="flex justify-between items-baseline text-xs text-muted-foreground">
                    <span>{formatReviewDate(lastPlayDetail.date)}</span>
                    {lastPlayDetail.quantity > 1 && <span>{lastPlayDetail.quantity} partite</span>}
                 </div>
                 {lastPlayDetail.location && (
                    <p className="text-xs text-muted-foreground"><strong>Luogo:</strong> {lastPlayDetail.location}</p>
                 )}
-                {lastPlayDetail.comments && (
+                {lastPlayDetail.comments && lastPlayDetail.comments.length > 0 && (
                   <div>
                     <h4 className="text-xs font-semibold text-muted-foreground mb-0.5">Commenti:</h4>
                     <p className="text-xs text-foreground/80 whitespace-pre-wrap">{lastPlayDetail.comments}</p>
@@ -110,12 +110,12 @@ export default async function HomePage() {
                 {lastPlayDetail.players && lastPlayDetail.players.length > 0 && (
                   <div>
                     <h4 className="text-xs font-semibold text-muted-foreground mb-1">Giocatori:</h4>
-                    <ul className="space-y-1">
+                    <ul className="space-y-0.5">
                       {lastPlayDetail.players
                         .slice()
                         .sort((a, b) => parseInt(b.score || "0", 10) - parseInt(a.score || "0", 10))
                         .map((player, pIndex) => (
-                        <li key={pIndex} className={`flex items-center justify-between text-xs py-1 border-b border-border last:border-b-0 ${pIndex % 2 === 0 ? 'bg-muted/30' : ''} px-1.5 rounded-sm`}>
+                        <li key={pIndex} className={`flex items-center justify-between text-xs py-0.5 border-b border-border last:border-b-0 ${pIndex % 2 === 0 ? 'bg-muted/30' : ''} px-1 rounded-sm`}>
                           <div className="flex items-center gap-1.5 flex-grow min-w-0">
                             <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                             <span className={`truncate ${player.didWin ? 'font-semibold' : ''}`} title={player.name || player.username || 'Sconosciuto'}>
@@ -165,7 +165,7 @@ export default async function HomePage() {
                   >
                     {index + 1}
                   </span>
-                  <div className="relative z-10 flex items-center gap-x-3 sm:gap-x-4 flex-grow mr-6 sm:mr-8 lg:mr-10">
+                  <div className="relative z-10 flex items-center gap-x-3 sm:gap-x-4 flex-grow mr-5 sm:mr-8 lg:mr-10">
                     <div className="w-24 h-32 sm:w-28 sm:h-36 md:w-32 md:h-40 flex-shrink-0"> 
                       <GameCard game={game} variant="featured" priority={index < 5} showOverlayText={false} />
                     </div>
@@ -217,3 +217,4 @@ export default async function HomePage() {
 }
 
 export const revalidate = 3600;
+
