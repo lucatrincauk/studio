@@ -9,7 +9,7 @@ import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, Settings, DownloadCloud, BarChart3, ListChecks, ListPlus, Heart, UserCircle2, MessageSquare, Repeat, Trophy, Star } from 'lucide-react';
+import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, Settings, DownloadCloud, BarChart3, ListChecks, ListPlus, Heart, UserCircle2, MessageSquare, Repeat, Trophy, Star, Medal } from 'lucide-react'; // Added Medal
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { summarizeReviews } from '@/ai/flows/summarize-reviews';
@@ -418,7 +418,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     const usernameToFetch = "lctr01"; 
 
     startFetchPlaysTransition(async () => {
-        const serverActionResult = await fetchUserPlaysForGameFromBggAction(game.id, game.bggId, usernameToFetch);
+        const serverActionResult = await fetchUserPlaysForGameFromBggAction(game.bggId, usernameToFetch);
 
         if (serverActionResult.success && serverActionResult.plays) {
             if (serverActionResult.plays.length > 0) {
@@ -427,8 +427,12 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 
                 serverActionResult.plays.forEach(play => {
                     const playDocRef = doc(playsSubCollectionRef, play.playId);
-                    // The play object already contains gameBggId and userId from the server action
-                    batch.set(playDocRef, play, { merge: true }); 
+                    const playDataForFirestore: BggPlayDetail = {
+                        ...play,
+                        userId: usernameToFetch, 
+                        gameBggId: game.bggId,
+                    };
+                    batch.set(playDocRef, playDataForFirestore, { merge: true }); 
                 });
                 
                 try {
@@ -725,9 +729,9 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 )}
                  {highestScoreAchieved !== null && (
                     <div className="flex items-baseline gap-2">
-                        <Star size={14} className="text-amber-500 flex-shrink-0" />
+                        <Medal size={14} className="text-amber-500 flex-shrink-0" />
                         <span className="font-medium hidden sm:inline">Punteggio Massimo Registrato:</span>
-                        <span>{formatRatingNumber(highestScoreAchieved)}</span>
+                        <span>{formatRatingNumber(highestScoreAchieved)} pt.</span>
                     </div>
                 )}
             </div>
