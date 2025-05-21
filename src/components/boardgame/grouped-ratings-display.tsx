@@ -1,7 +1,7 @@
 
 'use client';
 
-import type { GroupedCategoryAverages, SectionAverage } from '@/lib/types';
+import type { GroupedCategoryAverages } from '@/lib/types';
 import {
   Accordion,
   AccordionContent,
@@ -13,6 +13,7 @@ import { formatRatingNumber } from '@/lib/utils';
 import { Info, Smile, Puzzle, Palette, ClipboardList, type LucideIcon } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import React from 'react';
+import { cn } from '@/lib/utils';
 
 interface GroupedRatingsDisplayProps {
   groupedAverages: GroupedCategoryAverages | null;
@@ -54,11 +55,17 @@ export function GroupedRatingsDisplay({
       {groupedAverages.map((section, index) => {
         const IconComponent = section.iconName ? iconMap[section.iconName] : null;
         return (
-          <AccordionItem value={`section-${index}`} key={section.sectionTitle}>
+          <AccordionItem 
+            value={`section-${index}`} 
+            key={section.sectionTitle}
+            className={cn(index === groupedAverages.length - 1 ? "" : "border-b")}
+          >
             <AccordionTrigger className="hover:no-underline text-left py-3">
               <div className="flex justify-between w-full items-center pr-2 gap-2">
-                {IconComponent && <IconComponent className="h-5 w-5 text-primary mr-2 flex-shrink-0" />}
-                <span className="font-medium text-md text-foreground flex-grow">{section.sectionTitle}</span>
+                <div className="flex items-center flex-grow min-w-0">
+                    {IconComponent && <IconComponent className="h-5 w-5 text-primary mr-2 flex-shrink-0" />}
+                    <span className="font-medium text-md text-foreground truncate">{section.sectionTitle}</span>
+                </div>
                 <div className="flex items-center gap-2 flex-shrink-0 w-24">
                   <Progress value={(section.sectionAverage / 5) * 100} className="w-full h-2.5" />
                 </div>
@@ -80,4 +87,3 @@ export function GroupedRatingsDisplay({
     </Accordion>
   );
 }
-
