@@ -9,7 +9,7 @@ import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Repeat, Settings, DownloadCloud, ListChecks, ListPlus, Heart, BarChart3, CheckSquare, CircleUserRound, MessageSquare } from 'lucide-react';
+import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Repeat, Settings, DownloadCloud, ListChecks, ListPlus, Heart, BarChart3, CheckSquare, CircleUserRound, MessageSquare, UserCircle2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { summarizeReviews } from '@/ai/flows/summarize-reviews';
@@ -415,7 +415,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
   const handleFetchBggPlays = async () => {
     if (!game || !game.id || !game.bggId || authLoading || !isAdmin) return;
 
-    const usernameToFetch = "lctr01"; // Hardcoded for now, can be made dynamic if needed
+    const usernameToFetch = "lctr01"; 
 
     startFetchPlaysTransition(async () => {
       const bggFetchResult = await fetchUserPlaysForGameFromBggAction(game.bggId, usernameToFetch);
@@ -437,10 +437,10 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
           try {
             await batch.commit();
-            // Also update the lctr01Plays count on the main game document
+            
             const gameDocRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
             await updateDoc(gameDocRef, {
-                lctr01Plays: bggFetchResult.plays.length // Set to the new total count from this fetch
+                lctr01Plays: bggFetchResult.plays.length 
             });
 
             toast({
@@ -513,7 +513,9 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                       <ExternalLink size={16} className="h-4 w-4" />
                     </a>
                   )}
-                   {currentUser && (
+                </div>
+               <div className="flex items-center gap-2 flex-shrink-0">
+                  {currentUser && (
                     <>
                       <Button
                         variant="ghost"
@@ -571,8 +573,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                       )}
                     </>
                   )}
-                </div>
-               <div className="flex-shrink-0">
                   {globalGameAverage !== null ? (
                      <span className="text-primary text-3xl md:text-4xl font-bold whitespace-nowrap">
                         {formatRatingNumber(globalGameAverage * 2)}
@@ -585,51 +585,53 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                </div>
             </div>
             
-            <div className="text-sm text-muted-foreground space-y-1.5 pt-1 grid grid-cols-2 gap-x-4 gap-y-2">
-              <div className="flex items-center gap-2">
-                <PenTool size={16} className="text-primary/80" />
-                <span className="hidden sm:inline">Autori:</span>
-                <span>{hasDataForSection(game.designers) ? game.designers!.join(', ') : 'N/D'}</span>
-              </div>
-              {game.yearPublished != null && (
+            <div className="text-sm text-muted-foreground space-y-1.5 pt-1">
                 <div className="flex items-center gap-2">
-                  <CalendarDays size={16} className="text-primary/80" />
-                  <span className="hidden sm:inline">Anno:</span>
-                  <span>{game.yearPublished}</span>
+                    <PenTool size={16} className="text-primary/80" />
+                    <span className="hidden sm:inline">Autori:</span>
+                    <span>{hasDataForSection(game.designers) ? game.designers!.join(', ') : 'N/D'}</span>
                 </div>
-              )}
-              {(game.minPlayers != null || game.maxPlayers != null) && (
-                <div className="flex items-center gap-2">
-                  <Users size={16} className="text-primary/80" />
-                   <span className="hidden sm:inline">Giocatori:</span>
-                  <span>{game.minPlayers}{game.maxPlayers && game.minPlayers !== game.maxPlayers ? `-${game.maxPlayers}` : ''}</span>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-2">
+                  {game.yearPublished != null && (
+                    <div className="flex items-center gap-2">
+                      <CalendarDays size={16} className="text-primary/80" />
+                      <span className="hidden sm:inline">Anno:</span>
+                      <span>{game.yearPublished}</span>
+                    </div>
+                  )}
+                  {(game.minPlayers != null || game.maxPlayers != null) && (
+                    <div className="flex items-center gap-2">
+                      <Users size={16} className="text-primary/80" />
+                       <span className="hidden sm:inline">Giocatori:</span>
+                      <span>{game.minPlayers}{game.maxPlayers && game.minPlayers !== game.maxPlayers ? `-${game.maxPlayers}` : ''}</span>
+                    </div>
+                  )}
+                  { (game.minPlaytime != null && game.maxPlaytime != null) || game.playingTime != null ? (
+                    <div className="flex items-center gap-2">
+                      <Clock size={16} className="text-primary/80" />
+                      <span className="hidden sm:inline">Durata:</span>
+                      <span>
+                        {game.minPlaytime != null && game.maxPlaytime != null ?
+                          (game.minPlaytime === game.maxPlaytime ? `${game.minPlaytime} min` : `${game.minPlaytime} - ${game.maxPlaytime} min`)
+                          : (game.playingTime != null ? `${game.playingTime} min` : 'N/D')
+                        }
+                        {game.minPlaytime != null && game.maxPlaytime != null && game.playingTime != null && game.playingTime !== game.minPlaytime && game.playingTime !== game.maxPlaytime && ` (Tipica: ${game.playingTime} min)`}
+                      </span>
+                    </div>
+                  ) : null}
+                  {game.averageWeight !== null && typeof game.averageWeight === 'number' && (
+                     <div className="flex items-center gap-2">
+                      <Weight size={16} className="text-primary/80" />
+                      <span className="hidden sm:inline">Complessità:</span>
+                      <span>{formatRatingNumber(game.averageWeight)} / 5</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <Repeat size={16} className="text-primary/80" />
+                    <span className="hidden sm:inline">Partite:</span>
+                    <span>{game.lctr01Plays ?? 0}</span>
+                  </div>
                 </div>
-              )}
-              { (game.minPlaytime != null && game.maxPlaytime != null) || game.playingTime != null ? (
-                <div className="flex items-center gap-2">
-                  <Clock size={16} className="text-primary/80" />
-                  <span className="hidden sm:inline">Durata:</span>
-                  <span>
-                    {game.minPlaytime != null && game.maxPlaytime != null ?
-                      (game.minPlaytime === game.maxPlaytime ? `${game.minPlaytime} min` : `${game.minPlaytime} - ${game.maxPlaytime} min`)
-                      : (game.playingTime != null ? `${game.playingTime} min` : 'N/D')
-                    }
-                    {game.minPlaytime != null && game.maxPlaytime != null && game.playingTime != null && game.playingTime !== game.minPlaytime && game.playingTime !== game.maxPlaytime && ` (Tipica: ${game.playingTime} min)`}
-                  </span>
-                </div>
-              ) : null}
-              {game.averageWeight !== null && typeof game.averageWeight === 'number' && (
-                 <div className="flex items-center gap-2">
-                  <Weight size={16} className="text-primary/80" />
-                  <span className="hidden sm:inline">Complessità:</span>
-                  <span>{formatRatingNumber(game.averageWeight)} / 5</span>
-                </div>
-              )}
-              <div className="flex items-center gap-2">
-                <Repeat size={16} className="text-primary/80" />
-                <span className="hidden sm:inline">Partite Giocate:</span>
-                <span>{game.lctr01Plays ?? 0}</span>
-              </div>
             </div>
             
             {(hasDataForSection(game.categories) || hasDataForSection(game.mechanics) ) && (
@@ -700,25 +702,17 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
         <div className="lg:col-span-2 space-y-8">
-          {currentUser && !authLoading && !userReview && (
-            <Card className="p-6 border border-border rounded-lg shadow-md bg-card">
-              <CardTitle className="text-xl font-semibold text-foreground mb-1">Condividi la Tua Opinione</CardTitle>
-              <CardDescription className="mb-4">
-                Aiuta gli altri condividendo la tua esperienza con questo gioco.
-              </CardDescription>
-              <Button asChild className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90">
-                <Link href={`/games/${gameId}/rate`}>
-                  <Edit className="mr-2 h-4 w-4" />
-                  Valuta questo Gioco
-                </Link>
-              </Button>
-            </Card>
-          )}
-
            {currentUser && !authLoading && userReview && (
-            <div className="mb-6">
+             <Card className="p-6 border border-border rounded-lg shadow-md bg-card">
               <div className="flex justify-between items-center mb-4 flex-wrap">
-                <h3 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h3>
+                <div className="flex items-baseline gap-2">
+                  <CardTitle className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</CardTitle>
+                   {userReview && calculateOverallCategoryAverage(userReview.rating) !== null && (
+                        <span className="text-xl font-bold text-primary">
+                            {formatRatingNumber(calculateOverallCategoryAverage(userReview.rating)! * 2)}
+                        </span>
+                    )}
+                </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <Button asChild size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90">
                    <Link href={`/games/${gameId}/rate`}>
@@ -755,8 +749,24 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 </div>
               </div>
               <ReviewItem review={userReview} />
-            </div>
+            </Card>
           )}
+          
+          {currentUser && !authLoading && !userReview && (
+            <Card className="p-6 border border-border rounded-lg shadow-md bg-card">
+              <CardTitle className="text-xl font-semibold text-foreground mb-1">Condividi la Tua Opinione</CardTitle>
+              <CardDescription className="mb-4">
+                Aiuta gli altri condividendo la tua esperienza con questo gioco.
+              </CardDescription>
+              <Button asChild className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90">
+                <Link href={`/games/${gameId}/rate`}>
+                  <Edit className="mr-2 h-4 w-4" />
+                  Valuta questo Gioco
+                </Link>
+              </Button>
+            </Card>
+          )}
+
 
            {!currentUser && !authLoading && (
                  <Alert variant="default" className="mt-4 bg-secondary/30 border-secondary">
@@ -766,6 +776,67 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                     </AlertDescription>
                   </Alert>
             )}
+            
+          {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
+             <Card className="shadow-md border border-border rounded-lg">
+                <CardHeader>
+                    <CardTitle className="text-xl flex items-center gap-2">
+                        <BarChart3 className="h-5 w-5 text-primary"/>
+                        Partite Registrate
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <Accordion type="single" collapsible className="w-full">
+                        {game.lctr01PlayDetails.map((play, index) => (
+                            <AccordionItem value={`play-${play.playId}`} key={play.playId}>
+                                <AccordionTrigger className="hover:no-underline text-left py-3 text-sm">
+                                    <div className="flex justify-between w-full items-center pr-2 gap-2">
+                                        <span>{formatReviewDate(play.date)} - {play.quantity} {play.quantity === 1 ? "partita" : "partite"}</span>
+                                        {play.players && play.players.some(p => p.username?.toLowerCase() === "lctr01" && p.didWin) && (
+                                            <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-300">Vittoria</Badge>
+                                        )}
+                                    </div>
+                                </AccordionTrigger>
+                                <AccordionContent className="pb-4 pt-2 text-sm">
+                                  <div className="space-y-2">
+                                    {play.location && (
+                                      <div className="grid grid-cols-[auto_1fr] gap-x-2 items-baseline">
+                                        <strong className="text-muted-foreground text-xs">Luogo:</strong>
+                                        <span className="text-xs">{play.location}</span>
+                                      </div>
+                                    )}
+                                    {play.comments && (
+                                      <div className="grid grid-cols-[auto_1fr] gap-x-2 items-baseline">
+                                        <strong className="text-muted-foreground text-xs">Commenti:</strong>
+                                        <p className="text-xs whitespace-pre-wrap">{play.comments}</p>
+                                      </div>
+                                    )}
+                                    {play.players && play.players.length > 0 && (
+                                      <div>
+                                        <strong className="block mb-1.5 text-muted-foreground text-xs">Giocatori:</strong>
+                                        <ul className="space-y-1 pl-1">
+                                          {play.players.map((player, pIndex) => (
+                                            <li key={pIndex} className="flex items-center gap-2 text-xs">
+                                              <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                                              <span className="flex-grow truncate" title={player.name || player.username || 'Sconosciuto'}>
+                                                {player.name || player.username || 'Sconosciuto'}
+                                              </span>
+                                              {player.score && <Badge variant="secondary" size="sm" className="font-mono text-xs">{player.score} pt.</Badge>}
+                                              {player.didWin && <Badge variant="outline" size="sm" className="text-green-600 border-green-500">Vinto</Badge>}
+                                              {player.isNew && <Badge variant="outline" size="sm" className="text-blue-600 border-blue-500">Nuovo</Badge>}
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                    )}
+                                  </div>
+                                </AccordionContent>
+                            </AccordionItem>
+                        ))}
+                    </Accordion>
+                </CardContent>
+             </Card>
+          )}
 
            {remainingReviews.length > 0 && (
             <>
@@ -840,56 +911,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
               </CardContent>
             </Card>
           )}
-
-          {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
-             <Card className="shadow-md border border-border rounded-lg">
-                <CardHeader>
-                    <CardTitle className="text-xl flex items-center gap-2">
-                        <BarChart3 className="h-5 w-5 text-primary"/>
-                        Partite Registrate
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <Accordion type="single" collapsible className="w-full">
-                        {game.lctr01PlayDetails.map((play, index) => (
-                            <AccordionItem value={`play-${play.playId}`} key={play.playId}>
-                                <AccordionTrigger className="hover:no-underline text-left py-3 text-sm">
-                                    <div className="flex justify-between w-full items-center pr-2 gap-2">
-                                        <span>{formatReviewDate(play.date)} - {play.quantity} {play.quantity === 1 ? "partita" : "partite"}</span>
-                                        {play.players && play.players.some(p => p.username?.toLowerCase() === "lctr01" && p.didWin) && (
-                                            <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-300">Vittoria</Badge>
-                                        )}
-                                    </div>
-                                </AccordionTrigger>
-                                <AccordionContent className="pb-2 pt-1 text-xs space-y-1">
-                                    {play.location && <p><strong>Luogo:</strong> {play.location}</p>}
-                                    {play.comments && <p><strong>Commenti:</strong> {play.comments}</p>}
-                                    {play.players && play.players.length > 0 && (
-                                        <div>
-                                            <strong>Giocatori:</strong>
-                                            <ul className="list-disc list-inside pl-4">
-                                                {play.players.map((player, pIndex) => (
-                                                    <li key={pIndex}>
-                                                        {player.name || player.username || 'Sconosciuto'}
-                                                        {player.score && ` (${player.score} pt.)`}
-                                                        {player.didWin && <Badge variant="outline" className="ml-1 text-xs py-0 px-1 border-green-500 text-green-600">Vinto</Badge>}
-                                                        {player.isNew && <Badge variant="outline" className="ml-1 text-xs py-0 px-1">Nuovo</Badge>}
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                    )}
-                                </AccordionContent>
-                            </AccordionItem>
-                        ))}
-                    </Accordion>
-                </CardContent>
-             </Card>
-          )}
         </div>
       </section>
     </div>
   );
 }
-
-
