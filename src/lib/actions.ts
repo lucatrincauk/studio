@@ -78,7 +78,7 @@ function parseBggThingXmlToBoardGame(xmlText: string, bggIdInput: number): Parti
   } else {
       const thumbnailMatch = /<thumbnail>([\s\S]*?)<\/thumbnail>/i.exec(xmlText);
       if (thumbnailMatch && thumbnailMatch[1]) {
-          thumbnail = decodeHtmlEntities(thumbnailMatch[1].trim());
+          coverArt = decodeHtmlEntities(thumbnailMatch[1].trim());
       }
   }
   if (coverArt && coverArt.startsWith('//')) {
@@ -93,7 +93,7 @@ function parseBggThingXmlToBoardGame(xmlText: string, bggIdInput: number): Parti
   gameData.minPlaytime = parseNumericValueHelper(/<minplaytime(?:[^>]*?\s)?value="(\d+)"[^>]*\/?>/i, xmlText);
   gameData.maxPlaytime = parseNumericValueHelper(/<maxplaytime(?:[^>]*?\s)?value="(\d+)"[^>]*\/?>/i, xmlText);
   gameData.averageWeight = parseNumericValueHelper(/<averageweight\s+value="([\d\.]+)"\s*\/?>/i, xmlText, true);
-  
+    
   const parseLinks = (type: string): string[] => {
     const values: string[] = [];
     const linkRegex = new RegExp(`<link\\s+type="${type}"(?:[^>]*?)value="([^"]+)"(?:[^>]*)?\\/>`, "gi");
@@ -108,7 +108,7 @@ function parseBggThingXmlToBoardGame(xmlText: string, bggIdInput: number): Parti
   gameData.categories = parseLinks("boardgamecategory");
   gameData.mechanics = parseLinks("boardgamemechanic");
   gameData.designers = parseLinks("boardgamedesigner");
-
+  
   return gameData;
 }
 
@@ -308,6 +308,7 @@ export async function getGameDetails(gameId: string): Promise<BoardGame | null> 
           };
         });
       } catch (reviewError) {
+         // console.error(`[GETGAMEDETAILS] Error fetching reviews for gameId "${gameId}":`, reviewError);
       }
         
       const game: BoardGame = {
@@ -554,6 +555,7 @@ export async function importAndRateBggGameAction(bggId: string): Promise<{ gameI
           return { gameId: existingGameId };
       }
   } catch (dbError) {
+    // console.error("DB error checking if game exists, proceeding to import:", dbError);
   }
 
   try {
@@ -649,6 +651,7 @@ export async function getAllReviewsAction(): Promise<AugmentedReview[]> {
     allAugmentedReviews.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     return allAugmentedReviews;
   } catch (error) {
+    // console.error("Error fetching all reviews:", error);
     return []; 
   }
 }
@@ -668,6 +671,7 @@ export async function getAllUsersAction(): Promise<UserProfile[]> {
     });
     return users;
   } catch (error) {
+    // console.error("Error fetching all users:", error);
     return [];
   }
 }
@@ -690,6 +694,7 @@ export async function getUserDetailsAndReviewsAction(
       };
     }
   } catch (error) {
+    // console.error("Error fetching user profile in getUserDetailsAndReviewsAction:", error);
   }
 
   const allReviews = await getAllReviewsAction(); 
@@ -706,46 +711,48 @@ export async function getFeaturedGamesAction(): Promise<BoardGame[]> {
       return [];
     }
 
-    const allGamesWithDetails: Array<BoardGame & { _latestReviewDate: Date | null }> = 
-      allGamesResult.map(game => {
-        return {
-          ...game,
-          _latestReviewDate: null, 
-        };
-      });
-      
-    const allReviews = await getAllReviewsAction();
-    const gameReviewDates: Record<string, Date> = {};
-    allReviews.forEach(review => {
-        const existingDate = gameReviewDates[review.gameId];
-        const reviewDate = new Date(review.date);
-        if (!existingDate || reviewDate > existingDate) {
-            gameReviewDates[review.gameId] = reviewDate;
-        }
-    });
-
-    const enrichedGames = allGamesWithDetails.map(game => ({
-        ...game,
-        _latestReviewDate: gameReviewDates[game.id] || null,
+    const enrichedGames: Array<BoardGame & { _latestReviewDate?: Date | null, featuredReason?: 'pinned' | 'recent' }> = allGamesResult.map(game => ({
+      ...game,
+      _latestReviewDate: null,
+      featuredReason: undefined,
     }));
 
+    const reviewDatesPromises = enrichedGames.map(async (game) => {
+      if (game.id) {
+        const reviewsQuery = query(
+          collection(db, FIRESTORE_COLLECTION_NAME, game.id, 'reviews'),
+          orderBy('date', 'desc'),
+          limit(1)
+        );
+        const reviewSnapshot = await getDocs(reviewsQuery);
+        if (!reviewSnapshot.empty) {
+          const latestReviewData = reviewSnapshot.docs[0].data();
+          if (latestReviewData && latestReviewData.date) {
+            game._latestReviewDate = new Date(latestReviewData.date);
+          }
+        }
+      }
+      return game;
+    });
 
-    const pinnedGamesList = enrichedGames
+    const gamesWithReviewDates = await Promise.all(reviewDatesPromises);
+
+    const pinnedGames = gamesWithReviewDates
       .filter(game => game.isPinned)
       .sort((a, b) => (a.name || "").localeCompare(b.name || ""))
       .map(game => ({ ...game, featuredReason: 'pinned' as const }));
 
-    const recentlyReviewedList = enrichedGames
-      .filter(game => !game.isPinned && game._latestReviewDate !== null)
+    const recentlyReviewedGames = gamesWithReviewDates
+      .filter(game => !game.isPinned && game._latestReviewDate)
       .sort((a, b) => b._latestReviewDate!.getTime() - a._latestReviewDate!.getTime())
       .map(game => ({ ...game, featuredReason: 'recent' as const }));
 
     let finalFeaturedGames: BoardGame[] = [];
     const featuredGameIds = new Set<string>();
 
-    for (const game of pinnedGamesList) {
+    for (const game of pinnedGames) {
       if (finalFeaturedGames.length < MAX_FEATURED_GAMES) {
-        const { _latestReviewDate, ...gameToAdd } = game; // Destructure to remove temporary field
+        const { _latestReviewDate, ...gameToAdd } = game;
         finalFeaturedGames.push(gameToAdd);
         featuredGameIds.add(game.id);
       } else {
@@ -754,14 +761,11 @@ export async function getFeaturedGamesAction(): Promise<BoardGame[]> {
     }
 
     if (finalFeaturedGames.length < MAX_FEATURED_GAMES) {
-      for (const game of recentlyReviewedList) {
-        if (finalFeaturedGames.length >= MAX_FEATURED_GAMES) {
-          break;
-        }
+      for (const game of recentlyReviewedGames) {
+        if (finalFeaturedGames.length >= MAX_FEATURED_GAMES) break;
         if (!featuredGameIds.has(game.id)) {
-          const { _latestReviewDate, ...gameToAdd } = game; // Destructure to remove temporary field
+          const { _latestReviewDate, ...gameToAdd } = game;
           finalFeaturedGames.push(gameToAdd);
-          featuredGameIds.add(game.id);
         }
       }
     }
@@ -865,6 +869,7 @@ async function parseBggMultiThingXml(xmlText: string): Promise<Map<number, Parti
                 const parsedData = parseBggThingXmlToBoardGame(singleItemXml, bggId);
                 parsedGamesMap.set(bggId, parsedData);
             } catch (e) {
+                // console.error(`Error parsing individual item XML for BGG ID ${bggId}:`, e);
             }
         }
     }
@@ -884,17 +889,13 @@ export async function batchUpdateMissingBggDetailsAction(): Promise<{ success: b
 
         let gamesNeedingUpdate = allGamesResult.filter(game =>
             game.bggId > 0 &&
-            (game.minPlaytime == null || game.maxPlaytime == null || game.averageWeight == null ||
-             (game.categories && game.categories.length === 0) || 
-             (game.mechanics && game.mechanics.length === 0) ||
-             (game.designers && game.designers.length === 0)
-            )
+            (game.minPlaytime == null || game.maxPlaytime == null || game.averageWeight == null)
         );
         
         const gamesToProcessThisRun = gamesNeedingUpdate.slice(0, MAX_GAMES_TO_UPDATE_IN_BATCH);
 
         if (gamesToProcessThisRun.length === 0) {
-            return { success: true, message: 'Nessun gioco necessita di aggiornamento dei dettagli (min/max playtime, peso, categorie, meccaniche, designer) da BGG in questo momento.' };
+            return { success: true, message: 'Nessun gioco necessita di aggiornamento dei dettagli (min/max playtime, peso) da BGG in questo momento.' };
         }
 
         const gamesToUpdateClientSide: Array<{ gameId: string; updateData: Partial<BoardGame>}> = [];
@@ -967,6 +968,7 @@ export async function batchUpdateMissingBggDetailsAction(): Promise<{ success: b
 
             } catch (batchFetchError) {
                 const chunkErrorMsg = batchFetchError instanceof Error ? batchFetchError.message : String(batchFetchError);
+                // console.error(`Error fetching BGG details for chunk (IDs: ${bggIdsInChunk.join(', ')}):`, chunkErrorMsg);
                 erroredFetchCount += gameChunk.length; 
             }
         }
@@ -976,28 +978,22 @@ export async function batchUpdateMissingBggDetailsAction(): Promise<{ success: b
             message += ` ${erroredFetchCount} giochi non sono stati recuperati a causa di errori.`;
         }
         
-        const gamesStillNeedingUpdateAfterThisRun = allGamesResult.filter(game =>
+        const remainingGamesNeedingUpdateAfterThisRun = allGamesResult.filter(game =>
             game.bggId > 0 &&
-            (game.minPlaytime == null || game.maxPlaytime == null || game.averageWeight == null || 
-             (game.categories && game.categories.length === 0) || 
-             (game.mechanics && game.mechanics.length === 0) ||
-             (game.designers && game.designers.length === 0)
-            ) &&
-            !gamesToUpdateClientSide.some(updatedGame => updatedGame.gameId === game.id && 
-                (updatedGame.updateData.minPlaytime != null || updatedGame.updateData.maxPlaytime != null || updatedGame.updateData.averageWeight != null ||
-                 (updatedGame.updateData.categories && updatedGame.updateData.categories.length > 0) ||
-                 (updatedGame.updateData.mechanics && updatedGame.updateData.mechanics.length > 0) ||
-                 (updatedGame.updateData.designers && updatedGame.updateData.designers.length > 0)
-                )
+            (game.minPlaytime == null || game.maxPlaytime == null || game.averageWeight == null) &&
+            !gamesToUpdateClientSide.some(updatedGame => 
+                updatedGame.gameId === game.id && 
+                (updatedGame.updateData.minPlaytime != null || updatedGame.updateData.maxPlaytime != null || updatedGame.updateData.averageWeight != null)
             )
         ).length;
 
-        if (fetchedCount > 0 && gamesStillNeedingUpdateAfterThisRun === 0) {
-            message += ` Tutti i giochi con dettagli mancanti sono stati arricchiti.`;
-        } else if (gamesStillNeedingUpdateAfterThisRun > 0) {
-             message += ` Ci sono ancora ${gamesStillNeedingUpdateAfterThisRun} giochi che potrebbero necessitare di arricchimento. Rilancia l'azione per processarli.`;
+
+        if (fetchedCount > 0 && remainingGamesNeedingUpdateAfterThisRun === 0) {
+            message += ` Tutti i giochi con dettagli mancanti (min/max playtime, peso) sono stati arricchiti.`;
+        } else if (remainingGamesNeedingUpdateAfterThisRun > 0) {
+             message += ` Ci sono ancora ${remainingGamesNeedingUpdateAfterThisRun} giochi che potrebbero necessitare di arricchimento per min/max playtime o peso. Rilancia l'azione per processarli.`;
         } else if (fetchedCount === 0 && erroredFetchCount === 0 && gamesToProcessThisRun.length > 0) {
-             message = `Nessun nuovo dettaglio trovato o necessario per i ${gamesToProcessThisRun.length} giochi controllati che necessitavano di arricchimento.`;
+             message = `Nessun nuovo dettaglio (min/max playtime, peso) trovato o necessario per i ${gamesToProcessThisRun.length} giochi controllati.`;
         }
         
         return { success: true, message, gamesToUpdateClientSide };
@@ -1021,13 +1017,13 @@ export async function searchLocalGamesByNameAction(term: string): Promise<BoardG
         const searchTermLower = term.toLowerCase();
         const matchedGames = allGamesResult
             .filter(game => game.name.toLowerCase().includes(searchTermLower))
-            .map(game => ({ // Map to ensure all fields are present, even if some are null/default
+            .map(game => ({ 
                 id: game.id,
                 bggId: game.bggId,
                 name: game.name,
                 coverArtUrl: game.coverArtUrl,
                 yearPublished: game.yearPublished,
-                overallAverageRating: game.overallAverageRating,
+                overallAverageRating: game.overallAverageRating ?? null,
                 reviews: [], 
                 minPlayers: game.minPlayers,
                 maxPlayers: game.maxPlayers,
@@ -1233,12 +1229,11 @@ function parseBggPlaysXml(xmlText: string): BggPlayDetail[] {
 }
 
 export async function fetchGamePlaysFromBggAction(
-  gameFirestoreId: string, // Changed from bggId to game's Firestore ID
   gameBggId: number,
   username: string
 ): Promise<{ success: boolean; plays?: BggPlayDetail[]; message?: string; error?: string }> {
-  if (!gameFirestoreId || !gameBggId || isNaN(gameBggId) || !username) {
-    return { success: false, message: "ID gioco non validi o nome utente mancante.", error: "Parametri non validi" };
+  if (!gameBggId || isNaN(gameBggId) || !username) {
+    return { success: false, message: "ID gioco BGG non valido o nome utente mancante.", error: "Parametri non validi" };
   }
 
   try {
@@ -1251,32 +1246,15 @@ export async function fetchGamePlaysFromBggAction(
     
     const parsedPlays = parseBggPlaysXml(playsXml);
 
-    if (parsedPlays.length > 0) {
-      const batch = writeBatch(db);
-      const playsSubCollectionRef = collection(db, FIRESTORE_COLLECTION_NAME, gameFirestoreId, `plays_${username.toLowerCase()}`);
-      
-      parsedPlays.forEach(play => {
-        const playDocRef = doc(playsSubCollectionRef, play.playId);
-        const playDataForFirestore: BggPlayDetail = {
-          ...play,
-          userId: username, // Or a Firebase UID if 'username' is mapped to one
-          gameBggId: gameBggId,
-        };
-        batch.set(playDocRef, playDataForFirestore, { merge: true });
-      });
-      await batch.commit();
-    }
-
-    await revalidatePath(`/games/${gameFirestoreId}`); // Revalidate the game detail page
-
     return {
       success: true,
       plays: parsedPlays,
-      message: `Caricate e salvate ${parsedPlays.length} partite da BGG per ${username}.`,
+      message: `Caricate ${parsedPlays.length} partite da BGG per ${username}. Salvare nel DB dal client.`,
     };
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Si è verificato un errore sconosciuto durante il recupero o salvataggio delle partite da BGG.';
+    const errorMessage = error instanceof Error ? error.message : 'Si è verificato un errore sconosciuto durante il recupero delle partite da BGG.';
     return { success: false, message: 'Operazione fallita.', error: errorMessage };
   }
 }
 
+    
