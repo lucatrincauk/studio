@@ -428,7 +428,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             const playDataForFirestore: BggPlayDetail = {
               ...play,
               userId: usernameToFetch,
-              gameBggId: game.bggId,
+              gameBggId: game.bggId, // Ensure gameBggId is part of the stored play data
             };
             batch.set(playDocRef, playDataForFirestore, { merge: true });
           });
@@ -617,7 +617,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 <div className="flex items-center gap-2">
                   <Repeat size={16} className="text-primary/80" />
                   <span className="hidden sm:inline">Partite (lctr01):</span>
-                  <span>{game.lctr01Plays}</span>
+                  <span>{game.lctr01Plays ?? 0}</span>
                 </div>
               )}
             </div>
