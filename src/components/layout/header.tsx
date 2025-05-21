@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { LogOut, UserPlus, LogIn, MessagesSquare, Users2, ShieldCheck, UserCircle, Menu, TrendingUp, Library, Edit, BarChart3, Search as SearchIcon, Loader2, Star, GaugeCircle } from 'lucide-react';
+import { LogOut, UserPlus, LogIn, MessagesSquare, Users2, ShieldCheck, UserCircle, Menu, TrendingUp, Library, Edit, BarChart3, Search as SearchIcon, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import {
   DropdownMenu,
@@ -22,7 +22,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { Popover, PopoverTrigger, PopoverContent, PopoverAnchor } from "@/components/ui/popover"; // Ensure PopoverAnchor is imported
+import { Popover, PopoverTrigger, PopoverContent, PopoverAnchor } from "@/components/ui/popover";
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
@@ -31,17 +31,6 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import type { BoardGame } from '@/lib/types';
 import { searchLocalGamesByNameAction } from '@/lib/actions';
 import { useRouter } from 'next/navigation';
-
-const MorchiometroLogo = () => (
-  <svg width="32" height="32" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-8 w-auto">
-    <path d="M50 90C72.0914 90 90 72.0914 90 50C90 27.9086 72.0914 10 50 10C27.9086 10 10 27.9086 10 50C10 72.0914 27.9086 90 50 90Z" stroke="currentColor" strokeWidth="5"/>
-    <path d="M50 50L20 67.3205" stroke="currentColor" strokeWidth="5" strokeLinecap="round"/>
-    <circle cx="50" cy="50" r="5" fill="currentColor"/>
-    <path d="M40 75C40 72.2386 42.2386 70 45 70H55C57.7614 70 60 72.2386 60 75C60 77.7614 57.7614 85 50 85C42.2386 85 40 77.7614 40 75Z" fill="currentColor"/>
-    <ellipse cx="42" cy="65" rx="3" ry="2" fill="white"/>
-    <ellipse cx="58" cy="65" rx="3" ry="2" fill="white"/>
-  </svg>
-);
 
 
 function useDebounce<T>(value: T, delay: number): T {
@@ -78,7 +67,7 @@ export function Header() {
 
   const handleSignOut = async () => {
     await signOut();
-    setIsMobileSheetOpen(false); // Close sheet on sign out
+    setIsMobileSheetOpen(false); 
   };
 
   const mainNavLinks = [
@@ -91,9 +80,8 @@ export function Header() {
   useEffect(() => {
     if (debouncedSearchTerm.length < 2) {
       setSearchResults([]);
-      // Explicitly close popovers if search term becomes too short
-      setIsDesktopPopoverOpen(false);
-      setIsMobilePopoverOpen(false);
+      setIsDesktopPopoverOpen(false); 
+      setIsMobilePopoverOpen(false);  
       return;
     }
 
@@ -102,32 +90,29 @@ export function Header() {
       const result = await searchLocalGamesByNameAction(debouncedSearchTerm);
       if ('error' in result) {
         setSearchResults([]);
+        setIsDesktopPopoverOpen(false); 
+        setIsMobilePopoverOpen(false);  
       } else {
         setSearchResults(result);
-        // Try to open the relevant popover if results are found
-        if (result.length > 0) {
-          if (desktopSearchInputRef.current === document.activeElement) {
-            setIsDesktopPopoverOpen(true);
-          } else if (mobileSearchInputRef.current === document.activeElement && isMobileSheetOpen) {
-            setIsMobilePopoverOpen(true);
-          }
-        } else {
-          setIsDesktopPopoverOpen(false);
-          setIsMobilePopoverOpen(false);
+        if (result.length === 0) { 
+          setIsDesktopPopoverOpen(false); 
+          setIsMobilePopoverOpen(false);  
         }
+        // If result.length > 0, the onFocus handlers should have already set
+        // isDesktopPopoverOpen or isMobilePopoverOpen to true.
+        // The Popover's 'open' prop will then make it visible if conditions are met.
       }
       setIsSearching(false);
     };
 
     performSearch();
-  }, [debouncedSearchTerm, isMobileSheetOpen]); // Added isMobileSheetOpen to re-evaluate if sheet opens
+  }, [debouncedSearchTerm, isMobileSheetOpen]); 
 
   const handleResultClick = () => {
     setSearchTerm('');
     setSearchResults([]);
     setIsDesktopPopoverOpen(false);
     setIsMobilePopoverOpen(false);
-    setIsMobileSheetOpen(false); 
   };
 
   const authBlockDesktop = (
@@ -273,7 +258,7 @@ export function Header() {
     <PopoverContent
       className="w-[300px] p-0"
       align="end"
-      onOpenAutoFocus={(e) => e.preventDefault()} // Prevent focus stealing
+      onOpenAutoFocus={(e) => e.preventDefault()} 
       onInteractOutside={(e) => {
         if (desktopSearchInputRef.current && !desktopSearchInputRef.current.contains(e.target as Node)) {
           setIsDesktopPopoverOpen(false);
@@ -298,7 +283,7 @@ export function Header() {
 
   const mobileSearchPopoverContent = (
     <PopoverContent
-      className="w-[248px] p-0" // Explicit width for mobile popover, matching input container
+      className="w-[248px] p-0" 
       align="start"
       side="bottom"
       sideOffset={4}
@@ -381,7 +366,6 @@ export function Header() {
                           {isSearching && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />}
                         </div>
                       </PopoverAnchor>
-                      {/* PopoverContent is an unconditional child, Radix controls visibility via Popover's open prop */}
                       {mobileSearchPopoverContent}
                   </Popover>
                 </div>
@@ -399,7 +383,9 @@ export function Header() {
                       </SheetClose>
                   ))}
                 </nav>
-                {authBlockMobile}
+                <div className="mt-auto"> {/* Pushes authBlockMobile to the bottom */}
+                  {authBlockMobile}
+                </div>
               </SheetContent>
             </Sheet>
           </div>
@@ -443,7 +429,6 @@ export function Header() {
                   {isSearching && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />}
                 </div>
               </PopoverAnchor>
-              {/* PopoverContent is an unconditional child */}
               {desktopSearchPopoverContent}
             </Popover>
           </div>
@@ -452,4 +437,3 @@ export function Header() {
     </div>
   );
 }
-
