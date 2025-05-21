@@ -5,7 +5,7 @@ import { useEffect, useState, useTransition, useCallback, use, useMemo } from 'r
 import Link from 'next/link';
 import { getGameDetails, revalidateGameDataAction, fetchUserPlaysForGameFromBggAction, fetchAndUpdateBggGameDetailsAction } from '@/lib/actions';
 import type { BoardGame, Review, Rating as RatingType, GroupedCategoryAverages, BggPlayDetail } from '@/lib/types';
-import { ReviewList } from '@/components/boardgame/review-list'; // Added import
+import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -17,12 +17,6 @@ import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-di
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { doc, deleteDoc, updateDoc, getDocs, collection, getDoc, arrayUnion, arrayRemove, increment, writeBatch } from 'firebase/firestore';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,7 +36,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { SafeImage } from '@/components/common/SafeImage';
 import { ReviewItem } from '@/components/boardgame/review-item';
-import { Badge } from "@/components/ui/badge";
 
 
 const FIRESTORE_COLLECTION_NAME = 'boardgames_collection';
@@ -542,7 +535,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
   }
 
   const fallbackSrc = `https://placehold.co/400x600.png?text=${encodeURIComponent(game.name?.substring(0,10) || 'N/A')}`;
-  const hasDataForSection = (arr?: string[]) => arr && arr.length > 0;
 
   return (
     <div className="space-y-8"> 
@@ -660,7 +652,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 <div className="flex items-baseline gap-2">
                     <span className="inline-flex items-center"><PenTool size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
                     <span className="font-medium hidden sm:inline">Autori:</span>
-                    <span>{hasDataForSection(game.designers) ? game.designers!.join(', ') : 'N/D'}</span>
+                    <span>{(game.designers && game.designers.length > 0) ? game.designers!.join(', ') : 'N/D'}</span>
                 </div>
                 {game.yearPublished != null && (
                     <div className="flex items-baseline gap-2">
@@ -718,31 +710,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             </div>
             
             {/* Dettagli Aggiuntivi Accordion - Mobile Only */}
-            {(hasDataForSection(game.categories) || hasDataForSection(game.mechanics)) && (
-              <Accordion type="single" collapsible className="w-full pt-4 border-t border-border hidden" defaultValue={[]}>
-                <AccordionItem value="dettagli-aggiuntivi-mobile" className="border-b-0">
-                  <AccordionTrigger className="hover:no-underline py-0">
-                    <h3 className="text-lg font-semibold text-foreground">Dettagli Aggiuntivi</h3>
-                  </AccordionTrigger>
-                  <AccordionContent className="pt-3">
-                    <div className="space-y-3">
-                      {hasDataForSection(game.categories) && (
-                      <div className="text-sm">
-                          <strong className="text-muted-foreground">Categorie: </strong> 
-                          {game.categories!.map(cat => <Badge key={cat} variant="secondary" className="mr-1 mb-1">{cat}</Badge>)}
-                      </div>
-                      )}
-                      {hasDataForSection(game.mechanics) && (
-                      <div className="text-sm">
-                          <strong className="text-muted-foreground">Meccaniche: </strong> 
-                          {game.mechanics!.map(mech => <Badge key={mech} variant="secondary" className="mr-1 mb-1">{mech}</Badge>)}
-                      </div>
-                      )}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
-            )}
+            {/* This section has been removed */}
             
             {/* Average Player Ratings (GroupedRatingsDisplay) */}
              <div className="w-full pt-4 border-t border-border">
@@ -782,31 +750,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
               />
             </div>
             {/* Desktop Only Accordion for Categories/Mechanics */}
-            {(hasDataForSection(game.categories) || hasDataForSection(game.mechanics)) && (
-                <Accordion type="single" collapsible className="w-full pt-4 border-b-0 hidden md:block" defaultValue={[]}>
-                  <AccordionItem value="dettagli-aggiuntivi-desktop" className="border-b-0">
-                    <AccordionTrigger className="hover:no-underline py-0">
-                      <h3 className="text-lg font-semibold text-foreground">Dettagli Aggiuntivi</h3>
-                    </AccordionTrigger>
-                    <AccordionContent className="pt-3">
-                      <div className="space-y-3">
-                        {hasDataForSection(game.categories) && (
-                        <div className="text-sm">
-                            <strong className="text-muted-foreground">Categorie: </strong> 
-                            {game.categories!.map(cat => <Badge key={cat} variant="secondary" className="mr-1 mb-1">{cat}</Badge>)}
-                        </div>
-                        )}
-                        {hasDataForSection(game.mechanics) && (
-                        <div className="text-sm">
-                            <strong className="text-muted-foreground">Meccaniche: </strong> 
-                            {game.mechanics!.map(mech => <Badge key={mech} variant="secondary" className="mr-1 mb-1">{mech}</Badge>)}
-                        </div>
-                        )}
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
-            )}
+             {/* This section has been removed */}
           </div>
         </div>
       </Card>
@@ -1016,4 +960,3 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
-
