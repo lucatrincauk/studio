@@ -508,26 +508,28 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     return topPlayer ? { name: topPlayer.name, wins: topPlayer.wins } : null;
   }, [game]);
 
-  const globalPlayAverageScore = useMemo(() => {
+  const highestScoreAchieved = useMemo(() => {
     if (!game || !game.lctr01PlayDetails || game.lctr01PlayDetails.length === 0) {
       return null;
     }
-    let totalScoreSum = 0;
-    let totalScoresCount = 0;
+    let maxScore = -Infinity;
+    let scoreFound = false;
     game.lctr01PlayDetails.forEach(play => {
       if (play.players && play.players.length > 0) {
         play.players.forEach(p => {
           if (p.score) {
             const score = parseInt(p.score, 10);
             if (!isNaN(score)) {
-              totalScoreSum += score;
-              totalScoresCount++;
+              if (score > maxScore) {
+                maxScore = score;
+              }
+              scoreFound = true;
             }
           }
         });
       }
     });
-    return totalScoresCount > 0 ? totalScoreSum / totalScoresCount : null;
+    return scoreFound ? maxScore : null;
   }, [game]);
 
 
@@ -721,11 +723,11 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                     <span>{topWinnerStats.name} ({topWinnerStats.wins} {topWinnerStats.wins === 1 ? 'vittoria' : 'vittorie'})</span>
                   </div>
                 )}
-                 {globalPlayAverageScore !== null && (
+                 {highestScoreAchieved !== null && (
                     <div className="flex items-baseline gap-2">
                         <Star size={14} className="text-amber-500 flex-shrink-0" />
-                        <span className="font-medium hidden sm:inline">Punteggio Medio Partite:</span>
-                        <span>{formatRatingNumber(globalPlayAverageScore)}</span>
+                        <span className="font-medium hidden sm:inline">Punteggio Massimo Registrato:</span>
+                        <span>{formatRatingNumber(highestScoreAchieved)}</span>
                     </div>
                 )}
             </div>
