@@ -1,13 +1,23 @@
 
 'use client';
 
-import type { BoardGame, BggSearchResult } from '@/lib/types';
+import type { BoardGame, BggSearchResult, BggPlayDetail } from '@/lib/types';
 import { useState, useEffect, useTransition, useMemo, useCallback } from 'react';
-import { fetchBggUserCollectionAction, getBoardGamesFromFirestoreAction, syncBoardGamesToFirestoreAction, searchBggGamesAction, importAndRateBggGameAction, fetchAndUpdateBggGameDetailsAction, batchUpdateMissingBggDetailsAction, revalidateGameDataAction } from '@/lib/actions';
+import {
+  fetchBggUserCollectionAction,
+  getBoardGamesFromFirestoreAction,
+  syncBoardGamesToFirestoreAction,
+  searchBggGamesAction,
+  importAndRateBggGameAction,
+  fetchAndUpdateBggGameDetailsAction,
+  batchUpdateMissingBggDetailsAction,
+  revalidateGameDataAction,
+  fetchAllUserPlaysFromBggAction // New action
+} from '@/lib/actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, AlertCircle, Info, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, Pin, PinOff, Search as SearchIcon, PlusCircle, DownloadCloud, DatabaseZap, Filter } from 'lucide-react';
+import { Loader2, AlertCircle, Info, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, Pin, PinOff, Search as SearchIcon, PlusCircle, DownloadCloud, DatabaseZap, Filter, BarChart3 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { CollectionConfirmationDialog } from '@/components/collection/confirmation-dialog';
@@ -22,7 +32,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { db } from '@/lib/firebase';
-import { doc, updateDoc, getDoc, writeBatch } from 'firebase/firestore'; 
+import { doc, updateDoc, getDoc, writeBatch, collection } from 'firebase/firestore'; 
 import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -74,6 +84,8 @@ export default function AdminCollectionPage() {
 
   const [isBatchUpdating, startBatchUpdateTransition] = useTransition();
   const [showOnlyMissingDetails, setShowOnlyMissingDetails] = useState(false);
+
+  const [isSyncingAllPlays, startSyncAllPlaysTransition] = useTransition();
 
 
   const { toast } = useToast();
@@ -166,12 +178,11 @@ export default function AdminCollectionPage() {
           isPinned: !currentPinStatus
         });
         toast({ title: 'Stato Pin Aggiornato', description: `Lo stato pin per il gioco è stato ${currentPinStatus ? 'rimosso' : 'aggiunto'}.`});
-        await revalidateGameDataAction(gameId); // Revalidate cache
+        await revalidateGameDataAction(gameId); 
         await loadDbCollection();
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Errore sconosciuto";
         toast({ title: 'Errore Aggiornamento Pin', description: `Impossibile aggiornare lo stato pin: ${errorMessage}`, variant: 'destructive'});
-        console.error("Errore aggiornamento pin:", error);
       }
     });
   };
@@ -301,7 +312,7 @@ export default function AdminCollectionPage() {
         
         await updateDoc(gameRef, bggFetchResult.updateData);
         toast({ title: 'Dettagli Aggiornati', description: `Dettagli per ${docSnap.data()?.name || firestoreGameId} aggiornati con successo.` });
-        await revalidateGameDataAction(firestoreGameId); // Revalidate cache
+        await revalidateGameDataAction(firestoreGameId); 
         await loadDbCollection();
       } catch (dbError) {
         const errorMessage = dbError instanceof Error ? dbError.message : "Errore sconosciuto durante l'aggiornamento del DB.";
@@ -326,7 +337,6 @@ export default function AdminCollectionPage() {
             await batch.commit();
             toast({ title: 'Aggiornamento Batch Completato', description: `${result.gamesToUpdateClientSide.length} giochi aggiornati con successo. ${result.message.replace(`${result.gamesToUpdateClientSide.length} giochi pronti per l'aggiornamento client-side.`, '')}` });
             
-            // Revalidate paths for all updated games
             for (const item of result.gamesToUpdateClientSide) {
                 await revalidateGameDataAction(item.gameId);
             }
@@ -346,6 +356,52 @@ export default function AdminCollectionPage() {
     });
   };
 
+  const handleSyncAllLctr01Plays = () => {
+    startSyncAllPlaysTransition(async () => {
+        const serverActionResult = await fetchAllUserPlaysFromBggAction(BGG_USERNAME, 1); // Fetch page 1 for now
+
+        if (!serverActionResult.success || !serverActionResult.plays) {
+            toast({ title: 'Errore Sincronizzazione Partite', description: serverActionResult.error || serverActionResult.message || 'Impossibile caricare le partite da BGG.', variant: 'destructive' });
+            return;
+        }
+
+        if (serverActionResult.plays.length === 0) {
+            toast({ title: 'Nessuna Nuova Partita', description: serverActionResult.message || `Nessuna partita trovata da sincronizzare per ${BGG_USERNAME} (pagina 1).` });
+            return;
+        }
+
+        const batch = writeBatch(db);
+        let playsToSyncCount = 0;
+
+        for (const play of serverActionResult.plays) {
+            const gameInDb = dbCollection.find(g => g.bggId === play.gameBggId);
+            if (gameInDb) {
+                const playDocRef = doc(db, FIRESTORE_COLLECTION_NAME, gameInDb.id, `plays_${BGG_USERNAME.toLowerCase()}`, play.playId);
+                const playDataForFirestore: BggPlayDetail = {
+                    ...play,
+                    userId: BGG_USERNAME, 
+                };
+                batch.set(playDocRef, playDataForFirestore, { merge: true });
+                playsToSyncCount++;
+            }
+        }
+
+        if (playsToSyncCount > 0) {
+            try {
+                await batch.commit();
+                toast({ title: 'Sincronizzazione Partite Completata', description: `${playsToSyncCount} partite sincronizzate con successo per ${BGG_USERNAME} (da pagina 1).` });
+                // Optionally revalidate paths for affected games, though this might be extensive
+                // await revalidateGameDataAction(); 
+            } catch (dbError) {
+                const errorMessage = dbError instanceof Error ? dbError.message : "Errore sconosciuto durante il salvataggio batch delle partite nel DB.";
+                toast({ title: 'Errore Salvataggio Batch Partite DB', description: errorMessage, variant: 'destructive' });
+            }
+        } else {
+            toast({ title: 'Nessuna Partita da Salvare', description: `Nessuna delle ${serverActionResult.plays.length} partite caricate da BGG corrisponde a giochi nella collezione locale, o si è verificato un errore.` });
+        }
+    });
+  };
+
 
   return (
     <div className="space-y-8">
@@ -355,7 +411,7 @@ export default function AdminCollectionPage() {
           <CardDescription>Gestisci la collezione di giochi da tavolo sincronizzandola con BoardGameGeek e Firebase. Puoi anche fissare i giochi per la sezione "Vetrina" della homepage e aggiornare i dettagli dei giochi da BGG.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <Button onClick={handleFetchBggCollection} disabled={isBggFetching} className="bg-primary hover:bg-primary/90 text-primary-foreground">
               {isBggFetching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Sincronizza con BGG ({BGG_USERNAME})
@@ -375,6 +431,14 @@ export default function AdminCollectionPage() {
             >
               {isBatchUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DatabaseZap className="mr-2 h-4 w-4" />}
               Arricchisci Dati Mancanti
+            </Button>
+            <Button 
+              onClick={handleSyncAllLctr01Plays} 
+              disabled={isSyncingAllPlays}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              {isSyncingAllPlays ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BarChart3 className="mr-2 h-4 w-4" />}
+              Sincr. Partite ({BGG_USERNAME}, Pag. 1)
             </Button>
           </div>
           {error && (

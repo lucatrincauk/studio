@@ -125,8 +125,7 @@ export interface BggPlayDetail {
   date: string; // Date of the play
   quantity: number; // Number of times played on that date
   comments: string | null; // User's comments for that play
-  // Fields for Firestore storage
+  // Fields for Firestore storage or linking
   userId?: string; // Firebase UID of the user who logged the play (e.g., 'lctr01' equivalent)
-  gameBggId?: number; // BGG ID of the game played
+  gameBggId: number; // BGG ID of the game played
 }
-
