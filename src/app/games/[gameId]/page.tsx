@@ -11,7 +11,7 @@ import { Separator } from '@/components/ui/separator';
 import { AlertCircle, Loader2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, MessageSquare, Repeat, Settings, DownloadCloud, Trophy, Medal, UserCircle2, Heart, ListPlus, ListChecks, Sparkles, Star, Palette, ClipboardList, Puzzle, Smile } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
-import { calculateGroupedCategoryAverages, calculateOverallCategoryAverage, formatRatingNumber, formatPlayDate, formatReviewDate, calculateCategoryAverages as calculateCatAvgsFromUtils } from '@/lib/utils';
+import { calculateGroupedCategoryAverages, calculateOverallCategoryAverage as calculateGlobalOverallAverage, formatRatingNumber, formatPlayDate, formatReviewDate, calculateCategoryAverages as calculateCatAvgsFromUtils } from '@/lib/utils';
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
@@ -114,7 +114,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       if (gameData.reviews && gameData.reviews.length > 0) {
         const categoryAvgs = calculateCatAvgsFromUtils(gameData.reviews);
         if (categoryAvgs) {
-          setGlobalGameAverage(calculateOverallCategoryAverage(categoryAvgs));
+          setGlobalGameAverage(calculateGlobalOverallAverage(categoryAvgs));
         } else {
           setGlobalGameAverage(null);
         }
@@ -177,7 +177,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       });
 
       const categoryAvgs = calculateCatAvgsFromUtils(allReviewsForGame);
-      const newOverallAverage = categoryAvgs ? calculateOverallCategoryAverage(categoryAvgs) : null;
+      const newOverallAverage = categoryAvgs ? calculateGlobalOverallAverage(categoryAvgs) : null;
       
       const gameDocRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
       await updateDoc(gameDocRef, {
@@ -562,7 +562,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             <div className="flex justify-between items-start mb-2">
               {/* Left side: Title and BGG Link */}
               <div className="flex-shrink min-w-0 mr-2">
-                <div className="flex items-center gap-1"> {/* Title and BGG icon always in a row */}
+                 <div className="flex items-center gap-1"> {/* Title and BGG icon always in a row */}
                   <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
                     {game.name}
                   </h1>
@@ -580,10 +580,15 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 </div>
               </div>
 
-              {/* Right side: Action Icons then Score */}
-              <div className="flex-shrink-0 flex items-center gap-1">
+              {/* Right side: Score, then Action Icons below score */}
+              <div className="flex-shrink-0 flex flex-col items-end gap-1">
+                {globalGameAverage !== null ? (
+                  <span className="text-primary text-3xl md:text-4xl font-bold whitespace-nowrap">
+                    {formatRatingNumber(globalGameAverage * 2)}
+                  </span>
+                ) : null}
                 {currentUser && (
-                  <>
+                  <div className="flex items-center gap-0.5"> {/* Reduced gap for icons */}
                     {/* Favorite Button */}
                     <Button
                       variant="ghost"
@@ -591,12 +596,12 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                       onClick={handleToggleFavorite}
                       disabled={isFavoriting || authLoading}
                       title={isFavoritedByCurrentUser ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
-                      className={`h-9 w-9 hover:bg-destructive/20 ${isFavoritedByCurrentUser ? 'text-destructive fill-destructive' : 'text-muted-foreground/60 hover:text-destructive'}`}
+                      className={`h-8 w-8 hover:bg-destructive/20 ${isFavoritedByCurrentUser ? 'text-destructive fill-destructive' : 'text-muted-foreground/60 hover:text-destructive'}`}
                     >
-                      {isFavoriting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Heart className={`h-5 w-5 ${isFavoritedByCurrentUser ? 'fill-destructive' : ''}`} />}
+                      {isFavoriting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Heart className={`h-4 w-4 ${isFavoritedByCurrentUser ? 'fill-destructive' : ''}`} />}
                     </Button>
                     {currentFavoriteCount > 0 && (
-                      <span className="text-sm text-muted-foreground -ml-2 mr-1">
+                      <span className="text-xs text-muted-foreground -ml-2 mr-1">
                         ({currentFavoriteCount})
                       </span>
                     )}
@@ -608,17 +613,17 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                       onClick={handleTogglePlaylist}
                       disabled={isPlaylisting || authLoading}
                       title={isPlaylistedByCurrentUser ? "Rimuovi dalla Playlist" : "Aggiungi alla Playlist"}
-                      className={`h-9 w-9 hover:bg-sky-500/20 ${isPlaylistedByCurrentUser ? 'text-sky-500' : 'text-muted-foreground/60 hover:text-sky-500'}`}
+                      className={`h-8 w-8 hover:bg-sky-500/20 ${isPlaylistedByCurrentUser ? 'text-sky-500' : 'text-muted-foreground/60 hover:text-sky-500'}`}
                     >
-                      {isPlaylisting ? <Loader2 className="h-5 w-5 animate-spin" /> : (isPlaylistedByCurrentUser ? <ListChecks className="h-5 w-5" /> : <ListPlus className="h-5 w-5" />)}
+                      {isPlaylisting ? <Loader2 className="h-4 w-4 animate-spin" /> : (isPlaylistedByCurrentUser ? <ListChecks className="h-4 w-4" /> : <ListPlus className="h-4 w-4" />)}
                     </Button>
 
                     {/* Admin Settings Dropdown (which includes Pin) */}
                     {isAdmin && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-9 w-9 hover:bg-primary/20 text-muted-foreground/80 hover:text-primary">
-                            <Settings className="h-5 w-5" />
+                          <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/20 text-muted-foreground/80 hover:text-primary">
+                            <Settings className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
@@ -649,14 +654,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                         </DropdownMenuContent>
                       </DropdownMenu>
                     )}
-                  </>
+                  </div>
                 )}
-                {/* Score */}
-                {globalGameAverage !== null ? (
-                  <span className="text-primary text-3xl md:text-4xl font-bold whitespace-nowrap ml-2">
-                    {formatRatingNumber(globalGameAverage * 2)}
-                  </span>
-                ) : null}
               </div>
             </div>
             
@@ -677,7 +676,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             </div>
 
             {/* Metadata Grid */}
-            <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
+             <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
                 <div className="flex items-baseline gap-2">
                     <span className="inline-flex items-center relative top-px"><PenTool size={14} className="text-primary/80 flex-shrink-0" /></span>
                     <span className="font-medium hidden sm:inline">Autori:</span>
@@ -964,4 +963,5 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       
 
     
+
 
