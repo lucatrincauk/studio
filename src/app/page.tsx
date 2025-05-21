@@ -3,7 +3,7 @@ import { getAllGamesAction, getFeaturedGamesAction, getLastPlayedGameAction } fr
 import { GameCard } from '@/components/boardgame/game-card';
 import { Separator } from '@/components/ui/separator';
 import type { BoardGame, BggPlayDetail } from '@/lib/types';
-import { Star, TrendingUp, Library, Info, Dices, UserCircle2, Sparkles, Trophy, Edit, BarChart3 } from 'lucide-react';
+import { Star, TrendingUp, Library, Info, Dices, UserCircle2, Sparkles, Trophy, Edit, BarChart3, LayoutList } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { formatRatingNumber, formatReviewDate } from '@/lib/utils';
@@ -20,11 +20,9 @@ export default async function HomePage() {
   
   let lastPlayedData: { game: BoardGame | null, lastPlayDetail: BggPlayDetail | null } = { game: null, lastPlayDetail: null };
   try {
-    // Hardcoding username for now, replace with dynamic user logic if needed
     lastPlayedData = await getLastPlayedGameAction("lctr01");
   } catch (e) {
     console.error("Error fetching last played game on homepage:", e);
-    // Gracefully continue if last played game fetch fails
   }
 
   const [featuredGamesResult, allGamesResult] = await Promise.all([
@@ -39,8 +37,8 @@ export default async function HomePage() {
   const lastPlayDetail = lastPlayedData.lastPlayDetail;
 
   const topRatedGames = allGames 
-    .filter(game => game.overallAverageRating !== null && game.overallAverageRating !== undefined && typeof game.overallAverageRating === 'number' && game.reviewCount !== undefined && game.reviewCount > 0)
-    .sort((a, b) => (b.overallAverageRating ?? 0) - (a.overallAverageRating ?? 0))
+    .filter(game => game.overallAverageRating !== null && game.overallAverageRating !== undefined && typeof game.overallAverageRating === 'number' && game.reviewCount !== undefined && game.reviewCount >= 0)
+    .sort((a, b) => (b.overallAverageRating ?? -Infinity) - (a.overallAverageRating ?? -Infinity))
     .slice(0, 10);
 
   return (
@@ -115,7 +113,7 @@ export default async function HomePage() {
                         </CardDescription>
                     </div>
                     {lastPlayedGame.overallAverageRating !== null && typeof lastPlayedGame.overallAverageRating === 'number' && (
-                        <div className="text-right flex-shrink-0"> {/* Right part: Score */}
+                        <div className="text-right flex-shrink-0">
                         <span className="text-xl font-bold text-primary">
                             {formatRatingNumber(lastPlayedGame.overallAverageRating * 2)}
                         </span>
@@ -169,7 +167,7 @@ export default async function HomePage() {
         
         {topRatedGames.length > 0 && (
           <section className="mb-12">
-             <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mb-6 text-left flex items-center gap-2">
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mb-6 text-left flex items-center gap-2">
               <TrendingUp className="h-7 w-7 text-primary" />
               Top 10
             </h2>
@@ -179,43 +177,48 @@ export default async function HomePage() {
                   key={game.id}
                   className="relative flex items-center gap-x-3 sm:gap-x-4 p-3 rounded-lg bg-card hover:bg-muted/50 transition-colors border border-border overflow-hidden"
                 >
-                  {/* Container for GameCard and the large rank number */}
-                  <div className="relative w-24 sm:w-28 md:w-32 flex-shrink-0 overflow-hidden"> 
-                    <span
-                      aria-hidden="true"
-                      className={cn(
-                        "absolute top-1/2 -translate-y-1/2 font-bold text-muted-foreground/10 pointer-events-none select-none leading-none z-0",
-                        // Responsive positioning and font size for the rank number
-                        "-right-[30px] text-[255px]", // Default mobile
-                        "sm:-right-[30px] sm:text-[300px]", // Small screens
-                        "lg:-right-[36px] lg:text-[340px]" // Large screens
-                      )}
-                    >
-                      {index + 1}
-                    </span>
-                    <GameCard game={game} variant="featured" priority={index < 5} showOverlayText={false} />
-                  </div>
-                  {/* Container for Textual Details (Name, Year, Score) */}
-                  <div className="relative z-10 flex-grow min-w-0 flex justify-between items-center">
-                    <Link href={`/games/${game.id}`} className="group flex-1">
-                      <h3 className="text-md sm:text-lg font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-3 hover:underline">
-                        {game.name}
-                        {game.yearPublished && (
-                          <span className="ml-1 text-xs text-muted-foreground">({game.yearPublished})</span>
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      "absolute font-bold text-muted-foreground/10 pointer-events-none select-none leading-none z-0",
+                      // Responsive positioning and font size for the rank number
+                      "text-[255px] -bottom-[55px] -right-[30px]", // Default mobile
+                      "sm:text-[300px] sm:-bottom-[65px] sm:-right-[30px]", // Small screens
+                      "lg:text-[340px] lg:-bottom-[75px] lg:-right-[36px]" // Large screens
+                    )}
+                  >
+                    {index + 1}
+                  </span>
+                  {/* Container for GameCard and Textual Details */}
+                  <div className={cn(
+                      "relative z-10 flex items-center gap-x-3 sm:gap-x-4 flex-grow",
+                       // Responsive right margin to make space for the large background number
+                      "mr-5 sm:mr-8 lg:mr-10"
+                    )}>
+                    <div className="w-24 sm:w-28 md:w-32 flex-shrink-0"> 
+                      <GameCard game={game} variant="featured" priority={index < 5} showOverlayText={false} />
+                    </div>
+                    <div className="flex-grow min-w-0 flex justify-between items-center">
+                      <Link href={`/games/${game.id}`} className="group flex-1">
+                        <h3 className="text-md sm:text-lg font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-3 hover:underline">
+                          {game.name}
+                          {game.yearPublished && (
+                            <span className="ml-1 text-xs text-muted-foreground">({game.yearPublished})</span>
+                          )}
+                        </h3>
+                      </Link>
+                      <div className="text-right ml-2 flex-shrink-0">
+                        {game.overallAverageRating !== null && typeof game.overallAverageRating === 'number' && (
+                          <p className="text-xl sm:text-2xl font-bold text-primary">
+                            {formatRatingNumber(game.overallAverageRating * 2)}
+                          </p>
                         )}
-                      </h3>
-                    </Link>
-                    <div className="text-right ml-2 flex-shrink-0">
-                      {game.overallAverageRating !== null && typeof game.overallAverageRating === 'number' && (
-                        <p className="text-xl sm:text-2xl font-bold text-primary">
-                          {formatRatingNumber(game.overallAverageRating * 2)}
-                        </p>
-                      )}
-                      {game.reviewCount !== null && typeof game.reviewCount === 'number' && (
-                        <p className="text-xs text-muted-foreground">
-                          {game.reviewCount} {game.reviewCount === 1 ? 'recensione' : 'recensioni'}
-                        </p>
-                      )}
+                        {game.reviewCount !== null && typeof game.reviewCount === 'number' && (
+                          <p className="text-xs text-muted-foreground">
+                            {game.reviewCount} {game.reviewCount === 1 ? 'recensione' : 'recensioni'}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
