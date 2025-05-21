@@ -9,7 +9,7 @@ import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Repeat, Settings, DownloadCloud, BarChart3, ListChecks, ListPlus, Heart, UserCircle2, MessageSquare } from 'lucide-react';
+import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, Settings, DownloadCloud, BarChart3, ListChecks, ListPlus, Heart, UserCircle2, MessageSquare } from 'lucide-react'; // Changed Repeat to Dices
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { summarizeReviews } from '@/ai/flows/summarize-reviews';
@@ -419,23 +419,26 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     const usernameToFetch = "lctr01"; 
 
     startFetchPlaysTransition(async () => {
-      const serverActionResult = await fetchUserPlaysForGameFromBggAction(game.id, game.bggId, usernameToFetch);
+      const serverActionResult = await fetchUserPlaysForGameFromBggAction(game.bggId, usernameToFetch);
 
       if (serverActionResult.success && serverActionResult.plays) {
         if (serverActionResult.plays.length > 0) {
-          // Client-side batch write is already handled inside the server action if it were to save.
-          // For now, the server action returns the plays but doesn't save.
-          // If we were to save client-side:
-          /*
+          
           const batch = writeBatch(db);
           const playsSubCollectionRef = collection(db, FIRESTORE_COLLECTION_NAME, game.id, `plays_${usernameToFetch.toLowerCase()}`);
           serverActionResult.plays.forEach(play => {
             const playDocRef = doc(playsSubCollectionRef, play.playId);
-            batch.set(playDocRef, play, { merge: true });
+            // Ensure all fields required by BggPlayDetail are present
+            const playDataForFirestore: BggPlayDetail = {
+                ...play,
+                userId: usernameToFetch, // ensure userId is set
+                gameBggId: game.bggId, // ensure gameBggId is set
+            };
+            batch.set(playDocRef, playDataForFirestore, { merge: true });
           });
+          
           try {
             await batch.commit();
-          */
             const gameDocRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
             await updateDoc(gameDocRef, {
                 lctr01Plays: serverActionResult.plays.length 
@@ -446,12 +449,10 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             });
             await revalidateGameDataAction(game.id);
             await fetchGameData();
-          /*
           } catch (dbError) {
              const errorMessage = dbError instanceof Error ? dbError.message : "Errore sconosciuto durante il salvataggio delle partite nel DB.";
              toast({ title: 'Errore Salvataggio Partite DB', description: errorMessage, variant: 'destructive' });
           }
-          */
         } else {
            toast({
             title: "Nessuna Partita Trovata",
@@ -497,7 +498,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     <div className="space-y-8"> {/* Changed from space-y-10 to space-y-8 */}
       <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
         <div className="flex flex-col md:flex-row">
-          <div className="flex-1 p-6 space-y-4"> {/* md:order-1 ensures this is first on md+, image is second */}
+          <div className="flex-1 p-6 space-y-4"> 
              <div className="flex justify-between items-start mb-2">
                 <div className="flex items-center gap-2 flex-shrink min-w-0 mr-2"> 
                   <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground truncate">{game.name}</h1>
@@ -569,7 +570,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                               className="cursor-pointer"
                             >
                               {isFetchingPlays ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BarChart3 className="mr-2 h-4 w-4" />}
-                              Carica Partite BGG (lctr01)
+                              Carica Partite BGG
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -608,7 +609,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
             <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
                 {hasDataForSection(game.designers) && (
-                  <div className="flex items-baseline gap-2"> {/* No col-span-2 here */}
+                  <div className="flex items-baseline gap-2"> 
                       <PenTool size={16} className="text-primary/80 flex-shrink-0" />
                       <span className="font-medium hidden sm:inline">Autori:</span>
                       <span>{game.designers!.join(', ')}</span>
@@ -649,7 +650,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                     </div>
                 )}
                 <div className="flex items-baseline gap-2">
-                    <Repeat size={16} className="text-primary/80 flex-shrink-0" />
+                    <Dices size={16} className="text-primary/80 flex-shrink-0" />
                     <span className="font-medium hidden sm:inline">Partite:</span>
                     <span>{game.lctr01Plays ?? 0}</span>
                 </div>
@@ -661,13 +662,13 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                  <div className="space-y-3">
                     {hasDataForSection(game.categories) && (
                     <div className="text-sm">
-                        <strong className="text-muted-foreground">Categorie: </strong>
+                        <strong className="text-muted-foreground">Categorie: </strong> 
                         {game.categories!.map(cat => <Badge key={cat} variant="secondary" className="mr-1 mb-1">{cat}</Badge>)}
                     </div>
                     )}
                     {hasDataForSection(game.mechanics) && (
                     <div className="text-sm">
-                        <strong className="text-muted-foreground">Meccaniche: </strong>
+                        <strong className="text-muted-foreground">Meccaniche: </strong> 
                         {game.mechanics!.map(mech => <Badge key={mech} variant="secondary" className="mr-1 mb-1">{mech}</Badge>)}
                     </div>
                     )}
@@ -925,3 +926,4 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
+
