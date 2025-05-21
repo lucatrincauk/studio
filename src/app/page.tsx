@@ -3,7 +3,7 @@ import { getAllGamesAction, getFeaturedGamesAction, getLastPlayedGameAction } fr
 import { GameCard } from '@/components/boardgame/game-card';
 import { Separator } from '@/components/ui/separator';
 import type { BoardGame, BggPlayDetail } from '@/lib/types';
-import { Star, TrendingUp, Library, Info, Dices, UserCircle2, Sparkles, Trophy, Edit, BarChart3 } from 'lucide-react';
+import { Star, TrendingUp, Library, Info, Dices, UserCircle2, Sparkles, Trophy, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { formatRatingNumber, formatReviewDate } from '@/lib/utils';
@@ -16,33 +16,29 @@ import { cn } from '@/lib/utils';
 
 export default async function HomePage() {
   const featuredGamesPromise = getFeaturedGamesAction();
-  let allGamesResult: BoardGame[] | { error: string } = [];
-  
+  let allGames: BoardGame[] = [];
+  let lastPlayedData: { game: BoardGame | null, lastPlayDetail: BggPlayDetail | null } = { game: null, lastPlayDetail: null };
+
   try {
-    allGamesResult = await getAllGamesAction();
+    allGames = await getAllGamesAction();
   } catch (e) {
     console.error("Error fetching all games on homepage:", e);
   }
 
-  let lastPlayedData: { game: BoardGame | null, lastPlayDetail: BggPlayDetail | null } = { game: null, lastPlayDetail: null };
   try {
     lastPlayedData = await getLastPlayedGameAction("lctr01");
   } catch (e) {
     console.error("Error fetching last played game on homepage:", e);
+    // lastPlayedData will remain as { game: null, lastPlayDetail: null }
   }
-
-  const [featuredGamesResultResolved] = await Promise.all([
-    featuredGamesPromise, 
-    // allGamesPromise is already resolved above
+  
+  const [featuredGames] = await Promise.all([
+    featuredGamesPromise,
   ]);
 
-  const featuredGames = Array.isArray(featuredGamesResultResolved) ? featuredGamesResultResolved : [];
-  const allGames = Array.isArray(allGamesResult) ? allGamesResult : [];
-  
-  const lastPlayedGame = lastPlayedData.game;
-  const lastPlayDetail = lastPlayedData.lastPlayDetail;
+  const { game: lastPlayedGame, lastPlayDetail } = lastPlayedData;
 
-  const topRatedGames = allGames 
+  const topRatedGames = allGames
     .filter(game => game.overallAverageRating !== null && game.overallAverageRating !== undefined && typeof game.overallAverageRating === 'number' && game.reviewCount !== undefined && game.reviewCount >= 0)
     .sort((a, b) => (b.overallAverageRating ?? -Infinity) - (a.overallAverageRating ?? -Infinity))
     .slice(0, 10);
@@ -68,17 +64,17 @@ export default async function HomePage() {
         {featuredGames && featuredGames.length > 0 && (
           <div className="mb-12">
             <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mb-6 text-left flex items-center gap-2">
-              <Star className="h-7 w-7 text-primary" /> 
+              <Star className="h-7 w-7 text-primary" />
               In Evidenza
             </h2>
             <div className="flex space-x-4 overflow-x-auto pb-4 md:grid md:grid-cols-3 md:gap-4 md:space-x-0 md:pb-0 md:overflow-x-visible">
               {featuredGames.map((game, index) => (
                 <div key={game.id} className="w-40 flex-shrink-0 md:w-auto">
-                  <GameCard 
-                    game={game} 
-                    variant="featured" 
-                    priority={index < 3} 
-                    showOverlayText={true} 
+                  <GameCard
+                    game={game}
+                    variant="featured"
+                    priority={index < 3}
+                    showOverlayText={true}
                     featuredReason={game.featuredReason}
                   />
                 </div>
@@ -87,45 +83,45 @@ export default async function HomePage() {
             <Separator className="my-10" />
           </div>
         )}
-
+        
         {lastPlayedGame && lastPlayDetail && (
           <div className="mb-12">
             <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mb-6 text-left flex items-center gap-2">
               <Dices className="h-7 w-7 text-primary" />
               Ultima Partita Giocata
             </h2>
-            <Card className="shadow-md border border-border rounded-lg w-full">
+            <Card className="shadow-md border border-border rounded-lg overflow-hidden">
               <CardHeader className="p-3 flex flex-row items-start gap-3">
-                 <div className="relative h-16 w-12 sm:h-20 sm:w-16 flex-shrink-0 rounded-sm overflow-hidden shadow-sm">
-                    <SafeImage
-                      src={lastPlayedGame.coverArtUrl}
-                      fallbackSrc={`https://placehold.co/64x80.png?text=${encodeURIComponent(lastPlayedGame.name?.substring(0,3) || 'N/A')}`}
-                      alt={`${lastPlayedGame.name || 'Gioco'} copertina`}
-                      fill
-                      sizes="(max-width: 640px) 48px, 64px"
-                      className="object-cover"
-                      data-ai-hint={`board game ${lastPlayedGame.name?.split(' ')[0]?.toLowerCase() || 'mini'}`}
-                    />
+                <div className="relative h-20 w-16 sm:h-24 sm:w-20 flex-shrink-0 rounded-sm overflow-hidden shadow-sm">
+                  <SafeImage
+                    src={lastPlayedGame.coverArtUrl}
+                    fallbackSrc={`https://placehold.co/64x80.png?text=${encodeURIComponent(lastPlayedGame.name?.substring(0,3) || 'N/A')}`}
+                    alt={`${lastPlayedGame.name || 'Gioco'} copertina`}
+                    fill
+                    sizes="(max-width: 640px) 64px, 80px"
+                    className="object-cover"
+                    data-ai-hint={`board game ${lastPlayedGame.name?.split(' ')[0]?.toLowerCase() || 'mini'}`}
+                  />
+                </div>
+                <div className="flex-1 flex justify-between items-start">
+                  <div>
+                      <CardTitle className="text-lg font-semibold text-foreground hover:text-primary hover:underline">
+                      <Link href={`/games/${lastPlayedGame.id}`}>
+                          {lastPlayedGame.name}
+                      </Link>
+                      </CardTitle>
+                      <CardDescription className="text-xs text-muted-foreground mt-1">
+                         {formatReviewDate(lastPlayDetail.date)}
+                      </CardDescription>
                   </div>
-                  <div className="flex-1 flex justify-between items-start">
-                    <div>
-                        <CardTitle className="text-lg font-semibold text-foreground hover:text-primary hover:underline">
-                        <Link href={`/games/${lastPlayedGame.id}`}>
-                            {lastPlayedGame.name}
-                        </Link>
-                        </CardTitle>
-                        <CardDescription className="text-xs text-muted-foreground mt-1">
-                           {formatReviewDate(lastPlayDetail.date)}
-                        </CardDescription>
-                    </div>
-                    {lastPlayedGame.overallAverageRating !== null && typeof lastPlayedGame.overallAverageRating === 'number' && (
-                        <div className="text-right flex-shrink-0">
-                        <span className="text-xl font-bold text-primary">
-                            {formatRatingNumber(lastPlayedGame.overallAverageRating * 2)}
-                        </span>
-                        </div>
-                    )}
-                  </div>
+                  {lastPlayedGame.overallAverageRating !== null && typeof lastPlayedGame.overallAverageRating === 'number' && (
+                      <div className="text-right flex-shrink-0">
+                      <span className="text-xl font-bold text-primary">
+                          {formatRatingNumber(lastPlayedGame.overallAverageRating * 2)}
+                      </span>
+                      </div>
+                  )}
+                </div>
               </CardHeader>
               <CardContent className="p-3 pt-0 text-sm space-y-1.5">
                   {lastPlayDetail.comments && lastPlayDetail.comments.trim() !== '' && (
@@ -141,7 +137,7 @@ export default async function HomePage() {
                           .slice()
                           .sort((a, b) => parseInt(b.score || "0", 10) - parseInt(a.score || "0", 10))
                           .map((player, pIndex) => (
-                            <li key={pIndex} className={cn(`flex items-center justify-between text-xs border-b border-border last:border-b-0 py-0.5`, pIndex % 2 === 0 ? 'bg-muted/30' : '', "px-2")}>
+                            <li key={pIndex} className={cn(`flex items-center justify-between text-xs border-b border-border last:border-b-0 py-0.5 px-2`, pIndex % 2 === 0 ? 'bg-muted/30' : '')}>
                               <div className="flex items-center gap-1.5 flex-grow min-w-0">
                                 <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                                 <span className={cn("truncate", player.didWin ? 'font-semibold' : '')} title={player.name || player.username || 'Sconosciuto'}>
@@ -169,7 +165,7 @@ export default async function HomePage() {
             <Separator className="my-10" />
           </div>
         )}
-        
+
         {topRatedGames.length > 0 && (
           <section className="mb-12">
             <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mb-6 text-left flex items-center gap-2">
@@ -185,22 +181,22 @@ export default async function HomePage() {
                   <span
                     aria-hidden="true"
                     className={cn(
-                      "absolute font-bold text-muted-foreground/10 pointer-events-none select-none leading-none z-0",
+                      "absolute top-1/2 -translate-y-1/2 font-bold text-muted-foreground/10 pointer-events-none select-none leading-none z-0",
                       // Mobile
-                      "text-[255px] -bottom-[55px] -right-[30px]",
+                      "text-[255px] -right-[30px]",
                       // Small screens
-                      "sm:text-[300px] sm:-bottom-[65px] sm:-right-[30px]",
+                      "sm:text-[300px] sm:-right-[30px]",
                       // Large screens
-                      "lg:text-[340px] lg:-bottom-[75px] lg:-right-[36px]"
+                      "lg:text-[340px] lg:-right-[36px]"
                     )}
                   >
                     {index + 1}
                   </span>
                   <div className={cn(
                       "relative z-10 flex items-center gap-x-3 sm:gap-x-4 flex-grow",
-                      "mr-5 sm:mr-8 lg:mr-10"
+                      "mr-5 sm:mr-8 lg:mr-10" // Adjusted right margin to make space for the rank number
                     )}>
-                    <div className="w-24 sm:w-28 md:w-32 flex-shrink-0"> 
+                    <div className="w-24 sm:w-28 md:w-32 flex-shrink-0">
                       <GameCard game={game} variant="featured" priority={index < 5} showOverlayText={false} />
                     </div>
                     <div className="flex-grow min-w-0 flex justify-between items-center">
