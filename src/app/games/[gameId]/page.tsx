@@ -18,6 +18,7 @@ import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-di
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { doc, deleteDoc, updateDoc, getDocs, collection, getDoc, arrayUnion, arrayRemove, increment, writeBatch } from 'firebase/firestore';
+import { fetchUserPlaysForGameFromBggAction, fetchAndUpdateBggGameDetailsAction } from '@/lib/actions';
 import {
   Accordion,
   AccordionContent,
@@ -500,7 +501,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         <div className="flex flex-col md:flex-row">
           <div className="flex-1 p-6 space-y-4 md:order-1">
              <div className="flex justify-between items-start mb-2">
-                <div className="flex items-center gap-2 flex-shrink min-w-0 mr-2"> {/* Group for title and icons */}
+                <div className="flex items-center gap-2 flex-shrink min-w-0 mr-2"> 
                   <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground truncate">{game.name}</h1>
                    {game.bggId > 0 && (
                     <a
@@ -514,7 +515,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                     </a>
                   )}
                 </div>
-               <div className="flex items-center gap-2 flex-shrink-0"> {/* Group for score and action buttons */}
+               <div className="flex items-center gap-2 flex-shrink-0"> 
                   {globalGameAverage !== null ? (
                      <span className="text-primary text-3xl md:text-4xl font-bold whitespace-nowrap">
                         {formatRatingNumber(globalGameAverage * 2)}
@@ -588,59 +589,59 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                </div>
             </div>
             
-            <div className="text-sm text-muted-foreground space-y-1.5 pt-1">
-                 {hasDataForSection(game.designers) && (
-                  <div className="flex items-baseline gap-2">
-                    <PenTool size={16} className="text-primary/80" />
-                    <span className="hidden sm:inline">Autori:</span>
-                    <span>{game.designers!.join(', ')}</span>
-                  </div>
-                )}
-                <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                  {game.yearPublished != null && (
+            <div className="text-sm text-muted-foreground pt-1">
+                 <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                    {hasDataForSection(game.designers) && (
+                        <div className="col-span-2 flex items-baseline gap-2">
+                            <PenTool size={16} className="text-primary/80" />
+                            <span className="hidden sm:inline">Autori:</span>
+                            <span>{game.designers!.join(', ')}</span>
+                        </div>
+                    )}
+                    {game.yearPublished != null && (
+                        <div className="flex items-baseline gap-2">
+                        <CalendarDays size={16} className="text-primary/80" />
+                        <span className="hidden sm:inline">Anno:</span>
+                        <span>{game.yearPublished}</span>
+                        </div>
+                    )}
+                    {(game.minPlayers != null || game.maxPlayers != null) && (
+                        <div className="flex items-baseline gap-2">
+                        <Users size={16} className="text-primary/80" />
+                        <span className="hidden sm:inline">Giocatori:</span>
+                        <span>{game.minPlayers}{game.maxPlayers && game.minPlayers !== game.maxPlayers ? `-${game.maxPlayers}` : ''}</span>
+                        </div>
+                    )}
+                    { (game.minPlaytime != null && game.maxPlaytime != null) || game.playingTime != null ? (
+                        <div className="flex items-baseline gap-2">
+                        <Clock size={16} className="text-primary/80" />
+                        <span className="hidden sm:inline">Durata:</span>
+                        <span>
+                            {game.minPlaytime != null && game.maxPlaytime != null ?
+                            (game.minPlaytime === game.maxPlaytime ? `${game.minPlaytime} min` : `${game.minPlaytime} - ${game.maxPlaytime} min`)
+                            : (game.playingTime != null ? `${game.playingTime} min` : 'N/D')
+                            }
+                            {game.minPlaytime != null && game.maxPlaytime != null && game.playingTime != null && game.playingTime !== game.minPlaytime && game.playingTime !== game.maxPlaytime && ` (Tipica: ${game.playingTime} min)`}
+                        </span>
+                        </div>
+                    ) : null}
+                    {game.averageWeight !== null && typeof game.averageWeight === 'number' && (
+                        <div className="flex items-baseline gap-2">
+                        <Weight size={16} className="text-primary/80" />
+                        <span className="hidden sm:inline">Complessità:</span>
+                        <span>{formatRatingNumber(game.averageWeight)} / 5</span>
+                        </div>
+                    )}
                     <div className="flex items-baseline gap-2">
-                      <CalendarDays size={16} className="text-primary/80" />
-                      <span className="hidden sm:inline">Anno:</span>
-                      <span>{game.yearPublished}</span>
+                        <Repeat size={16} className="text-primary/80" />
+                        <span className="hidden sm:inline">Partite:</span>
+                        <span>{game.lctr01Plays ?? 0}</span>
                     </div>
-                  )}
-                  {(game.minPlayers != null || game.maxPlayers != null) && (
-                    <div className="flex items-baseline gap-2">
-                      <Users size={16} className="text-primary/80" />
-                       <span className="hidden sm:inline">Giocatori:</span>
-                      <span>{game.minPlayers}{game.maxPlayers && game.minPlayers !== game.maxPlayers ? `-${game.maxPlayers}` : ''}</span>
-                    </div>
-                  )}
-                  { (game.minPlaytime != null && game.maxPlaytime != null) || game.playingTime != null ? (
-                    <div className="flex items-baseline gap-2">
-                      <Clock size={16} className="text-primary/80" />
-                      <span className="hidden sm:inline">Durata:</span>
-                      <span>
-                        {game.minPlaytime != null && game.maxPlaytime != null ?
-                          (game.minPlaytime === game.maxPlaytime ? `${game.minPlaytime} min` : `${game.minPlaytime} - ${game.maxPlaytime} min`)
-                          : (game.playingTime != null ? `${game.playingTime} min` : 'N/D')
-                        }
-                        {game.minPlaytime != null && game.maxPlaytime != null && game.playingTime != null && game.playingTime !== game.minPlaytime && game.playingTime !== game.maxPlaytime && ` (Tipica: ${game.playingTime} min)`}
-                      </span>
-                    </div>
-                  ) : null}
-                  {game.averageWeight !== null && typeof game.averageWeight === 'number' && (
-                     <div className="flex items-baseline gap-2">
-                      <Weight size={16} className="text-primary/80" />
-                      <span className="hidden sm:inline">Complessità:</span>
-                      <span>{formatRatingNumber(game.averageWeight)} / 5</span>
-                    </div>
-                  )}
-                  <div className="flex items-baseline gap-2">
-                    <Repeat size={16} className="text-primary/80" />
-                    <span className="hidden sm:inline">Partite:</span>
-                    <span>{game.lctr01Plays ?? 0}</span>
-                  </div>
-                </div>
+                 </div>
             </div>
             
             {(hasDataForSection(game.categories) || hasDataForSection(game.mechanics) ) && (
-              <div className="w-full pt-4 border-t border-border mt-4">
+              <div className="w-full pt-4 border-t border-border">
                 <h3 className="text-lg font-semibold text-foreground mb-3">Dettagli Aggiuntivi</h3>
                  <div className="space-y-3">
                     {hasDataForSection(game.categories) && (
@@ -660,7 +661,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             )}
 
             {game.reviews && game.reviews.length > 0 && (
-              <div className="w-full pt-4 border-t border-border mt-4">
+              <div className="w-full pt-4 border-t border-border">
                 <h3 className="text-lg font-semibold text-foreground mb-3">Valutazione Media:</h3>
                 <GroupedRatingsDisplay
                     groupedAverages={groupedCategoryAverages}
@@ -923,3 +924,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
   );
 }
 
+
+
+    
