@@ -3,8 +3,9 @@
 
 import { useEffect, useState, useTransition, useCallback, use, useMemo } from 'react';
 import Link from 'next/link';
-import { getGameDetails, revalidateGameDataAction, fetchUserPlaysForGameFromBggAction } from '@/lib/actions';
+import { getGameDetails, revalidateGameDataAction, fetchUserPlaysForGameFromBggAction, fetchAndUpdateBggGameDetailsAction } from '@/lib/actions';
 import type { BoardGame, Review, Rating as RatingType, GroupedCategoryAverages, BggPlayDetail } from '@/lib/types';
+import { ReviewList } from '@/components/boardgame/review-list'; // Added import
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -716,7 +717,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 )}
             </div>
             
-            {/* Mobile Only Accordion for Categories/Mechanics */}
+            {/* Dettagli Aggiuntivi Accordion - Mobile Only */}
             {(hasDataForSection(game.categories) || hasDataForSection(game.mechanics)) && (
               <Accordion type="single" collapsible className="w-full pt-4 border-t border-border hidden" defaultValue={[]}>
                 <AccordionItem value="dettagli-aggiuntivi-mobile" className="border-b-0">
@@ -744,17 +745,26 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             )}
             
             {/* Average Player Ratings (GroupedRatingsDisplay) */}
-            {game.reviews && game.reviews.length > 0 && (
-              <div className="w-full pt-4 border-t border-border"> 
-                <h3 className="text-lg font-semibold text-foreground mb-3">Valutazione Media:</h3>
-                <GroupedRatingsDisplay
-                    groupedAverages={groupedCategoryAverages}
-                    noRatingsMessage="Nessuna valutazione per calcolare le medie."
-                    isLoading={isLoadingGame}
-                    defaultOpenSections={['Sentimento']}
-                />
-              </div>
-            )}
+             <div className="w-full pt-4 border-t border-border">
+              {game.reviews && game.reviews.length > 0 ? (
+                <>
+                  <h3 className="text-lg font-semibold text-foreground mb-3">Valutazione Media:</h3>
+                  <GroupedRatingsDisplay
+                      groupedAverages={groupedCategoryAverages}
+                      noRatingsMessage="Nessuna valutazione per calcolare le medie."
+                      isLoading={isLoadingGame}
+                      defaultOpenSections={['Sentimento']}
+                  />
+                </>
+              ) : (
+                 <Alert variant="default" className="bg-secondary/30 border-secondary">
+                    <Info className="h-4 w-4" />
+                    <AlertDescription>
+                        Nessuna valutazione media disponibile. Sii il primo a valutare questo gioco!
+                    </AlertDescription>
+                </Alert>
+              )}
+            </div>
           </div>
 
           {/* Desktop Image Column */}
@@ -914,12 +924,12 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                   <h3 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h3>
                   <div className="flex items-center gap-2 flex-shrink-0">
                       <Button asChild size="sm">
-                        <Link href={`/games/${gameId}/rate`}>
-                            <span className="flex items-center">
-                                <Edit className="mr-0 sm:mr-2 h-4 w-4" />
-                                <span className="hidden sm:inline">Modifica</span>
-                            </span>
-                        </Link>
+                         <Link href={`/games/${gameId}/rate`}>
+                           <span className="flex items-center">
+                             <Edit className="mr-0 sm:mr-2 h-4 w-4" />
+                             <span className="hidden sm:inline">Modifica</span>
+                           </span>
+                         </Link>
                       </Button>
                       <AlertDialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
                          <AlertDialogTrigger asChild>
@@ -1006,3 +1016,4 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
+
