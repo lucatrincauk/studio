@@ -203,7 +203,16 @@ export default function AdminCollectionPage() {
       itemsToDisplay = itemsToDisplay.filter(game => 
         game.minPlaytime == null || 
         game.maxPlaytime == null || 
-        game.averageWeight == null
+        game.averageWeight == null ||
+        game.yearPublished == null ||
+        game.minPlayers == null ||
+        game.maxPlayers == null ||
+        game.playingTime == null ||
+        (game.categories == null || game.categories.length === 0) ||
+        (game.mechanics == null || game.mechanics.length === 0) ||
+        (game.designers == null || game.designers.length === 0) ||
+        (game.name?.startsWith("BGG Gioco ID") || game.name?.startsWith("BGG ID") || game.name === "Name Not Found in Details") ||
+        (game.coverArtUrl?.includes("placehold.co"))
       );
     }
 
@@ -734,5 +743,6 @@ export default function AdminCollectionPage() {
     </div>
   );
 }
+
 
 
