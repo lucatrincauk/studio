@@ -87,7 +87,7 @@ export interface BoardGame {
   playlistedByUserIds?: string[];
   featuredReason?: 'pinned' | 'recent';
   lctr01Plays?: number | null;
-  lctr01PlayDetails?: BggPlayDetail[]; // Added to store detailed plays for lctr01
+  lctr01PlayDetails?: BggPlayDetail[];
 }
 
 export interface AiSummary {
@@ -139,6 +139,12 @@ export interface BggPlayDetail {
   comments: string | null;
   location?: string | null;
   players?: BggPlayerInPlay[];
-  userId?: string; // User for whom this play is logged (e.g., 'lctr01')
-  gameBggId: number; // BGG ID of the game played
+  userId?: string;
+  gameBggId: number;
+}
+
+export interface AugmentedBggPlayDetail extends BggPlayDetail {
+  gameId: string; // Firestore ID of the game
+  gameName: string;
+  gameCoverArtUrl?: string | null;
 }
