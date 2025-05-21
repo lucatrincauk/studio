@@ -80,7 +80,7 @@ export function Header() {
     { href: "/top-10", label: "Top 10", icon: <TrendingUp size={18} /> },
     { href: "/all-games", label: "Catalogo", icon: <Library size={18} /> },
     { href: "/users", label: "Utenti", icon: <Users2 size={18} /> },
-    { href: "/reviews", label: "Tutte le Recensioni", icon: <MessagesSquare size={18} /> },
+    { href: "/reviews", label: "Recensioni", icon: <MessagesSquare size={18} /> },
     { href: "/plays", label: "Partite", icon: <Dices size={18} /> },
   ];
 
@@ -103,6 +103,7 @@ export function Header() {
     } else {
       setSearchResults(result);
       if (result.length > 0) {
+        // Determine which popover to open based on context/focus
         if (desktopSearchInputRef.current === document.activeElement && !isMobileSheetOpen) {
             setIsDesktopPopoverOpen(true);
         }
@@ -110,14 +111,14 @@ export function Header() {
             setIsMobilePopoverOpen(true);
         }
       } else {
-         // If no results, ensure popovers are closed unless the input is still focused and search term is valid
+        // If no results, ensure popovers are only open if the respective input is focused
         if (desktopSearchInputRef.current === document.activeElement && term.length >=2) {
-            setIsDesktopPopoverOpen(true); // Keep open to show "No results"
+            setIsDesktopPopoverOpen(true); 
         } else {
             setIsDesktopPopoverOpen(false);
         }
         if (mobileSearchInputRef.current === document.activeElement && term.length >=2) {
-            setIsMobilePopoverOpen(true); // Keep open to show "No results"
+            setIsMobilePopoverOpen(true);
         } else {
             setIsMobilePopoverOpen(false);
         }
@@ -242,7 +243,7 @@ export function Header() {
 
   const mobileSearchPopoverContent = (
     <PopoverContent
-      className="w-[248px] p-0" 
+      className="w-[248px] p-0"
       align="start"
       side="bottom"
       sideOffset={4}
@@ -281,8 +282,9 @@ export function Header() {
             <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Morchiometro</h1>
           </Link>
           
-          <div className="flex items-center gap-1 md:gap-4">
-            <div className="relative hidden md:block"> {/* Desktop Search */}
+          <div className="flex items-center gap-2 md:gap-3"> {/* Reduced gap slightly */}
+            {/* Desktop Search - Keep visible on desktop, but content controlled by Popover open state */}
+            <div className="relative hidden md:block"> 
               <Popover 
                 open={isDesktopPopoverOpen && searchTerm.length >=2 && !isMobileSheetOpen && (searchResults.length > 0 || isSearching || (debouncedSearchTerm.length >=2 && !isSearching && desktopSearchInputRef.current === document.activeElement))}
                 onOpenChange={setIsDesktopPopoverOpen} 
@@ -299,7 +301,7 @@ export function Header() {
                       onFocus={() => {
                         if (searchTerm.length >=2 && !isMobileSheetOpen && (searchResults.length > 0 || isSearching || (debouncedSearchTerm.length >=2 && !isSearching))) setIsDesktopPopoverOpen(true);
                       }}
-                      className="h-8 w-48 lg:w-64 rounded-md pl-9 pr-3 text-sm bg-primary-foreground/10 text-neutral-700 placeholder:text-neutral-500 border-border focus:bg-primary-foreground/20 focus:ring-accent"
+                      className="h-8 w-48 lg:w-64 rounded-md pl-9 pr-3 text-sm bg-primary-foreground/10 text-border placeholder:text-border/60 border-border focus:bg-primary-foreground/20 focus:ring-accent"
                     />
                     {isSearching && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />}
                   </div>
@@ -308,7 +310,7 @@ export function Header() {
               </Popover>
             </div>
             
-            {authBlock} {/* Moved authBlock here to be part of this right-aligned group */}
+            {authBlock}
             
             <div className="md:hidden"> {/* Mobile Menu Trigger */}
               <Sheet open={isMobileSheetOpen} onOpenChange={setIsMobileSheetOpen}>
@@ -397,4 +399,3 @@ export function Header() {
     </div>
   );
 }
-
