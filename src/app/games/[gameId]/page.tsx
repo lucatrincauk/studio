@@ -8,7 +8,7 @@ import type { BoardGame, Review, Rating as RatingType, GroupedCategoryAverages, 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, MessageSquare, Repeat, Settings, DownloadCloud, Trophy, Medal, UserCircle2, Heart, ListPlus, ListChecks, Sparkles, Star, Palette, ClipboardList, Puzzle, Smile } from 'lucide-react';
+import { AlertCircle, Loader2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, MessageSquare, Repeat, Settings, DownloadCloud, Trophy, Medal, UserCircle2, Heart, ListPlus, ListChecks, Sparkles, Star, Palette, ClipboardList, Puzzle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { calculateGroupedCategoryAverages, calculateOverallCategoryAverage as calculateGlobalOverallAverage, formatRatingNumber, formatPlayDate, formatReviewDate, calculateCategoryAverages as calculateCatAvgsFromUtils } from '@/lib/utils';
@@ -206,6 +206,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         const reviewDocRef = doc(db, FIRESTORE_COLLECTION_NAME, gameId, 'reviews', userReview.id);
         await deleteDoc(reviewDocRef);
         await updateGameOverallRatingAfterReviewChange(); 
+        await revalidateGameDataAction(gameId);
+        await fetchGameData();
         toast({ title: "Recensione Eliminata", description: "La tua recensione è stata eliminata con successo." });
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
@@ -426,10 +428,9 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
           try {
               await batch.commit();
-              // Update the lctr01Plays count on the main game document
               const gameDocRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
               await updateDoc(gameDocRef, {
-                  lctr01Plays: playsToSave.length // Directly set to the number of plays fetched for THIS game
+                  lctr01Plays: playsToSave.length 
               });
               toast({
                   title: "Partite Caricate e Salvate",
@@ -446,14 +447,13 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
               title: "Nessuna Partita Trovata",
               description: serverActionResult.message || `Nessuna partita trovata su BGG per ${usernameToFetch} per questo gioco.`,
           });
-           // Even if no plays found, update lctr01Plays on game doc to 0 for this game
           try {
               const gameDocRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
               await updateDoc(gameDocRef, { lctr01Plays: 0 });
               await revalidateGameDataAction(game.id);
               await fetchGameData();
           } catch (dbError) {
-               // Silently ignore if update to 0 fails, main message is more important
+               // Silently ignore if update to 0 fails
           }
       }
     });
@@ -561,11 +561,9 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             {/* Main header: Title, Icons, Score */}
             <div className="flex justify-between items-start mb-2">
               {/* Left side: Title and BGG Link */}
-              <div className="flex-shrink min-w-0 mr-2">
-                 <div className="flex items-center gap-1"> {/* Title and BGG icon always in a row */}
-                  <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
-                    {game.name}
-                  </h1>
+              <div className="flex-shrink min-w-0 mr-2"> 
+                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground flex items-center gap-1">
+                  {game.name}
                   {game.bggId > 0 && (
                     <a
                       href={`https://boardgamegeek.com/boardgame/${game.bggId}`}
@@ -577,7 +575,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                       <ExternalLink size={16} className="h-4 w-4" />
                     </a>
                   )}
-                </div>
+                </h1>
               </div>
 
               {/* Right side: Score, then Action Icons below score */}
@@ -588,8 +586,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                   </span>
                 ) : null}
                 {currentUser && (
-                  <div className="flex items-center gap-0.5"> {/* Reduced gap for icons */}
-                    {/* Favorite Button */}
+                  <div className="flex items-center gap-0.5">
                     <Button
                       variant="ghost"
                       size="icon"
@@ -598,15 +595,13 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                       title={isFavoritedByCurrentUser ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
                       className={`h-8 w-8 hover:bg-destructive/20 ${isFavoritedByCurrentUser ? 'text-destructive fill-destructive' : 'text-muted-foreground/60 hover:text-destructive'}`}
                     >
-                      {isFavoriting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Heart className={`h-4 w-4 ${isFavoritedByCurrentUser ? 'fill-destructive' : ''}`} />}
+                      {isFavoriting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Heart className={`h-5 w-5 ${isFavoritedByCurrentUser ? 'fill-destructive' : ''}`} />}
                     </Button>
                     {currentFavoriteCount > 0 && (
-                      <span className="text-xs text-muted-foreground -ml-2 mr-1">
+                      <span className="text-sm text-muted-foreground -ml-2 mr-1">
                         ({currentFavoriteCount})
                       </span>
                     )}
-
-                    {/* Playlist Button */}
                     <Button
                       variant="ghost"
                       size="icon"
@@ -615,15 +610,13 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                       title={isPlaylistedByCurrentUser ? "Rimuovi dalla Playlist" : "Aggiungi alla Playlist"}
                       className={`h-8 w-8 hover:bg-sky-500/20 ${isPlaylistedByCurrentUser ? 'text-sky-500' : 'text-muted-foreground/60 hover:text-sky-500'}`}
                     >
-                      {isPlaylisting ? <Loader2 className="h-4 w-4 animate-spin" /> : (isPlaylistedByCurrentUser ? <ListChecks className="h-4 w-4" /> : <ListPlus className="h-4 w-4" />)}
+                      {isPlaylisting ? <Loader2 className="h-5 w-5 animate-spin" /> : (isPlaylistedByCurrentUser ? <ListChecks className="h-5 w-5" /> : <ListPlus className="h-5 w-5" />)}
                     </Button>
-
-                    {/* Admin Settings Dropdown (which includes Pin) */}
                     {isAdmin && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/20 text-muted-foreground/80 hover:text-primary">
-                            <Settings className="h-4 w-4" />
+                            <Settings className="h-5 w-5" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
@@ -825,7 +818,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                                             return scoreB - scoreA;
                                         })
                                         .map((player, pIndex) => (
-                                        <li key={pIndex} className={`flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5 even:bg-muted/30 px-2`}>
+                                        <li key={pIndex} className={`flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5 odd:bg-muted/30 px-2`}>
                                             <div className="flex items-center gap-1.5 flex-grow min-w-0">
                                                 <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 relative top-px" />
                                                 <span className={`truncate ${player.didWin ? 'font-semibold' : ''}`} title={player.name || player.username || 'Sconosciuto'}>
@@ -965,3 +958,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     
 
 
+
+
+    
