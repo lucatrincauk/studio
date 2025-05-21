@@ -228,5 +228,3 @@ export default function AllPlaysPage() {
     </div>
   );
 }
-
-```
