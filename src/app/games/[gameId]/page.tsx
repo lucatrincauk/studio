@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState, useTransition, useCallback, use } from 'react';
+import { useEffect, useState, useTransition, useCallback, use, useMemo } from 'react';
 import Link from 'next/link';
 import { getGameDetails, revalidateGameDataAction, fetchUserPlaysForGameFromBggAction, fetchAndUpdateBggGameDetailsAction } from '@/lib/actions';
 import type { BoardGame, AiSummary, Review, Rating as RatingType, GroupedCategoryAverages, BggPlayDetail } from '@/lib/types';
@@ -9,7 +9,7 @@ import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, Settings, DownloadCloud, BarChart3, ListChecks, ListPlus, Heart, UserCircle2, MessageSquare, Repeat } from 'lucide-react';
+import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, Settings, DownloadCloud, BarChart3, ListChecks, ListPlus, Heart, UserCircle2, MessageSquare, Repeat, Trophy } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { summarizeReviews } from '@/ai/flows/summarize-reviews';
@@ -468,6 +468,49 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     });
   };
 
+  const topWinnerName = useMemo(() => {
+    if (!game || !game.lctr01PlayDetails || game.lctr01PlayDetails.length === 0) {
+      return null;
+    }
+
+    const playerStats: Map<string, { wins: number; totalScore: number; name: string }> = new Map();
+
+    game.lctr01PlayDetails.forEach(play => {
+      if (play.players && play.players.length > 0) {
+        play.players.forEach(p => {
+          if (p.didWin) {
+            const key = p.username || p.name;
+            if (key) {
+              const current = playerStats.get(key) || { wins: 0, totalScore: 0, name: key };
+              current.wins += (play.quantity || 1); 
+              const score = parseInt(p.score || "0", 10);
+              current.totalScore += isNaN(score) ? 0 : score;
+              playerStats.set(key, current);
+            }
+          }
+        });
+      }
+    });
+
+    if (playerStats.size === 0) return null;
+
+    let topPlayer: { wins: number; totalScore: number; name: string } | null = null;
+    for (const stats of playerStats.values()) {
+      if (!topPlayer) {
+        topPlayer = stats;
+      } else {
+        if (stats.wins > topPlayer.wins) {
+          topPlayer = stats;
+        } else if (stats.wins === topPlayer.wins) {
+          if (stats.totalScore > topPlayer.totalScore) {
+            topPlayer = stats;
+          }
+        }
+      }
+    }
+    return topPlayer ? topPlayer.name : null;
+  }, [game]);
+
 
   if (isLoadingGame || authLoading) {
     return (
@@ -652,6 +695,13 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                     <span className="font-medium hidden sm:inline">Partite:</span>
                     <span>{game.lctr01Plays ?? 0}</span>
                 </div>
+                {topWinnerName && (
+                  <div className="flex items-baseline gap-2">
+                    <Trophy size={14} className="text-amber-500 flex-shrink-0" />
+                    <span className="font-medium hidden sm:inline">Campione:</span>
+                    <span>{topWinnerName}</span>
+                  </div>
+                )}
             </div>
 
             {(hasDataForSection(game.categories) || hasDataForSection(game.mechanics) ) && (
@@ -703,7 +753,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           </div>
         </div>
       </Card>
-
+      
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
         <div className="lg:col-span-2 space-y-8">
             
@@ -933,4 +983,5 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
+
 
