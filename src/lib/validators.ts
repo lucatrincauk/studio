@@ -19,6 +19,7 @@ export type RatingFormValues = z.infer<typeof reviewFormSchema>;
 
 export const profileFormSchema = z.object({
   displayName: z.string().min(1, { message: "Il nome visualizzato non può essere vuoto." }).max(50, { message: "Il nome visualizzato non può superare i 50 caratteri." }),
+  bggUsername: z.string().max(75, { message: "Il nome utente BGG non può superare i 75 caratteri." }).optional().nullable(),
 });
 
 export type ProfileFormValues = z.infer<typeof profileFormSchema>;

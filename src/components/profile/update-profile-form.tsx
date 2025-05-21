@@ -17,13 +17,17 @@ import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/auth-context';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, Loader2 } from "lucide-react";
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface UpdateProfileFormProps {
-  initialDisplayName: string | null;
+  initialValues: {
+    displayName: string | null;
+    bggUsername: string | null;
+  };
+  onProfileUpdate: () => void;
 }
 
-export function UpdateProfileForm({ initialDisplayName }: UpdateProfileFormProps) {
+export function UpdateProfileForm({ initialValues, onProfileUpdate }: UpdateProfileFormProps) {
   const { updateUserProfile, error: authError, clearError } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
@@ -31,23 +35,36 @@ export function UpdateProfileForm({ initialDisplayName }: UpdateProfileFormProps
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
     defaultValues: {
-      displayName: initialDisplayName || '',
+      displayName: initialValues.displayName || '',
+      bggUsername: initialValues.bggUsername || '',
     },
   });
+
+  useEffect(() => {
+    form.reset({
+        displayName: initialValues.displayName || '',
+        bggUsername: initialValues.bggUsername || '',
+    });
+  }, [initialValues, form]);
+
 
   async function onSubmit(values: ProfileFormValues) {
     setIsSubmitting(true);
     setSubmissionError(null);
-    clearError(); // Clear general auth errors
+    clearError(); 
 
-    const success = await updateUserProfile(values.displayName);
+    const success = await updateUserProfile({ 
+      displayName: values.displayName, 
+      bggUsername: values.bggUsername === "" ? null : values.bggUsername 
+    });
 
-    if (!success && authError) {
+    if (success) {
+      onProfileUpdate(); // Re-fetch profile data in parent
+    } else if (authError) {
       setSubmissionError(authError.message);
-    } else if (!success) {
+    } else {
       setSubmissionError("Si è verificato un errore sconosciuto durante l'aggiornamento del profilo.");
     }
-    // Toast for success is handled in AuthContext
     setIsSubmitting(false);
   }
 
@@ -74,9 +91,22 @@ export function UpdateProfileForm({ initialDisplayName }: UpdateProfileFormProps
             </FormItem>
           )}
         />
+        <FormField
+          control={form.control}
+          name="bggUsername"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Nome Utente BoardGameGeek (Opzionale)</FormLabel>
+              <FormControl>
+                <Input placeholder="Il tuo username BGG" {...field} value={field.value ?? ''} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
         <Button type="submit" disabled={isSubmitting} className="w-full">
           {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-          Aggiorna Nome Visualizzato
+          Aggiorna Profilo
         </Button>
       </form>
     </Form>

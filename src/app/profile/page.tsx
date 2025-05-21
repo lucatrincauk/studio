@@ -1,60 +1,96 @@
 
 'use client';
 
-import type { BoardGame } from '@/lib/types';
+import type { BoardGame, UserProfile } from '@/lib/types';
 import { useAuth } from '@/contexts/auth-context';
 import { UpdateProfileForm } from '@/components/profile/update-profile-form';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, AlertCircle, Heart, ListChecks } from 'lucide-react';
+import { Loader2, AlertCircle, UserCircle2, ListChecks, Heart } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ThemeSwitcher } from '@/components/profile/theme-switcher'; 
 import { Separator } from '@/components/ui/separator';
-import { useState, useEffect } from 'react';
-import { getFavoritedGamesForUserAction, getPlaylistedGamesForUserAction } from '@/lib/actions'; // Renamed action
+import { useState, useEffect, useCallback } from 'react';
+import { getFavoritedGamesForUserAction, getPlaylistedGamesForUserAction } from '@/lib/actions';
 import { GameCard } from '@/components/boardgame/game-card';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+
+const USER_PROFILES_COLLECTION = 'user_profiles';
 
 export default function ProfilePage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user: firebaseUser, loading: authLoading } = useAuth();
+  const [userProfileData, setUserProfileData] = useState<UserProfile | null>(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+
   const [favoritedGames, setFavoritedGames] = useState<BoardGame[]>([]);
-  const [playlistedGames, setPlaylistedGames] = useState<BoardGame[]>([]); // Renamed from wishlistedGames
+  const [playlistedGames, setPlaylistedGames] = useState<BoardGame[]>([]);
   const [isLoadingFavorites, setIsLoadingFavorites] = useState(false);
-  const [isLoadingPlaylist, setIsLoadingPlaylist] = useState(false); // Renamed from isLoadingWishlist
+  const [isLoadingPlaylist, setIsLoadingPlaylist] = useState(false);
+
+  const fetchUserProfileAndLists = useCallback(async () => {
+    if (firebaseUser) {
+      setIsLoadingProfile(true);
+      setIsLoadingFavorites(true);
+      setIsLoadingPlaylist(true);
+
+      // Fetch Firestore profile
+      const profileRef = doc(db, USER_PROFILES_COLLECTION, firebaseUser.uid);
+      try {
+        const docSnap = await getDoc(profileRef);
+        if (docSnap.exists()) {
+          setUserProfileData({ id: docSnap.id, ...docSnap.data() } as UserProfile);
+        } else {
+          setUserProfileData({
+            id: firebaseUser.uid,
+            name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Utente Anonimo',
+            email: firebaseUser.email,
+            photoURL: firebaseUser.photoURL,
+            bggUsername: null,
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching user profile from Firestore:", error);
+        setUserProfileData(null); // Or handle error state
+      }
+      setIsLoadingProfile(false);
+
+      // Fetch lists
+      try {
+        const favResult = await getFavoritedGamesForUserAction(firebaseUser.uid);
+        setFavoritedGames(favResult);
+      } catch (e) {
+        setFavoritedGames([]);
+      } finally {
+        setIsLoadingFavorites(false);
+      }
+
+      try {
+        const playlistResult = await getPlaylistedGamesForUserAction(firebaseUser.uid);
+        setPlaylistedGames(playlistResult);
+      } catch (e) {
+        setPlaylistedGames([]);
+      } finally {
+        setIsLoadingPlaylist(false);
+      }
+    } else {
+      setUserProfileData(null);
+      setFavoritedGames([]);
+      setPlaylistedGames([]);
+      setIsLoadingProfile(false);
+      setIsLoadingFavorites(false);
+      setIsLoadingPlaylist(false);
+    }
+  }, [firebaseUser]);
 
   useEffect(() => {
-    if (user && !authLoading) {
-      const fetchUserLists = async () => {
-        setIsLoadingFavorites(true);
-        setIsLoadingPlaylist(true); // Renamed
-        try {
-          const favResult = await getFavoritedGamesForUserAction(user.uid);
-          setFavoritedGames(favResult);
-        } catch (e) {
-          // console.error("Failed to fetch favorited games:", e);
-          setFavoritedGames([]);
-        } finally {
-          setIsLoadingFavorites(false);
-        }
-
-        try {
-          const playlistResult = await getPlaylistedGamesForUserAction(user.uid); // Renamed action
-          setPlaylistedGames(playlistResult); // Renamed
-        } catch (e) {
-          // console.error("Failed to fetch playlisted games:", e); // Updated text
-          setPlaylistedGames([]); // Renamed
-        } finally {
-          setIsLoadingPlaylist(false); // Renamed
-        }
-      };
-      fetchUserLists();
-    } else {
-      setFavoritedGames([]);
-      setPlaylistedGames([]); // Renamed
+    if (!authLoading) {
+      fetchUserProfileAndLists();
     }
-  }, [user, authLoading]);
+  }, [firebaseUser, authLoading, fetchUserProfileAndLists]);
 
 
-  if (authLoading) {
+  if (authLoading || isLoadingProfile) {
     return (
       <div className="flex flex-col justify-center items-center min-h-[calc(100vh-200px)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -63,7 +99,7 @@ export default function ProfilePage() {
     );
   }
 
-  if (!user) {
+  if (!firebaseUser || !userProfileData) {
     return (
       <div className="flex flex-col items-center justify-center text-center py-10">
         <AlertCircle className="h-12 w-12 text-destructive mb-4" />
@@ -84,15 +120,24 @@ export default function ProfilePage() {
     <div className="max-w-4xl mx-auto py-8 space-y-12">
       <Card className="shadow-xl">
         <CardHeader className="text-center">
+          <UserCircle2 className="h-16 w-16 text-primary mx-auto mb-3" />
           <CardTitle className="text-2xl font-bold">Il Tuo Profilo</CardTitle>
           <CardDescription>Gestisci le informazioni del tuo account e le preferenze dell'applicazione.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div>
             <h3 className="text-sm font-medium text-muted-foreground">Email</h3>
-            <p className="text-foreground">{user.email}</p>
+            <p className="text-foreground">{firebaseUser.email}</p>
           </div>
-          <UpdateProfileForm initialDisplayName={user.displayName} />
+           {userProfileData && (
+             <UpdateProfileForm 
+                initialValues={{
+                    displayName: userProfileData.name || firebaseUser.displayName || '',
+                    bggUsername: userProfileData.bggUsername || null,
+                }}
+                onProfileUpdate={fetchUserProfileAndLists} // Re-fetch profile data on successful update
+            />
+           )}
         </CardContent>
       </Card>
       
@@ -125,19 +170,18 @@ export default function ProfilePage() {
           <ListChecks className="h-6 w-6 text-sky-500" />
           La Tua Playlist
         </h2>
-        {isLoadingPlaylist ? ( // Renamed
+        {isLoadingPlaylist ? (
           <div className="flex justify-center py-4"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
-        ) : playlistedGames.length > 0 ? ( // Renamed
+        ) : playlistedGames.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {playlistedGames.map((game, index) => ( // Renamed
+            {playlistedGames.map((game, index) => (
               <GameCard key={game.id} game={game} variant="featured" priority={index < 5} showOverlayText={true} />
             ))}
           </div>
         ) : (
-          <p className="text-muted-foreground">La tua playlist è vuota.</p> // Updated text
+          <p className="text-muted-foreground">La tua playlist è vuota.</p>
         )}
       </section>
     </div>
   );
 }
-
