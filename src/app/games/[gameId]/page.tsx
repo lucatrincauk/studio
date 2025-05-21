@@ -13,7 +13,7 @@ import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Cl
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { summarizeReviews } from '@/ai/flows/summarize-reviews';
-import { calculateGroupedCategoryAverages, calculateCategoryAverages, calculateOverallCategoryAverage, formatRatingNumber, formatReviewDate } from '@/lib/utils';
+import { calculateGroupedCategoryAverages, calculateCategoryAverages, calculateOverallCategoryAverage, formatRatingNumber, formatPlayDate, formatReviewDate } from '@/lib/utils';
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
@@ -210,7 +210,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         reviewCount: allReviewsForGame.length
       });
       
-      await revalidateGameDataAction(game.id);
+      revalidateGameDataAction(game.id); // Call revalidate action
       
       await fetchGameData(); 
     } catch (error) {
@@ -231,7 +231,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       try {
         const reviewDocRef = doc(db, FIRESTORE_COLLECTION_NAME, gameId, 'reviews', userReview.id);
         await deleteDoc(reviewDocRef);
-        await updateGameOverallRatingAfterDelete(); // This will re-fetch data and revalidate
+        await updateGameOverallRatingAfterDelete(); 
         toast({ title: "Recensione Eliminata", description: "La tua recensione è stata eliminata con successo." });
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
@@ -255,7 +255,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `Il gioco è stato ${newPinStatus ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
         });
         setGame(prevGame => prevGame ? { ...prevGame, isPinned: newPinStatus } : null);
-        await revalidateGameDataAction(game.id);
+        revalidateGameDataAction(game.id); 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({
@@ -318,7 +318,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `${game.name} è stato ${newFavoritedStatus ? 'aggiunto ai' : 'rimosso dai'} tuoi preferiti.`,
         });
 
-        await revalidateGameDataAction(game.id);
+        revalidateGameDataAction(game.id);
 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Impossibile aggiornare i preferiti.";
@@ -370,7 +370,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `${game.name} è stato ${newPlaylistedStatus ? 'aggiunto alla' : 'rimosso dalla'} tua playlist.`,
         });
 
-        await revalidateGameDataAction(game.id);
+        revalidateGameDataAction(game.id);
 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Impossibile aggiornare la playlist.";
@@ -402,7 +402,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
         await updateDoc(gameRef, serverActionResult.updateData);
         toast({ title: 'Dettagli Aggiornati', description: `Dettagli per ${game.name} aggiornati con successo.` });
-        await revalidateGameDataAction(game.id);
+        revalidateGameDataAction(game.id);
         await fetchGameData();
       } catch (dbError) {
         const errorMessage = dbError instanceof Error ? dbError.message : "Errore sconosciuto durante l'aggiornamento del DB.";
@@ -446,7 +446,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
               title: "Partite Caricate e Salvate",
               description: serverActionResult.message || `Caricate e salvate ${serverActionResult.plays.length} partite per ${game.name} da BGG per ${usernameToFetch}. Conteggio aggiornato.`,
             });
-            await revalidateGameDataAction(game.id);
+            revalidateGameDataAction(game.id);
             await fetchGameData();
           } catch (dbError) {
              const errorMessage = dbError instanceof Error ? dbError.message : "Errore sconosciuto durante il salvataggio delle partite nel DB.";
@@ -590,7 +590,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                </div>
             </div>
             
-            {/* Mobile-only image below title/score/icons */}
             <div className="md:hidden my-4 max-w-[240px] mx-auto">
               <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
                 <SafeImage
@@ -688,7 +687,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             )}
           </div>
 
-          {/* Desktop-only image column */}
           <div className="hidden md:block md:w-1/4 p-6 flex-shrink-0 self-start md:order-2"> 
             <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
               <SafeImage
@@ -723,7 +721,12 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                         <AccordionItem value={`play-${play.playId}`} key={play.playId}>
                             <AccordionTrigger className="hover:no-underline text-left py-3 text-sm">
                                 <div className="flex justify-between w-full items-center pr-2 gap-2">
-                                    <span>{formatReviewDate(play.date)} - {play.quantity} {play.quantity === 1 ? "partita" : "partite"}</span>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-medium">{formatPlayDate(play.date)}</span>
+                                    <span className="text-muted-foreground">-</span>
+                                    <Dices size={16} className="text-muted-foreground/80" />
+                                    <span>{play.quantity} {play.quantity === 1 ? "partita" : "partite"}</span>
+                                  </div>
                                     {winners.length > 0 && (
                                         <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-300 whitespace-nowrap">
                                             🏆 {winnerNames}
@@ -773,12 +776,11 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
          </Card>
       )}
 
-      {/* Main content section with user review and other reviews */}
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
         <div className="lg:col-span-2 space-y-8">
           {currentUser && !authLoading && userReview && (
              <div> 
-              <div className="flex justify-between items-baseline gap-2 mb-4">
+              <div className="flex justify-between items-center gap-2 mb-4">
                 <h2 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h2>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <Button asChild size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90">
@@ -923,9 +925,3 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
-
-
-
-
-
-    

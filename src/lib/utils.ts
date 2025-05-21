@@ -3,7 +3,7 @@ import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import type { Review, Rating, RatingCategory, GroupedCategoryAverages, SectionAverage, SubRatingAverage } from "./types";
 import { RATING_CATEGORIES } from "./types";
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format as formatDateFns } from 'date-fns';
 import { it } from 'date-fns/locale';
 
 export function cn(...inputs: ClassValue[]) {
@@ -31,23 +31,24 @@ const RATING_WEIGHTS: Record<RatingCategory, number> = {
   setupTeardown: 1,
 };
 
-export function calculateOverallCategoryAverage(rating: Rating): number {
+export function calculateOverallCategoryAverage(rating: Rating | null): number {
+  if (!rating) return 0;
+
   let weightedSum = 0;
   let totalMaxPossibleScore = 0;
 
   (Object.keys(rating) as Array<keyof Rating>).forEach(key => {
     const weight = RATING_WEIGHTS[key];
-    weightedSum += (rating[key] * weight);
-    totalMaxPossibleScore += (5 * weight);
+    const score = rating[key] || 0; // Default to 0 if a category is missing
+    weightedSum += (score * weight);
+    totalMaxPossibleScore += (5 * weight); // Max score for a category is 5
   });
 
   if (totalMaxPossibleScore === 0) return 0;
 
   const normalizedScore = weightedSum / totalMaxPossibleScore; // Score between 0 and 1
-
-  // Scale to 1-5 range for internal representation
-  const average = 1 + (normalizedScore * 4);
-  return Math.round(average * 10) / 10;
+  const average = 1 + (normalizedScore * 4); // Scale to 1-5 range
+  return Math.round(average * 10) / 10; // Round to one decimal place
 }
 
 
@@ -137,12 +138,20 @@ export function formatReviewDate(dateString: string): string {
   try {
     return formatDistanceToNow(new Date(dateString), { addSuffix: true, locale: it });
   } catch (error) {
-    console.error("Error formatting date:", error);
-    // Fallback to a simple date format if something goes wrong
+    console.error("Error formatting review date:", error);
     const d = new Date(dateString);
     if (isNaN(d.getTime())) {
       return "Data non valida";
     }
     return d.toLocaleDateString('it-IT');
+  }
+}
+
+export function formatPlayDate(dateString: string): string {
+  try {
+    return formatDateFns(new Date(dateString), 'dd/MM/yyyy', { locale: it });
+  } catch (error) {
+    console.error("Error formatting play date:", error);
+    return "Data non valida";
   }
 }
