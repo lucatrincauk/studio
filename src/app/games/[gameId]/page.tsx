@@ -3,12 +3,12 @@
 
 import { useEffect, useState, useTransition, useCallback, use, useMemo } from 'react';
 import Link from 'next/link';
-import { getGameDetails, revalidateGameDataAction, fetchUserPlaysForGameFromBggAction, fetchAndUpdateBggGameDetailsAction } from '@/lib/actions';
+import { getGameDetails, revalidateGameDataAction, fetchUserPlaysForGameFromBggAction } from '@/lib/actions';
 import type { BoardGame, Review, Rating as RatingType, GroupedCategoryAverages, BggPlayDetail, BggPlayerInPlay } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, MessageSquare, Repeat, Settings, DownloadCloud, Trophy, Medal, UserCircle2, Heart, ListPlus, ListChecks, Sparkles, Star, Palette, ClipboardList, Puzzle } from 'lucide-react';
+import { AlertCircle, Loader2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, MessageSquare, Heart, ListPlus, ListChecks, Settings, Trophy, Medal, UserCircle2, Brain, Star, Palette, ClipboardList, Repeat } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { calculateGroupedCategoryAverages, calculateOverallCategoryAverage as calculateGlobalOverallAverage, formatRatingNumber, formatPlayDate, formatReviewDate, calculateCategoryAverages as calculateCatAvgsFromUtils } from '@/lib/utils';
@@ -83,8 +83,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
   const [isPlaylisting, startPlaylistTransition] = useTransition();
   const [isPlaylistedByCurrentUser, setIsPlaylistedByCurrentUser] = useState(false);
 
-  const [isFetchingDetailsFor, setIsFetchingDetailsFor] = useState<string | null>(null);
-  const [isPendingBggDetailsFetch, startBggDetailsFetchTransition] = useTransition();
+  const [isFetchingDetailsFor, setIsFetchingDetailsFor] = useState<string | null>(null); // For individual BGG detail fetch
+  const [isPendingBggDetailsFetch, startBggDetailsFetchTransition] = useTransition(); // For individual BGG detail fetch
 
   const [isFetchingPlays, startFetchPlaysTransition] = useTransition();
 
@@ -230,7 +230,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `Il gioco è stato ${newPinStatus ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
         });
         setGame(prevGame => prevGame ? { ...prevGame, isPinned: newPinStatus } : null);
-        await revalidateGameDataAction(game.id);
+        await revalidateGameDataAction(game.id); // Call server action for revalidation
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({
@@ -560,30 +560,41 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             {/* Main header: Title, Icons, Score */}
             <div className="flex justify-between items-start mb-2">
               {/* Left side: Title and Icons */}
-              <div className="flex flex-col sm:flex-row sm:items-center sm:gap-1 flex-shrink min-w-0 mr-2">
-                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
-                  {game.name}
-                  {game.bggId > 0 && (
-                    <a
-                      href={`https://boardgamegeek.com/boardgame/${game.bggId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      title="Vedi su BoardGameGeek"
-                      className="inline-flex items-center text-primary hover:text-primary/80 focus:outline-none focus:ring-2 focus:ring-ring rounded-md p-0.5 ml-1"
-                    >
-                      <ExternalLink size={16} className="h-4 w-4" />
-                    </a>
-                  )}
+              <div className="flex-1 min-w-0 mr-2">
+                 <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
+                    {game.name}
+                    {game.bggId > 0 && (
+                        <a
+                        href={`https://boardgamegeek.com/boardgame/${game.bggId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Vedi su BoardGameGeek"
+                        className="inline-flex items-center text-primary hover:text-primary/80 focus:outline-none focus:ring-2 focus:ring-ring rounded-md p-0.5 ml-1"
+                        >
+                        <ExternalLink size={16} className="h-4 w-4" />
+                        </a>
+                    )}
                 </h1>
+              </div>
+
+              {/* Right side: Score and Action Icons */}
+              <div className="flex-shrink-0 flex flex-col items-end">
+                 {/* Score */}
+                {globalGameAverage !== null ? (
+                  <span className="text-primary text-3xl md:text-4xl font-bold whitespace-nowrap">
+                    {formatRatingNumber(globalGameAverage * 2)}
+                  </span>
+                ) : null}
+                {/* Action Icons (Favorite, Playlist, Admin Settings) */}
                 {currentUser && (
-                  <div className="flex items-center gap-0.5 mt-1 sm:mt-0">
+                  <div className="flex items-center gap-0.5 mt-1">
                     <Button
                       variant="ghost"
                       size="icon"
                       onClick={handleToggleFavorite}
                       disabled={isFavoriting || authLoading}
                       title={isFavoritedByCurrentUser ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
-                      className={`h-8 w-8 hover:bg-destructive/20 ${isFavoritedByCurrentUser ? 'text-destructive fill-destructive' : 'text-muted-foreground/60 hover:text-destructive'}`}
+                      className={`h-9 w-9 hover:bg-destructive/20 ${isFavoritedByCurrentUser ? 'text-destructive fill-destructive' : 'text-muted-foreground/60 hover:text-destructive'}`}
                     >
                       {isFavoriting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Heart className={`h-5 w-5 ${isFavoritedByCurrentUser ? 'fill-destructive' : ''}`} />}
                     </Button>
@@ -598,14 +609,14 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                       onClick={handleTogglePlaylist}
                       disabled={isPlaylisting || authLoading}
                       title={isPlaylistedByCurrentUser ? "Rimuovi dalla Playlist" : "Aggiungi alla Playlist"}
-                      className={`h-8 w-8 hover:bg-sky-500/20 ${isPlaylistedByCurrentUser ? 'text-sky-500' : 'text-muted-foreground/60 hover:text-sky-500'}`}
+                      className={`h-9 w-9 hover:bg-sky-500/20 ${isPlaylistedByCurrentUser ? 'text-sky-500' : 'text-muted-foreground/60 hover:text-sky-500'}`}
                     >
                       {isPlaylisting ? <Loader2 className="h-5 w-5 animate-spin" /> : (isPlaylistedByCurrentUser ? <ListChecks className="h-5 w-5" /> : <ListPlus className="h-5 w-5" />)}
                     </Button>
                     {isAdmin && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/20 text-muted-foreground/80 hover:text-primary">
+                          <Button variant="ghost" size="icon" className="h-9 w-9 hover:bg-primary/20 text-muted-foreground/80 hover:text-primary">
                             <Settings className="h-5 w-5" />
                           </Button>
                         </DropdownMenuTrigger>
@@ -640,15 +651,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                   </div>
                 )}
               </div>
-
-              {/* Right side: Score */}
-              <div className="flex-shrink-0">
-                {globalGameAverage !== null ? (
-                  <span className="text-primary text-3xl md:text-4xl font-bold whitespace-nowrap">
-                    {formatRatingNumber(globalGameAverage * 2)}
-                  </span>
-                ) : null}
-              </div>
             </div>
             
             {/* Image for mobile, below title/icons */}
@@ -670,27 +672,27 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             {/* Metadata Grid */}
              <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
                 <div className="flex items-baseline gap-2">
-                    <span className="inline-flex items-center relative top-px"><PenTool size={14} className="text-primary/80 flex-shrink-0" /></span>
+                    <span className="inline-flex items-center relative top-px"><PenTool size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
                     <span className="font-medium hidden sm:inline">Autori:</span>
                     <span>{(game.designers && game.designers.length > 0) ? game.designers!.join(', ') : 'N/D'}</span>
                 </div>
                 {game.yearPublished != null && (
                     <div className="flex items-baseline gap-2">
-                    <span className="inline-flex items-center relative top-px"><CalendarDays size={14} className="text-primary/80 flex-shrink-0" /></span>
+                    <span className="inline-flex items-center relative top-px"><CalendarDays size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
                     <span className="font-medium hidden sm:inline">Anno:</span>
                     <span>{game.yearPublished}</span>
                     </div>
                 )}
                 {(game.minPlayers != null || game.maxPlayers != null) && (
                     <div className="flex items-baseline gap-2">
-                    <span className="inline-flex items-center relative top-px"><Users size={14} className="text-primary/80 flex-shrink-0" /></span>
+                    <span className="inline-flex items-center relative top-px"><Users size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
                     <span className="font-medium hidden sm:inline">Giocatori:</span>
                     <span>{game.minPlayers}{game.maxPlayers && game.minPlayers !== game.maxPlayers ? `-${game.maxPlayers}` : ''}</span>
                     </div>
                 )}
                 { (game.minPlaytime != null && game.maxPlaytime != null) || game.playingTime != null ? (
                     <div className="flex items-baseline gap-2">
-                    <span className="inline-flex items-center relative top-px"><Clock size={14} className="text-primary/80 flex-shrink-0" /></span>
+                    <span className="inline-flex items-center relative top-px"><Clock size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
                     <span className="font-medium hidden sm:inline">Durata:</span>
                     <span>
                         {game.minPlaytime != null && game.maxPlaytime != null ?
@@ -703,26 +705,26 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 ) : null}
                 {game.averageWeight !== null && typeof game.averageWeight === 'number' && (
                     <div className="flex items-baseline gap-2">
-                    <span className="inline-flex items-center relative top-px"><Weight size={14} className="text-primary/80 flex-shrink-0" /></span>
+                    <span className="inline-flex items-center relative top-px"><Weight size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
                     <span className="font-medium hidden sm:inline">Complessità:</span>
                     <span>{formatRatingNumber(game.averageWeight)} / 5</span>
                     </div>
                 )}
                 <div className="flex items-baseline gap-2">
-                    <span className="inline-flex items-center relative top-px"><Dices size={14} className="text-primary/80 flex-shrink-0" /></span>
+                    <span className="inline-flex items-center relative top-px"><Repeat size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
                     <span className="font-medium hidden sm:inline">Partite:</span>
                     <span>{game.lctr01Plays ?? 0}</span>
                 </div>
                 {topWinnerStats && (
                   <div className="flex items-baseline gap-2">
-                    <span className="inline-flex items-center relative top-px"><Trophy size={14} className="text-amber-500 flex-shrink-0" /></span>
+                    <span className="inline-flex items-center relative top-px"><Trophy size={14} className="text-amber-500 flex-shrink-0 relative top-px" /></span>
                     <span className="font-medium hidden sm:inline">Campione:</span>
                     <span>{topWinnerStats.name} ({topWinnerStats.wins} {topWinnerStats.wins === 1 ? 'vittoria' : 'vittorie'})</span>
                   </div>
                 )}
                  {highestScoreAchieved !== null && (
                     <div className="flex items-baseline gap-2">
-                        <span className="inline-flex items-center relative top-px"><Medal size={14} className="text-amber-500 flex-shrink-0" /></span>
+                        <span className="inline-flex items-center relative top-px"><Medal size={14} className="text-amber-500 flex-shrink-0 relative top-px" /></span>
                         <span className="font-medium hidden sm:inline">Miglior Punteggio:</span>
                         <span>{formatRatingNumber(highestScoreAchieved)} pt.</span>
                     </div>
@@ -772,7 +774,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                       <Badge variant="secondary">{game.lctr01PlayDetails.length}</Badge>
                   )}
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-0">
                   <Accordion type="single" collapsible className="w-full">
                       {game.lctr01PlayDetails.map((play) => {
                           const winners = play.players?.filter(p => p.didWin) || [];
@@ -780,7 +782,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                           return (
                           <AccordionItem value={`play-${play.playId}`} key={play.playId}>
                               <AccordionTrigger className="hover:no-underline text-left py-3 text-sm">
-                                  <div className="flex justify-between w-full items-center pr-2 gap-2">
+                                <div className="flex justify-between w-full items-center pr-2 gap-2">
                                   <div className="flex items-center gap-2">
                                       <Dices size={16} className="text-muted-foreground/80 flex-shrink-0 relative top-px" />
                                       <span className="font-medium">{formatReviewDate(play.date)}</span>
@@ -792,7 +794,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                                       )}
                                   </div>
                                       {winners.length > 0 && (
-                                          <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-300 whitespace-nowrap">
+                                          <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300 whitespace-nowrap">
                                               <Trophy className="mr-1 h-3.5 w-3.5"/> {winnerNames}
                                           </Badge>
                                       )}
@@ -960,3 +962,4 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
 
     
+
