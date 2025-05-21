@@ -13,7 +13,7 @@ import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Cl
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { summarizeReviews } from '@/ai/flows/summarize-reviews';
-import { calculateGroupedCategoryAverages, calculateCategoryAverages, calculateOverallCategoryAverage, formatRatingNumber, formatReviewDate, formatPlayDate } from '@/lib/utils';
+import { calculateGroupedCategoryAverages, calculateCategoryAverages, calculateOverallCategoryAverage, formatRatingNumber, formatReviewDate } from '@/lib/utils';
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
@@ -34,7 +34,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
   DropdownMenu,
@@ -566,7 +565,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
         <div className="flex flex-col md:flex-row">
           <div className="flex-1 p-6 space-y-4 md:order-1"> 
-             <div className="flex justify-between items-start mb-2">
+            <div className="flex justify-between items-start mb-2">
                 <div className="flex items-center gap-2 flex-shrink min-w-0 mr-2"> 
                   <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground truncate">{game.name}</h1>
                    {game.bggId > 0 && (
@@ -735,25 +734,31 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                     </div>
                 )}
             </div>
-
+            
             {(hasDataForSection(game.categories) || hasDataForSection(game.mechanics) ) && (
-              <div className="w-full pt-4 border-t border-border">
-                <h3 className="text-lg font-semibold text-foreground mb-3">Dettagli Aggiuntivi</h3>
-                 <div className="space-y-3">
-                    {hasDataForSection(game.categories) && (
-                    <div className="text-sm">
-                        <strong className="text-muted-foreground">Categorie: </strong> 
-                        {game.categories!.map(cat => <Badge key={cat} variant="secondary" className="mr-1 mb-1">{cat}</Badge>)}
+              <Accordion type="single" collapsible className="w-full pt-4 border-t border-border">
+                <AccordionItem value="dettagli-aggiuntivi">
+                  <AccordionTrigger className="hover:no-underline py-0">
+                    <h3 className="text-lg font-semibold text-foreground">Dettagli Aggiuntivi</h3>
+                  </AccordionTrigger>
+                  <AccordionContent className="pt-3">
+                    <div className="space-y-3">
+                      {hasDataForSection(game.categories) && (
+                      <div className="text-sm">
+                          <strong className="text-muted-foreground">Categorie: </strong> 
+                          {game.categories!.map(cat => <Badge key={cat} variant="secondary" className="mr-1 mb-1">{cat}</Badge>)}
+                      </div>
+                      )}
+                      {hasDataForSection(game.mechanics) && (
+                      <div className="text-sm">
+                          <strong className="text-muted-foreground">Meccaniche: </strong> 
+                          {game.mechanics!.map(mech => <Badge key={mech} variant="secondary" className="mr-1 mb-1">{mech}</Badge>)}
+                      </div>
+                      )}
                     </div>
-                    )}
-                    {hasDataForSection(game.mechanics) && (
-                    <div className="text-sm">
-                        <strong className="text-muted-foreground">Meccaniche: </strong> 
-                        {game.mechanics!.map(mech => <Badge key={mech} variant="secondary" className="mr-1 mb-1">{mech}</Badge>)}
-                    </div>
-                    )}
-                 </div>
-              </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
             )}
             
             {game.reviews && game.reviews.length > 0 && (
@@ -1015,4 +1020,5 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
+
 
