@@ -3,13 +3,13 @@
 
 import { useEffect, useState, useTransition, useCallback, use, useMemo } from 'react';
 import Link from 'next/link';
-import { getGameDetails, revalidateGameDataAction, fetchUserPlaysForGameFromBggAction, fetchAndUpdateBggGameDetailsAction } from '@/lib/actions';
+import { getGameDetails, revalidateGameDataAction, fetchUserPlaysForGameFromBggAction, fetchAndUpdateBggGameDetailsAction, getAllGamesAction } from '@/lib/actions';
 import { recommendGames } from '@/ai/flows/recommend-games';
 import type { BoardGame, Review, Rating as RatingType, GroupedCategoryAverages, BggPlayDetail, BggPlayerInPlay, RecommendedGame as AIRecommendedGame } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Info, Edit, Trash2, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, MessageSquare, Heart, ListPlus, ListChecks, Settings, Trophy, Medal, UserCircle2, Brain, Star, Palette, ClipboardList, Repeat, Sparkles, DownloadCloud, Pin, PinOff, Wand2 } from 'lucide-react';
+import { AlertCircle, Loader2, Info, Edit, Trash2, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, MessageSquare, Heart, ListPlus, ListChecks, Settings, Trophy, Medal, UserCircle2, Brain, Star, Palette, ClipboardList, Repeat, Sparkles, Pin, PinOff, DownloadCloud } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { calculateGroupedCategoryAverages, calculateOverallCategoryAverage as calculateGlobalOverallAverage, formatRatingNumber, formatPlayDate, formatReviewDate, calculateCategoryAverages as calculateCatAvgsFromUtils } from '@/lib/utils';
@@ -185,16 +185,16 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
       const categoryAvgs = calculateCatAvgsFromUtils(allReviewsForGame);
       const newOverallAverage = categoryAvgs ? calculateGlobalOverallAverage(categoryAvgs) : null;
-      const newVoteCount = allReviewsForGame.length; // Changed from reviewCount
-      
+      const newVoteCount = allReviewsForGame.length;
+
       const gameDocRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
       await updateDoc(gameDocRef, {
         overallAverageRating: newOverallAverage,
-        voteCount: newVoteCount // Changed from reviewCount
+        voteCount: newVoteCount
       });
-      
-      await revalidateGameDataAction(game.id);
-      fetchGameData(); 
+
+      revalidateGameDataAction(game.id); // Revalidate after client-side update
+      fetchGameData();
     } catch (error) {
       console.error("Errore durante l'aggiornamento del punteggio medio del gioco:", error);
       toast({ title: "Errore", description: "Impossibile aggiornare il punteggio medio del gioco.", variant: "destructive" });
@@ -212,7 +212,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       try {
         const reviewDocRef = doc(db, FIRESTORE_COLLECTION_NAME, gameId, 'reviews', userReview.id);
         await deleteDoc(reviewDocRef);
-        await updateGameOverallRatingAfterDelete(); 
+        await updateGameOverallRatingAfterDelete();
         toast({ title: "Voto Eliminato", description: "Il tuo voto è stato eliminato con successo." });
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
@@ -236,7 +236,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `Il gioco è stato ${newPinStatus ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
         });
         setGame(prevGame => prevGame ? { ...prevGame, isPinned: newPinStatus } : null);
-        await revalidateGameDataAction(game.id);
+        revalidateGameDataAction(game.id);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({
@@ -244,7 +244,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `Impossibile aggiornare lo stato vetrina: ${errorMessage}`,
           variant: "destructive",
         });
-        setCurrentIsPinned(!newPinStatus); 
+        setCurrentIsPinned(!newPinStatus);
       }
     });
   };
@@ -299,7 +299,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `${game.name} è stato ${newFavoritedStatus ? 'aggiunto ai' : 'rimosso dai'} tuoi preferiti.`,
         });
 
-        await revalidateGameDataAction(game.id);
+        revalidateGameDataAction(game.id);
 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Impossibile aggiornare i preferiti.";
@@ -351,7 +351,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `${game.name} è stato ${newPlaylistedStatus ? 'aggiunto alla' : 'rimosso dalla'} tua playlist.`,
         });
 
-        await revalidateGameDataAction(game.id);
+        revalidateGameDataAction(game.id);
 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Impossibile aggiornare la playlist.";
@@ -383,7 +383,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
         await updateDoc(gameRef, serverActionResult.updateData);
         toast({ title: 'Dettagli Aggiornati', description: `Dettagli per ${game.name} aggiornati con successo.` });
-        await revalidateGameDataAction(game.id);
+        revalidateGameDataAction(game.id);
         await fetchGameData();
       } catch (dbError) {
         const errorMessage = dbError instanceof Error ? dbError.message : "Errore sconosciuto durante l'aggiornamento del DB.";
@@ -397,7 +397,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
  const handleFetchBggPlays = async () => {
     if (!game || !game.id || !game.bggId || authLoading || (!currentUser && !isAdmin)) return;
 
-    const usernameToFetch = "lctr01"; 
+    const usernameToFetch = "lctr01";
 
     startFetchPlaysTransition(async () => {
       const bggFetchResult = await fetchUserPlaysForGameFromBggAction(game.bggId, usernameToFetch);
@@ -406,24 +406,24 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           toast({ title: 'Errore Caricamento Partite BGG', description: bggFetchResult.error || bggFetchResult.message || 'Impossibile caricare le partite da BGG.', variant: 'destructive' });
           return;
       }
-      
+
       const playsToSave = bggFetchResult.plays;
       const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
 
       if (playsToSave.length > 0) {
           const batch = writeBatch(db);
-          const playsSubcollectionRef = collection(db, FIRESTORE_COLLECTION_NAME, game.id, `plays_${usernameToFetch.toLowerCase()}`);
-          
+          const playsSubcollectionRef = collection(db, FIRESTORE_COLLECTION_NAME, game.id, 'plays_' + usernameToFetch.toLowerCase());
+
           playsToSave.forEach(play => {
               const playDocRef = doc(playsSubcollectionRef, play.playId);
               const playDataForFirestore: BggPlayDetail = {
                   ...play,
-                  userId: usernameToFetch, 
+                  userId: usernameToFetch,
                   gameBggId: game.bggId,
               };
               batch.set(playDocRef, playDataForFirestore, { merge: true });
           });
-          
+
           batch.update(gameRef, { lctr01Plays: playsToSave.length });
 
 
@@ -433,8 +433,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                   title: "Partite Caricate e Salvate",
                   description: bggFetchResult.message || `Caricate e salvate ${playsToSave.length} partite per ${game.name} da BGG per ${usernameToFetch}. Conteggio aggiornato.`,
               });
-              await revalidateGameDataAction(game.id);
-              await fetchGameData(); 
+              revalidateGameDataAction(game.id);
+              await fetchGameData();
           } catch (dbError) {
               const errorMessage = dbError instanceof Error ? dbError.message : "Impossibile salvare le partite nel database.";
               toast({ title: 'Errore Salvataggio Partite DB', description: errorMessage, variant: 'destructive' });
@@ -446,7 +446,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           });
           try {
               await updateDoc(gameRef, { lctr01Plays: 0 });
-              await revalidateGameDataAction(game.id);
+              revalidateGameDataAction(game.id);
               await fetchGameData();
           } catch (dbError) {
                // Silently ignore if update to 0 fails
@@ -462,8 +462,12 @@ const handleGenerateRecommendations = async () => {
 
     startFetchingRecommendationsTransition(async () => {
       try {
-        const allGamesCollection = await getDocs(collection(db, FIRESTORE_COLLECTION_NAME));
-        const catalogGamesForAI = allGamesCollection.docs.map(doc => ({ id: doc.id, name: doc.data().name as string }));
+        const allGamesResult = await getAllGamesAction({ skipRatingCalculation: true }); // Skip heavy calc for catalog
+        if ('error' in allGamesResult) {
+          throw new Error(allGamesResult.error);
+        }
+        const catalogGamesForAI = allGamesResult.map(g => ({ id: g.id, name: g.name }));
+
 
         const result = await recommendGames({
           referenceGameName: game.name,
@@ -492,12 +496,12 @@ const handleGenerateRecommendations = async () => {
       if (play.players && play.players.length > 0) {
         play.players.forEach(p => {
           if (p.didWin) {
-            const playerIdentifier = p.username || p.name; 
+            const playerIdentifier = p.username || p.name;
             const displayName = p.name || p.username;
 
             if (playerIdentifier && displayName) {
               const current = playerStats.get(playerIdentifier) || { wins: 0, totalScore: 0, name: displayName };
-              current.wins += (play.quantity || 1); 
+              current.wins += (play.quantity || 1);
               const score = parseInt(p.score || "0", 10);
               current.totalScore += isNaN(score) ? 0 : score;
               playerStats.set(playerIdentifier, current);
@@ -575,15 +579,15 @@ const handleGenerateRecommendations = async () => {
   const fallbackSrc = `https://placehold.co/400x600.png?text=${encodeURIComponent(game.name?.substring(0,10) || 'N/A')}`;
 
   return (
-    <div className="space-y-8"> 
+    <div className="space-y-8">
       <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
         <div className="flex flex-col md:flex-row">
           {/* Main Content Column */}
-          <div className="flex-1 p-6 space-y-4 md:order-1"> 
+          <div className="flex-1 p-6 space-y-4 md:order-1">
             {/* Main header: Title, Icons, Score */}
              <div className="flex justify-between items-start mb-2">
-                <div className="flex-1 flex flex-col sm:flex-row sm:items-center sm:gap-1 min-w-0 mr-2">
-                  <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground flex items-center gap-1">
+                <div className="flex-1 flex-shrink min-w-0 mr-2">
+                  <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
                     {game.name}
                     {game.bggId > 0 && (
                       <a
@@ -591,7 +595,7 @@ const handleGenerateRecommendations = async () => {
                         target="_blank"
                         rel="noopener noreferrer"
                         title="Vedi su BoardGameGeek"
-                        className="inline-flex items-center text-primary hover:text-primary/80 focus:outline-none focus:ring-2 focus:ring-ring rounded-md p-0.5"
+                        className="inline-flex items-center text-primary hover:text-primary/80 focus:outline-none focus:ring-2 focus:ring-ring rounded-md p-0.5 ml-1"
                       >
                         <ExternalLink size={16} className="h-4 w-4" />
                       </a>
@@ -670,7 +674,7 @@ const handleGenerateRecommendations = async () => {
                     )}
                 </div>
             </div>
-            
+
             {/* Image for mobile, below title/icons */}
             <div className="md:hidden my-4 max-w-[240px] mx-auto">
               <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
@@ -691,28 +695,28 @@ const handleGenerateRecommendations = async () => {
              <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
                 {(game.designers && game.designers.length > 0) && (
                     <div className="flex items-baseline gap-2">
-                      <span className="inline-flex items-center relative top-px"><PenTool size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
+                      <span className="inline-flex items-center"><PenTool size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
                       <span className="font-medium hidden sm:inline">Autori:</span>
                       <span>{game.designers.join(', ')}</span>
                     </div>
                 )}
                 {game.yearPublished != null && (
                     <div className="flex items-baseline gap-2">
-                      <span className="inline-flex items-center relative top-px"><CalendarDays size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
+                      <span className="inline-flex items-center"><CalendarDays size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
                       <span className="font-medium hidden sm:inline">Anno:</span>
                       <span>{game.yearPublished}</span>
                     </div>
                 )}
                 {(game.minPlayers != null || game.maxPlayers != null) && (
                     <div className="flex items-baseline gap-2">
-                      <span className="inline-flex items-center relative top-px"><Users size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
+                      <span className="inline-flex items-center"><Users size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
                       <span className="font-medium hidden sm:inline">Giocatori:</span>
                       <span>{game.minPlayers}{game.maxPlayers && game.minPlayers !== game.maxPlayers ? `-${game.maxPlayers}` : ''}</span>
                     </div>
                 )}
                 { (game.minPlaytime != null && game.maxPlaytime != null) || game.playingTime != null ? (
                     <div className="flex items-baseline gap-2">
-                      <span className="inline-flex items-center relative top-px"><Clock size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
+                      <span className="inline-flex items-center"><Clock size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
                       <span className="font-medium hidden sm:inline">Durata:</span>
                       <span>
                           {game.minPlaytime != null && game.maxPlaytime != null ?
@@ -725,34 +729,34 @@ const handleGenerateRecommendations = async () => {
                 ) : null}
                 {game.averageWeight !== null && typeof game.averageWeight === 'number' && (
                     <div className="flex items-baseline gap-2">
-                      <span className="inline-flex items-center relative top-px"><Weight size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
+                      <span className="inline-flex items-center"><Weight size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
                       <span className="font-medium hidden sm:inline">Complessità:</span>
                       <span>{formatRatingNumber(game.averageWeight)} / 5</span>
                     </div>
                 )}
                 <div className="flex items-baseline gap-2">
-                    <span className="inline-flex items-center relative top-px"><Dices size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
+                    <span className="inline-flex items-center"><Dices size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
                     <span className="font-medium hidden sm:inline">Partite:</span>
                     <span>{game.lctr01Plays ?? 0}</span>
                 </div>
                 {topWinnerStats && (
                   <div className="flex items-baseline gap-2">
-                    <span className="inline-flex items-center relative top-px"><Trophy size={14} className="text-amber-500 flex-shrink-0 relative top-px" /></span>
+                    <span className="inline-flex items-center"><Trophy size={14} className="text-amber-500 flex-shrink-0 relative top-px" /></span>
                     <span className="font-medium hidden sm:inline">Campione:</span>
                     <span>{topWinnerStats.name} ({topWinnerStats.wins} {topWinnerStats.wins === 1 ? 'vittoria' : 'vittorie'})</span>
                   </div>
                 )}
                  {highestScoreAchieved !== null && (
                     <div className="flex items-baseline gap-2">
-                        <span className="inline-flex items-center relative top-px"><Medal size={14} className="text-amber-500 flex-shrink-0 relative top-px" /></span>
+                        <span className="inline-flex items-center"><Medal size={14} className="text-amber-500 flex-shrink-0 relative top-px" /></span>
                         <span className="font-medium hidden sm:inline">Miglior Punteggio:</span>
                         <span>{formatRatingNumber(highestScoreAchieved)} pt.</span>
                     </div>
                 )}
             </div>
-            
+
             {/* Average Ratings Section */}
-            <div className={cn("w-full pt-4 border-t border-border mt-4", !(game.reviews && game.reviews.length > 0) && "border-none pt-0")}>
+            <div className={cn("w-full pt-4 border-t border-border", !(game.reviews && game.reviews.length > 0) && "border-none pt-0")}>
               {(game.reviews && game.reviews.length > 0) && (
                 <>
                     <h3 className="text-lg font-semibold text-foreground mb-3">Valutazione Media:</h3>
@@ -767,9 +771,9 @@ const handleGenerateRecommendations = async () => {
             </div>
           </div>
 
-          
+
           {/* Image Column for Desktop */}
-          <div className="hidden md:block md:w-1/4 p-6 flex-shrink-0 self-start md:order-2"> 
+          <div className="hidden md:block md:w-1/4 p-6 flex-shrink-0 self-start md:order-2">
             <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
               <SafeImage
                 src={game.coverArtUrl}
@@ -798,7 +802,7 @@ const handleGenerateRecommendations = async () => {
                       <Badge variant="secondary">{game.lctr01PlayDetails.length}</Badge>
                   )}
               </CardHeader>
-              <CardContent className="pt-0">
+              <CardContent>
                   <Accordion type="single" collapsible className="w-full">
                       {game.lctr01PlayDetails.map((play) => {
                           const winners = play.players?.filter(p => p.didWin) || [];
@@ -852,7 +856,7 @@ const handleGenerateRecommendations = async () => {
                                                   <span className={cn("truncate", player.didWin ? 'font-semibold' : '')} title={player.name || player.username || 'Sconosciuto'}>
                                                       {player.name || player.username || 'Sconosciuto'}
                                                   </span>
-                                                   {player.didWin && (
+                                                  {player.didWin && (
                                                       <Trophy className="h-3.5 w-3.5 text-green-600 ml-1 flex-shrink-0" />
                                                   )}
                                                   {player.isNew && (
@@ -869,7 +873,7 @@ const handleGenerateRecommendations = async () => {
                                       </ul>
                                   </div>
                                   )}
-                                  
+
                               </div>
                               </AccordionContent>
                           </AccordionItem>
@@ -879,17 +883,17 @@ const handleGenerateRecommendations = async () => {
               </CardContent>
           </Card>
       )}
-      
+
       {/* User Review Management and Other Reviews Section */}
-      <div className="space-y-8"> 
+      <div className="space-y-8">
           {currentUser && !authLoading && (
             userReview ? (
-              <div className="mt-4"> 
+              <div>
                 <div className="flex justify-between items-center gap-2 mb-4">
                   <h3 className="text-xl font-semibold text-foreground mr-2 flex-grow">Il Tuo Voto</h3>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                      <Button asChild size="sm">
-                         <Link href={`/games/${gameId}/rate`}>
+                      <Button asChild size="sm" variant="default">
+                        <Link href={`/games/${gameId}/rate`}>
                            <span className="flex items-center">
                              <Edit className="mr-0 sm:mr-2 h-4 w-4" />
                              <span className="hidden sm:inline">Modifica</span>
@@ -948,7 +952,7 @@ const handleGenerateRecommendations = async () => {
                   </AlertDescription>
                   </Alert>
           )}
-          
+
           {remainingReviews.length > 0 && (
           <>
               <Separator className="my-6" />
