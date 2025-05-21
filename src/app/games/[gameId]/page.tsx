@@ -9,7 +9,7 @@ import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, Settings, DownloadCloud, BarChart3, ListChecks, ListPlus, Heart, UserCircle2, MessageSquare, Repeat, Trophy } from 'lucide-react';
+import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, Settings, DownloadCloud, BarChart3, ListChecks, ListPlus, Heart, UserCircle2, MessageSquare, Repeat, Trophy, Star } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { summarizeReviews } from '@/ai/flows/summarize-reviews';
@@ -418,56 +418,52 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     const usernameToFetch = "lctr01"; 
 
     startFetchPlaysTransition(async () => {
-      const serverActionResult = await fetchUserPlaysForGameFromBggAction(game.bggId, usernameToFetch);
+        const serverActionResult = await fetchUserPlaysForGameFromBggAction(game.id, game.bggId, usernameToFetch);
 
-      if (serverActionResult.success && serverActionResult.plays) {
-        if (serverActionResult.plays.length > 0) {
-          
-          const batch = writeBatch(db);
-          const playsSubCollectionRef = collection(db, FIRESTORE_COLLECTION_NAME, game.id, `plays_${usernameToFetch.toLowerCase()}`);
-          serverActionResult.plays.forEach(play => {
-            const playDocRef = doc(playsSubCollectionRef, play.playId);
-            const playDataForFirestore: BggPlayDetail = {
-                ...play,
-                userId: usernameToFetch, 
-                gameBggId: game.bggId, 
-            };
-            batch.set(playDocRef, playDataForFirestore, { merge: true });
-          });
-          
-          try {
-            await batch.commit();
-            const gameDocRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
-            await updateDoc(gameDocRef, {
-                lctr01Plays: serverActionResult.plays.length 
-            });
-            toast({
-              title: "Partite Caricate e Salvate",
-              description: serverActionResult.message || `Caricate e salvate ${serverActionResult.plays.length} partite per ${game.name} da BGG per ${usernameToFetch}. Conteggio aggiornato.`,
-            });
-            await revalidateGameDataAction(game.id);
-            await fetchGameData();
-          } catch (dbError) {
-             const errorMessage = dbError instanceof Error ? dbError.message : "Errore sconosciuto durante il salvataggio delle partite nel DB.";
-             toast({ title: 'Errore Salvataggio Partite DB', description: errorMessage, variant: 'destructive' });
-          }
+        if (serverActionResult.success && serverActionResult.plays) {
+            if (serverActionResult.plays.length > 0) {
+                const batch = writeBatch(db);
+                const playsSubCollectionRef = collection(db, FIRESTORE_COLLECTION_NAME, game.id, `plays_${usernameToFetch.toLowerCase()}`);
+                
+                serverActionResult.plays.forEach(play => {
+                    const playDocRef = doc(playsSubCollectionRef, play.playId);
+                    // The play object already contains gameBggId and userId from the server action
+                    batch.set(playDocRef, play, { merge: true }); 
+                });
+                
+                try {
+                    await batch.commit();
+                    const gameDocRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
+                    await updateDoc(gameDocRef, {
+                        lctr01Plays: serverActionResult.plays.length 
+                    });
+                    toast({
+                        title: "Partite Caricate e Salvate",
+                        description: serverActionResult.message || `Caricate e salvate ${serverActionResult.plays.length} partite per ${game.name} da BGG per ${usernameToFetch}. Conteggio aggiornato.`,
+                    });
+                    await revalidateGameDataAction(game.id);
+                    await fetchGameData();
+                } catch (dbError) {
+                    const errorMessage = dbError instanceof Error ? dbError.message : "Errore sconosciuto durante il salvataggio delle partite nel DB.";
+                    toast({ title: 'Errore Salvataggio Partite DB', description: errorMessage, variant: 'destructive' });
+                }
+            } else {
+                toast({
+                    title: "Nessuna Partita Trovata",
+                    description: serverActionResult.message || `Nessuna partita trovata su BGG per ${usernameToFetch} per questo gioco.`,
+                });
+            }
         } else {
-           toast({
-            title: "Nessuna Partita Trovata",
-            description: serverActionResult.message || `Nessuna partita trovata su BGG per ${usernameToFetch} per questo gioco.`,
-          });
+            toast({
+                title: "Errore Caricamento Partite BGG",
+                description: serverActionResult.error || "Impossibile caricare le partite da BGG.",
+                variant: "destructive",
+            });
         }
-      } else {
-        toast({
-          title: "Errore Caricamento Partite BGG",
-          description: serverActionResult.error || "Impossibile caricare le partite da BGG.",
-          variant: "destructive",
-        });
-      }
     });
-  };
+};
 
-  const topWinnerName = useMemo(() => {
+  const topWinnerStats = useMemo(() => {
     if (!game || !game.lctr01PlayDetails || game.lctr01PlayDetails.length === 0) {
       return null;
     }
@@ -478,10 +474,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       if (play.players && play.players.length > 0) {
         play.players.forEach(p => {
           if (p.didWin) {
-            // Use BGG username as the primary key for stats if available, otherwise fallback to logged name.
-            // This helps uniquely identify players if multiple people log plays with the same common name.
             const playerIdentifier = p.username || p.name; 
-            // For display, prioritize the logged name (p.name), then BGG username (p.username).
             const displayName = p.name || p.username;
 
             if (playerIdentifier && displayName) {
@@ -512,7 +505,29 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         }
       }
     }
-    return topPlayer ? topPlayer.name : null;
+    return topPlayer ? { name: topPlayer.name, wins: topPlayer.wins } : null;
+  }, [game]);
+
+  const globalPlayAverageScore = useMemo(() => {
+    if (!game || !game.lctr01PlayDetails || game.lctr01PlayDetails.length === 0) {
+      return null;
+    }
+    let totalScoreSum = 0;
+    let totalScoresCount = 0;
+    game.lctr01PlayDetails.forEach(play => {
+      if (play.players && play.players.length > 0) {
+        play.players.forEach(p => {
+          if (p.score) {
+            const score = parseInt(p.score, 10);
+            if (!isNaN(score)) {
+              totalScoreSum += score;
+              totalScoresCount++;
+            }
+          }
+        });
+      }
+    });
+    return totalScoresCount > 0 ? totalScoreSum / totalScoresCount : null;
   }, [game]);
 
 
@@ -699,12 +714,19 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                     <span className="font-medium hidden sm:inline">Partite:</span>
                     <span>{game.lctr01Plays ?? 0}</span>
                 </div>
-                {topWinnerName && (
+                {topWinnerStats && (
                   <div className="flex items-baseline gap-2">
                     <Trophy size={14} className="text-amber-500 flex-shrink-0" />
                     <span className="font-medium hidden sm:inline">Campione:</span>
-                    <span>{topWinnerName}</span>
+                    <span>{topWinnerStats.name} ({topWinnerStats.wins} {topWinnerStats.wins === 1 ? 'vittoria' : 'vittorie'})</span>
                   </div>
+                )}
+                 {globalPlayAverageScore !== null && (
+                    <div className="flex items-baseline gap-2">
+                        <Star size={14} className="text-amber-500 flex-shrink-0" />
+                        <span className="font-medium hidden sm:inline">Punteggio Medio Partite:</span>
+                        <span>{formatRatingNumber(globalPlayAverageScore)}</span>
+                    </div>
                 )}
             </div>
 
@@ -987,3 +1009,4 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
+
