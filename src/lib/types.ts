@@ -120,12 +120,25 @@ export interface UserProfile {
   bggUsername?: string | null;
 }
 
+export interface BggPlayerInPlay {
+  username?: string | null;
+  name?: string | null; 
+  userIdBgg?: string | null;
+  score?: string | null;
+  isNew?: boolean;
+  didWin?: boolean;
+  color?: string | null;
+  startPosition?: string | null;
+}
+
 export interface BggPlayDetail {
-  playId: string; // BGG's ID for the play
-  date: string; // Date of the play
-  quantity: number; // Number of times played on that date
-  comments: string | null; // User's comments for that play
+  playId: string; 
+  date: string; 
+  quantity: number; 
+  comments: string | null; 
+  location?: string | null;
+  players?: BggPlayerInPlay[];
   // Fields for Firestore storage or linking
-  userId?: string; // Firebase UID of the user who logged the play (e.g., 'lctr01' equivalent)
-  gameBggId: number; // BGG ID of the game played
+  userId?: string; 
+  gameBggId: number; 
 }

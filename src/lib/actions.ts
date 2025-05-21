@@ -2,7 +2,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import type { BoardGame, Review, Rating as RatingType, BggSearchResult, AugmentedReview, UserProfile, AugmentedReviewWithGame, BggPlayDetail } from './types';
+import type { BoardGame, Review, Rating as RatingType, BggSearchResult, AugmentedReview, UserProfile, AugmentedReviewWithGame, BggPlayDetail, BggPlayerInPlay } from './types';
 import { db } from '@/lib/firebase';
 import {
   collection,
@@ -701,18 +701,16 @@ export async function getUserDetailsAndReviewsAction(
 export async function getFeaturedGamesAction(): Promise<BoardGame[]> {
     const MAX_TOTAL_FEATURED = 3;
     try {
-        const allGamesResult = await getBoardGamesFromFirestoreAction();
-        if ('error' in allGamesResult) {
+        const allGamesFromDb = await getBoardGamesFromFirestoreAction();
+        if ('error' in allGamesFromDb) {
             return [];
         }
 
-        const enrichedGames: Array<BoardGame & { _latestReviewDate?: Date | null }> = allGamesResult.map(game => ({
-            ...game,
-            _latestReviewDate: null,
-        }));
+        const enrichedGames: Array<BoardGame & { _latestReviewDate?: Date | null, featuredReason?: 'pinned' | 'recent' }> = [];
 
-        const reviewDatesPromises = enrichedGames.map(async (game) => {
-            if (game.id && game.reviewCount && game.reviewCount > 0) {
+        for (const game of allGamesFromDb) {
+            let latestReviewDate: Date | null = null;
+            if (game.reviewCount && game.reviewCount > 0 && game.id) {
                 const reviewsQuery = query(
                     collection(db, FIRESTORE_COLLECTION_NAME, game.id, 'reviews'),
                     orderBy('date', 'desc'),
@@ -722,20 +720,19 @@ export async function getFeaturedGamesAction(): Promise<BoardGame[]> {
                 if (!reviewSnapshot.empty) {
                     const latestReviewData = reviewSnapshot.docs[0].data();
                     if (latestReviewData && latestReviewData.date) {
-                        game._latestReviewDate = new Date(latestReviewData.date);
+                        latestReviewDate = new Date(latestReviewData.date);
                     }
                 }
             }
-            return game;
-        });
-        const gamesWithReviewDates = await Promise.all(reviewDatesPromises);
+            enrichedGames.push({ ...game, _latestReviewDate: latestReviewDate });
+        }
 
-        const pinnedGames = gamesWithReviewDates
+        const pinnedGames = enrichedGames
             .filter(game => game.isPinned)
             .sort((a, b) => (a.name || "").localeCompare(b.name || ""))
             .map(game => ({ ...game, featuredReason: 'pinned' as const }));
 
-        const recentlyReviewedGames = gamesWithReviewDates
+        const recentlyReviewedGames = enrichedGames
             .filter(game => !game.isPinned && game._latestReviewDate)
             .sort((a, b) => b._latestReviewDate!.getTime() - a._latestReviewDate!.getTime())
             .map(game => ({ ...game, featuredReason: 'recent' as const }));
@@ -744,11 +741,11 @@ export async function getFeaturedGamesAction(): Promise<BoardGame[]> {
         const featuredGameIds = new Set<string>();
 
         for (const game of pinnedGames) {
-            if (finalFeaturedGames.length < MAX_TOTAL_FEATURED) {
-                const { _latestReviewDate, ...gameToAdd } = game;
+            if (finalFeaturedGames.length < MAX_TOTAL_FEATURED && game.id) {
+                const { _latestReviewDate, ...gameToAdd } = game; // Exclude temporary field
                 finalFeaturedGames.push(gameToAdd);
                 featuredGameIds.add(game.id);
-            } else {
+            } else if (finalFeaturedGames.length >= MAX_TOTAL_FEATURED) {
                 break; 
             }
         }
@@ -756,8 +753,8 @@ export async function getFeaturedGamesAction(): Promise<BoardGame[]> {
         if (finalFeaturedGames.length < MAX_TOTAL_FEATURED) {
             for (const game of recentlyReviewedGames) {
                 if (finalFeaturedGames.length >= MAX_TOTAL_FEATURED) break;
-                if (!featuredGameIds.has(game.id)) {
-                     const { _latestReviewDate, ...gameToAdd } = game;
+                if (game.id && !featuredGameIds.has(game.id)) {
+                    const { _latestReviewDate, ...gameToAdd } = game; // Exclude temporary field
                     finalFeaturedGames.push(gameToAdd);
                 }
             }
@@ -1195,7 +1192,7 @@ export async function getSingleReviewDetailsAction(gameId: string, reviewId: str
   }
 }
 
-// Renamed for clarity
+// Fetches plays for a specific game for a specific user
 export async function fetchUserPlaysForGameFromBggAction( 
   gameBggId: number,
   username: string
@@ -1212,7 +1209,7 @@ export async function fetchUserPlaysForGameFromBggAction(
       return { success: false, message: "Impossibile recuperare i dati delle partite da BGG.", error: "Risposta BGG vuota" };
     }
     
-    const parsedPlays = parseBggPlaysXml(playsXml, gameBggId); // Pass gameBggId
+    const parsedPlays = parseBggPlaysXml(playsXml, gameBggId, username); // Pass gameBggId and username
 
     if (parsedPlays.length > 0) {
         return {
@@ -1233,20 +1230,19 @@ export async function fetchUserPlaysForGameFromBggAction(
   }
 }
 
-// Helper function to parse plays XML. Needs to extract gameBggId for each play if using the general /plays endpoint.
-function parseBggPlaysXml(xmlText: string, specificGameBggId?: number): BggPlayDetail[] {
+// Helper function to parse plays XML.
+function parseBggPlaysXml(xmlText: string, specificGameBggId?: number, usernameForPlays?: string): BggPlayDetail[] {
   const plays: BggPlayDetail[] = [];
-  // Regex to match <play ...> and its content
-  const playMatches = xmlText.matchAll(/<play\s+id="(\d+)"\s+date="([^"]+)"\s+quantity="(\d+)"[^>]*>([\s\S]*?)<\/play>/gi);
+  const playMatches = xmlText.matchAll(/<play\s+id="(\d+)"\s+date="([^"]+)"\s+quantity="(\d+)"(?:[^>]*)location="([^"]*)"[^>]*>([\s\S]*?)<\/play>/gi);
 
   for (const playMatch of playMatches) {
     const playId = playMatch[1];
     const date = playMatch[2];
     const quantity = parseInt(playMatch[3], 10);
-    const playContent = playMatch[4];
+    const location = decodeHtmlEntities(playMatch[4].trim());
+    const playContent = playMatch[5];
 
     let gameBggIdFromPlay: number | undefined = undefined;
-    // Try to extract gameBggId from the <item objectid="XXX"> within this play
     const itemMatch = /<item\s+name="[^"]*"\s+objecttype="thing"\s+objectid="(\d+)"/i.exec(playContent);
     if (itemMatch && itemMatch[1]) {
       gameBggIdFromPlay = parseInt(itemMatch[1], 10);
@@ -1255,7 +1251,7 @@ function parseBggPlaysXml(xmlText: string, specificGameBggId?: number): BggPlayD
     const finalGameBggId = specificGameBggId ?? gameBggIdFromPlay;
 
     if (finalGameBggId === undefined || isNaN(finalGameBggId)) {
-        continue; // Skip if we can't determine the game BGG ID
+        continue; 
     }
 
     let comments: string | null = null;
@@ -1264,12 +1260,33 @@ function parseBggPlaysXml(xmlText: string, specificGameBggId?: number): BggPlayD
       comments = decodeHtmlEntities(commentsMatch[1].trim());
     }
 
+    const players: BggPlayerInPlay[] = [];
+    const playersElementMatch = /<players>([\s\S]*?)<\/players>/i.exec(playContent);
+    if (playersElementMatch && playersElementMatch[1]) {
+        const playerMatches = playersElementMatch[1].matchAll(/<player\s*(?:username="([^"]*)")?\s*(?:userid="([^"]*)")?\s*(?:name="([^"]*)")?\s*(?:startposition="([^"]*)")?\s*(?:color="([^"]*)")?\s*(?:score="([^"]*)")?\s*(?:new="([01])")?\s*(?:rating="[^"]*")?\s*(?:win="([01])")?\s*\/?>/gi);
+        for (const playerMatch of playerMatches) {
+            players.push({
+                username: playerMatch[1] ? decodeHtmlEntities(playerMatch[1]) : null,
+                userIdBgg: playerMatch[2] ? decodeHtmlEntities(playerMatch[2]) : null,
+                name: playerMatch[3] ? decodeHtmlEntities(playerMatch[3]) : null,
+                startPosition: playerMatch[4] ? decodeHtmlEntities(playerMatch[4]) : null,
+                color: playerMatch[5] ? decodeHtmlEntities(playerMatch[5]) : null,
+                score: playerMatch[6] ? decodeHtmlEntities(playerMatch[6]) : null,
+                isNew: playerMatch[7] === "1",
+                didWin: playerMatch[8] === "1",
+            });
+        }
+    }
+
     plays.push({
       playId,
       date,
       quantity: isNaN(quantity) ? 1 : quantity,
       comments,
+      location: location || null,
+      players: players.length > 0 ? players : undefined,
       gameBggId: finalGameBggId,
+      userId: usernameForPlays, // Add the username for whom these plays are being fetched
     });
   }
   return plays;
@@ -1285,8 +1302,6 @@ export async function fetchAllUserPlaysFromBggAction(
   }
 
   try {
-    // For this first pass, we only fetch page 1.
-    // A full implementation would loop if BGG indicates more pages.
     const playsUrl = `${BGG_API_BASE_URL}/plays?username=${encodeURIComponent(username)}&type=thing&page=${page}`;
     const playsXml = await fetchWithRetry(playsUrl);
 
@@ -1300,7 +1315,7 @@ export async function fetchAllUserPlaysFromBggAction(
       totalPlaysFromBgg = parseInt(totalPlaysMatch[1], 10);
     }
     
-    const parsedPlays = parseBggPlaysXml(playsXml); // This helper needs to extract gameBggId for each play
+    const parsedPlays = parseBggPlaysXml(playsXml, undefined, username); 
 
     if (parsedPlays.length > 0) {
         return {
@@ -1322,4 +1337,3 @@ export async function fetchAllUserPlaysFromBggAction(
     return { success: false, message: 'Operazione fallita.', error: errorMessage };
   }
 }
-
