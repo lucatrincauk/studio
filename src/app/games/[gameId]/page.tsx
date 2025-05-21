@@ -4,12 +4,12 @@
 import { useEffect, useState, useTransition, useCallback, use, useMemo } from 'react';
 import Link from 'next/link';
 import { getGameDetails, revalidateGameDataAction, fetchUserPlaysForGameFromBggAction, fetchAndUpdateBggGameDetailsAction, getAllGamesAction } from '@/lib/actions';
-import { recommendGames } from '@/ai/flows/recommend-games'; // Corrected import path
-import type { BoardGame, Review, Rating as RatingType, GroupedCategoryAverages, BggPlayDetail, BggPlayerInPlay, RecommendedGame as AIRecommendedGame } from '@/lib/types'; // Added AIRecommendedGame
+import { recommendGames } from '@/ai/flows/recommend-games';
+import type { BoardGame, Review, Rating as RatingType, GroupedCategoryAverages, BggPlayDetail, BggPlayerInPlay, RecommendedGame as AIRecommendedGame } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Info, Edit, Trash2, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, MessageSquare, Heart, ListPlus, ListChecks, Settings, Trophy, Medal, UserCircle2, Brain, Star, Palette, ClipboardList, Repeat, Sparkles, DownloadCloud, Pin, PinOff, Wand2 } from 'lucide-react'; // Added Wand2
+import { AlertCircle, Loader2, Info, Edit, Trash2, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, MessageSquare, Heart, ListPlus, ListChecks, Settings, Trophy, Medal, UserCircle2, Brain, Star, Palette, ClipboardList, Repeat, Sparkles, DownloadCloud, Pin, PinOff, Wand2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { calculateGroupedCategoryAverages, calculateOverallCategoryAverage as calculateGlobalOverallAverage, formatRatingNumber, formatPlayDate, formatReviewDate, calculateCategoryAverages as calculateCatAvgsFromUtils } from '@/lib/utils';
@@ -96,8 +96,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
   const fetchGameData = useCallback(async () => {
     setIsLoadingGame(true);
-    setAiRecommendations([]); // Clear previous recommendations
-    setRecommendationError(null); // Clear previous errors
+    setAiRecommendations([]);
+    setRecommendationError(null);
     const gameData = await getGameDetails(gameId);
     setGame(gameData);
 
@@ -160,7 +160,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     }
   }, [game, currentUser]);
 
-  const updateGameOverallRatingAfterReviewChange = async () => {
+  const updateGameOverallRating = useCallback(async () => {
     if (!game) return;
     try {
       const reviewsCollectionRef = collection(db, FIRESTORE_COLLECTION_NAME, game.id, 'reviews');
@@ -185,20 +185,21 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
       const categoryAvgs = calculateCatAvgsFromUtils(allReviewsForGame);
       const newOverallAverage = categoryAvgs ? calculateGlobalOverallAverage(categoryAvgs) : null;
+      const newReviewCount = allReviewsForGame.length;
       
       const gameDocRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
       await updateDoc(gameDocRef, {
         overallAverageRating: newOverallAverage,
-        reviewCount: allReviewsForGame.length
+        reviewCount: newReviewCount
       });
       
-      await revalidateGameDataAction(game.id);
-      await fetchGameData(); 
+      revalidateGameDataAction(game.id);
+      fetchGameData(); 
     } catch (error) {
       console.error("Errore durante l'aggiornamento del punteggio medio del gioco:", error);
       toast({ title: "Errore", description: "Impossibile aggiornare il punteggio medio del gioco.", variant: "destructive" });
     }
-  };
+  }, [game, toast, fetchGameData]);
 
   const confirmDeleteUserReview = async () => {
     setShowDeleteConfirmDialog(false);
@@ -211,9 +212,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       try {
         const reviewDocRef = doc(db, FIRESTORE_COLLECTION_NAME, gameId, 'reviews', userReview.id);
         await deleteDoc(reviewDocRef);
-        await updateGameOverallRatingAfterReviewChange(); 
-        await revalidateGameDataAction(gameId);
-        await fetchGameData();
+        await updateGameOverallRating(); 
+        // fetchGameData(); // No longer needed here, updateGameOverallRating calls it
         toast({ title: "Recensione Eliminata", description: "La tua recensione è stata eliminata con successo." });
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
@@ -237,7 +237,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `Il gioco è stato ${newPinStatus ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
         });
         setGame(prevGame => prevGame ? { ...prevGame, isPinned: newPinStatus } : null);
-        await revalidateGameDataAction(game.id);
+        revalidateGameDataAction(game.id);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({
@@ -300,7 +300,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `${game.name} è stato ${newFavoritedStatus ? 'aggiunto ai' : 'rimosso dai'} tuoi preferiti.`,
         });
 
-        await revalidateGameDataAction(game.id);
+        revalidateGameDataAction(game.id);
 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Impossibile aggiornare i preferiti.";
@@ -352,7 +352,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `${game.name} è stato ${newPlaylistedStatus ? 'aggiunto alla' : 'rimosso dalla'} tua playlist.`,
         });
 
-        await revalidateGameDataAction(game.id);
+        revalidateGameDataAction(game.id);
 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Impossibile aggiornare la playlist.";
@@ -365,17 +365,9 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     if (!game || !game.id || !game.bggId) return;
 
     setIsFetchingDetailsFor(game.id);
-    let serverActionResult;
-    try {
-      serverActionResult = await fetchAndUpdateBggGameDetailsAction(game.bggId);
-    } catch (e) {
-      const errorMsg = e instanceof Error ? e.message : "Errore sconosciuto durante il recupero dei dati BGG.";
-      toast({ title: 'Errore Chiamata BGG', description: errorMsg, variant: 'destructive' });
-      setIsFetchingDetailsFor(null);
-      return;
-    }
-
     startBggDetailsFetchTransition(async () => {
+      const serverActionResult = await fetchAndUpdateBggGameDetailsAction(game.bggId);
+
       if (!serverActionResult.success || !serverActionResult.updateData) {
         toast({ title: 'Errore Recupero Dati BGG', description: serverActionResult.error || 'Impossibile recuperare dati da BGG.', variant: 'destructive' });
         setIsFetchingDetailsFor(null);
@@ -392,7 +384,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
         await updateDoc(gameRef, serverActionResult.updateData);
         toast({ title: 'Dettagli Aggiornati', description: `Dettagli per ${game.name} aggiornati con successo.` });
-        await revalidateGameDataAction(game.id);
+        revalidateGameDataAction(game.id);
         await fetchGameData();
       } catch (dbError) {
         const errorMessage = dbError instanceof Error ? dbError.message : "Errore sconosciuto durante l'aggiornamento del DB.";
@@ -432,7 +424,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
               };
               batch.set(playDocRef, playDataForFirestore, { merge: true });
           });
-          // Also update the lctr01Plays count on the main game document
+          
           batch.update(gameRef, { lctr01Plays: playsToSave.length });
 
 
@@ -442,7 +434,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                   title: "Partite Caricate e Salvate",
                   description: bggFetchResult.message || `Caricate e salvate ${playsToSave.length} partite per ${game.name} da BGG per ${usernameToFetch}. Conteggio aggiornato.`,
               });
-              await revalidateGameDataAction(game.id);
+              revalidateGameDataAction(game.id);
               await fetchGameData(); 
           } catch (dbError) {
               const errorMessage = dbError instanceof Error ? dbError.message : "Impossibile salvare le partite nel database.";
@@ -455,7 +447,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           });
           try {
               await updateDoc(gameRef, { lctr01Plays: 0 });
-              await revalidateGameDataAction(game.id);
+              revalidateGameDataAction(game.id);
               await fetchGameData();
           } catch (dbError) {
                // Silently ignore if update to 0 fails
@@ -471,7 +463,7 @@ const handleGenerateRecommendations = async () => {
 
     startFetchingRecommendationsTransition(async () => {
       try {
-        const allGamesResult = await getAllGamesAction(); // Fetches all games with id and name
+        const allGamesResult = await getAllGamesAction(); 
         if ('error' in allGamesResult) {
           setRecommendationError(allGamesResult.error);
           toast({ title: "Errore nel Caricamento del Catalogo", description: allGamesResult.error, variant: "destructive" });
@@ -597,7 +589,7 @@ const handleGenerateRecommendations = async () => {
             {/* Main header: Title, Icons, Score */}
              <div className="flex justify-between items-start mb-2">
                 <div className="flex-1 flex flex-col sm:flex-row sm:items-center sm:gap-1 min-w-0 mr-2">
-                  <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground flex items-center">
+                  <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
                     {game.name}
                     {game.bggId > 0 && (
                       <a
@@ -812,7 +804,7 @@ const handleGenerateRecommendations = async () => {
                       <Badge variant="secondary">{game.lctr01PlayDetails.length}</Badge>
                   )}
               </CardHeader>
-              <CardContent className="pt-0"> {/* Adjusted padding */}
+              <CardContent className="pt-0">
                   <Accordion type="single" collapsible className="w-full">
                       {game.lctr01PlayDetails.map((play) => {
                           const winners = play.players?.filter(p => p.didWin) || [];
@@ -838,7 +830,7 @@ const handleGenerateRecommendations = async () => {
                                       )}
                                   </div>
                               </AccordionTrigger>
-                              <AccordionContent className="pb-4 text-sm"> {/* Adjusted padding */}
+                              <AccordionContent className="pb-4 text-sm">
                               <div className="space-y-3">
                                   {play.comments && play.comments.trim() !== '' && (
                                   <div className="grid grid-cols-[auto_1fr] gap-x-2 items-baseline pt-1">
@@ -858,9 +850,8 @@ const handleGenerateRecommendations = async () => {
                                           })
                                           .map((player, pIndex) => (
                                           <li key={pIndex} className={cn(
-                                            "flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5",
-                                            pIndex % 2 === 0 ? 'bg-muted/30' : '', 
-                                            "px-2"
+                                            "flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5 px-2",
+                                            pIndex % 2 === 0 ? 'bg-muted/30' : ''
                                           )}>
                                               <div className="flex items-center gap-1.5 flex-grow min-w-0">
                                                   <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 relative top-px" />
