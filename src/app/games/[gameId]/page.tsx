@@ -9,7 +9,7 @@ import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, Settings, DownloadCloud, BarChart3, ListChecks, ListPlus, Heart, UserCircle2, MessageSquare, Repeat, Trophy, Star, Medal } from 'lucide-react'; // Added Medal
+import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, Settings, DownloadCloud, BarChart3, ListChecks, ListPlus, Heart, UserCircle2, MessageSquare, Repeat, Trophy, Medal } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { summarizeReviews } from '@/ai/flows/summarize-reviews';
@@ -34,6 +34,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger, // Added AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
 import {
   DropdownMenu,
@@ -565,9 +566,9 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
         <div className="flex flex-col md:flex-row">
           <div className="flex-1 p-6 space-y-4 md:order-1"> 
-            <div className="flex justify-between items-start mb-2">
+             <div className="flex justify-between items-start mb-2">
                 <div className="flex items-center gap-2 flex-shrink min-w-0 mr-2"> 
-                  <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground truncate">{game.name}</h1>
+                    <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground truncate">{game.name}</h1>
                    {game.bggId > 0 && (
                     <a
                         href={`https://boardgamegeek.com/boardgame/${game.bggId}`}
@@ -579,7 +580,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                         <ExternalLink size={16} className="h-4 w-4" />
                     </a>
                    )}
-                   {currentUser && (
+                  {currentUser && (
                     <>
                       <Button
                         variant="ghost"
@@ -791,7 +792,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         </div>
       </Card>
       
-      {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
+       {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
           <Card className="shadow-md border border-border rounded-lg">
               <CardHeader className="flex flex-row justify-between items-center">
                   <CardTitle className="text-xl flex items-center gap-2">
@@ -878,7 +879,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
               <div className="flex justify-between items-center gap-2 mb-4">
                 <h2 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h2>
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  <Button asChild size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90">
+                  <Button asChild size="sm">
                      <Link href={`/games/${gameId}/rate`}>
                        <span className="flex items-center">
                           <Edit className="mr-0 sm:mr-2 h-4 w-4" />
@@ -1020,5 +1021,3 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
-
-
