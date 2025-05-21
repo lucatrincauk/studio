@@ -500,7 +500,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         <div className="flex flex-col md:flex-row">
           <div className="flex-1 p-6 space-y-4 md:order-1">
              <div className="flex justify-between items-start mb-2">
-                <div className="flex items-baseline gap-2 flex-shrink min-w-0 mr-2">
+                <div className="flex items-center gap-2 flex-shrink min-w-0 mr-2"> {/* Group for title and icons */}
                   <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground truncate">{game.name}</h1>
                    {game.bggId > 0 && (
                     <a
@@ -513,20 +513,17 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                       <ExternalLink size={16} className="h-4 w-4" />
                     </a>
                   )}
-                   {isAdmin && (
-                    <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        onClick={handleTogglePinGame}
-                        disabled={isPinToggling || authLoading}
-                        title={currentIsPinned ? "Rimuovi da Vetrina" : "Aggiungi a Vetrina"}
-                        className={`h-8 w-8 hover:bg-accent/20 ${currentIsPinned ? 'text-accent' : 'text-muted-foreground/60 hover:text-accent'}`}
-                    >
-                        {isPinToggling ? <Loader2 className="h-5 w-5 animate-spin" /> : (currentIsPinned ? <PinOff className="h-5 w-5" /> : <Pin className="h-5 w-5" />)}
-                    </Button>
-                   )}
                 </div>
-               <div className="flex items-center gap-2 flex-shrink-0">
+               <div className="flex items-center gap-2 flex-shrink-0"> {/* Group for score and action buttons */}
+                  {globalGameAverage !== null ? (
+                     <span className="text-primary text-3xl md:text-4xl font-bold whitespace-nowrap">
+                        {formatRatingNumber(globalGameAverage * 2)}
+                      </span>
+                  ) : (
+                    <span className="text-muted-foreground text-lg md:text-xl font-medium whitespace-nowrap">
+                      -
+                    </span>
+                  )}
                   {currentUser && (
                     <>
                       <Button
@@ -554,48 +551,45 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                       >
                         {isPlaylisting ? <Loader2 className="h-5 w-5 animate-spin" /> : (isPlaylistedByCurrentUser ? <ListChecks className="h-5 w-5" /> : <ListPlus className="h-5 w-5" />)}
                       </Button>
-                       {isAdmin && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-9 w-9 hover:bg-primary/20 text-muted-foreground/80 hover:text-primary">
-                              <Settings className="h-5 w-5" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            {/* Pin/Unpin moved next to title for admins */}
-                            <DropdownMenuItem
-                              onSelect={handleRefreshBggData}
-                              disabled={(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) || !game.id || !game.bggId}
-                            >
-                              {(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DownloadCloud className="mr-2 h-4 w-4" />}
-                              Aggiorna Dati da BGG
-                            </DropdownMenuItem>
-                             <DropdownMenuItem
-                              onSelect={handleFetchBggPlays}
-                              disabled={isFetchingPlays || !game.bggId}
-                            >
-                              {isFetchingPlays ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BarChart3 className="mr-2 h-4 w-4" />}
-                              Carica Partite da BGG
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      )}
                     </>
                   )}
-                  {globalGameAverage !== null ? (
-                     <span className="text-primary text-3xl md:text-4xl font-bold whitespace-nowrap">
-                        {formatRatingNumber(globalGameAverage * 2)}
-                      </span>
-                  ) : (
-                    <span className="text-muted-foreground text-lg md:text-xl font-medium whitespace-nowrap">
-                      -
-                    </span>
+                  {isAdmin && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-9 w-9 hover:bg-primary/20 text-muted-foreground/80 hover:text-primary">
+                          <Settings className="h-5 w-5" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onSelect={handleTogglePinGame}
+                          disabled={isPinToggling || authLoading}
+                        >
+                          {isPinToggling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (currentIsPinned ? <PinOff className="mr-2 h-4 w-4" /> : <Pin className="mr-2 h-4 w-4" />)}
+                          {currentIsPinned ? "Rimuovi da Vetrina" : "Aggiungi a Vetrina"}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={handleRefreshBggData}
+                          disabled={(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) || !game.id || !game.bggId}
+                        >
+                          {(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DownloadCloud className="mr-2 h-4 w-4" />}
+                          Aggiorna Dati da BGG
+                        </DropdownMenuItem>
+                         <DropdownMenuItem
+                          onSelect={handleFetchBggPlays}
+                          disabled={isFetchingPlays || !game.bggId}
+                        >
+                          {isFetchingPlays ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BarChart3 className="mr-2 h-4 w-4" />}
+                          Carica Partite da BGG
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   )}
                </div>
             </div>
             
             <div className="text-sm text-muted-foreground space-y-1.5 pt-1">
-                {hasDataForSection(game.designers) && (
+                 {hasDataForSection(game.designers) && (
                   <div className="flex items-baseline gap-2">
                     <PenTool size={16} className="text-primary/80" />
                     <span className="hidden sm:inline">Autori:</span>
@@ -666,7 +660,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             )}
 
             {game.reviews && game.reviews.length > 0 && (
-              <div className="w-full pt-4 border-t border-border">
+              <div className="w-full pt-4 border-t border-border mt-4">
                 <h3 className="text-lg font-semibold text-foreground mb-3">Valutazione Media:</h3>
                 <GroupedRatingsDisplay
                     groupedAverages={groupedCategoryAverages}
@@ -773,8 +767,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 </CardContent>
              </Card>
           )}
-          
-           {currentUser && !authLoading && userReview && (
+
+          {currentUser && !authLoading && userReview && (
              <Card className="p-6 border border-border rounded-lg shadow-md bg-card">
               <div className="flex justify-between items-center mb-4 flex-wrap">
                 <div className="flex items-baseline gap-2">
@@ -928,3 +922,4 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
+
