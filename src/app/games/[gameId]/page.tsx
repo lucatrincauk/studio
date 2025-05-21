@@ -83,8 +83,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
   const [isPlaylisting, startPlaylistTransition] = useTransition();
   const [isPlaylistedByCurrentUser, setIsPlaylistedByCurrentUser] = useState(false);
 
-  const [isFetchingDetailsFor, setIsFetchingDetailsFor] = useState<string | null>(null); // For individual BGG detail fetch
-  const [isPendingBggDetailsFetch, startBggDetailsFetchTransition] = useTransition(); // For individual BGG detail fetch
+  const [isFetchingDetailsFor, setIsFetchingDetailsFor] = useState<string | null>(null);
+  const [isPendingBggDetailsFetch, startBggDetailsFetchTransition] = useTransition();
 
   const [isFetchingPlays, startFetchPlaysTransition] = useTransition();
 
@@ -229,7 +229,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           title: "Stato Vetrina Aggiornato",
           description: `Il gioco è stato ${newPinStatus ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
         });
-        // Optimistically update local game state
         setGame(prevGame => prevGame ? { ...prevGame, isPinned: newPinStatus } : null);
         await revalidateGameDataAction(game.id); 
       } catch (error) {
@@ -560,7 +559,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           <div className="flex-1 p-6 space-y-4 md:order-1"> 
             {/* Main header: Title, Icons, Score */}
             <div className="flex justify-between items-start mb-2">
-              {/* Left side: Title and BGG Icon */}
               <div className="flex-1 flex flex-col sm:flex-row sm:items-center sm:gap-1 min-w-0 mr-2">
                 <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground flex items-center gap-1">
                   {game.name}
@@ -577,15 +575,13 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                   )}
                 </h1>
               </div>
-
-              {/* Right side: Score and Action Icons */}
               <div className="flex-shrink-0 flex flex-col items-end">
                 {globalGameAverage !== null && (
                   <span className="text-primary text-3xl md:text-4xl font-bold whitespace-nowrap">
                     {formatRatingNumber(globalGameAverage * 2)}
                   </span>
                 )}
-                {currentUser && (
+                 {currentUser && (
                   <div className="flex items-center gap-0.5 mt-1">
                     <Button
                       variant="ghost"
@@ -670,7 +666,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
             {/* Metadata Grid */}
              <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
-                <div className="flex items-baseline gap-2 col-span-2"> {/* Autori spans both columns */}
+                <div className="flex items-baseline gap-2 col-span-2">
                     <span className="inline-flex items-center relative top-px"><PenTool size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
                     <span className="font-medium hidden sm:inline">Autori:</span>
                     <span>{(game.designers && game.designers.length > 0) ? game.designers!.join(', ') : 'N/D'}</span>
@@ -710,7 +706,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                     </div>
                 )}
                 <div className="flex items-baseline gap-2">
-                    <span className="inline-flex items-center relative top-px"><Repeat size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
+                    <span className="inline-flex items-center relative top-px"><Dices size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
                     <span className="font-medium hidden sm:inline">Partite:</span>
                     <span>{game.lctr01Plays ?? 0}</span>
                 </div>
@@ -765,7 +761,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         </div>
       </Card>
       
-      {/* Partite Registrate Section - moved here */}
+      {/* Partite Registrate Section */}
       {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
           <Card className="shadow-md border border-border rounded-lg">
               <CardHeader className="flex flex-row justify-between items-center">
