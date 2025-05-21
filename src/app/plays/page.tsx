@@ -23,7 +23,7 @@ export default function AllPlaysPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const usernameToFetch = 'lctr01'; 
+  const usernameToFetch = 'lctr01'; // This remains for the action, but will be removed from UI
 
   useEffect(() => {
     async function fetchPlays() {
@@ -55,7 +55,7 @@ export default function AllPlaysPage() {
       }
       grouped[play.gameId].plays.push(play);
     });
-    // Sort games by name, then sort plays within each game by date
+    // Sort games by name, then sort plays within each game by date (latest first)
     return Object.entries(grouped)
       .sort(([_, gameAData], [__, gameBData]) => gameAData.gameName.localeCompare(gameBData.gameName))
       .map(([gameId, gameData]) => ({
@@ -90,10 +90,10 @@ export default function AllPlaysPage() {
         <CardHeader>
           <CardTitle className="text-2xl sm:text-3xl flex items-center gap-3">
             <LayoutList className="h-7 w-7 text-primary" />
-            Tutte le Partite Registrate ({usernameToFetch})
+            Tutte le Partite Registrate
           </CardTitle>
           <CardDescription>
-            Esplora tutte le partite registrate per l&apos;utente {usernameToFetch}, raggruppate per gioco e ordinate per data.
+            Esplora tutte le partite registrate, raggruppate per gioco e ordinate per data.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -102,7 +102,7 @@ export default function AllPlaysPage() {
               <Info className="h-4 w-4" />
               <AlertTitle>Nessuna Partita Trovata</AlertTitle>
               <AlertDescription>
-                Nessuna partita registrata trovata per l&apos;utente {usernameToFetch}.
+                Nessuna partita registrata trovata nel sistema.
               </AlertDescription>
             </Alert>
           ) : (
@@ -228,3 +228,4 @@ export default function AllPlaysPage() {
     </div>
   );
 }
+
