@@ -3,7 +3,7 @@ import { getAllGamesAction, getFeaturedGamesAction, getLastPlayedGameAction } fr
 import { GameCard } from '@/components/boardgame/game-card';
 import { Separator } from '@/components/ui/separator';
 import type { BoardGame, BggPlayDetail } from '@/lib/types';
-import { Star, TrendingUp, Library, AlertCircle, Info, Dices, UserCircle2, Sparkles, Trophy, CalendarDays, Edit } from 'lucide-react';
+import { Star, TrendingUp, Library, Info, Dices, UserCircle2, Sparkles, Trophy, CalendarDays, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { formatRatingNumber, formatReviewDate } from '@/lib/utils';
@@ -26,7 +26,7 @@ export default async function HomePage() {
 
   const [featuredGamesResult, allGamesResult] = await Promise.all([
     featuredGamesPromise, 
-    allGamesPromise, // Corrected: was allGamesResult
+    allGamesPromise,
   ]);
 
   const featuredGames = Array.isArray(featuredGamesResult) ? featuredGamesResult : [];
@@ -35,7 +35,7 @@ export default async function HomePage() {
   const lastPlayDetail = lastPlayedData.lastPlayDetail;
 
   const topRatedGames = allGames 
-    .filter(game => game.overallAverageRating !== null && game.overallAverageRating !== undefined && typeof game.overallAverageRating === 'number')
+    .filter(game => game.overallAverageRating !== null && game.overallAverageRating !== undefined && typeof game.overallAverageRating === 'number' && game.reviewCount !== undefined && game.reviewCount > 0)
     .sort((a, b) => (b.overallAverageRating ?? 0) - (a.overallAverageRating ?? 0))
     .slice(0, 10);
 
@@ -99,15 +99,24 @@ export default async function HomePage() {
                       data-ai-hint={`board game ${lastPlayedGame.name?.split(' ')[0]?.toLowerCase() || 'mini'}`}
                     />
                   </div>
-                  <div className="flex-1">
-                    <CardTitle className="text-lg font-semibold text-foreground hover:text-primary hover:underline">
-                      <Link href={`/games/${lastPlayedGame.id}`}>
-                        {lastPlayedGame.name}
-                      </Link>
-                    </CardTitle>
-                    <CardDescription className="text-xs text-muted-foreground mt-1">
-                      Partita del {formatReviewDate(lastPlayDetail.date)}
-                    </CardDescription>
+                  <div className="flex-1 flex justify-between items-start">
+                    <div> {/* Left part: Title and Date */}
+                        <CardTitle className="text-lg font-semibold text-foreground hover:text-primary hover:underline">
+                        <Link href={`/games/${lastPlayedGame.id}`}>
+                            {lastPlayedGame.name}
+                        </Link>
+                        </CardTitle>
+                        <CardDescription className="text-xs text-muted-foreground mt-1">
+                        {formatReviewDate(lastPlayDetail.date)}
+                        </CardDescription>
+                    </div>
+                    {lastPlayedGame.overallAverageRating !== null && typeof lastPlayedGame.overallAverageRating === 'number' && (
+                        <div className="text-right flex-shrink-0"> {/* Right part: Score */}
+                        <span className="text-xl font-bold text-primary">
+                            {formatRatingNumber(lastPlayedGame.overallAverageRating * 2)}
+                        </span>
+                        </div>
+                    )}
                   </div>
               </CardHeader>
               <CardContent className="space-y-1.5 text-sm pt-2">
@@ -125,7 +134,7 @@ export default async function HomePage() {
                           .slice()
                           .sort((a, b) => parseInt(b.score || "0", 10) - parseInt(a.score || "0", 10))
                           .map((player, pIndex) => (
-                            <li key={pIndex} className={`flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5 odd:bg-muted/30 px-2`}>
+                            <li key={pIndex} className={`flex items-center justify-between text-xs border-b border-border last:border-b-0 py-0.5 odd:bg-muted/30 px-2`}>
                               <div className="flex items-center gap-1.5 flex-grow min-w-0">
                                 <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                                 <span className={`truncate ${player.didWin ? 'font-semibold' : ''}`} title={player.name || player.username || 'Sconosciuto'}>
@@ -168,10 +177,12 @@ export default async function HomePage() {
                 >
                   <span
                     aria-hidden="true"
-                    className="absolute pointer-events-none select-none leading-none z-0 font-bold text-muted-foreground/10 
-                               -bottom-[55px] -right-[30px] text-[255px] 
-                               sm:-bottom-[65px] sm:-right-[30px] sm:text-[300px] 
-                               lg:-bottom-[75px] lg:-right-[36px] lg:text-[340px]"
+                    className={
+                        `absolute pointer-events-none select-none leading-none z-0 font-bold text-muted-foreground/10 ` + 
+                        `-bottom-[55px] -right-[30px] text-[255px] ` +                           // Default (mobile)
+                        `sm:-bottom-[65px] sm:-right-[30px] sm:text-[300px] ` +  // Small screens
+                        `lg:-bottom-[70px] lg:-right-[36px] lg:text-[340px]`     // Large screens
+                    }
                   >
                     {index + 1}
                   </span>
@@ -225,6 +236,3 @@ export default async function HomePage() {
 }
 
 export const revalidate = 3600;
-
-
-
