@@ -255,6 +255,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `Il gioco è stato ${newPinStatus ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
         });
         await revalidateGameDataAction(game.id);
+        // Optimistically update the game state to reflect pin change without full re-fetch
         setGame(prevGame => prevGame ? { ...prevGame, isPinned: newPinStatus } : null);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
@@ -499,7 +500,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     <div className="space-y-10">
       <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
         <div className="flex flex-col md:flex-row">
-          <div className="flex-1 p-6 space-y-4"> {/* md:order-1 removed, text always first in flow */}
+          <div className="flex-1 p-6 space-y-4">
              <div className="flex justify-between items-start mb-2">
                 <div className="flex items-center gap-2 flex-shrink min-w-0 mr-2"> 
                   <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground truncate">{game.name}</h1>
@@ -514,19 +515,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                       <ExternalLink size={16} className="h-4 w-4" />
                     </a>
                   )}
-                   
-                </div>
-               <div className="flex items-center gap-2 flex-shrink-0"> 
-                  {globalGameAverage !== null ? (
-                     <span className="text-primary text-3xl md:text-4xl font-bold whitespace-nowrap">
-                        {formatRatingNumber(globalGameAverage * 2)}
-                      </span>
-                  ) : (
-                    <span className="text-muted-foreground text-lg md:text-xl font-medium whitespace-nowrap">
-                      -
-                    </span>
-                  )}
-                  {currentUser && (
+                   {currentUser && (
                     <>
                       <Button
                         variant="ghost"
@@ -592,6 +581,17 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                       </DropdownMenu>
                     </>
                   )}
+                </div>
+               <div className="flex-shrink-0"> 
+                  {globalGameAverage !== null ? (
+                     <span className="text-primary text-3xl md:text-4xl font-bold whitespace-nowrap">
+                        {formatRatingNumber(globalGameAverage * 2)}
+                      </span>
+                  ) : (
+                    <span className="text-muted-foreground text-lg md:text-xl font-medium whitespace-nowrap">
+                      
+                    </span>
+                  )}
                </div>
             </div>
             
@@ -613,7 +613,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
             <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
                 {hasDataForSection(game.designers) && (
-                  <div className="flex items-baseline gap-2 col-span-2"> {/* Span full width for designers */}
+                  <div className="flex items-baseline gap-2 col-span-2">
                       <PenTool size={16} className="text-primary/80 flex-shrink-0" />
                       <span className="font-medium hidden sm:inline">Autori:</span>
                       <span>{game.designers!.join(', ')}</span>
@@ -694,7 +694,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           </div>
 
           {/* Desktop-only image column */}
-          <div className="hidden md:block md:w-1/4 p-6 flex-shrink-0 self-start"> {/* md:order-2 removed */}
+          <div className="hidden md:block md:w-1/4 p-6 flex-shrink-0 self-start">
             <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
               <SafeImage
                 src={game.coverArtUrl}
@@ -777,10 +777,10 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           )}
 
           {currentUser && !authLoading && userReview && (
-             <div className="p-6 border border-border rounded-lg shadow-md bg-card"> {/* Replaced Card with styled div */}
+             <div> {/* Removed card-like styling */}
               <div className="flex flex-wrap justify-between items-baseline gap-2 mb-4">
                 <div className="flex items-baseline gap-2">
-                  <h2 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h2> {/* Changed to h2 */}
+                  <h2 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h2>
                    {userReview && calculateOverallCategoryAverage(userReview.rating) !== null && (
                         <span className="text-xl font-bold text-primary">
                             {formatRatingNumber(calculateOverallCategoryAverage(userReview.rating)! * 2)}
@@ -930,4 +930,5 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
+
 
