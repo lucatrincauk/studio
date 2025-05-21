@@ -4,7 +4,7 @@
 import { useEffect, useState, useTransition, useCallback, use, useMemo } from 'react';
 import Link from 'next/link';
 import { getGameDetails, revalidateGameDataAction, fetchUserPlaysForGameFromBggAction, fetchAndUpdateBggGameDetailsAction } from '@/lib/actions';
-import type { BoardGame, Review, Rating as RatingType, GroupedCategoryAverages, BggPlayDetail } from '@/lib/types';
+import type { BoardGame, Review, Rating as RatingType, GroupedCategoryAverages, BggPlayDetail, BggPlayerInPlay } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -629,11 +629,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                     <span className="text-primary text-3xl md:text-4xl font-bold whitespace-nowrap">
                         {formatRatingNumber(globalGameAverage * 2)}
                         </span>
-                    ) : (
-                    <span className="text-muted-foreground text-lg md:text-xl font-medium whitespace-nowrap">
-                        {/* Placeholder or empty if no ratings */}
-                    </span>
-                    )}
+                    ) : null }
                 </div>
             </div>
             
@@ -725,14 +721,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                       defaultOpenSections={['Sentimento']}
                   />
                 </>
-              ) : (
-                 <Alert variant="default" className="bg-secondary/30 border-secondary">
-                    <Info className="h-4 w-4" />
-                    <AlertDescription>
-                        Nessuna valutazione media disponibile. Sii il primo a valutare questo gioco!
-                    </AlertDescription>
-                </Alert>
-              )}
+              ) : null }
             </div>
           </div>
 
@@ -812,13 +801,13 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                                             return scoreB - scoreA;
                                         })
                                         .map((player, pIndex) => (
-                                        <li key={pIndex} className={`flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5 even:bg-muted/30 px-2`}>
+                                        <li key={pIndex} className={`flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5 odd:bg-muted/30 px-2`}>
                                             <div className="flex items-center gap-1.5 flex-grow min-w-0">
                                                 <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 relative top-px" />
                                                 <span className={`truncate ${player.didWin ? 'font-semibold' : ''}`} title={player.name || player.username || 'Sconosciuto'}>
                                                     {player.name || player.username || 'Sconosciuto'}
                                                 </span>
-                                                {player.didWin && (
+                                                 {player.didWin && (
                                                     <Trophy className="h-3.5 w-3.5 text-green-600 ml-1 flex-shrink-0" />
                                                 )}
                                                 {player.isNew && (
@@ -946,6 +935,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
+
 
 
 
