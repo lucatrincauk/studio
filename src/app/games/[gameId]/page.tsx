@@ -4,15 +4,15 @@
 import { useEffect, useState, useTransition, useCallback, use, useMemo } from 'react';
 import Link from 'next/link';
 import { getGameDetails, revalidateGameDataAction, fetchUserPlaysForGameFromBggAction, fetchAndUpdateBggGameDetailsAction } from '@/lib/actions';
-import type { BoardGame, AiSummary, Review, Rating as RatingType, GroupedCategoryAverages, BggPlayDetail } from '@/lib/types';
+import type { BoardGame, Review, Rating as RatingType, GroupedCategoryAverages, BggPlayDetail } from '@/lib/types';
 import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, Settings, DownloadCloud, BarChart3, ListChecks, ListPlus, Heart, UserCircle2, MessageSquare, Repeat, Trophy, Medal } from 'lucide-react';
+import { AlertCircle, Loader2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, Settings, DownloadCloud, BarChart3, ListChecks, ListPlus, Heart, UserCircle2, MessageSquare, Repeat, Trophy, Medal } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
-import { summarizeReviews } from '@/ai/flows/summarize-reviews';
+// Removed: import { summarizeReviews } from '@/ai/flows/summarize-reviews';
 import { calculateGroupedCategoryAverages, calculateCategoryAverages, calculateOverallCategoryAverage, formatRatingNumber, formatPlayDate } from '@/lib/utils';
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 import { useToast } from '@/hooks/use-toast';
@@ -63,10 +63,10 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
   const { toast } = useToast();
 
   const [game, setGame] = useState<BoardGame | null>(null);
-  const [aiSummary, setAiSummary] = useState<AiSummary | null>(null);
+  // Removed: const [aiSummary, setAiSummary] = useState<AiSummary | null>(null);
   const [isLoadingGame, setIsLoadingGame] = useState(true);
-  const [isSummarizing, startSummaryTransition] = useTransition();
-  const [summaryError, setSummaryError] = useState<string | null>(null);
+  // Removed: const [isSummarizing, startSummaryTransition] = useTransition();
+  // Removed: const [summaryError, setSummaryError] = useState<string | null>(null);
 
   const [userReview, setUserReview] = useState<Review | undefined>(undefined);
   const [remainingReviews, setRemainingReviews] = useState<Review[]>([]);
@@ -95,7 +95,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
   const fetchGameData = useCallback(async () => {
     setIsLoadingGame(true);
-    setSummaryError(null);
+    // Removed: setSummaryError(null);
     const gameData = await getGameDetails(gameId);
     setGame(gameData);
 
@@ -158,25 +158,9 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     }
   }, [game, currentUser]);
 
-  const handleGenerateSummary = async () => {
-    if (!game || !game.reviews) return;
-    setSummaryError(null);
-    setAiSummary(null);
-    startSummaryTransition(async () => {
-       const gameRatings = game.reviews.map(r => r.rating).filter(Boolean) as RatingType[];
-      if (gameRatings.length === 0) {
-        setSummaryError("Nessuna valutazione disponibile per generare un riepilogo.");
-        return;
-      }
-      try {
-        const result = await summarizeReviews({ gameName: game.name, ratings: gameRatings });
-        setAiSummary(result);
-      } catch (error) {
-         const errorMessage = error instanceof Error ? error.message : 'Si è verificato un errore sconosciuto durante la generazione del riepilogo.';
-         setSummaryError(errorMessage);
-      }
-    });
-  };
+  // Removed handleGenerateSummary function
+  // const handleGenerateSummary = async () => { ... };
+
 
   const updateGameOverallRatingAfterDelete = async () => {
     if (!game) return;
@@ -676,7 +660,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             
             <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
                  {hasDataForSection(game.designers) && (
-                    <div className="flex items-baseline gap-2"> {/* Removed col-span-2 */}
+                    <div className="flex items-baseline gap-2">
                         <span className="inline-flex items-center"><PenTool size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
                         <span className="font-medium hidden sm:inline">Autori:</span>
                         <span>{game.designers!.join(', ')}</span>
@@ -815,7 +799,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                                 <div className="flex justify-between w-full items-center pr-2 gap-2">
                                 <div className="flex items-center gap-2">
                                     <Dices size={16} className="text-muted-foreground/80 flex-shrink-0" />
-                                    <span className="font-medium">{formatPlayDate(play.date)}</span>
+                                    <span className="font-medium">{formatReviewDate(play.date)}</span>
                                     {play.quantity > 1 && (
                                         <>
                                             <span className="text-muted-foreground">-</span>
@@ -871,6 +855,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             </CardContent>
         </Card>
       )}
+
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
         <div className="lg:col-span-2 space-y-8">
             
@@ -973,53 +958,13 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         </div>
 
         <div className="lg:col-span-1 space-y-8 sticky top-24 self-start">
-          {isAdmin && game.reviews && game.reviews.length > 0 && ( 
-            <Card className="shadow-md border border-border rounded-lg">
-              <CardHeader>
-                <CardTitle className="text-xl flex items-center gap-2">
-                  <Wand2 className="h-5 w-5 text-primary"/>
-                  Riepilogo IA delle Recensioni
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Button
-                  onClick={handleGenerateSummary}
-                  disabled={isSummarizing || !game.reviews || game.reviews.length === 0}
-                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground mb-3 transition-colors"
-                >
-                  {isSummarizing ? (
-                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generazione in corso...</>
-                  ) : (
-                    'Genera Riepilogo'
-                  )}
-                </Button>
-                {(!game.reviews || game.reviews.length === 0) && !isSummarizing && (
-                    <Alert variant="default" className="bg-secondary/30 border-secondary">
-                      <Info className="h-4 w-4 text-secondary-foreground" />
-                      <AlertDescription className="text-secondary-foreground">
-                        Aggiungi prima qualche recensione per generare un riepilogo IA.
-                      </AlertDescription>
-                    </Alert>
-                )}
-                {summaryError && (
-                  <Alert variant="destructive" className="mt-3">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertTitle>Errore nel Riepilogo</AlertTitle>
-                    <AlertDescription>{summaryError}</AlertDescription>
-                  </Alert>
-                )}
-                {aiSummary && !summaryError && (
-                  <div className="mt-3 p-4 bg-muted/50 rounded-md border text-sm text-foreground/90">
-                    <p className="italic leading-relaxed">{aiSummary.summary}</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
+         {/* AI Review Summary Section Removed */}
         </div>
       </section>
     </div>
   );
 }
+
+    
 
     
