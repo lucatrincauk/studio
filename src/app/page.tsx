@@ -3,7 +3,7 @@ import { getAllGamesAction, getFeaturedGamesAction, getLastPlayedGameAction } fr
 import { GameCard } from '@/components/boardgame/game-card';
 import { Separator } from '@/components/ui/separator';
 import type { BoardGame, BggPlayDetail } from '@/lib/types';
-import { Star, TrendingUp, Library, Info, Dices, UserCircle2, Sparkles, Trophy, Clock, Edit, BarChart3, ExternalLink } from 'lucide-react';
+import { Star, TrendingUp, Library, Info, Dices, UserCircle2, Sparkles, Trophy, Edit, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { formatRatingNumber, formatReviewDate } from '@/lib/utils';
@@ -23,12 +23,11 @@ export default async function HomePage() {
     lastPlayedData = await getLastPlayedGameAction("lctr01");
   } catch (e) {
     console.error("Error fetching last played game on homepage:", e);
-    // Optionally, set some error state or log to a monitoring service
   }
 
   const [featuredGamesResult, allGamesResult] = await Promise.all([
     featuredGamesPromise, 
-    allGamesPromise, // Corrected: use the promise here
+    allGamesPromise,
   ]);
 
   const featuredGames = Array.isArray(featuredGamesResult) ? featuredGamesResult : [];
@@ -181,19 +180,20 @@ export default async function HomePage() {
                   <span
                     aria-hidden="true"
                     className={cn(
-                        `absolute top-1/2 -translate-y-1/2 pointer-events-none select-none leading-none z-0 font-bold text-muted-foreground/10`,
-                        // Mobile
-                        `text-[255px] -right-[30px]`,
-                        // Small screens
-                        `sm:text-[300px] sm:-right-[30px]`,
-                        // Large screens
-                        `lg:text-[340px] lg:-right-[36px]`
+                        `absolute pointer-events-none select-none leading-none z-0 font-bold text-muted-foreground/10`,
+                        `text-[255px] -bottom-[55px] -right-[30px]`,
+                        `sm:text-[300px] sm:-bottom-[65px] sm:-right-[30px]`,
+                        `lg:text-[340px] lg:-bottom-[75px] lg:-right-[36px]`
                     )}
                   >
                     {index + 1}
                   </span>
                   <div className="relative z-10 flex items-center gap-x-3 sm:gap-x-4 flex-grow mr-5 sm:mr-8 lg:mr-10">
-                    <div className="w-24 h-32 sm:w-28 sm:h-36 md:w-32 md:h-40 flex-shrink-0"> 
+                    <div
+                      className={cn(
+                        "w-24 sm:w-28 md:w-32 flex-shrink-0" // Removed fixed height classes
+                      )}
+                    > 
                       <GameCard game={game} variant="featured" priority={index < 5} showOverlayText={false} />
                     </div>
                     <div className="flex-grow min-w-0 flex justify-between items-center">
@@ -244,3 +244,6 @@ export default async function HomePage() {
 export const revalidate = 3600;
 
 
+
+
+    
