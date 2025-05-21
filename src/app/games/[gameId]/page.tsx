@@ -13,7 +13,7 @@ import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Cl
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { summarizeReviews } from '@/ai/flows/summarize-reviews';
-import { calculateGroupedCategoryAverages, calculateCategoryAverages, calculateOverallCategoryAverage, formatRatingNumber, formatPlayDate, formatReviewDate } from '@/lib/utils';
+import { calculateGroupedCategoryAverages, calculateCategoryAverages, calculateOverallCategoryAverage, formatRatingNumber, formatReviewDate, formatPlayDate } from '@/lib/utils';
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
@@ -648,7 +648,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                     </div>
                 )}
                 <div className="flex items-baseline gap-2">
-                    <Dices size={14} className="text-primary/80 flex-shrink-0" />
+                    <Repeat size={14} className="text-primary/80 flex-shrink-0" />
                     <span className="font-medium hidden sm:inline">Partite:</span>
                     <span>{game.lctr01Plays ?? 0}</span>
                 </div>
@@ -703,16 +703,20 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           </div>
         </div>
       </Card>
-      
+
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
         <div className="lg:col-span-2 space-y-8">
+            
             {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
                 <Card className="shadow-md border border-border rounded-lg">
-                    <CardHeader>
+                    <CardHeader className="flex flex-row justify-between items-center">
                         <CardTitle className="text-xl flex items-center gap-2">
                             <BarChart3 className="h-5 w-5 text-primary"/>
                             Partite Registrate
                         </CardTitle>
+                        {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
+                            <Badge variant="secondary">{game.lctr01PlayDetails.length}</Badge>
+                        )}
                     </CardHeader>
                     <CardContent>
                         <Accordion type="single" collapsible className="w-full">
