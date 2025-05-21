@@ -89,7 +89,6 @@ export function Header() {
       if (debouncedSearchTerm.length < 2) {
         setSearchResults([]);
         setIsSearching(false);
-        
         if (desktopSearchInputRef.current !== document.activeElement) {
             setIsDesktopPopoverOpen(false);
         }
@@ -104,22 +103,19 @@ export function Header() {
 
       if ('error' in result) {
         setSearchResults([]);
+        if (desktopSearchInputRef.current === document.activeElement && !isMobileSheetOpen) setIsDesktopPopoverOpen(true);
+        if (mobileSearchInputRef.current === document.activeElement && isMobileSheetOpen) setIsMobilePopoverOpen(true);
       } else {
         setSearchResults(result);
         if (result.length > 0) {
-          if (desktopSearchInputRef.current === document.activeElement && !isMobileSheetOpen) {
-            setIsDesktopPopoverOpen(true);
-          } else if (mobileSearchInputRef.current === document.activeElement && isMobileSheetOpen) {
-            setIsMobilePopoverOpen(true);
-          }
+          if (desktopSearchInputRef.current === document.activeElement && !isMobileSheetOpen) setIsDesktopPopoverOpen(true);
+          if (mobileSearchInputRef.current === document.activeElement && isMobileSheetOpen) setIsMobilePopoverOpen(true);
         } else {
-          if (desktopSearchInputRef.current === document.activeElement && !isMobileSheetOpen) {
-            setIsDesktopPopoverOpen(true); 
-          } else if (mobileSearchInputRef.current === document.activeElement && isMobileSheetOpen) {
-            setIsMobilePopoverOpen(true); 
-          } else { 
-            setIsDesktopPopoverOpen(false); 
-            setIsMobilePopoverOpen(false); 
+          if (desktopSearchInputRef.current === document.activeElement && !isMobileSheetOpen) setIsDesktopPopoverOpen(true); 
+          else if (mobileSearchInputRef.current === document.activeElement && isMobileSheetOpen) setIsMobilePopoverOpen(true);
+          else {
+            setIsDesktopPopoverOpen(false);
+            setIsMobilePopoverOpen(false);
           }
         }
       }
@@ -243,7 +239,7 @@ export function Header() {
 
   const mobileSearchPopoverContent = (
     <PopoverContent
-      className="w-[248px] p-0" 
+      className="w-[calc(100%-2rem)] p-0" 
       align="start"
       side="bottom"
       sideOffset={4}
@@ -282,8 +278,8 @@ export function Header() {
             <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Morchiometro</h1>
           </Link>
 
-          {/* This div now groups the desktop nav (hidden on mobile) and the always-visible search bar */}
-          <div className="hidden md:flex flex-grow items-center justify-center">
+          {/* This block was for centered desktop nav links, removed to avoid duplication */}
+          {/* <div className="hidden md:flex flex-grow items-center justify-center">
             <nav className="flex items-center gap-4 lg:gap-6">
               {mainNavLinks.map(link => (
                 <Link
@@ -296,13 +292,13 @@ export function Header() {
                 </Link>
               ))}
             </nav>
-          </div>
+          </div> */}
           
           <div className="flex items-center gap-2">
-            {/* Desktop Search Bar - shown on md and up, next to nav, before auth */}
+            {/* Desktop Search Bar - shown on md and up */}
             <div className="relative hidden md:block">
               <Popover 
-                open={isDesktopPopoverOpen && searchTerm.length >=2 && !isMobileSheetOpen && searchResults.length > 0} 
+                open={isDesktopPopoverOpen && searchTerm.length >=2 && !isMobileSheetOpen && (searchResults.length > 0 || isSearching || (debouncedSearchTerm.length >=2 && !isSearching))} 
                 onOpenChange={setIsDesktopPopoverOpen} 
               >
                 <PopoverAnchor>
@@ -315,7 +311,7 @@ export function Header() {
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       onFocus={() => {
-                        if (searchTerm.length >=2 && !isMobileSheetOpen && searchResults.length > 0) setIsDesktopPopoverOpen(true);
+                        if (searchTerm.length >=2 && !isMobileSheetOpen && (searchResults.length > 0 || isSearching || (debouncedSearchTerm.length >=2 && !isSearching))) setIsDesktopPopoverOpen(true);
                       }}
                       className="h-8 w-48 lg:w-64 rounded-md pl-9 pr-3 text-sm bg-primary-foreground/10 text-primary-foreground placeholder-primary-foreground/60 border-primary-foreground/30 focus:ring-accent focus:bg-primary-foreground/20"
                     />
@@ -326,7 +322,7 @@ export function Header() {
               </Popover>
             </div>
 
-            {/* Auth Block - visible on all screen sizes */}
+            {/* Auth Controls - visible on all screen sizes, responsive styling within */}
             <div className="flex items-center">
               {authBlockDesktop}
             </div>
@@ -391,17 +387,16 @@ export function Header() {
                         </SheetClose>
                     ))}
                   </nav>
-                  {/* Auth Block for Mobile (like sign out) removed from here, as it's handled by authBlockDesktop on the header bar */}
                 </SheetContent>
               </Sheet>
             </div>
-          </div> {/* End of right-side items wrapper */}
+          </div> 
         </div>
       </header>
 
-      {/* Desktop Sub-Navbar - this remains for desktop view */}
+      {/* Desktop Sub-Navbar */}
       <nav className="hidden md:flex bg-muted border-b border-border">
-        <div className="container mx-auto flex h-12 items-center justify-center px-4 sm:px-6 lg:px-8 relative"> {/* Centering the nav links */}
+        <div className="container mx-auto flex h-12 items-center justify-center px-4 sm:px-6 lg:px-8 relative">
           <ul className="flex items-center gap-4 lg:gap-6">
             {mainNavLinks.map(link => (
               <li key={`desktop-subnav-${link.href}`}>
