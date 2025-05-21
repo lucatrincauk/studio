@@ -23,44 +23,49 @@ export const metadata: Metadata = {
 };
 
 const SERVER_DEFAULT_THEME = 'forest-mist';
-const VALID_THEMES_FOR_SCRIPT: Readonly<string[]> = ['violet-dream', 'energetic-coral', 'forest-mist', 'forest-mist-dark']; // Removed 'light', 'dark'
+const VALID_THEMES_FOR_SCRIPT: Readonly<string[]> = ['violet-dream', 'energetic-coral', 'forest-mist', 'forest-mist-dark'];
 
 const NoFlashScript = () => {
   const storageKey = "morchiometro-theme";
   const autoThemeKey = "morchiometro-auto-theme-enabled";
-  const defaultTheme = SERVER_DEFAULT_THEME;
-  const validThemes = VALID_THEMES_FOR_SCRIPT;
+  const defaultThemeForScript = SERVER_DEFAULT_THEME; // Use the same constant
+  const scriptValidThemes = VALID_THEMES_FOR_SCRIPT;
 
   const scriptContent = `
 (function() {
   const docEl = document.documentElement;
   const localKey = '${storageKey}';
   const localAutoKey = '${autoThemeKey}';
-  const scriptDefaultTheme = '${defaultTheme}';
-  const scriptValidThemes = ${JSON.stringify(validThemes)};
+  const scriptDefaultTheme = '${defaultThemeForScript}';
+  const scriptValidThemes = ${JSON.stringify(scriptValidThemes)};
   let themeToApply = scriptDefaultTheme;
 
   try {
     const storedAutoThemeEnabled = window.localStorage.getItem(localAutoKey);
-    const isAutoEnabled = storedAutoThemeEnabled !== 'false'; // Defaults to true
+    // Default to true if the setting is not found or not explicitly 'false'
+    const isAutoEnabled = storedAutoThemeEnabled !== 'false'; 
     const storedTheme = window.localStorage.getItem(localKey);
 
     if (storedTheme && scriptValidThemes.includes(storedTheme)) {
       themeToApply = storedTheme; 
+      // If a theme is explicitly stored, auto mode should be considered off for this initial load logic
+      // The ThemeProvider will handle the switch state later
     } else if (isAutoEnabled) {
       if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
         if (scriptValidThemes.includes('forest-mist-dark')) {
           themeToApply = 'forest-mist-dark';
+        } else {
+           themeToApply = scriptDefaultTheme; // Fallback to light default if dark variant not available
         }
       } else {
         themeToApply = scriptDefaultTheme; // OS prefers light or no preference
       }
     }
-    // If auto is disabled (isAutoEnabled is false) and no explicit theme, 
+    // If auto is disabled (isAutoEnabled is false) and no explicit theme in localStorage,
     // it will fall back to scriptDefaultTheme (already set as initial themeToApply).
   } catch (e) { /* ignore localStorage errors */ }
 
-  const allPossibleThemes = ['light', 'dark', ...scriptValidThemes];
+  const allPossibleThemes = ['light', 'dark', ...scriptValidThemes, scriptDefaultTheme];
   allPossibleThemes.forEach(function(t) {
     if (docEl.classList.contains(t)) {
       docEl.classList.remove(t);
@@ -90,7 +95,7 @@ export default function RootLayout({
         <ThemeProvider defaultTheme={SERVER_DEFAULT_THEME} storageKey="morchiometro-theme">
           <AuthProvider>
             <Header />
-            <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8">
+            <main className="flex-grow container mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
               {children}
             </main>
             <ClientOnlyToaster />
