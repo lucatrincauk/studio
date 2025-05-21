@@ -193,7 +193,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     }
   };
 
-
   const confirmDeleteUserReview = async () => {
     setShowDeleteConfirmDialog(false);
     if (!currentUser || !userReview?.id || !gameId) {
@@ -560,9 +559,9 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           <div className="flex-1 p-6 space-y-4 md:order-1"> 
             {/* Main header: Title, Icons, Score */}
             <div className="flex justify-between items-start mb-2">
-              {/* Left side: Title and BGG Link */}
-              <div className="flex-shrink min-w-0 mr-2"> 
-                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground flex items-center gap-1">
+              {/* Left side: Title and Icons */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:gap-1 flex-shrink min-w-0 mr-2">
+                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
                   {game.name}
                   {game.bggId > 0 && (
                     <a
@@ -570,23 +569,14 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                       target="_blank"
                       rel="noopener noreferrer"
                       title="Vedi su BoardGameGeek"
-                      className="inline-flex items-center text-primary hover:text-primary/80 focus:outline-none focus:ring-2 focus:ring-ring rounded-md p-0.5 flex-shrink-0"
+                      className="inline-flex items-center text-primary hover:text-primary/80 focus:outline-none focus:ring-2 focus:ring-ring rounded-md p-0.5 ml-1"
                     >
                       <ExternalLink size={16} className="h-4 w-4" />
                     </a>
                   )}
                 </h1>
-              </div>
-
-              {/* Right side: Score, then Action Icons below score */}
-              <div className="flex-shrink-0 flex flex-col items-end gap-1">
-                {globalGameAverage !== null ? (
-                  <span className="text-primary text-3xl md:text-4xl font-bold whitespace-nowrap">
-                    {formatRatingNumber(globalGameAverage * 2)}
-                  </span>
-                ) : null}
                 {currentUser && (
-                  <div className="flex items-center gap-0.5">
+                  <div className="flex items-center gap-0.5 mt-1 sm:mt-0">
                     <Button
                       variant="ghost"
                       size="icon"
@@ -649,6 +639,15 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                     )}
                   </div>
                 )}
+              </div>
+
+              {/* Right side: Score */}
+              <div className="flex-shrink-0">
+                {globalGameAverage !== null ? (
+                  <span className="text-primary text-3xl md:text-4xl font-bold whitespace-nowrap">
+                    {formatRatingNumber(globalGameAverage * 2)}
+                  </span>
+                ) : null}
               </div>
             </div>
             
@@ -761,95 +760,95 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         </div>
       </Card>
 
-    {/* Partite Registrate Section */}
-    {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
-        <Card className="shadow-md border border-border rounded-lg">
-            <CardHeader className="flex flex-row justify-between items-center">
-                <CardTitle className="text-xl flex items-center gap-2">
-                    <Dices className="h-5 w-5 text-primary"/>
-                    Partite Registrate
-                </CardTitle>
-                {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
-                    <Badge variant="secondary">{game.lctr01PlayDetails.length}</Badge>
-                )}
-            </CardHeader>
-            <CardContent>
-                <Accordion type="single" collapsible className="w-full">
-                    {game.lctr01PlayDetails.map((play) => {
-                        const winners = play.players?.filter(p => p.didWin) || [];
-                        const winnerNames = winners.map(p => p.name || p.username || 'Sconosciuto').join(', ');
-                        return (
-                        <AccordionItem value={`play-${play.playId}`} key={play.playId}>
-                            <AccordionTrigger className="hover:no-underline text-left py-3 text-sm">
-                                <div className="flex justify-between w-full items-center pr-2 gap-2">
-                                <div className="flex items-center gap-2">
-                                    <Dices size={16} className="text-muted-foreground/80 flex-shrink-0 relative top-px" />
-                                    <span className="font-medium">{formatReviewDate(play.date)}</span>
-                                    {play.quantity > 1 && (
-                                        <>
-                                            <span className="text-muted-foreground">-</span>
-                                            <span>{play.quantity} partite</span>
-                                        </>
-                                    )}
-                                </div>
-                                    {winners.length > 0 && (
-                                        <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-300 whitespace-nowrap">
-                                            <Trophy className="mr-1 h-3.5 w-3.5"/> {winnerNames}
-                                        </Badge>
-                                    )}
-                                </div>
-                            </AccordionTrigger>
-                            <AccordionContent className="pb-4 text-sm">
-                            <div className="space-y-3">
-                                {play.comments && (
-                                <div className="grid grid-cols-[auto_1fr] gap-x-2 items-baseline">
-                                    <strong className="text-muted-foreground text-xs">Commenti:</strong>
-                                    <p className="text-xs whitespace-pre-wrap">{play.comments}</p>
-                                </div>
-                                )}
-                                {play.players && play.players.length > 0 && (
-                                <div>
-                                    <ul className="pl-1">
-                                    {play.players
-                                        .slice()
-                                        .sort((a, b) => {
-                                            const scoreA = parseInt(a.score || "0", 10);
-                                            const scoreB = parseInt(b.score || "0", 10);
-                                            return scoreB - scoreA;
-                                        })
-                                        .map((player, pIndex) => (
-                                        <li key={pIndex} className={`flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5 odd:bg-muted/30 px-2`}>
-                                            <div className="flex items-center gap-1.5 flex-grow min-w-0">
-                                                <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 relative top-px" />
-                                                <span className={`truncate ${player.didWin ? 'font-semibold' : ''}`} title={player.name || player.username || 'Sconosciuto'}>
-                                                    {player.name || player.username || 'Sconosciuto'}
-                                                </span>
-                                                 {player.didWin && (
-                                                    <Trophy className="h-3.5 w-3.5 text-green-600 ml-1 flex-shrink-0" />
-                                                )}
-                                                {player.isNew && (
-                                                     <Sparkles className="h-3.5 w-3.5 text-blue-600 ml-1 flex-shrink-0" />
-                                                )}
-                                            </div>
-                                            {player.score && (
-                                            <span className={`font-mono text-xs whitespace-nowrap ml-2 text-foreground ${player.didWin ? 'font-semibold' : ''}`}>
-                                                {player.score} pt.
-                                            </span>
-                                            )}
-                                        </li>
-                                    ))}
-                                    </ul>
-                                </div>
-                                )}
-                                
-                            </div>
-                            </AccordionContent>
-                        </AccordionItem>
-                    );
-                })}
-                </Accordion>
-            </CardContent>
-        </Card>
+      {/* Partite Registrate Section */}
+      {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
+          <Card className="shadow-md border border-border rounded-lg">
+              <CardHeader className="flex flex-row justify-between items-center">
+                  <CardTitle className="text-xl flex items-center gap-2">
+                      <Dices className="h-5 w-5 text-primary"/>
+                      Partite Registrate
+                  </CardTitle>
+                  {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
+                      <Badge variant="secondary">{game.lctr01PlayDetails.length}</Badge>
+                  )}
+              </CardHeader>
+              <CardContent>
+                  <Accordion type="single" collapsible className="w-full">
+                      {game.lctr01PlayDetails.map((play) => {
+                          const winners = play.players?.filter(p => p.didWin) || [];
+                          const winnerNames = winners.map(p => p.name || p.username || 'Sconosciuto').join(', ');
+                          return (
+                          <AccordionItem value={`play-${play.playId}`} key={play.playId}>
+                              <AccordionTrigger className="hover:no-underline text-left py-3 text-sm">
+                                  <div className="flex justify-between w-full items-center pr-2 gap-2">
+                                  <div className="flex items-center gap-2">
+                                      <Dices size={16} className="text-muted-foreground/80 flex-shrink-0 relative top-px" />
+                                      <span className="font-medium">{formatReviewDate(play.date)}</span>
+                                      {play.quantity > 1 && (
+                                          <>
+                                              <span className="text-muted-foreground">-</span>
+                                              <span>{play.quantity} partite</span>
+                                          </>
+                                      )}
+                                  </div>
+                                      {winners.length > 0 && (
+                                          <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-300 whitespace-nowrap">
+                                              <Trophy className="mr-1 h-3.5 w-3.5"/> {winnerNames}
+                                          </Badge>
+                                      )}
+                                  </div>
+                              </AccordionTrigger>
+                              <AccordionContent className="pb-4 text-sm">
+                              <div className="space-y-3">
+                                  {play.comments && (
+                                  <div className="grid grid-cols-[auto_1fr] gap-x-2 items-baseline">
+                                      <strong className="text-muted-foreground text-xs">Commenti:</strong>
+                                      <p className="text-xs whitespace-pre-wrap">{play.comments}</p>
+                                  </div>
+                                  )}
+                                  {play.players && play.players.length > 0 && (
+                                  <div>
+                                      <ul className="pl-1">
+                                      {play.players
+                                          .slice()
+                                          .sort((a, b) => {
+                                              const scoreA = parseInt(a.score || "0", 10);
+                                              const scoreB = parseInt(b.score || "0", 10);
+                                              return scoreB - scoreA;
+                                          })
+                                          .map((player, pIndex) => (
+                                          <li key={pIndex} className={`flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5 odd:bg-muted/30 px-2`}>
+                                              <div className="flex items-center gap-1.5 flex-grow min-w-0">
+                                                  <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 relative top-px" />
+                                                  <span className={`truncate ${player.didWin ? 'font-semibold' : ''}`} title={player.name || player.username || 'Sconosciuto'}>
+                                                      {player.name || player.username || 'Sconosciuto'}
+                                                  </span>
+                                                   {player.didWin && (
+                                                      <Trophy className="h-3.5 w-3.5 text-green-600 ml-1 flex-shrink-0" />
+                                                  )}
+                                                  {player.isNew && (
+                                                       <Sparkles className="h-3.5 w-3.5 text-blue-600 ml-1 flex-shrink-0" />
+                                                  )}
+                                              </div>
+                                              {player.score && (
+                                              <span className={`font-mono text-xs whitespace-nowrap ml-2 text-foreground ${player.didWin ? 'font-semibold' : ''}`}>
+                                                  {player.score} pt.
+                                              </span>
+                                              )}
+                                          </li>
+                                      ))}
+                                      </ul>
+                                  </div>
+                                  )}
+                                  
+                              </div>
+                              </AccordionContent>
+                          </AccordionItem>
+                      );
+                  })}
+                  </Accordion>
+              </CardContent>
+          </Card>
       )}
 
     {/* User Review Management and Other Reviews Section */}
