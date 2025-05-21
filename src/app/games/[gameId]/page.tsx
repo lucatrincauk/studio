@@ -209,10 +209,9 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         reviewCount: allReviewsForGame.length
       });
       
-      // Revalidate relevant paths
       await revalidateGameDataAction(game.id);
       
-      await fetchGameData(); // Re-fetch to update local state
+      await fetchGameData(); 
     } catch (error) {
       console.error("Errore durante l'aggiornamento del punteggio medio del gioco:", error);
       toast({ title: "Errore", description: "Impossibile aggiornare il punteggio medio del gioco.", variant: "destructive" });
@@ -232,7 +231,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         const reviewDocRef = doc(db, FIRESTORE_COLLECTION_NAME, gameId, 'reviews', userReview.id);
         await deleteDoc(reviewDocRef);
         toast({ title: "Recensione Eliminata", description: "La tua recensione è stata eliminata con successo." });
-        await updateGameOverallRatingAfterDelete(); // This will re-fetch and revalidate
+        await updateGameOverallRatingAfterDelete(); 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({ title: "Errore", description: `Impossibile eliminare la recensione: ${errorMessage}`, variant: "destructive" });
@@ -416,10 +415,10 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
   const handleFetchBggPlays = async () => {
     if (!game || !game.id || !game.bggId || authLoading || !isAdmin) return;
 
-    const usernameToFetch = "lctr01";
+    const usernameToFetch = "lctr01"; // Hardcoded for now, can be made dynamic if needed
 
     startFetchPlaysTransition(async () => {
-      const bggFetchResult = await fetchUserPlaysForGameFromBggAction(game.id, game.bggId, usernameToFetch);
+      const bggFetchResult = await fetchUserPlaysForGameFromBggAction(game.bggId, usernameToFetch);
 
       if (bggFetchResult.success && bggFetchResult.plays) {
         if (bggFetchResult.plays.length > 0) {
@@ -428,15 +427,20 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
           bggFetchResult.plays.forEach(play => {
             const playDocRef = doc(playsSubCollectionRef, play.playId);
-            // The play object from fetchUserPlaysForGameFromBggAction already includes userId and gameBggId
             batch.set(playDocRef, play, { merge: true });
           });
 
           try {
             await batch.commit();
+            // Also update the lctr01Plays count on the main game document
+            const gameDocRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
+            await updateDoc(gameDocRef, {
+                lctr01Plays: bggFetchResult.plays.length // Set to the new total count from this fetch
+            });
+
             toast({
               title: "Partite Caricate e Salvate",
-              description: bggFetchResult.message || `Caricate e salvate ${bggFetchResult.plays.length} partite per ${game.name} da BGG per ${usernameToFetch}.`,
+              description: bggFetchResult.message || `Caricate e salvate ${bggFetchResult.plays.length} partite per ${game.name} da BGG per ${usernameToFetch}. Conteggio aggiornato.`,
             });
             await revalidateGameDataAction(game.id);
             await fetchGameData(); 

@@ -2,7 +2,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import type { BoardGame, Review, Rating as RatingType, BggSearchResult, AugmentedReview, UserProfile, AugmentedReviewWithGame, BggPlayDetail, BggPlayerInPlay } from './types';
+import type { BoardGame, Review, Rating as RatingType, BggSearchResult, AugmentedReview, UserProfile, BggPlayDetail, BggPlayerInPlay } from './types';
 import { db } from '@/lib/firebase';
 import {
   collection,
@@ -229,18 +229,22 @@ async function fetchWithRetry(url: string, retries = 3, delay = 1500, attempt = 
           const isAcceptedMessage = responseText.includes("<message>Your request for task processing has been accepted</message>");
 
           if (isAcceptedMessage && attempt < retries) {
+              // console.log(`[FETCH RETRY - 202 ACCEPTED] Attempt ${attempt}/${retries} for ${url}. Retrying in ${Math.min(delay * attempt, 6000)}ms...`);
               await new Promise(resolve => setTimeout(resolve, Math.min(delay * attempt, 6000)));
               return fetchWithRetry(url, retries, delay, attempt + 1);
           }
           if(!isThingResponse && !isLikelyValidCollectionOrPlays && !responseText.includes("<error>") && attempt < retries && !isAcceptedMessage) {
+            // console.log(`[FETCH RETRY - MALFORMED 200] Attempt ${attempt}/${retries} for ${url}. Retrying in ${Math.min(delay * attempt, 6000)}ms... Response was: ${responseText.substring(0, 200)}`);
               await new Promise(resolve => setTimeout(resolve, Math.min(delay * attempt, 6000)));
               return fetchWithRetry(url, retries, delay, attempt + 1);
           }
           if(responseText.includes("<error>")){
               throw new Error(`BGG API returned an error: ${responseText.substring(0, 200)}`);
           }
+          // console.log(`[BGG RAW XML for ${url}]:\n`, responseText.substring(0, 2000));
           return responseText;
       } else if (response.status === 202 && attempt < retries) {
+          // console.log(`[FETCH RETRY - 202] Attempt ${attempt}/${retries} for ${url}. Retrying in ${Math.min(delay * attempt, 6000)}ms...`);
           await new Promise(resolve => setTimeout(resolve, Math.min(delay * attempt, 6000)));
           return fetchWithRetry(url, retries, delay, attempt + 1);
       } else if (response.status !== 200 && response.status !== 202) {
@@ -314,7 +318,7 @@ export async function getGameDetails(gameId: string): Promise<BoardGame | null> 
       let lctr01PlayDetails: BggPlayDetail[] = [];
       try {
         const playsCollectionRef = collection(db, FIRESTORE_COLLECTION_NAME, gameId, 'plays_lctr01');
-        const playsQuery = query(playsCollectionRef, orderBy("date", "desc")); // Assuming plays have a 'date' field
+        const playsQuery = query(playsCollectionRef, orderBy("date", "desc"));
         const playsSnapshot = await getDocs(playsQuery);
         lctr01PlayDetails = playsSnapshot.docs.map(playDoc => playDoc.data() as BggPlayDetail);
       } catch (playError) {
@@ -343,8 +347,8 @@ export async function getGameDetails(gameId: string): Promise<BoardGame | null> 
         favoritedByUserIds: data.favoritedByUserIds ?? [],
         favoriteCount: data.favoriteCount ?? 0,
         playlistedByUserIds: data.playlistedByUserIds ?? [],
-        lctr01Plays: data.lctr01Plays === undefined ? null : data.lctr01Plays,
-        lctr01PlayDetails: lctr01PlayDetails, // Add fetched plays
+        lctr01Plays: lctr01PlayDetails.length > 0 ? lctr01PlayDetails.length : (data.lctr01Plays === undefined ? 0 : data.lctr01Plays),
+        lctr01PlayDetails: lctr01PlayDetails,
       };
       return game;
     } else {
@@ -388,7 +392,7 @@ export async function getBoardGamesFromFirestoreAction(): Promise<BoardGame[] | 
                 categories: data.categories ?? [],
                 mechanics: data.mechanics ?? [],
                 designers: data.designers ?? [],
-                reviews: [], // Reviews are not fetched in bulk for list views
+                reviews: [], 
                 overallAverageRating: data.overallAverageRating === undefined ? null : data.overallAverageRating,
                 reviewCount: data.reviewCount === undefined ? 0 : data.reviewCount,
                 isPinned: data.isPinned || false,
@@ -396,7 +400,7 @@ export async function getBoardGamesFromFirestoreAction(): Promise<BoardGame[] | 
                 favoriteCount: data.favoriteCount ?? 0,
                 playlistedByUserIds: data.playlistedByUserIds ?? [],
                 lctr01Plays: data.lctr01Plays === undefined ? null : data.lctr01Plays,
-                lctr01PlayDetails: [], // Play details are not fetched in bulk
+                lctr01PlayDetails: [],
             } as BoardGame;
         });
         return games;
@@ -730,6 +734,7 @@ export async function getFeaturedGamesAction(): Promise<BoardGame[]> {
 
         for (const game of allGamesResult) {
             let latestReviewDate: Date | null = null;
+            // reviewCount is now directly on game object from getBoardGamesFromFirestoreAction
             if (game.reviewCount && game.reviewCount > 0 && game.id) {
                 const reviewsQuery = query(
                     collection(db, FIRESTORE_COLLECTION_NAME, game.id, 'reviews'),
@@ -888,8 +893,8 @@ async function parseBggMultiThingXml(xmlText: string): Promise<Map<number, Parti
 
 export async function batchUpdateMissingBggDetailsAction(): Promise<{ success: boolean; message: string; error?: string; gamesToUpdateClientSide?: Array<{ gameId: string; updateData: Partial<BoardGame>}> }> {
     const MAX_GAMES_TO_UPDATE_IN_BATCH = 20;
-    const BATCH_SIZE_BGG_API = 20;
-    const BATCH_DELAY_MS = 1000;
+    const BATCH_SIZE_BGG_API = 20; // BGG /thing API can often handle multiple IDs
+    const BATCH_DELAY_MS = 1000; // Delay between BGG API batch calls
 
     try {
         const allGamesResult = await getBoardGamesFromFirestoreAction();
@@ -1028,7 +1033,7 @@ export async function searchLocalGamesByNameAction(term: string): Promise<BoardG
     const searchTermLower = term.toLowerCase();
     const matchedGames = allGamesResult
       .filter(game => game.name.toLowerCase().includes(searchTermLower))
-      .map(game => { // Ensure all fields, especially overallAverageRating, are present
+      .map(game => {
         return {
           id: game.id,
           bggId: game.bggId,
@@ -1038,7 +1043,7 @@ export async function searchLocalGamesByNameAction(term: string): Promise<BoardG
           overallAverageRating: game.overallAverageRating === undefined ? null : game.overallAverageRating,
           reviews: [],
           minPlayers: game.minPlayers === undefined ? null : game.minPlayers,
-          maxPlayers: game.maxPlayers === undefined ? null : game.maxPlayers,
+          maxPlayers: game.maxPlayers === undefined ? null : data.maxPlayers,
           playingTime: game.playingTime === undefined ? null : game.playingTime,
           minPlaytime: game.minPlaytime === undefined ? null : game.minPlaytime,
           maxPlaytime: game.maxPlaytime === undefined ? null : game.maxPlaytime,
@@ -1051,7 +1056,7 @@ export async function searchLocalGamesByNameAction(term: string): Promise<BoardG
           favoritedByUserIds: game.favoritedByUserIds ?? [],
           favoriteCount: game.favoriteCount ?? 0,
           playlistedByUserIds: game.playlistedByUserIds ?? [],
-          lctr01Plays: game.lctr01Plays === undefined ? null : game.lctr01Plays,
+          lctr01Plays: data.lctr01Plays === undefined ? null : data.lctr01Plays,
           lctr01PlayDetails: [],
         };
       });
@@ -1078,10 +1083,8 @@ export async function revalidateGameDataAction(gameId?: string) {
     if (gameId) {
         revalidatePath(`/games/${gameId}`);
         revalidatePath(`/games/${gameId}/rate`);
-        revalidatePath(`/games/${gameId}/reviews/[reviewId]`); // To cover single review page
+        revalidatePath(`/games/${gameId}/reviews/[reviewId]`);
     }
-    // Revalidating all dynamic user profile pages is tricky, so we revalidate the list.
-    // Individual user pages will eventually update due to game data changes.
     const users = await getAllUsersAction();
     users.forEach(user => {
         revalidatePath(`/users/${user.id}`);
@@ -1217,7 +1220,7 @@ export async function getSingleReviewDetailsAction(gameId: string, reviewId: str
       gameId: gameId,
       gameName: gameName,
       gameCoverArtUrl: gameCoverArtUrl,
-      authorPhotoURL: reviewData.authorPhotoURL || null, // ensure this is passed
+      authorPhotoURL: reviewData.authorPhotoURL || null,
       ...reviewData,
       rating: rating,
     };
@@ -1314,7 +1317,7 @@ export async function fetchUserPlaysForGameFromBggAction(
         return {
             success: true,
             plays: parsedPlays,
-            message: `Caricate ${parsedPlays.length} partite da BGG per ${username} per il gioco BGG ID ${gameBggId}.`,
+            message: `Caricate ${parsedPlays.length} partite da BGG per ${username}.`,
         };
     } else {
          return {
