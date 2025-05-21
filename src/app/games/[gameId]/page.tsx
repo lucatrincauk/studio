@@ -5,7 +5,6 @@ import { useEffect, useState, useTransition, useCallback, use, useMemo } from 'r
 import Link from 'next/link';
 import { getGameDetails, revalidateGameDataAction, fetchUserPlaysForGameFromBggAction, fetchAndUpdateBggGameDetailsAction } from '@/lib/actions';
 import type { BoardGame, Review, Rating as RatingType, GroupedCategoryAverages, BggPlayDetail } from '@/lib/types';
-import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -42,6 +41,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { SafeImage } from '@/components/common/SafeImage';
 import { ReviewItem } from '@/components/boardgame/review-item';
+import { ReviewList } from '@/components/boardgame/review-list';
 import { Badge } from '@/components/ui/badge';
 
 
@@ -206,6 +206,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         await updateGameOverallRatingAfterDelete(); 
         toast({ title: "Recensione Eliminata", description: "La tua recensione è stata eliminata con successo." });
         await fetchGameData();
+        await revalidateGameDataAction(gameId);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({ title: "Errore", description: `Impossibile eliminare la recensione: ${errorMessage}`, variant: "destructive" });
@@ -755,7 +756,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         </div>
       </Card>
 
-      
       {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
         <Card className="shadow-md border border-border rounded-lg">
             <CardHeader className="flex flex-row justify-between items-center">
@@ -777,7 +777,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                             <AccordionTrigger className="hover:no-underline text-left py-3 text-sm">
                                 <div className="flex justify-between w-full items-center pr-2 gap-2">
                                 <div className="flex items-center gap-2">
-                                    <Dices size={16} className="text-muted-foreground/80 flex-shrink-0" />
+                                    <Dices size={16} className="text-muted-foreground/80 flex-shrink-0 relative top-px" />
                                     <span className="font-medium">{formatReviewDate(play.date)}</span>
                                     {play.quantity > 1 && (
                                         <>
@@ -794,21 +794,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                                 </div>
                             </AccordionTrigger>
                             <AccordionContent className="pb-4 pt-2 text-sm">
-                            <div className="space-y-2">
-                                <div className="flex justify-between items-baseline text-xs mb-1">
-                                    {play.location ? (
-                                    <div>
-                                        <strong className="text-muted-foreground">Luogo:</strong>
-                                        <span className="ml-1">{play.location}</span>
-                                    </div>
-                                    ) : <div />} 
-                                    {play.date && (
-                                    <div>
-                                        <strong className="text-muted-foreground">Data:</strong>
-                                        <span className="ml-1">{formatPlayDate(play.date)}</span>
-                                    </div>
-                                    )}
-                                </div>
+                            <div className="space-y-3">
                                 {play.comments && (
                                 <div className="grid grid-cols-[auto_1fr] gap-x-2 items-baseline">
                                     <strong className="text-muted-foreground text-xs">Commenti:</strong>
@@ -829,16 +815,16 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                                         .map((player, pIndex) => (
                                         <li key={pIndex} className={`flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5 ${pIndex % 2 === 0 ? 'bg-muted/30' : ''}`}>
                                             <div className="flex items-center gap-1.5 flex-grow min-w-0">
-                                            <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                                            <span className={`truncate ${player.didWin ? 'font-semibold' : ''}`} title={player.name || player.username || 'Sconosciuto'}>
-                                                {player.name || player.username || 'Sconosciuto'}
-                                            </span>
-                                            {player.didWin && (
-                                                <Trophy className="h-3.5 w-3.5 text-green-600 ml-1 flex-shrink-0" />
-                                            )}
-                                            {player.isNew && (
-                                                 <Sparkles className="h-3.5 w-3.5 text-blue-600 ml-1 flex-shrink-0" />
-                                            )}
+                                                <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 relative top-px" />
+                                                <span className={`truncate ${player.didWin ? 'font-semibold' : ''}`} title={player.name || player.username || 'Sconosciuto'}>
+                                                    {player.name || player.username || 'Sconosciuto'}
+                                                </span>
+                                                {player.didWin && (
+                                                    <Trophy className="h-3.5 w-3.5 text-green-600 ml-1 flex-shrink-0" />
+                                                )}
+                                                {player.isNew && (
+                                                     <Sparkles className="h-3.5 w-3.5 text-blue-600 ml-1 flex-shrink-0" />
+                                                )}
                                             </div>
                                             {player.score && (
                                             <span className={`font-mono text-xs whitespace-nowrap ml-2 text-foreground ${player.didWin ? 'font-semibold' : ''}`}>
@@ -850,6 +836,20 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                                     </ul>
                                 </div>
                                 )}
+                                <div className="flex justify-between items-baseline text-xs mt-3 pt-2 border-t border-border/50">
+                                    {play.location ? (
+                                    <div>
+                                        <strong className="text-muted-foreground">Luogo:</strong>
+                                        <span className="ml-1">{play.location}</span>
+                                    </div>
+                                    ) : <div />} 
+                                    {play.date && (
+                                    <div>
+                                        <strong className="text-muted-foreground">Data:</strong>
+                                        <span className="ml-1">{formatPlayDate(play.date)}</span>
+                                    </div>
+                                    )}
+                                </div>
                             </div>
                             </AccordionContent>
                         </AccordionItem>
@@ -864,7 +864,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           {currentUser && !authLoading && (
             userReview ? (
               <div className="relative"> 
-                <div className="flex items-center justify-between gap-2 mb-4">
+                <div className="flex justify-between items-center gap-2 mb-4">
                   <h3 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h3>
                   <div className="flex items-center gap-2 flex-shrink-0">
                       <Button asChild size="sm">
@@ -960,4 +960,3 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
-
