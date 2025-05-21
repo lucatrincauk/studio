@@ -3,7 +3,7 @@ import { getAllGamesAction, getFeaturedGamesAction, getLastPlayedGameAction } fr
 import { GameCard } from '@/components/boardgame/game-card';
 import { Separator } from '@/components/ui/separator';
 import type { BoardGame, BggPlayDetail } from '@/lib/types';
-import { Star, TrendingUp, Library, Info, Dices, UserCircle2, Sparkles, Trophy, Edit } from 'lucide-react';
+import { Star, TrendingUp, Library, Info, Dices, UserCircle2, Sparkles, Trophy, Edit, Medal, Clock10 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { formatRatingNumber, formatReviewDate } from '@/lib/utils';
@@ -16,27 +16,30 @@ import { cn } from '@/lib/utils';
 
 export default async function HomePage() {
   const featuredGamesPromise = getFeaturedGamesAction();
-  let allGames: BoardGame[] = [];
-  let lastPlayedData: { game: BoardGame | null, lastPlayDetail: BggPlayDetail | null } = { game: null, lastPlayDetail: null };
+  const allGamesPromise = getAllGamesAction();
+  const lastPlayedPromise = getLastPlayedGameAction("lctr01");
 
-  try {
-    allGames = await getAllGamesAction();
-  } catch (e) {
-    console.error("Error fetching all games on homepage:", e);
-  }
-
-  try {
-    lastPlayedData = await getLastPlayedGameAction("lctr01");
-  } catch (e) {
-    console.error("Error fetching last played game on homepage:", e);
-    // lastPlayedData will remain as { game: null, lastPlayDetail: null }
-  }
-  
-  const [featuredGames] = await Promise.all([
+  const [
+    featuredGamesResult,
+    allGamesResult,
+    lastPlayedResult
+  ] = await Promise.all([
     featuredGamesPromise,
+    allGamesPromise,
+    lastPlayedPromise
   ]);
 
-  const { game: lastPlayedGame, lastPlayDetail } = lastPlayedData;
+  const featuredGames = featuredGamesResult || [];
+  const allGames = Array.isArray(allGamesResult) ? allGamesResult : [];
+  
+  let lastPlayedGame: BoardGame | null = null;
+  let lastPlayDetail: BggPlayDetail | null = null;
+
+  if (lastPlayedResult && lastPlayedResult.game && lastPlayedResult.lastPlayDetail) {
+    lastPlayedGame = lastPlayedResult.game;
+    lastPlayDetail = lastPlayedResult.lastPlayDetail;
+  }
+
 
   const topRatedGames = allGames
     .filter(game => game.overallAverageRating !== null && game.overallAverageRating !== undefined && typeof game.overallAverageRating === 'number' && game.reviewCount !== undefined && game.reviewCount >= 0)
@@ -87,18 +90,18 @@ export default async function HomePage() {
         {lastPlayedGame && lastPlayDetail && (
           <div className="mb-12">
             <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mb-6 text-left flex items-center gap-2">
-              <Dices className="h-7 w-7 text-primary" />
+              <Clock10 className="h-7 w-7 text-primary" />
               Ultima Partita Giocata
             </h2>
             <Card className="shadow-md border border-border rounded-lg overflow-hidden">
               <CardHeader className="p-3 flex flex-row items-start gap-3">
-                <div className="relative h-20 w-16 sm:h-24 sm:w-20 flex-shrink-0 rounded-sm overflow-hidden shadow-sm">
+                <div className="relative h-16 w-12 sm:h-20 sm:w-16 flex-shrink-0 rounded-sm overflow-hidden shadow-sm">
                   <SafeImage
                     src={lastPlayedGame.coverArtUrl}
                     fallbackSrc={`https://placehold.co/64x80.png?text=${encodeURIComponent(lastPlayedGame.name?.substring(0,3) || 'N/A')}`}
                     alt={`${lastPlayedGame.name || 'Gioco'} copertina`}
                     fill
-                    sizes="(max-width: 640px) 64px, 80px"
+                    sizes="(max-width: 640px) 48px, 64px"
                     className="object-cover"
                     data-ai-hint={`board game ${lastPlayedGame.name?.split(' ')[0]?.toLowerCase() || 'mini'}`}
                   />
@@ -116,7 +119,7 @@ export default async function HomePage() {
                   </div>
                   {lastPlayedGame.overallAverageRating !== null && typeof lastPlayedGame.overallAverageRating === 'number' && (
                       <div className="text-right flex-shrink-0">
-                      <span className="text-2xl font-bold text-primary">
+                      <span className="text-lg font-semibold text-primary">
                           {formatRatingNumber(lastPlayedGame.overallAverageRating * 2)}
                       </span>
                       </div>
@@ -137,7 +140,7 @@ export default async function HomePage() {
                           .slice()
                           .sort((a, b) => parseInt(b.score || "0", 10) - parseInt(a.score || "0", 10))
                           .map((player, pIndex) => (
-                            <li key={pIndex} className={cn(`flex items-center justify-between text-xs border-b border-border last:border-b-0 py-0.5`, pIndex % 2 === 0 ? 'bg-muted/30' : '', 'px-2')}>
+                            <li key={pIndex} className={cn(`flex items-center justify-between text-xs border-b border-border last:border-b-0 py-0.5 px-2`, pIndex % 2 === 0 ? 'bg-muted/30' : '')}>
                               <div className="flex items-center gap-1.5 flex-grow min-w-0">
                                 <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                                 <span className={cn("truncate", player.didWin ? 'font-semibold' : '')} title={player.name || player.username || 'Sconosciuto'}>
@@ -182,16 +185,16 @@ export default async function HomePage() {
                     aria-hidden="true"
                     className={cn(
                       "absolute z-0 font-bold text-muted-foreground/10 pointer-events-none select-none leading-none",
-                      "-bottom-[55px] -right-[30px] text-[255px]",
-                      "sm:-bottom-[65px] sm:-right-[30px] sm:text-[300px]",
-                      "lg:-bottom-[75px] lg:-right-[36px] lg:text-[340px]"
+                      "-bottom-[55px] -right-[30px] text-[255px]", // Default (mobile)
+                      "sm:-bottom-[65px] sm:-right-[30px] sm:text-[300px]", // Small screens
+                      "lg:-bottom-[75px] lg:-right-[36px] lg:text-[340px]" // Large screens
                     )}
                   >
                     {index + 1}
                   </span>
                   <div className={cn(
                       "relative z-10 flex items-center gap-x-3 sm:gap-x-4 flex-grow",
-                      "mr-5 sm:mr-8 lg:mr-10"
+                      "mr-5 sm:mr-8 lg:mr-10" 
                     )}>
                     <div className="w-24 sm:w-28 md:w-32 flex-shrink-0">
                       <GameCard game={game} variant="featured" priority={index < 5} showOverlayText={false} />
