@@ -3,12 +3,12 @@
 
 import { useEffect, useState, useTransition, useCallback, use, useMemo } from 'react';
 import Link from 'next/link';
-import { getGameDetails, revalidateGameDataAction, fetchUserPlaysForGameFromBggAction, fetchAndUpdateBggGameDetailsAction } from '@/lib/actions';
-import type { BoardGame, Review, Rating as RatingType, GroupedCategoryAverages, BggPlayDetail, BggPlayerInPlay } from '@/lib/types';
+import { getGameDetails, revalidateGameDataAction, fetchUserPlaysForGameFromBggAction, fetchAndUpdateBggGameDetailsAction, getAllGamesAction, recommendGames } from '@/lib/actions'; // Added recommendGames
+import type { BoardGame, Review, Rating as RatingType, GroupedCategoryAverages, BggPlayDetail, BggPlayerInPlay, RecommendedGame as AIRecommendedGame } from '@/lib/types'; // Added AIRecommendedGame
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Info, Edit, Trash2, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, MessageSquare, Heart, ListPlus, ListChecks, Settings, Trophy, Medal, UserCircle2, Brain, Star, Palette, ClipboardList, Repeat, Sparkles, DownloadCloud, Pin, PinOff } from 'lucide-react';
+import { AlertCircle, Loader2, Info, Edit, Trash2, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, MessageSquare, Heart, ListPlus, ListChecks, Settings, Trophy, Medal, UserCircle2, Brain, Star, Palette, ClipboardList, Repeat, Sparkles, DownloadCloud, Pin, PinOff, Wand2 } from 'lucide-react'; // Added Wand2
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { calculateGroupedCategoryAverages, calculateOverallCategoryAverage as calculateGlobalOverallAverage, formatRatingNumber, formatPlayDate, formatReviewDate, calculateCategoryAverages as calculateCatAvgsFromUtils } from '@/lib/utils';
@@ -88,9 +88,15 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
   const [isFetchingPlays, startFetchPlaysTransition] = useTransition();
 
+  const [aiRecommendations, setAiRecommendations] = useState<AIRecommendedGame[]>([]);
+  const [isFetchingRecommendations, startFetchingRecommendationsTransition] = useTransition();
+  const [recommendationError, setRecommendationError] = useState<string | null>(null);
+
 
   const fetchGameData = useCallback(async () => {
     setIsLoadingGame(true);
+    setAiRecommendations([]); // Clear previous recommendations
+    setRecommendationError(null); // Clear previous errors
     const gameData = await getGameDetails(gameId);
     setGame(gameData);
 
@@ -402,7 +408,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     const usernameToFetch = "lctr01"; 
 
     startFetchPlaysTransition(async () => {
-      const serverActionResult = await fetchUserPlaysForGameFromBggAction(game.id, game.bggId, usernameToFetch);
+      const serverActionResult = await fetchUserPlaysForGameFromBggAction(game.bggId, usernameToFetch);
 
       if (!serverActionResult.success || !serverActionResult.plays) {
           toast({ title: 'Errore Caricamento Partite BGG', description: serverActionResult.error || serverActionResult.message || 'Impossibile caricare le partite da BGG.', variant: 'destructive' });
@@ -457,6 +463,37 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       }
     });
 };
+
+const handleGenerateRecommendations = async () => {
+    if (!game) return;
+    setAiRecommendations([]);
+    setRecommendationError(null);
+
+    startFetchingRecommendationsTransition(async () => {
+      try {
+        const allGamesResult = await getAllGamesAction(); // Fetches all games with id and name
+        if ('error' in allGamesResult) {
+          setRecommendationError(allGamesResult.error);
+          toast({ title: "Errore nel Caricamento del Catalogo", description: allGamesResult.error, variant: "destructive" });
+          return;
+        }
+        const catalogGamesForAI = allGamesResult.map(g => ({ id: g.id, name: g.name }));
+
+        const result = await recommendGames({
+          referenceGameName: game.name,
+          catalogGames: catalogGamesForAI,
+        });
+        setAiRecommendations(result.recommendations);
+        if (result.recommendations.length === 0) {
+          toast({ title: "Nessun Suggerimento", description: "L'AI non ha trovato suggerimenti specifici per questo gioco dal catalogo attuale.", variant: "default" });
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Errore durante la generazione dei suggerimenti AI.";
+        setRecommendationError(errorMessage);
+        toast({ title: "Errore Suggerimenti AI", description: errorMessage, variant: "destructive" });
+      }
+    });
+  };
 
   const topWinnerStats = useMemo(() => {
     if (!game || !game.lctr01PlayDetails || game.lctr01PlayDetails.length === 0) {
@@ -558,7 +595,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           {/* Main Content Column */}
           <div className="flex-1 p-6 space-y-4 md:order-1"> 
             {/* Main header: Title, Icons, Score */}
-            <div className="flex justify-between items-start mb-2">
+             <div className="flex justify-between items-start mb-2">
                 <div className="flex-1 flex flex-col sm:flex-row sm:items-center sm:gap-1 min-w-0 mr-2">
                   <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground flex items-center">
                     {game.name}
@@ -667,7 +704,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             {/* Metadata Grid */}
              <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
                 {(game.designers && game.designers.length > 0) && (
-                    <div className="flex items-baseline gap-2"> {/* Ensure NO col-span-2 here */}
+                    <div className="flex items-baseline gap-2">
                       <span className="inline-flex items-center relative top-px"><PenTool size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
                       <span className="font-medium hidden sm:inline">Autori:</span>
                       <span>{game.designers.join(', ')}</span>
@@ -727,9 +764,40 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                     </div>
                 )}
             </div>
+
+             {/* Categories, Mechanics, Designers */}
+             {(game.categories && game.categories.length > 0 || game.mechanics && game.mechanics.length > 0) && (
+                <div className="w-full pt-3 border-t border-border mt-3">
+                    <Accordion type="single" collapsible className="w-full">
+                    <AccordionItem value="details" className="border-b-0">
+                        <AccordionTrigger className="hover:no-underline text-left py-2 text-md font-medium">
+                        Dettagli Aggiuntivi
+                        </AccordionTrigger>
+                        <AccordionContent className="space-y-3 pt-2 text-xs">
+                        {game.categories && game.categories.length > 0 && (
+                            <div>
+                            <h4 className="font-semibold text-muted-foreground mb-1">Categorie:</h4>
+                            <div className="flex flex-wrap gap-1">
+                                {game.categories.map(cat => <Badge key={cat} variant="secondary">{cat}</Badge>)}
+                            </div>
+                            </div>
+                        )}
+                        {game.mechanics && game.mechanics.length > 0 && (
+                            <div>
+                            <h4 className="font-semibold text-muted-foreground mb-1">Meccaniche:</h4>
+                            <div className="flex flex-wrap gap-1">
+                                {game.mechanics.map(mech => <Badge key={mech} variant="secondary">{mech}</Badge>)}
+                            </div>
+                            </div>
+                        )}
+                        </AccordionContent>
+                    </AccordionItem>
+                    </Accordion>
+                </div>
+            )}
             
             {/* Average Ratings Section */}
-            <div className={cn("w-full pt-4 border-t border-border", !(game.reviews && game.reviews.length > 0) && "border-none pt-0")}>
+            <div className={cn("w-full pt-4 border-t border-border mt-4", !(game.reviews && game.reviews.length > 0) && "border-none pt-0")}>
               {game.reviews && game.reviews.length > 0 && (
                 <>
                     <h3 className="text-lg font-semibold text-foreground mb-3">Valutazione Media:</h3>
@@ -762,7 +830,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           </div>
         </div>
       </Card>
-      
+
       {/* Partite Registrate Section */}
       {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
           <Card className="shadow-md border border-border rounded-lg">
@@ -775,7 +843,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                       <Badge variant="secondary">{game.lctr01PlayDetails.length}</Badge>
                   )}
               </CardHeader>
-              <CardContent className="pt-0">
+              <CardContent className="pt-0"> {/* Adjusted padding */}
                   <Accordion type="single" collapsible className="w-full">
                       {game.lctr01PlayDetails.map((play) => {
                           const winners = play.players?.filter(p => p.didWin) || [];
@@ -801,9 +869,9 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                                       )}
                                   </div>
                               </AccordionTrigger>
-                              <AccordionContent className="pb-4 text-sm">
+                              <AccordionContent className="pb-4 text-sm"> {/* Adjusted padding */}
                               <div className="space-y-3">
-                                  {play.comments && (
+                                  {play.comments && play.comments.trim() !== '' && (
                                   <div className="grid grid-cols-[auto_1fr] gap-x-2 items-baseline pt-1">
                                       <strong className="text-muted-foreground text-xs">Commenti:</strong>
                                       <p className="text-xs whitespace-pre-wrap">{play.comments}</p>
@@ -820,10 +888,14 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                                               return scoreB - scoreA;
                                           })
                                           .map((player, pIndex) => (
-                                          <li key={pIndex} className={`flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5 px-2 ${pIndex % 2 === 0 ? 'bg-muted/30' : ''}`}>
+                                          <li key={pIndex} className={cn(
+                                            "flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5",
+                                            pIndex % 2 === 0 ? 'bg-muted/30' : '', // even rows (0-indexed) get highlight
+                                            "px-2"
+                                          )}>
                                               <div className="flex items-center gap-1.5 flex-grow min-w-0">
                                                   <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 relative top-px" />
-                                                  <span className={`truncate ${player.didWin ? 'font-semibold' : ''}`} title={player.name || player.username || 'Sconosciuto'}>
+                                                  <span className={cn("truncate", player.didWin ? 'font-semibold' : '')} title={player.name || player.username || 'Sconosciuto'}>
                                                       {player.name || player.username || 'Sconosciuto'}
                                                   </span>
                                                    {player.didWin && (
@@ -834,7 +906,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                                                   )}
                                               </div>
                                               {player.score && (
-                                              <span className={`font-mono text-xs whitespace-nowrap ml-2 text-foreground ${player.didWin ? 'font-semibold' : ''}`}>
+                                              <span className={cn("font-mono text-xs whitespace-nowrap ml-2 text-foreground", player.didWin ? 'font-semibold' : '')}>
                                                   {player.score} pt.
                                               </span>
                                               )}
@@ -853,12 +925,12 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
               </CardContent>
           </Card>
       )}
-
-    {/* User Review Management and Other Reviews Section */}
+      
+      {/* User Review Management and Other Reviews Section */}
       <div className="space-y-8"> 
           {currentUser && !authLoading && (
             userReview ? (
-              <div> 
+              <div className="mt-4"> 
                 <div className="flex justify-between items-center gap-2 mb-4">
                   <h3 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h3>
                   <div className="flex items-center gap-2 flex-shrink-0">
@@ -952,21 +1024,60 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           </Alert>
           )}
       </div>
+
+      {/* AI Recommendations Section */}
+      <Separator />
+        <Card className="shadow-md border border-border rounded-lg">
+            <CardHeader>
+            <CardTitle className="text-xl flex items-center gap-2">
+                <Wand2 className="h-5 w-5 text-primary" />
+                Potrebbe Piacerti Anche
+            </CardTitle>
+            <CardDescription>
+                Ottieni suggerimenti AI basati su questo gioco dal nostro catalogo.
+            </CardDescription>
+            </CardHeader>
+            <CardContent>
+            <Button onClick={handleGenerateRecommendations} disabled={isFetchingRecommendations} className="w-full sm:w-auto">
+                {isFetchingRecommendations ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                <Wand2 className="mr-2 h-4 w-4" />
+                )}
+                Ottieni Suggerimenti AI
+            </Button>
+            {recommendationError && (
+                <Alert variant="destructive" className="mt-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Errore Suggerimenti AI</AlertTitle>
+                <AlertDescription>{recommendationError}</AlertDescription>
+                </Alert>
+            )}
+            {aiRecommendations.length > 0 && (
+                <div className="mt-6 space-y-4">
+                <h4 className="text-md font-semibold text-foreground">Giochi Suggeriti:</h4>
+                <ul className="space-y-3">
+                    {aiRecommendations.map((rec) => (
+                    <li key={rec.id} className="p-3 border rounded-md bg-muted/50 hover:bg-muted/80 transition-colors">
+                        <Link href={`/games/${rec.id}`} className="group">
+                        <h5 className="font-semibold text-primary group-hover:underline">{rec.name}</h5>
+                        </Link>
+                        <p className="text-xs text-muted-foreground mt-0.5">{rec.reason}</p>
+                    </li>
+                    ))}
+                </ul>
+                </div>
+            )}
+            {aiRecommendations.length === 0 && !isFetchingRecommendations && !recommendationError && game && (
+                <Alert variant="default" className="mt-4 bg-secondary/30 border-secondary">
+                    <Info className="h-4 w-4 text-secondary-foreground" />
+                    <AlertDescription className="text-secondary-foreground">
+                        Clicca il pulsante per vedere cosa suggerisce l'AI!
+                    </AlertDescription>
+                </Alert>
+            )}
+            </CardContent>
+        </Card>
     </div>
   );
 }
-      
-
-    
-
-
-
-
-    
-
-
-
-
-    
-
-
