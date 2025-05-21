@@ -84,7 +84,7 @@ export function Header() {
     { href: "/plays", label: "Partite", icon: <Dices size={18} /> },
   ];
 
- const performSearch = useCallback(async (term: string) => {
+  const performSearch = useCallback(async (term: string) => {
     if (term.length < 2) {
       setSearchResults([]);
       setIsSearching(false);
@@ -103,7 +103,6 @@ export function Header() {
     } else {
       setSearchResults(result);
       if (result.length > 0) {
-        // Determine which popover to open based on context/focus
         if (desktopSearchInputRef.current === document.activeElement && !isMobileSheetOpen) {
             setIsDesktopPopoverOpen(true);
         }
@@ -111,13 +110,12 @@ export function Header() {
             setIsMobilePopoverOpen(true);
         }
       } else {
-        // If no results, ensure popovers are only open if the respective input is focused
-        if (desktopSearchInputRef.current === document.activeElement && term.length >=2) {
+        if (desktopSearchInputRef.current === document.activeElement && term.length >=2 && !isMobileSheetOpen) {
             setIsDesktopPopoverOpen(true); 
         } else {
             setIsDesktopPopoverOpen(false);
         }
-        if (mobileSearchInputRef.current === document.activeElement && term.length >=2) {
+        if (mobileSearchInputRef.current === document.activeElement && term.length >=2 && isMobileSheetOpen) {
             setIsMobilePopoverOpen(true);
         } else {
             setIsMobilePopoverOpen(false);
@@ -136,7 +134,6 @@ export function Header() {
     setSearchResults([]);
     setIsDesktopPopoverOpen(false);
     setIsMobilePopoverOpen(false);
-    // SheetClose will handle closing the sheet if on mobile
   };
   
   const authBlock = (
@@ -282,16 +279,15 @@ export function Header() {
             <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Morchiometro</h1>
           </Link>
           
-          <div className="flex items-center gap-2 md:gap-3"> {/* Reduced gap slightly */}
-            {/* Desktop Search - Keep visible on desktop, but content controlled by Popover open state */}
+          <div className="flex items-center gap-2 md:gap-3">
             <div className="relative hidden md:block"> 
               <Popover 
-                open={isDesktopPopoverOpen && searchTerm.length >=2 && !isMobileSheetOpen && (searchResults.length > 0 || isSearching || (debouncedSearchTerm.length >=2 && !isSearching && desktopSearchInputRef.current === document.activeElement))}
+                open={isDesktopPopoverOpen && searchTerm.length >=2 && (searchResults.length > 0 || isSearching || (debouncedSearchTerm.length >=2 && !isSearching && desktopSearchInputRef.current === document.activeElement))}
                 onOpenChange={setIsDesktopPopoverOpen} 
               >
                 <PopoverAnchor>
                   <div className="relative flex items-center">
-                    <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                    <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-border pointer-events-none" />
                     <Input
                       ref={desktopSearchInputRef}
                       type="search"
@@ -299,7 +295,7 @@ export function Header() {
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       onFocus={() => {
-                        if (searchTerm.length >=2 && !isMobileSheetOpen && (searchResults.length > 0 || isSearching || (debouncedSearchTerm.length >=2 && !isSearching))) setIsDesktopPopoverOpen(true);
+                        if (searchTerm.length >=2 && (searchResults.length > 0 || isSearching || (debouncedSearchTerm.length >=2 && !isSearching))) setIsDesktopPopoverOpen(true);
                       }}
                       className="h-8 w-48 lg:w-64 rounded-md pl-9 pr-3 text-sm bg-primary-foreground/10 text-border placeholder:text-border/60 border-border focus:bg-primary-foreground/20 focus:ring-accent"
                     />
@@ -312,7 +308,7 @@ export function Header() {
             
             {authBlock}
             
-            <div className="md:hidden"> {/* Mobile Menu Trigger */}
+            <div className="md:hidden">
               <Sheet open={isMobileSheetOpen} onOpenChange={setIsMobileSheetOpen}>
                 <SheetTrigger asChild>
                   <Button variant="ghost" size="icon" className="hover:bg-primary-foreground/10 focus-visible:ring-accent">
@@ -378,7 +374,6 @@ export function Header() {
         </div>
       </header>
 
-      {/* Desktop Sub-Navbar */}
       <nav className="hidden md:flex bg-muted border-b border-border">
         <div className="container mx-auto flex h-12 items-center justify-center px-4 sm:px-6 lg:px-8 relative">
           <ul className="flex items-center gap-4 lg:gap-6">
@@ -399,3 +394,4 @@ export function Header() {
     </div>
   );
 }
+
