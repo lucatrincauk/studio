@@ -88,7 +88,7 @@ export default async function HomePage() {
               Ultima Partita Giocata
             </h2>
             <Card className="shadow-md border border-border rounded-lg w-full">
-              <CardHeader className="pb-3 flex flex-row items-start gap-3">
+              <CardHeader className="p-3 flex flex-row items-start gap-3">
                  <div className="relative h-24 w-20 flex-shrink-0 rounded-md overflow-hidden shadow-sm">
                     <SafeImage
                       src={lastPlayedGame.coverArtUrl}
@@ -120,7 +120,7 @@ export default async function HomePage() {
                     )}
                   </div>
               </CardHeader>
-              <CardContent className="space-y-1.5 text-sm">
+              <CardContent className="p-3 pt-0 text-sm space-y-1.5">
                   {lastPlayDetail.comments && lastPlayDetail.comments.trim() !== '' && (
                     <div>
                       <h4 className="text-xs font-semibold text-muted-foreground mb-0.5">Commenti:</h4>
@@ -135,7 +135,7 @@ export default async function HomePage() {
                           .slice()
                           .sort((a, b) => parseInt(b.score || "0", 10) - parseInt(a.score || "0", 10))
                           .map((player, pIndex) => (
-                            <li key={pIndex} className={cn(`flex items-center justify-between text-xs border-b border-border last:border-b-0 py-0.5 odd:bg-muted/30 px-2`)}>
+                            <li key={pIndex} className={cn(`flex items-center justify-between text-xs border-b border-border last:border-b-0 py-0.5 px-2`, pIndex % 2 === 0 ? 'bg-muted/30' : '')}>
                               <div className="flex items-center gap-1.5 flex-grow min-w-0">
                                 <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                                 <span className={cn("truncate", player.didWin ? 'font-semibold' : '')} title={player.name || player.username || 'Sconosciuto'}>
@@ -237,4 +237,3 @@ export default async function HomePage() {
 }
 
 export const revalidate = 3600;
-
