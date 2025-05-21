@@ -210,6 +210,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         reviewCount: allReviewsForGame.length
       });
       
+      // Call the server action to revalidate paths
       await revalidateGameDataAction(game.id);
       
       await fetchGameData(); 
@@ -254,7 +255,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           title: "Stato Vetrina Aggiornato",
           description: `Il gioco è stato ${newPinStatus ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
         });
-        await revalidateGameDataAction(game.id);
+        await revalidateGameDataAction(game.id); // Call server action
         setGame(prevGame => prevGame ? { ...prevGame, isPinned: newPinStatus } : null);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
@@ -414,7 +415,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
   };
 
   const handleFetchBggPlays = async () => {
-    if (!game || !game.id || !game.bggId || authLoading || !isAdmin) return;
+    if (!game || !game.id || !game.bggId || authLoading || (!currentUser && !isAdmin)) return;
 
     const usernameToFetch = "lctr01"; 
 
@@ -428,7 +429,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           const playsSubCollectionRef = collection(db, FIRESTORE_COLLECTION_NAME, game.id, `plays_${usernameToFetch.toLowerCase()}`);
           serverActionResult.plays.forEach(play => {
             const playDocRef = doc(playsSubCollectionRef, play.playId);
-            // Ensure all fields required by BggPlayDetail are present
             const playDataForFirestore: BggPlayDetail = {
                 ...play,
                 userId: usernameToFetch, 
@@ -608,7 +608,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             </div>
 
             <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
-                {hasDataForSection(game.designers) && (
+                 {hasDataForSection(game.designers) && (
                   <div className="flex items-baseline gap-2"> 
                       <PenTool size={14} className="text-primary/80 flex-shrink-0" />
                       <span className="font-medium hidden sm:inline">Autori:</span>
@@ -775,14 +775,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           {currentUser && !authLoading && userReview && (
              <div> 
               <div className="flex justify-between items-baseline gap-2 mb-4">
-                <div className="flex items-baseline gap-2">
-                  <h2 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h2>
-                   {userReview && calculateOverallCategoryAverage(userReview.rating) !== null && (
-                        <span className="text-xl font-bold text-primary">
-                            {formatRatingNumber(calculateOverallCategoryAverage(userReview.rating)! * 2)}
-                        </span>
-                    )}
-                </div>
+                <h2 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h2>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <Button asChild size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90">
                      <Link href={`/games/${gameId}/rate`}>
@@ -926,4 +919,5 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
+
 
