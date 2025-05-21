@@ -1,9 +1,9 @@
 
-import { getFeaturedGamesAction, getAllGamesAction } from '@/lib/actions'; 
+import { getFeaturedGamesAction, getAllGamesAction, getLastPlayedGameAction } from '@/lib/actions'; 
 import { GameCard } from '@/components/boardgame/game-card';
 import { Separator } from '@/components/ui/separator';
 import type { BoardGame } from '@/lib/types';
-import { Star, Edit, TrendingUp, Library, AlertCircle, Info, BarChart3, Clock, Pin } from 'lucide-react'; 
+import { Star, Edit, TrendingUp, Library, AlertCircle, Info, BarChart3, Clock, Pin, Dices } from 'lucide-react'; 
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { formatRatingNumber } from '@/lib/utils';
@@ -13,8 +13,13 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 export default async function HomePage() {
   const featuredGamesPromise = getFeaturedGamesAction();
   const allGamesPromise = getAllGamesAction(); 
+  const lastPlayedGamePromise = getLastPlayedGameAction("lctr01");
 
-  const [featuredGamesResult, allGamesResult] = await Promise.all([featuredGamesPromise, allGamesPromise]);
+  const [featuredGamesResult, allGamesResult, lastPlayedGame] = await Promise.all([
+    featuredGamesPromise, 
+    allGamesPromise,
+    lastPlayedGamePromise
+  ]);
 
   const featuredGames = Array.isArray(featuredGamesResult) ? featuredGamesResult : [];
   const allGames = Array.isArray(allGamesResult) ? allGamesResult : [];
@@ -56,10 +61,28 @@ export default async function HomePage() {
                     variant="featured" 
                     priority={index < 3} 
                     showOverlayText={true} 
-                    featuredReason={game.featuredReason} // Pass the reason
+                    featuredReason={game.featuredReason}
                   />
                 </div>
               ))}
+            </div>
+            <Separator className="my-10" />
+          </div>
+        )}
+
+        {lastPlayedGame && (
+          <div className="mb-12">
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mb-6 text-left flex items-center gap-2">
+              <Dices className="h-7 w-7 text-primary" />
+              Ultima Partita Giocata
+            </h2>
+            <div className="w-full sm:w-1/2 md:w-1/3 lg:w-1/4 mx-auto sm:mx-0"> {/* Adjust width as needed */}
+              <GameCard
+                game={lastPlayedGame}
+                variant="featured"
+                priority={true}
+                showOverlayText={true}
+              />
             </div>
             <Separator className="my-10" />
           </div>
@@ -75,11 +98,11 @@ export default async function HomePage() {
               {topRatedGames.map((game, index) => (
                 <div 
                   key={game.id} 
-                  className="relative flex items-center gap-x-3 sm:gap-x-4 p-3 rounded-lg bg-card hover:bg-muted/50 transition-colors border border-border overflow-hidden"
+                  className="relative flex items-center gap-x-3 sm:gap-x-4 p-3 rounded-lg bg-[#f9fbf9] hover:bg-muted/50 transition-colors border border-border overflow-hidden"
                 >
                   <span 
                     aria-hidden="true"
-                    className="absolute font-bold text-muted-foreground/10 pointer-events-none select-none leading-none z-0 
+                    className="absolute pointer-events-none select-none leading-none z-0 font-bold text-muted-foreground/10
                                text-[255px] -bottom-[55px] -right-[30px] 
                                sm:text-[300px] sm:-bottom-[65px] sm:-right-[30px] 
                                lg:text-[340px] lg:-bottom-[75px] lg:-right-[36px]"
@@ -122,12 +145,12 @@ export default async function HomePage() {
           </section>
         )}
 
-        {(featuredGames.length === 0 && topRatedGames.length === 0) && (
+        {(featuredGames.length === 0 && topRatedGames.length === 0 && !lastPlayedGame) && (
            <Alert variant="default" className="mt-8 bg-secondary/30 border-secondary">
               <Info className="h-4 w-4" />
               <AlertTitle>Catalogo in Costruzione!</AlertTitle>
               <AlertDescription>
-                Non ci sono ancora giochi in evidenza o nella top 10. Torna più tardi o inizia ad aggiungere giochi e valutazioni tramite la sezione Admin!
+                Non ci sono ancora giochi in evidenza, nella top 10, o partite registrate. Torna più tardi o inizia ad aggiungere giochi e valutazioni tramite la sezione Admin!
               </AlertDescription>
             </Alert>
         )}
