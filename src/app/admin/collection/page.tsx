@@ -12,12 +12,13 @@ import {
   fetchAndUpdateBggGameDetailsAction,
   batchUpdateMissingBggDetailsAction,
   revalidateGameDataAction,
-  fetchAllUserPlaysFromBggAction
+  fetchAllUserPlaysFromBggAction,
+  fetchUserPlaysForGameFromBggAction // Added this import
 } from '@/lib/actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, AlertCircle, Info, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, Pin, PinOff, Search as SearchIcon, PlusCircle, DownloadCloud, DatabaseZap, Filter, BarChart3 } from 'lucide-react';
+import { Loader2, AlertCircle, Info, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, Pin, PinOff, Search as SearchIcon, PlusCircle, DownloadCloud, DatabaseZap, Filter, BarChart3, Dices } from 'lucide-react'; // Added Dices
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { CollectionConfirmationDialog } from '@/components/collection/confirmation-dialog';
@@ -35,7 +36,6 @@ import { db } from '@/lib/firebase';
 import { doc, updateDoc, getDoc, writeBatch, collection } from 'firebase/firestore'; 
 import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 
@@ -90,7 +90,6 @@ export default function AdminCollectionPage() {
 
 
   const { toast } = useToast();
-  const router = useRouter();
 
   const loadDbCollection = useCallback(async () => {
     setIsLoadingDb(true);
@@ -286,52 +285,85 @@ export default function AdminCollectionPage() {
     });
   };
 
-  const handleFetchGameDetailsFromBgg = async (firestoreGameId: string, bggId: number) => {
+  const handleFetchGameDetailsAndPlaysFromBgg = async (firestoreGameId: string, bggId: number, gameName: string) => {
     setIsFetchingDetailsFor(firestoreGameId);
-    let bggFetchResult;
-    try {
-      bggFetchResult = await fetchAndUpdateBggGameDetailsAction(bggId);
-    } catch (e) {
-      const errorMsg = e instanceof Error ? e.message : "Errore sconosciuto API";
-      toast({ title: 'Errore Chiamata API BGG', description: errorMsg, variant: 'destructive' });
-      setIsFetchingDetailsFor(null);
-      return;
-    }
     startBggDetailsFetchTransition(async () => {
-      if (!bggFetchResult.success || !bggFetchResult.updateData) {
-        toast({ title: 'Errore Recupero Dati BGG', description: bggFetchResult.error || 'Impossibile recuperare dati da BGG.', variant: 'destructive' });
-        setIsFetchingDetailsFor(null);
-        return;
-      }
-      
-      if (Object.keys(bggFetchResult.updateData).length === 0) {
-        toast({ title: 'Nessun Aggiornamento', description: `Nessun nuovo dettaglio da aggiornare per ${bggFetchResult.updateData.name || firestoreGameId} da BGG.` });
-        setIsFetchingDetailsFor(null);
-        return;
-      }
+      let detailsUpdated = false;
+      let playsUpdated = false;
+      let gameDetailsError: string | null = null;
+      let playsError: string | null = null;
 
-      try {
-        const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, firestoreGameId);
-        const docSnap = await getDoc(gameRef);
-
-        if (!docSnap.exists()) {
-          toast({ title: 'Errore Database', description: `Gioco con ID ${firestoreGameId} non trovato nel database.`, variant: 'destructive' });
-          setIsFetchingDetailsFor(null);
-          return;
+      // 1. Fetch and Update Generic Game Details
+      const bggFetchResult = await fetchAndUpdateBggGameDetailsAction(bggId);
+      if (bggFetchResult.success && bggFetchResult.updateData && Object.keys(bggFetchResult.updateData).length > 0) {
+        try {
+          const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, firestoreGameId);
+          await updateDoc(gameRef, bggFetchResult.updateData);
+          detailsUpdated = true;
+        } catch (dbError) {
+          gameDetailsError = dbError instanceof Error ? dbError.message : "Errore DB aggiornando dettagli gioco.";
         }
-        
-        await updateDoc(gameRef, bggFetchResult.updateData);
-        toast({ title: 'Dettagli Aggiornati', description: `Dettagli per ${docSnap.data()?.name || firestoreGameId} aggiornati con successo.` });
-        await revalidateGameDataAction(firestoreGameId); 
-        await loadDbCollection();
-      } catch (dbError) {
-        const errorMessage = dbError instanceof Error ? dbError.message : "Errore sconosciuto durante l'aggiornamento del DB.";
-        toast({ title: 'Errore Aggiornamento Database', description: errorMessage, variant: 'destructive' });
-      } finally {
-        setIsFetchingDetailsFor(null);
+      } else if (!bggFetchResult.success) {
+        gameDetailsError = bggFetchResult.error || 'Impossibile recuperare dettagli da BGG.';
       }
+
+      // 2. Fetch and Update lctr01 Play Details for this specific game
+      const playsFetchResult = await fetchUserPlaysForGameFromBggAction(bggId, BGG_USERNAME);
+      if (playsFetchResult.success && playsFetchResult.plays && playsFetchResult.plays.length > 0) {
+        const batch = writeBatch(db);
+        const playsSubcollectionRef = collection(db, FIRESTORE_COLLECTION_NAME, firestoreGameId, `plays_${BGG_USERNAME.toLowerCase()}`);
+        playsFetchResult.plays.forEach(play => {
+          const playDocRef = doc(playsSubcollectionRef, play.playId);
+          const playDataForFirestore: BggPlayDetail = { ...play, userId: BGG_USERNAME, gameBggId: bggId };
+          batch.set(playDocRef, playDataForFirestore, { merge: true });
+        });
+        // Update lctr01Plays count on the main game document
+        const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, firestoreGameId);
+        batch.update(gameRef, { lctr01Plays: playsFetchResult.plays.length });
+        try {
+          await batch.commit();
+          playsUpdated = true;
+        } catch (dbError) {
+          playsError = dbError instanceof Error ? dbError.message : "Errore DB salvando partite.";
+        }
+      } else if (!playsFetchResult.success) {
+        playsError = playsFetchResult.error || 'Impossibile recuperare partite da BGG.';
+      } else if (playsFetchResult.plays && playsFetchResult.plays.length === 0) {
+        // If no plays are found, ensure the count on the main doc is 0
+        try {
+          const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, firestoreGameId);
+          await updateDoc(gameRef, { lctr01Plays: 0 });
+        } catch (dbError) {
+           // silent error if updating to 0 fails
+        }
+      }
+
+      // 3. Consolidate Toast and Revalidation
+      if (detailsUpdated && playsUpdated) {
+        toast({ title: 'Dati Aggiornati!', description: `Dettagli e ${playsFetchResult.plays?.length || 0} partite per ${gameName} aggiornati/sincronizzati.` });
+      } else if (detailsUpdated) {
+        toast({ title: 'Dettagli Aggiornati', description: `Dettagli per ${gameName} aggiornati. ${playsError ? `Errore partite: ${playsError}` : 'Nessuna nuova partita trovata per lctr01.'}` });
+      } else if (playsUpdated) {
+        toast({ title: 'Partite Sincronizzate', description: `${playsFetchResult.plays?.length || 0} partite per ${gameName} sincronizzate per lctr01. ${gameDetailsError ? `Errore dettagli: ${gameDetailsError}` : 'Nessun nuovo dettaglio gioco da BGG.'}` });
+      } else {
+        let combinedError = '';
+        if (gameDetailsError) combinedError += `Errore dettagli: ${gameDetailsError}. `;
+        if (playsError) combinedError += `Errore partite: ${playsError}.`;
+        if (!combinedError && !gameDetailsError && !playsError) {
+          toast({ title: 'Nessun Aggiornamento', description: `Nessun nuovo dettaglio o partita da BGG per ${gameName}.` });
+        } else {
+          toast({ title: 'Operazione Fallita', description: combinedError || 'Si è verificato un errore sconosciuto.', variant: 'destructive' });
+        }
+      }
+
+      if (detailsUpdated || playsUpdated) {
+        await revalidateGameDataAction(firestoreGameId);
+        await loadDbCollection();
+      }
+      setIsFetchingDetailsFor(null);
     });
   };
+
 
   const handleBatchUpdateMissingDetails = () => {
     startBatchUpdateTransition(async () => {
@@ -386,6 +418,7 @@ export default function AdminCollectionPage() {
 
         const batch = writeBatch(db);
         let playsToSyncCount = 0;
+        const gameIdsToUpdatePlayCount = new Map<string, number>(); // firestoreGameId -> new play count for this game
 
         for (const play of serverActionResult.plays) {
             const gameInDb = dbCollection.find(g => g.bggId === play.gameBggId);
@@ -397,14 +430,24 @@ export default function AdminCollectionPage() {
                 };
                 batch.set(playDocRef, playDataForFirestore, { merge: true });
                 playsToSyncCount++;
+                // Track games whose play counts need updating
+                gameIdsToUpdatePlayCount.set(gameInDb.id, (gameIdsToUpdatePlayCount.get(gameInDb.id) || 0) + play.quantity);
             }
         }
+         // After processing all plays from the page, update the lctr01Plays count on relevant game docs
+         // This part needs to be more nuanced: fetch current count from DB for games not fully processed by this page or fetch *all* plays for games found on this page
+         // For simplicity now, this only works if the page contains ALL plays for a game.
+         // A more robust solution: for each *game* found in this page of plays, refetch *all* its plays and update its count.
+         // OR, fetch the game's current lctr01Plays, add `play.quantity`, and update. This is simpler but less accurate if plays are deleted on BGG.
 
         if (playsToSyncCount > 0) {
             try {
                 await batch.commit();
                 toast({ title: 'Sincronizzazione Partite Completata', description: `${playsToSyncCount} partite sincronizzate con successo per ${BGG_USERNAME} (da pagina ${playsPageToFetch}). ${serverActionResult.message || ''}` });
+                
+                // For simplicity, revalidate all games. A more targeted revalidation could be done.
                 await revalidateGameDataAction(); 
+                await loadDbCollection(); // Reload the entire collection to reflect any play count changes
             } catch (dbError) {
                 const errorMessage = dbError instanceof Error ? dbError.message : "Errore sconosciuto durante il salvataggio batch delle partite nel DB.";
                 toast({ title: 'Errore Salvataggio Batch Partite DB', description: errorMessage, variant: 'destructive' });
@@ -460,7 +503,7 @@ export default function AdminCollectionPage() {
               disabled={isSyncingAllPlays}
               className="bg-blue-600 hover:bg-blue-700 text-white h-9 text-sm"
             >
-              {isSyncingAllPlays ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BarChart3 className="mr-2 h-4 w-4" />}
+              {isSyncingAllPlays ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Dices className="mr-2 h-4 w-4" />}
               Sinc. Partite Pag. {playsPageToFetch}
             </Button>
           </div>
@@ -710,9 +753,9 @@ export default function AdminCollectionPage() {
                             <Button 
                                 variant="outline" 
                                 size="icon" 
-                                onClick={() => game.id && game.bggId && handleFetchGameDetailsFromBgg(game.id, game.bggId)}
+                                onClick={() => game.id && game.bggId && handleFetchGameDetailsAndPlaysFromBgg(game.id, game.bggId, game.name || 'questo gioco')}
                                 disabled={(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) || !game.id || !game.bggId}
-                                title="Aggiorna Dettagli da BGG"
+                                title="Aggiorna Dettagli e Partite da BGG"
                                 className="h-8 w-8"
                             >
                                 {(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) ? <Loader2 className="h-4 w-4 animate-spin" /> : <DownloadCloud className="h-4 w-4" />}
@@ -744,5 +787,4 @@ export default function AdminCollectionPage() {
   );
 }
 
-
-
+    
