@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview An AI flow to recommend board games.
@@ -16,7 +17,7 @@ const CatalogGameSchema = z.object({
 });
 export type CatalogGame = z.infer<typeof CatalogGameSchema>;
 
-export const RecommendGamesInputSchema = z.object({
+const RecommendGamesInputSchema = z.object({
   referenceGameName: z.string().describe('The name of the game the user likes or is viewing.'),
   catalogGames: z.array(CatalogGameSchema).describe('A list of all available games in the catalog with their IDs and names.'),
 });
@@ -29,7 +30,7 @@ const RecommendedGameSchema = z.object({
 });
 export type RecommendedGame = z.infer<typeof RecommendedGameSchema>;
 
-export const RecommendGamesOutputSchema = z.object({
+const RecommendGamesOutputSchema = z.object({
   recommendations: z.array(RecommendedGameSchema).describe('An array of recommended games, each with an ID, name, and reason.'),
 });
 export type RecommendGamesOutput = z.infer<typeof RecommendGamesOutputSchema>;
