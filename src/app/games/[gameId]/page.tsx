@@ -193,8 +193,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         voteCount: newVoteCount
       });
 
-      revalidateGameDataAction(game.id); // Revalidate after client-side update
-      fetchGameData();
+      revalidateGameDataAction(game.id); 
+      fetchGameData(); 
     } catch (error) {
       console.error("Errore durante l'aggiornamento del punteggio medio del gioco:", error);
       toast({ title: "Errore", description: "Impossibile aggiornare il punteggio medio del gioco.", variant: "destructive" });
@@ -384,7 +384,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         await updateDoc(gameRef, serverActionResult.updateData);
         toast({ title: 'Dettagli Aggiornati', description: `Dettagli per ${game.name} aggiornati con successo.` });
         revalidateGameDataAction(game.id);
-        await fetchGameData();
+        fetchGameData(); 
       } catch (dbError) {
         const errorMessage = dbError instanceof Error ? dbError.message : "Errore sconosciuto durante l'aggiornamento del DB.";
         toast({ title: 'Errore Aggiornamento Database', description: errorMessage, variant: 'destructive' });
@@ -434,7 +434,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                   description: bggFetchResult.message || `Caricate e salvate ${playsToSave.length} partite per ${game.name} da BGG per ${usernameToFetch}. Conteggio aggiornato.`,
               });
               revalidateGameDataAction(game.id);
-              await fetchGameData();
+              fetchGameData(); 
           } catch (dbError) {
               const errorMessage = dbError instanceof Error ? dbError.message : "Impossibile salvare le partite nel database.";
               toast({ title: 'Errore Salvataggio Partite DB', description: errorMessage, variant: 'destructive' });
@@ -447,7 +447,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           try {
               await updateDoc(gameRef, { lctr01Plays: 0 });
               revalidateGameDataAction(game.id);
-              await fetchGameData();
+              fetchGameData(); 
           } catch (dbError) {
                // Silently ignore if update to 0 fails
           }
@@ -462,7 +462,7 @@ const handleGenerateRecommendations = async () => {
 
     startFetchingRecommendationsTransition(async () => {
       try {
-        const allGamesResult = await getAllGamesAction({ skipRatingCalculation: true }); // Skip heavy calc for catalog
+        const allGamesResult = await getAllGamesAction({ skipRatingCalculation: true }); 
         if ('error' in allGamesResult) {
           throw new Error(allGamesResult.error);
         }
@@ -586,8 +586,8 @@ const handleGenerateRecommendations = async () => {
           <div className="flex-1 p-6 space-y-4 md:order-1">
             {/* Main header: Title, Icons, Score */}
             <div className="flex justify-between items-start mb-2">
-                <div className="flex-1 flex-shrink min-w-0 mr-2">
-                    <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground inline-flex items-center gap-1">
+                <div className="flex-1 flex flex-col sm:flex-row sm:items-center sm:gap-1 min-w-0 mr-2">
+                    <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground inline-flex items-center">
                         {game.name}
                         {game.bggId > 0 && (
                         <a
@@ -604,10 +604,11 @@ const handleGenerateRecommendations = async () => {
                 </div>
                 <div className="flex-shrink-0 flex flex-col items-end">
                     {globalGameAverage !== null ? (
-                    <span className="text-primary text-3xl md:text-4xl font-bold whitespace-nowrap">
+                    <span className="text-3xl md:text-4xl font-bold text-primary whitespace-nowrap">
                         {formatRatingNumber(globalGameAverage * 2)}
                     </span>
                     ) : (<span className="text-primary text-3xl md:text-4xl font-bold whitespace-nowrap"></span>) }
+                     {/* Action Icons Group (Favorite, Playlist, Admin Settings) */}
                     {currentUser && (
                     <div className="flex items-center gap-0.5 mt-1">
                         <Button
@@ -754,7 +755,7 @@ const handleGenerateRecommendations = async () => {
                     </div>
                 )}
             </div>
-
+            
             {/* Average Ratings Section */}
             <div className={cn("w-full pt-4 border-t border-border", !(game.reviews && game.reviews.length > 0) && "border-none pt-0")}>
               {(game.reviews && game.reviews.length > 0) && (
@@ -890,7 +891,7 @@ const handleGenerateRecommendations = async () => {
             userReview ? (
               <div>
                 <div className="flex justify-between items-center gap-2 mb-4">
-                  <h3 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h3>
+                  <h3 className="text-xl font-semibold text-foreground mr-2 flex-grow">Il Tuo Voto</h3>
                   <div className="flex items-center gap-2 flex-shrink-0">
                       <Button asChild size="sm" variant="default">
                         <Link href={`/games/${gameId}/rate`}>
@@ -1039,5 +1040,3 @@ const handleGenerateRecommendations = async () => {
     </div>
   );
 }
-
-```
