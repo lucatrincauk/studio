@@ -13,7 +13,8 @@ import {
   batchUpdateMissingBggDetailsAction,
   revalidateGameDataAction,
   fetchAllUserPlaysFromBggAction,
-  fetchUserPlaysForGameFromBggAction
+  fetchUserPlaysForGameFromBggAction,
+  batchFetchOriginalImageUrlsAction // Added import
 } from '@/lib/actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -307,33 +308,41 @@ export default function AdminCollectionPage() {
         gameDetailsError = bggFetchResult.error || 'Impossibile recuperare dettagli da BGG.';
       }
 
-      const playsFetchResult = await fetchUserPlaysForGameFromBggAction(bggId, BGG_USERNAME);
+      const playsFetchResult = await fetchUserPlaysForGameFromBggAction(firestoreGameId, bggId, BGG_USERNAME);
       if (playsFetchResult.success && playsFetchResult.plays && playsFetchResult.plays.length > 0) {
-        const batch = writeBatch(db);
-        const playsSubcollectionRef = collection(db, FIRESTORE_COLLECTION_NAME, firestoreGameId, `plays_${BGG_USERNAME.toLowerCase()}`);
-        playsFetchResult.plays.forEach(play => {
-          const playDocRef = doc(playsSubcollectionRef, play.playId);
-          const playDataForFirestore: BggPlayDetail = { ...play, userId: BGG_USERNAME, gameBggId: bggId };
-          batch.set(playDocRef, playDataForFirestore, { merge: true });
-        });
-        const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, firestoreGameId);
-        batch.update(gameRef, { lctr01Plays: playsFetchResult.plays.length });
-        try {
-          await batch.commit();
-          playsUpdated = true;
-        } catch (dbError) {
-          playsError = dbError instanceof Error ? dbError.message : "Errore DB salvando partite.";
-        }
-      } else if (!playsFetchResult.success) {
-        playsError = playsFetchResult.error || 'Impossibile recuperare partite da BGG.';
-      } else if (playsFetchResult.plays && playsFetchResult.plays.length === 0) {
-        try {
           const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, firestoreGameId);
-          await updateDoc(gameRef, { lctr01Plays: 0 });
-        } catch (dbError) {
-           // silent error if updating to 0 fails
-        }
+          const batch = writeBatch(db);
+          const playsSubcollectionRef = collection(db, FIRESTORE_COLLECTION_NAME, firestoreGameId, `plays_${BGG_USERNAME.toLowerCase()}`);
+          
+          playsFetchResult.plays.forEach(play => {
+              const playDocRef = doc(playsSubcollectionRef, play.playId);
+              const playDataForFirestore: BggPlayDetail = {
+                  ...play,
+                  userId: BGG_USERNAME, 
+                  gameBggId: bggId,
+              };
+              batch.set(playDocRef, playDataForFirestore, { merge: true });
+          });
+          
+          batch.update(gameRef, { lctr01Plays: playsFetchResult.plays.length });
+
+          try {
+              await batch.commit();
+              playsUpdated = true;
+          } catch (dbError) {
+              playsError = dbError instanceof Error ? dbError.message : "Errore DB salvando partite.";
+          }
+      } else if (!playsFetchResult.success) {
+          playsError = playsFetchResult.error || 'Impossibile recuperare partite da BGG.';
+      } else if (playsFetchResult.plays && playsFetchResult.plays.length === 0) {
+          try {
+            const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, firestoreGameId);
+            await updateDoc(gameRef, { lctr01Plays: 0 });
+          } catch (dbError) {
+             // silent error if updating to 0 fails
+          }
       }
+
 
       if (detailsUpdated && playsUpdated) {
         toast({ title: 'Dati Aggiornati!', description: `Dettagli e ${playsFetchResult.plays?.length || 0} partite per ${gameName} aggiornati/sincronizzati.` });
@@ -817,5 +826,7 @@ export default function AdminCollectionPage() {
     </div>
   );
 }
+
+    
 
     
