@@ -153,7 +153,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     }
   }, [game, currentUser]);
 
-  const updateGameOverallRatingAfterDelete = async () => {
+  const updateGameOverallRatingAfterReviewChange = async () => {
     if (!game) return;
     try {
       const reviewsCollectionRef = collection(db, FIRESTORE_COLLECTION_NAME, game.id, 'reviews');
@@ -178,6 +178,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
       const categoryAvgs = calculateCatAvgsFromUtils(allReviewsForGame);
       const newOverallAverage = categoryAvgs ? calculateOverallCategoryAverage(categoryAvgs) : null;
+      
       const gameDocRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
       await updateDoc(gameDocRef, {
         overallAverageRating: newOverallAverage,
@@ -204,9 +205,9 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       try {
         const reviewDocRef = doc(db, FIRESTORE_COLLECTION_NAME, gameId, 'reviews', userReview.id);
         await deleteDoc(reviewDocRef);
-        await updateGameOverallRatingAfterDelete(); 
+        await updateGameOverallRatingAfterReviewChange(); 
         toast({ title: "Recensione Eliminata", description: "La tua recensione è stata eliminata con successo." });
-        await fetchGameData();
+        // fetchGameData(); // Already called by updateGameOverallRatingAfterReviewChange
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({ title: "Errore", description: `Impossibile eliminare la recensione: ${errorMessage}`, variant: "destructive" });
@@ -428,7 +429,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 await batch.commit();
                 const gameDocRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
                 await updateDoc(gameDocRef, {
-                    lctr01Plays: increment(playsToSave.length) // Or set to new total if API provides total for this game
+                    lctr01Plays: playsToSave.length // Directly set to the number of plays fetched for THIS game
                 });
                 toast({
                     title: "Partite Caricate e Salvate",
@@ -445,6 +446,15 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 title: "Nessuna Partita Trovata",
                 description: serverActionResult.message || `Nessuna partita trovata su BGG per ${usernameToFetch} per questo gioco.`,
             });
+             // Even if no plays found, update lctr01Plays on game doc to 0 for this game
+            try {
+                const gameDocRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
+                await updateDoc(gameDocRef, { lctr01Plays: 0 });
+                await revalidateGameDataAction(game.id);
+                await fetchGameData();
+            } catch (dbError) {
+                 // Silently ignore if update to 0 fails, main message is more important
+            }
         }
     });
 };
@@ -549,22 +559,24 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           {/* Main Content Column */}
           <div className="flex-1 p-6 space-y-4 md:order-1"> 
             <div className="flex justify-between items-start mb-2">
-                {/* Left part: Title and all action icons */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2 flex-shrink min-w-0 mr-2">
-                    <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">{game.name}</h1>
-                    {/* Icon group */}
-                    <div className="flex items-center gap-1 mt-1 sm:mt-0">
+                <div className="flex-shrink min-w-0 mr-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:gap-1">
+                        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
+                            {game.name}
+                        </h1>
                         {game.bggId > 0 && (
                         <a
                             href={`https://boardgamegeek.com/boardgame/${game.bggId}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             title="Vedi su BoardGameGeek"
-                            className="inline-flex items-center text-primary hover:text-primary/80 focus:outline-none focus:ring-2 focus:ring-ring rounded-md p-0.5 flex-shrink-0"
+                            className="inline-flex items-center text-primary hover:text-primary/80 focus:outline-none focus:ring-2 focus:ring-ring rounded-md p-0.5 flex-shrink-0 self-start sm:self-center"
                         >
                             <ExternalLink size={16} className="h-4 w-4" />
                         </a>
                         )}
+                    </div>
+                    <div className="flex items-center gap-1 mt-1 sm:mt-0">
                         {currentUser && (
                         <>
                             <Button
@@ -578,7 +590,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                             {isFavoriting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Heart className={`h-5 w-5 ${isFavoritedByCurrentUser ? 'fill-destructive' : ''}`} />}
                             </Button>
                             {currentFavoriteCount > 0 && (
-                            <span className="text-sm text-muted-foreground -ml-1"> {/* Adjusted margin */}
+                            <span className="text-sm text-muted-foreground -ml-1 mr-1">
                                 ({currentFavoriteCount})
                             </span>
                             )}
@@ -631,7 +643,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                         )}
                     </div>
                 </div>
-                {/* Right part: Score only */}
                 <div className="flex-shrink-0"> 
                     {globalGameAverage !== null ? (
                     <span className="text-primary text-3xl md:text-4xl font-bold whitespace-nowrap">
@@ -720,7 +731,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             </div>
             
             {/* Average Ratings Section */}
-            <div className={cn("w-full pt-4", game.reviews && game.reviews.length > 0 && "border-t border-border")}>
+            <div className={cn("w-full pt-4 border-t border-border", !(game.reviews && game.reviews.length > 0) && "hidden")}>
               <h3 className="text-lg font-semibold text-foreground mb-3">Valutazione Media:</h3>
               <GroupedRatingsDisplay
                   groupedAverages={groupedCategoryAverages}
@@ -750,7 +761,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         </div>
       </Card>
 
-    {/* Partite Registrate Section - MOVED UP */}
+    {/* Partite Registrate Section */}
     {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
         <Card className="shadow-md border border-border rounded-lg">
             <CardHeader className="flex flex-row justify-between items-center">
@@ -807,7 +818,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                                             return scoreB - scoreA;
                                         })
                                         .map((player, pIndex) => (
-                                        <li key={pIndex} className={`flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5 odd:bg-muted/30 px-2`}>
+                                        <li key={pIndex} className={`flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5 even:bg-muted/30 px-2`}>
                                             <div className="flex items-center gap-1.5 flex-grow min-w-0">
                                                 <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 relative top-px" />
                                                 <span className={`truncate ${player.didWin ? 'font-semibold' : ''}`} title={player.name || player.username || 'Sconosciuto'}>
