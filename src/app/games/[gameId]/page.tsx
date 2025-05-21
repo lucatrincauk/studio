@@ -8,7 +8,7 @@ import type { BoardGame, Review, Rating as RatingType, GroupedCategoryAverages, 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, MessageSquare, Heart, ListPlus, ListChecks, Settings, Trophy, Medal, UserCircle2, Brain, Star, Palette, ClipboardList, Repeat, Sparkles, DownloadCloud } from 'lucide-react';
+import { AlertCircle, Loader2, Info, Edit, Trash2, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, MessageSquare, Heart, ListPlus, ListChecks, Settings, Trophy, Medal, UserCircle2, Brain, Star, Palette, ClipboardList, Repeat, Sparkles, DownloadCloud, Pin, PinOff } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { calculateGroupedCategoryAverages, calculateOverallCategoryAverage as calculateGlobalOverallAverage, formatRatingNumber, formatPlayDate, formatReviewDate, calculateCategoryAverages as calculateCatAvgsFromUtils } from '@/lib/utils';
@@ -667,7 +667,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             {/* Metadata Grid */}
              <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
                 {(game.designers && game.designers.length > 0) && (
-                    <div className="flex items-baseline gap-2">
+                    <div className="flex items-baseline gap-2"> {/* Ensure NO col-span-2 here */}
                       <span className="inline-flex items-center relative top-px"><PenTool size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
                       <span className="font-medium hidden sm:inline">Autori:</span>
                       <span>{game.designers.join(', ')}</span>
@@ -968,4 +968,5 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
 
     
+
 
