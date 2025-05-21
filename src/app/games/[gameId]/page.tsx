@@ -716,7 +716,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                     </div>
                 )}
                 <div className="flex items-baseline gap-2">
-                    <Repeat size={14} className="text-primary/80 flex-shrink-0" />
+                    <Dices size={14} className="text-primary/80 flex-shrink-0" />
                     <span className="font-medium hidden sm:inline">Partite:</span>
                     <span>{game.lctr01Plays ?? 0}</span>
                 </div>
@@ -730,7 +730,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                  {highestScoreAchieved !== null && (
                     <div className="flex items-baseline gap-2">
                         <Medal size={14} className="text-amber-500 flex-shrink-0" />
-                        <span className="font-medium hidden sm:inline">Punteggio Massimo Registrato:</span>
+                        <span className="font-medium hidden sm:inline">Miglior Punteggio:</span>
                         <span>{formatRatingNumber(highestScoreAchieved)} pt.</span>
                     </div>
                 )}
@@ -1022,3 +1022,4 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
 
     
+
