@@ -9,7 +9,7 @@ import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, Settings, DownloadCloud, MessageSquare, Repeat, Trophy, Medal, UserCircle2 } from 'lucide-react';
+import { AlertCircle, Loader2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, Settings, DownloadCloud, MessageSquare, Repeat, Trophy, Medal, UserCircle2, Heart, ListPlus, ListChecks, BarChart3 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { calculateGroupedCategoryAverages, calculateCategoryAverages, calculateOverallCategoryAverage, formatRatingNumber, formatPlayDate, formatReviewDate } from '@/lib/utils';
@@ -185,7 +185,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         reviewCount: allReviewsForGame.length
       });
       
-      await revalidateGameDataAction(game.id); 
+      revalidateGameDataAction(game.id); 
       
       await fetchGameData(); 
     } catch (error) {
@@ -230,7 +230,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `Il gioco è stato ${newPinStatus ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
         });
         setGame(prevGame => prevGame ? { ...prevGame, isPinned: newPinStatus } : null);
-        await revalidateGameDataAction(game.id);
+        revalidateGameDataAction(game.id);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({
@@ -293,7 +293,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `${game.name} è stato ${newFavoritedStatus ? 'aggiunto ai' : 'rimosso dai'} tuoi preferiti.`,
         });
 
-        await revalidateGameDataAction(game.id);
+        revalidateGameDataAction(game.id);
 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Impossibile aggiornare i preferiti.";
@@ -345,7 +345,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `${game.name} è stato ${newPlaylistedStatus ? 'aggiunto alla' : 'rimosso dalla'} tua playlist.`,
         });
 
-        await revalidateGameDataAction(game.id);
+        revalidateGameDataAction(game.id);
 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Impossibile aggiornare la playlist.";
@@ -385,7 +385,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
         await updateDoc(gameRef, serverActionResult.updateData);
         toast({ title: 'Dettagli Aggiornati', description: `Dettagli per ${game.name} aggiornati con successo.` });
-        await revalidateGameDataAction(game.id);
+        revalidateGameDataAction(game.id);
         await fetchGameData();
       } catch (dbError) {
         const errorMessage = dbError instanceof Error ? dbError.message : "Errore sconosciuto durante l'aggiornamento del DB.";
@@ -412,7 +412,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 serverActionResult.plays.forEach(play => {
                     const playDocRef = doc(playsSubCollectionRef, play.playId);
                     const playDataForFirestore: BggPlayDetail = {
-                        ...play, // This already includes gameBggId from the parser
+                        ...play, 
                         userId: usernameToFetch, 
                     };
                     batch.set(playDocRef, playDataForFirestore, { merge: true }); 
@@ -420,7 +420,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 
                 try {
                     await batch.commit();
-                    // Update the lctr01Plays count on the main game document
                     const gameDocRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
                     await updateDoc(gameDocRef, {
                         lctr01Plays: serverActionResult.plays.length 
@@ -429,8 +428,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                         title: "Partite Caricate e Salvate",
                         description: serverActionResult.message || `Caricate e salvate ${serverActionResult.plays.length} partite per ${game.name} da BGG per ${usernameToFetch}. Conteggio aggiornato.`,
                     });
-                    await revalidateGameDataAction(game.id);
-                    await fetchGameData(); // Re-fetch to update UI
+                    revalidateGameDataAction(game.id);
+                    await fetchGameData(); 
                 } catch (dbError) {
                     const errorMessage = dbError instanceof Error ? dbError.message : "Errore sconosciuto durante il salvataggio delle partite nel DB.";
                     toast({ title: 'Errore Salvataggio Partite DB', description: errorMessage, variant: 'destructive' });
@@ -550,96 +549,96 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
         <div className="flex flex-col md:flex-row">
           <div className="flex-1 p-6 space-y-4 md:order-1"> 
-             <div className="flex justify-between items-start mb-2">
-                <div className="flex items-center gap-2 flex-shrink min-w-0 mr-2"> 
-                    <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground truncate">{game.name}</h1>
-                   {game.bggId > 0 && (
-                    <a
-                        href={`https://boardgamegeek.com/boardgame/${game.bggId}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title="Vedi su BoardGameGeek"
-                        className="inline-flex items-center text-primary hover:text-primary/80 focus:outline-none focus:ring-2 focus:ring-ring rounded-md p-0.5 flex-shrink-0"
+            <div className="flex justify-between items-start mb-2">
+              <div className="flex items-center gap-2 flex-shrink min-w-0 mr-2"> {/* Left side: Title and action icons */}
+                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground truncate">{game.name}</h1>
+                {game.bggId > 0 && (
+                  <a
+                    href={`https://boardgamegeek.com/boardgame/${game.bggId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Vedi su BoardGameGeek"
+                    className="inline-flex items-center text-primary hover:text-primary/80 focus:outline-none focus:ring-2 focus:ring-ring rounded-md p-0.5 flex-shrink-0"
+                  >
+                    <ExternalLink size={16} className="h-4 w-4" />
+                  </a>
+                )}
+                {currentUser && (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleToggleFavorite}
+                      disabled={isFavoriting || authLoading}
+                      title={isFavoritedByCurrentUser ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
+                      className={`h-9 w-9 hover:bg-destructive/20 ${isFavoritedByCurrentUser ? 'text-destructive fill-destructive' : 'text-muted-foreground/60 hover:text-destructive'}`}
                     >
-                        <ExternalLink size={16} className="h-4 w-4" />
-                    </a>
-                   )}
-                  {currentUser && (
-                    <>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={handleToggleFavorite}
-                        disabled={isFavoriting || authLoading}
-                        title={isFavoritedByCurrentUser ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
-                        className={`h-9 w-9 hover:bg-destructive/20 ${isFavoritedByCurrentUser ? 'text-destructive fill-destructive' : 'text-muted-foreground/60 hover:text-destructive'}`}
-                      >
-                        {isFavoriting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Heart className={`h-5 w-5 ${isFavoritedByCurrentUser ? 'fill-destructive' : ''}`} />}
-                      </Button>
-                      {currentFavoriteCount > 0 && (
-                        <span className="text-sm text-muted-foreground -ml-2 mr-1">
-                          ({currentFavoriteCount})
-                        </span>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={handleTogglePlaylist}
-                        disabled={isPlaylisting || authLoading}
-                        title={isPlaylistedByCurrentUser ? "Rimuovi dalla Playlist" : "Aggiungi alla Playlist"}
-                        className={`h-9 w-9 hover:bg-sky-500/20 ${isPlaylistedByCurrentUser ? 'text-sky-500' : 'text-muted-foreground/60 hover:text-sky-500'}`}
-                      >
-                        {isPlaylisting ? <Loader2 className="h-5 w-5 animate-spin" /> : (isPlaylistedByCurrentUser ? <ListChecks className="h-5 w-5" /> : <ListPlus className="h-5 w-5" />)}
-                      </Button>
-                      {isAdmin && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-9 w-9 hover:bg-primary/20 text-muted-foreground/80 hover:text-primary">
-                              <Settings className="h-5 w-5" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                             <DropdownMenuItem
-                                onSelect={handleTogglePinGame}
-                                disabled={isPinToggling || authLoading}
-                                className="cursor-pointer"
-                              >
-                                {currentIsPinned ? <PinOff className="mr-2 h-4 w-4" /> : <Pin className="mr-2 h-4 w-4" />}
-                                {currentIsPinned ? "Rimuovi da Vetrina" : "Aggiungi a Vetrina"}
-                              </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onSelect={handleRefreshBggData}
-                              disabled={(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) || !game.id || !game.bggId}
-                              className="cursor-pointer"
-                            >
-                              {(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DownloadCloud className="mr-2 h-4 w-4" />}
-                              Aggiorna Dati da BGG
-                            </DropdownMenuItem>
-                             <DropdownMenuItem
-                              onSelect={handleFetchBggPlays}
-                              disabled={isFetchingPlays || !game.bggId}
-                              className="cursor-pointer"
-                            >
-                              {isFetchingPlays ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BarChart3 className="mr-2 h-4 w-4" />}
-                              Carica Partite
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      )}
-                    </>
-                  )}
-                </div>
-               <div className="flex-shrink-0"> 
-                  {globalGameAverage !== null ? (
-                     <span className="text-primary text-3xl md:text-4xl font-bold whitespace-nowrap">
-                        {formatRatingNumber(globalGameAverage * 2)}
+                      {isFavoriting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Heart className={`h-5 w-5 ${isFavoritedByCurrentUser ? 'fill-destructive' : ''}`} />}
+                    </Button>
+                    {currentFavoriteCount > 0 && (
+                      <span className="text-sm text-muted-foreground -ml-2 mr-1">
+                        ({currentFavoriteCount})
                       </span>
-                  ) : (
-                    <span className="text-muted-foreground text-lg md:text-xl font-medium whitespace-nowrap">
-                      {/* Placeholder or empty if no ratings */}
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleTogglePlaylist}
+                      disabled={isPlaylisting || authLoading}
+                      title={isPlaylistedByCurrentUser ? "Rimuovi dalla Playlist" : "Aggiungi alla Playlist"}
+                      className={`h-9 w-9 hover:bg-sky-500/20 ${isPlaylistedByCurrentUser ? 'text-sky-500' : 'text-muted-foreground/60 hover:text-sky-500'}`}
+                    >
+                      {isPlaylisting ? <Loader2 className="h-5 w-5 animate-spin" /> : (isPlaylistedByCurrentUser ? <ListChecks className="h-5 w-5" /> : <ListPlus className="h-5 w-5" />)}
+                    </Button>
+                     {isAdmin && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-9 w-9 hover:bg-primary/20 text-muted-foreground/80 hover:text-primary">
+                            <Settings className="h-5 w-5" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                           <DropdownMenuItem
+                              onSelect={handleTogglePinGame}
+                              disabled={isPinToggling || authLoading}
+                              className="cursor-pointer"
+                            >
+                              {currentIsPinned ? <PinOff className="mr-2 h-4 w-4" /> : <Pin className="mr-2 h-4 w-4" />}
+                              {currentIsPinned ? "Rimuovi da Vetrina" : "Aggiungi a Vetrina"}
+                            </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onSelect={handleRefreshBggData}
+                            disabled={(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) || !game.id || !game.bggId}
+                            className="cursor-pointer"
+                          >
+                            {(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DownloadCloud className="mr-2 h-4 w-4" />}
+                            Aggiorna Dati da BGG
+                          </DropdownMenuItem>
+                           <DropdownMenuItem
+                            onSelect={handleFetchBggPlays}
+                            disabled={isFetchingPlays || !game.bggId}
+                            className="cursor-pointer"
+                          >
+                            {isFetchingPlays ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BarChart3 className="mr-2 h-4 w-4" />}
+                            Carica Partite
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                  </>
+                )}
+              </div>
+              <div className="flex-shrink-0"> {/* Right side: Score */}
+                {globalGameAverage !== null ? (
+                   <span className="text-primary text-3xl md:text-4xl font-bold whitespace-nowrap">
+                      {formatRatingNumber(globalGameAverage * 2)}
                     </span>
-                  )}
-               </div>
+                ) : (
+                  <span className="text-muted-foreground text-lg md:text-xl font-medium whitespace-nowrap">
+                    {/* Placeholder or empty if no ratings */}
+                  </span>
+                )}
+              </div>
             </div>
             
             <div className="md:hidden my-4 max-w-[240px] mx-auto">
@@ -657,7 +656,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
               </div>
             </div>
             
-             <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
                 {hasDataForSection(game.designers) && (
                   <div className="flex items-baseline gap-2">
                     <span className="inline-flex items-center"><PenTool size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
@@ -720,31 +719,29 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 )}
             </div>
             
-            {(hasDataForSection(game.categories) || hasDataForSection(game.mechanics) ) && (
-              <Accordion type="single" collapsible className="w-full pt-4 border-t border-border md:hidden" defaultValue={[]}>
-                <AccordionItem value="dettagli-aggiuntivi" className="border-b-0">
-                  <AccordionTrigger className="hover:no-underline py-0">
-                    <h3 className="text-lg font-semibold text-foreground">Dettagli Aggiuntivi</h3>
-                  </AccordionTrigger>
-                  <AccordionContent className="pt-3">
-                    <div className="space-y-3">
-                      {hasDataForSection(game.categories) && (
-                      <div className="text-sm">
-                          <strong className="text-muted-foreground">Categorie: </strong> 
-                          {game.categories!.map(cat => <Badge key={cat} variant="secondary" className="mr-1 mb-1">{cat}</Badge>)}
-                      </div>
-                      )}
-                      {hasDataForSection(game.mechanics) && (
-                      <div className="text-sm">
-                          <strong className="text-muted-foreground">Meccaniche: </strong> 
-                          {game.mechanics!.map(mech => <Badge key={mech} variant="secondary" className="mr-1 mb-1">{mech}</Badge>)}
-                      </div>
-                      )}
+            <Accordion type="single" collapsible className="w-full pt-4 border-t border-border md:hidden" defaultValue={[]}>
+              <AccordionItem value="dettagli-aggiuntivi" className="border-b-0">
+                <AccordionTrigger className="hover:no-underline py-0">
+                  <h3 className="text-lg font-semibold text-foreground">Dettagli Aggiuntivi</h3>
+                </AccordionTrigger>
+                <AccordionContent className="pt-3">
+                  <div className="space-y-3">
+                    {hasDataForSection(game.categories) && (
+                    <div className="text-sm">
+                        <strong className="text-muted-foreground">Categorie: </strong> 
+                        {game.categories!.map(cat => <Badge key={cat} variant="secondary" className="mr-1 mb-1">{cat}</Badge>)}
                     </div>
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
-            )}
+                    )}
+                    {hasDataForSection(game.mechanics) && (
+                    <div className="text-sm">
+                        <strong className="text-muted-foreground">Meccaniche: </strong> 
+                        {game.mechanics!.map(mech => <Badge key={mech} variant="secondary" className="mr-1 mb-1">{mech}</Badge>)}
+                    </div>
+                    )}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
             
             {game.reviews && game.reviews.length > 0 && (
               <div className="w-full pt-4 border-t border-border">
@@ -772,31 +769,29 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 sizes="25vw"
               />
             </div>
-            {(hasDataForSection(game.categories) || hasDataForSection(game.mechanics) ) && (
-              <Accordion type="single" collapsible className="w-full pt-4" defaultValue={[]}>
-                <AccordionItem value="dettagli-aggiuntivi" className="border-b-0">
-                  <AccordionTrigger className="hover:no-underline py-0">
-                    <h3 className="text-lg font-semibold text-foreground">Dettagli Aggiuntivi</h3>
-                  </AccordionTrigger>
-                  <AccordionContent className="pt-3">
-                    <div className="space-y-3">
-                      {hasDataForSection(game.categories) && (
-                      <div className="text-sm">
-                          <strong className="text-muted-foreground">Categorie: </strong> 
-                          {game.categories!.map(cat => <Badge key={cat} variant="secondary" className="mr-1 mb-1">{cat}</Badge>)}
-                      </div>
-                      )}
-                      {hasDataForSection(game.mechanics) && (
-                      <div className="text-sm">
-                          <strong className="text-muted-foreground">Meccaniche: </strong> 
-                          {game.mechanics!.map(mech => <Badge key={mech} variant="secondary" className="mr-1 mb-1">{mech}</Badge>)}
-                      </div>
-                      )}
+            <Accordion type="single" collapsible className="w-full pt-4" defaultValue={[]}>
+              <AccordionItem value="dettagli-aggiuntivi" className="border-b-0">
+                <AccordionTrigger className="hover:no-underline py-0">
+                  <h3 className="text-lg font-semibold text-foreground">Dettagli Aggiuntivi</h3>
+                </AccordionTrigger>
+                <AccordionContent className="pt-3">
+                  <div className="space-y-3">
+                    {hasDataForSection(game.categories) && (
+                    <div className="text-sm">
+                        <strong className="text-muted-foreground">Categorie: </strong> 
+                        {game.categories!.map(cat => <Badge key={cat} variant="secondary" className="mr-1 mb-1">{cat}</Badge>)}
                     </div>
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
-            )}
+                    )}
+                    {hasDataForSection(game.mechanics) && (
+                    <div className="text-sm">
+                        <strong className="text-muted-foreground">Meccaniche: </strong> 
+                        {game.mechanics!.map(mech => <Badge key={mech} variant="secondary" className="mr-1 mb-1">{mech}</Badge>)}
+                    </div>
+                    )}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           </div>
         </div>
       </Card>
@@ -841,22 +836,20 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                             </AccordionTrigger>
                             <AccordionContent className="pb-4 pt-2 text-sm">
                             <div className="space-y-2">
-                                {(play.location || play.date) && (
-                                    <div className="flex justify-between items-baseline text-xs mb-1">
-                                        {play.location ? (
-                                        <div>
-                                            <strong className="text-muted-foreground">Luogo:</strong>
-                                            <span className="ml-1">{play.location}</span>
-                                        </div>
-                                        ) : <div />}
-                                        {play.date && (
-                                        <div>
-                                            <strong className="text-muted-foreground">Data:</strong>
-                                            <span className="ml-1">{formatPlayDate(play.date)}</span>
-                                        </div>
-                                        )}
+                                <div className="flex justify-between items-baseline text-xs mb-1">
+                                    {play.location ? (
+                                    <div>
+                                        <strong className="text-muted-foreground">Luogo:</strong>
+                                        <span className="ml-1">{play.location}</span>
                                     </div>
-                                )}
+                                    ) : <div />} 
+                                    {play.date && (
+                                    <div>
+                                        <strong className="text-muted-foreground">Data:</strong>
+                                        <span className="ml-1">{formatPlayDate(play.date)}</span>
+                                    </div>
+                                    )}
+                                </div>
                                 {play.comments && (
                                 <div className="grid grid-cols-[auto_1fr] gap-x-2 items-baseline">
                                     <strong className="text-muted-foreground text-xs">Commenti:</strong>
@@ -915,12 +908,12 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       <div className="space-y-8"> 
           {currentUser && !authLoading && (
             userReview ? (
-              <div> 
-                <div className="flex justify-between items-center gap-2 mb-4">
+              <div className="relative"> 
+                <div className="flex flex-row justify-between items-center gap-2 mb-4">
                   <h2 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h2>
                   <div className="flex items-center gap-2 flex-shrink-0">
                       <Button asChild size="sm">
-                        <Link href={`/games/${gameId}/rate`}>
+                         <Link href={`/games/${gameId}/rate`}>
                             <span className="flex items-center">
                                 <Edit className="mr-0 sm:mr-2 h-4 w-4" />
                                 <span className="hidden sm:inline">Modifica</span>
@@ -980,7 +973,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                   </Alert>
           )}
           
-          {/* Altre Recensioni Section */}
           {remainingReviews.length > 0 && (
           <>
               <Separator className="my-6" />
@@ -1013,4 +1005,5 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
+
 
