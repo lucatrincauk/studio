@@ -3,7 +3,7 @@ import Link from 'next/link';
 import type { BoardGame } from '@/lib/types';
 import { Card, CardContent, CardFooter, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Users, Clock, Star } from 'lucide-react';
+import { Users, Clock, Star, CalendarDays } from 'lucide-react';
 import { SafeImage } from '@/components/common/SafeImage';
 import { formatRatingNumber } from '@/lib/utils';
 import { cn } from '@/lib/utils';
@@ -35,8 +35,8 @@ export function GameCard({
       <Link href={finalHref} className="block group w-full h-full">
         <Card className={cn(
           "relative overflow-hidden transition-all duration-300 ease-in-out w-full aspect-[3/4]",
-          "shadow-lg hover:shadow-xl rounded-lg border border-border group-hover:border-primary/50",
-          !showOverlayText && "bg-[#f9fbf9]"
+          "shadow-lg hover:shadow-xl rounded-lg border border-border group-hover:border-primary/50"
+          // Removed: !showOverlayText && "bg-[#f9fbf9]" - Card will use default bg-card
         )}>
           <SafeImage
             src={game.coverArtUrl}
@@ -49,7 +49,7 @@ export function GameCard({
             )}
             data-ai-hint={game.name ? `board game ${game.name.split(' ')[0]?.toLowerCase()}` : 'board game thumbnail'}
             priority={priority}
-            sizes={!showOverlayText ? "(max-width: 767px) 160px, 33vw" : "(max-width: 767px) 50vw, 33vw"}
+            sizes={showOverlayText ? "(max-width: 767px) 160px, 33vw" : "(max-width: 639px) 96px, (max-width: 767px) 112px, 128px"}
           />
           {showOverlayText && (
             <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/60 via-black/25 to-transparent p-2 sm:p-3">
@@ -70,7 +70,7 @@ export function GameCard({
     );
   }
 
-  // Default variant
+  // Default variant (image on side, text content beside it)
   return (
     <Card className="flex flex-row overflow-hidden shadow-lg transition-all duration-300 ease-in-out hover:shadow-xl rounded-lg border border-border hover:border-primary/50 h-40 md:h-44">
       <div className="relative w-1/3 md:w-2/5 h-full flex-shrink-0">
@@ -94,7 +94,6 @@ export function GameCard({
             <CardTitle className="text-base sm:text-lg leading-tight font-semibold group-hover:text-primary transition-colors flex-1 mr-2">
               <Link href={`/games/${game.id}`} className="hover:underline focus:outline-none focus:ring-2 focus:ring-ring rounded">
                 {game.name}
-                {game.yearPublished && ` (${game.yearPublished})`}
               </Link>
             </CardTitle>
             {game.overallAverageRating !== null && typeof game.overallAverageRating === 'number' && (
@@ -105,6 +104,7 @@ export function GameCard({
             )}
           </div>
            <div className="text-xs text-muted-foreground space-y-0.5 mb-2">
+                {game.yearPublished && <div className="flex items-center gap-1"><CalendarDays size={12}/> {game.yearPublished}</div>}
                 {(game.minPlayers || game.maxPlayers) && (
                   <div className="flex items-center gap-1"><Users size={12}/>
                     {game.minPlayers}{game.maxPlayers && game.minPlayers !== game.maxPlayers ? `-${game.maxPlayers}` : ''} Giocatori
@@ -123,3 +123,4 @@ export function GameCard({
     </Card>
   );
 }
+

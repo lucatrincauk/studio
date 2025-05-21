@@ -69,11 +69,14 @@ export default async function HomePage() {
               {topRatedGames.map((game, index) => (
                 <div 
                   key={game.id} 
-                  className="relative flex items-center gap-x-3 sm:gap-x-4 p-3 rounded-lg bg-[#f9fbf9] hover:bg-muted/50 transition-colors border border-border overflow-hidden"
+                  className="relative flex items-center gap-x-3 sm:gap-x-4 p-3 rounded-lg bg-card hover:bg-muted/50 transition-colors border border-border overflow-hidden"
                 >
                   <span 
                     aria-hidden="true"
-                    className="absolute font-bold text-muted-foreground/10 pointer-events-none select-none leading-none z-0 text-[255px] -bottom-[55px] -right-[30px] sm:text-[300px] sm:-bottom-[65px] sm:-right-[30px] lg:text-[340px] lg:-bottom-[75px] lg:-right-[36px]"
+                    className="absolute font-bold text-muted-foreground/10 pointer-events-none select-none leading-none z-0 
+                               text-[255px] -bottom-[55px] -right-[30px] 
+                               sm:text-[300px] sm:-bottom-[65px] sm:-right-[30px] 
+                               lg:text-[340px] lg:-bottom-[75px] lg:-right-[36px]"
                   >
                     {index + 1}
                   </span>
