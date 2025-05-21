@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { LogOut, UserPlus, LogIn, MessagesSquare, Users2, ShieldCheck, UserCircle, Menu, TrendingUp, Library, Edit, BarChart3, Search as SearchIcon, Loader2, Star } from 'lucide-react'; // Added Star
+import { LogOut, UserPlus, LogIn, MessagesSquare, Users2, ShieldCheck, UserCircle, Menu, TrendingUp, Library, Edit, BarChart3, Search as SearchIcon, Loader2, Star, GaugeCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import {
   DropdownMenu,
@@ -22,7 +22,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { Popover, PopoverTrigger, PopoverContent, PopoverAnchor } from "@/components/ui/popover";
+import { Popover, PopoverTrigger, PopoverContent, PopoverAnchor } from "@/components/ui/popover"; // Ensure PopoverAnchor is imported
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
@@ -32,9 +32,17 @@ import type { BoardGame } from '@/lib/types';
 import { searchLocalGamesByNameAction } from '@/lib/actions';
 import { useRouter } from 'next/navigation';
 
-const PoopEmojiLogo = () => (
-  <span className="text-3xl" role="img" aria-label="logo">💩</span>
+const MorchiometroLogo = () => (
+  <svg width="32" height="32" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-8 w-auto">
+    <path d="M50 90C72.0914 90 90 72.0914 90 50C90 27.9086 72.0914 10 50 10C27.9086 10 10 27.9086 10 50C10 72.0914 27.9086 90 50 90Z" stroke="currentColor" strokeWidth="5"/>
+    <path d="M50 50L20 67.3205" stroke="currentColor" strokeWidth="5" strokeLinecap="round"/>
+    <circle cx="50" cy="50" r="5" fill="currentColor"/>
+    <path d="M40 75C40 72.2386 42.2386 70 45 70H55C57.7614 70 60 72.2386 60 75C60 77.7614 57.7614 85 50 85C42.2386 85 40 77.7614 40 75Z" fill="currentColor"/>
+    <ellipse cx="42" cy="65" rx="3" ry="2" fill="white"/>
+    <ellipse cx="58" cy="65" rx="3" ry="2" fill="white"/>
+  </svg>
 );
+
 
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
@@ -57,9 +65,11 @@ export function Header() {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<BoardGame[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  
   const [isDesktopPopoverOpen, setIsDesktopPopoverOpen] = useState(false);
   const [isMobilePopoverOpen, setIsMobilePopoverOpen] = useState(false);
   const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false);
+
 
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
   const desktopSearchInputRef = useRef<HTMLInputElement>(null);
@@ -68,6 +78,7 @@ export function Header() {
 
   const handleSignOut = async () => {
     await signOut();
+    setIsMobileSheetOpen(false); // Close sheet on sign out
   };
 
   const mainNavLinks = [
@@ -80,6 +91,7 @@ export function Header() {
   useEffect(() => {
     if (debouncedSearchTerm.length < 2) {
       setSearchResults([]);
+      // Explicitly close popovers if search term becomes too short
       setIsDesktopPopoverOpen(false);
       setIsMobilePopoverOpen(false);
       return;
@@ -92,18 +104,23 @@ export function Header() {
         setSearchResults([]);
       } else {
         setSearchResults(result);
+        // Try to open the relevant popover if results are found
+        if (result.length > 0) {
+          if (desktopSearchInputRef.current === document.activeElement) {
+            setIsDesktopPopoverOpen(true);
+          } else if (mobileSearchInputRef.current === document.activeElement && isMobileSheetOpen) {
+            setIsMobilePopoverOpen(true);
+          }
+        } else {
+          setIsDesktopPopoverOpen(false);
+          setIsMobilePopoverOpen(false);
+        }
       }
       setIsSearching(false);
-      // Control popover visibility based on which input might have focus or sheet state
-      if (desktopSearchInputRef.current === document.activeElement && result.length > 0) {
-        setIsDesktopPopoverOpen(true);
-      } else if (mobileSearchInputRef.current === document.activeElement && isMobileSheetOpen && result.length > 0) {
-        setIsMobilePopoverOpen(true);
-      }
     };
 
     performSearch();
-  }, [debouncedSearchTerm, isMobileSheetOpen]);
+  }, [debouncedSearchTerm, isMobileSheetOpen]); // Added isMobileSheetOpen to re-evaluate if sheet opens
 
   const handleResultClick = () => {
     setSearchTerm('');
@@ -190,7 +207,7 @@ export function Header() {
     loading ? (
       <div className="h-10 w-full animate-pulse rounded-md bg-muted my-2"></div>
     ) : user ? (
-      <div className="flex flex-col space-y-2 px-3 py-2 mt-auto"> {/* Added mt-auto */}
+      <div className="flex flex-col space-y-2 px-3 py-2 mt-auto">
         <div className="flex items-center gap-3 mb-2">
           <Avatar className="h-10 w-10">
             {user.photoURL && <AvatarImage src={user.photoURL} alt={user.displayName || user.email || 'User Avatar'} />}
@@ -210,30 +227,30 @@ export function Header() {
         <Separator />
         <SheetClose asChild>
           <Link href="/profile" className={cn(buttonVariants({ variant: "ghost" }), "w-full justify-start gap-2")}>
-            <UserCircle className="h-4 w-4" />
+            <UserCircle className="mr-2 h-4 w-4" />
             Mio Profilo
           </Link>
         </SheetClose>
         {isAdmin && (
           <SheetClose asChild>
             <Link href="/admin" className={cn(buttonVariants({ variant: "ghost" }), "w-full justify-start gap-2")}>
-              <ShieldCheck className="h-4 w-4" />
+              <ShieldCheck className="mr-2 h-4 w-4" />
               Sezione Admin
             </Link>
           </SheetClose>
         )}
          <Separator />
-        <Button variant="ghost" onClick={() => { handleSignOut(); setIsMobileSheetOpen(false); }} className="w-full justify-start gap-2 text-destructive hover:text-destructive hover:bg-destructive/10">
-          <LogOut className="h-4 w-4" />
+        <Button variant="ghost" onClick={handleSignOut} className="w-full justify-start gap-2 text-destructive hover:text-destructive hover:bg-destructive/10">
+          <LogOut className="mr-2 h-4 w-4" />
           Esci
         </Button>
       </div>
     ) : (
-      <div className="flex flex-col space-y-2 p-4 mt-auto"> {/* Added mt-auto */}
+      <div className="flex flex-col space-y-2 p-4 mt-auto">
         <SheetClose asChild>
           <Link
             href="/signin"
-            className={cn(buttonVariants({ variant: 'ghost' }), 'w-full justify-start text-sm font-medium text-foreground gap-2')}
+            className={cn(buttonVariants({ variant: 'ghost', className: 'w-full justify-start text-sm font-medium text-foreground gap-2' }))}
           >
             <LogIn size={16} />
             Accedi
@@ -242,7 +259,7 @@ export function Header() {
         <SheetClose asChild>
           <Link
             href="/signup"
-            className={cn(buttonVariants({ variant: 'default' }), 'w-full text-sm font-medium bg-accent text-accent-foreground hover:bg-accent/90 gap-2')}
+            className={cn(buttonVariants({ variant: 'default', className: 'w-full text-sm font-medium bg-accent text-accent-foreground hover:bg-accent/90 gap-2' }))}
           >
             <UserPlus size={16} />
             Registrati
@@ -256,7 +273,7 @@ export function Header() {
     <PopoverContent
       className="w-[300px] p-0"
       align="end"
-      onOpenAutoFocus={(e) => e.preventDefault()}
+      onOpenAutoFocus={(e) => e.preventDefault()} // Prevent focus stealing
       onInteractOutside={(e) => {
         if (desktopSearchInputRef.current && !desktopSearchInputRef.current.contains(e.target as Node)) {
           setIsDesktopPopoverOpen(false);
@@ -281,8 +298,10 @@ export function Header() {
 
   const mobileSearchPopoverContent = (
     <PopoverContent
-      className="w-[calc(100%-2rem)] p-0" // Adjust width for sheet
+      className="w-[248px] p-0" // Explicit width for mobile popover, matching input container
       align="start"
+      side="bottom"
+      sideOffset={4}
       onOpenAutoFocus={(e) => e.preventDefault()}
       onInteractOutside={(e) => {
          if (mobileSearchInputRef.current && !mobileSearchInputRef.current.contains(e.target as Node)) {
@@ -312,7 +331,7 @@ export function Header() {
       <header className="bg-primary text-primary-foreground shadow-md">
         <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
           <Link href="/" className="flex items-center gap-2 transition-opacity hover:opacity-80">
-            <PoopEmojiLogo />
+            <Image src="/logo.svg" alt="Morchiometro Logo" width={65} height={32} priority />
             <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Morchiometro</h1>
           </Link>
 
@@ -328,12 +347,12 @@ export function Header() {
                   <span className="sr-only">Apri menu</span>
                 </Button>
               </SheetTrigger>
-              <SheetContent side="right" className="w-[280px] bg-card p-0 text-card-foreground flex flex-col"> {/* Added flex flex-col */}
+              <SheetContent side="right" className="w-[280px] bg-card p-0 text-card-foreground flex flex-col">
                 <SheetHeader className="p-4 border-b">
                   <SheetTitle className="text-left">
                     <SheetClose asChild>
                       <Link href="/" className="flex items-center gap-2 text-primary transition-opacity hover:opacity-80">
-                        <PoopEmojiLogo />
+                        <Image src="/logo.svg" alt="Morchiometro Logo" width={50} height={24} />
                         <span className="text-lg font-bold">Morchiometro</span>
                       </Link>
                     </SheetClose>
@@ -341,7 +360,10 @@ export function Header() {
                 </SheetHeader>
                 
                 <div className="p-4">
-                  <Popover open={isMobilePopoverOpen && searchTerm.length >=2 && isMobileSheetOpen} onOpenChange={setIsMobilePopoverOpen}>
+                  <Popover 
+                    open={isMobilePopoverOpen && searchTerm.length >=2 && searchResults.length > 0 && isMobileSheetOpen} 
+                    onOpenChange={setIsMobilePopoverOpen}
+                  >
                      <PopoverAnchor>
                         <div className="relative flex items-center mb-4">
                           <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
@@ -351,19 +373,22 @@ export function Header() {
                             placeholder="Cerca un gioco..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            onFocus={() => setIsMobilePopoverOpen(debouncedSearchTerm.length >= 2 && searchResults.length > 0 && isMobileSheetOpen)}
+                            onFocus={() => {
+                              if (searchTerm.length >=2 && isMobileSheetOpen) setIsMobilePopoverOpen(true);
+                            }}
                             className="h-9 w-full rounded-md pl-9 pr-3 text-sm bg-background text-foreground border-input focus:ring-primary/50"
                           />
                           {isSearching && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />}
                         </div>
                       </PopoverAnchor>
-                      {isMobilePopoverOpen && searchResults.length > 0 && mobileSearchPopoverContent}
+                      {/* PopoverContent is an unconditional child, Radix controls visibility via Popover's open prop */}
+                      {mobileSearchPopoverContent}
                   </Popover>
                 </div>
 
                 <nav className="flex flex-col space-y-1 p-4 pt-0">
                   {mainNavLinks.map(link => (
-                     <SheetClose asChild key={link.href}>
+                     <SheetClose asChild key={`mobile-nav-${link.href}`}>
                         <Link
                           href={link.href}
                           className={cn(buttonVariants({ variant: "ghost" }), "w-full justify-start gap-2 text-sm font-medium text-foreground rounded-md px-3 py-2")}
@@ -374,7 +399,6 @@ export function Header() {
                       </SheetClose>
                   ))}
                 </nav>
-                {/* Auth block pushed to bottom */}
                 {authBlockMobile}
               </SheetContent>
             </Sheet>
@@ -386,7 +410,7 @@ export function Header() {
         <div className="container mx-auto flex h-12 items-center justify-between px-4 sm:px-6 lg:px-8">
           <ul className="flex items-center gap-4">
             {mainNavLinks.map(link => (
-              <li key={link.href}>
+              <li key={`desktop-nav-${link.href}`}>
                 <Link
                   href={link.href}
                   className="flex items-center gap-1.5 text-sm font-medium text-foreground transition-colors hover:text-primary px-3 py-2 rounded-md"
@@ -398,7 +422,10 @@ export function Header() {
             ))}
           </ul>
           <div className="relative">
-            <Popover open={isDesktopPopoverOpen && searchTerm.length >=2 && !isMobileSheetOpen} onOpenChange={setIsDesktopPopoverOpen}>
+            <Popover 
+              open={isDesktopPopoverOpen && searchTerm.length >=2 && searchResults.length > 0 && !isMobileSheetOpen} 
+              onOpenChange={setIsDesktopPopoverOpen}
+            >
               <PopoverAnchor>
                 <div className="relative flex items-center">
                   <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
@@ -408,13 +435,16 @@ export function Header() {
                     placeholder="Cerca un gioco..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    onFocus={() => setIsDesktopPopoverOpen(debouncedSearchTerm.length >= 2 && searchResults.length > 0 && !isMobileSheetOpen)}
+                    onFocus={() => {
+                      if (searchTerm.length >=2 && !isMobileSheetOpen) setIsDesktopPopoverOpen(true);
+                    }}
                     className="h-8 w-full rounded-md pl-9 pr-3 text-sm bg-background text-foreground border-input focus:ring-primary/50"
                   />
                   {isSearching && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />}
                 </div>
               </PopoverAnchor>
-              {isDesktopPopoverOpen && searchResults.length > 0 && desktopSearchPopoverContent}
+              {/* PopoverContent is an unconditional child */}
+              {desktopSearchPopoverContent}
             </Popover>
           </div>
         </div>
@@ -422,3 +452,4 @@ export function Header() {
     </div>
   );
 }
+
