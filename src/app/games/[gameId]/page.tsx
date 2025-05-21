@@ -206,7 +206,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         await updateGameOverallRatingAfterDelete(); 
         toast({ title: "Recensione Eliminata", description: "La tua recensione è stata eliminata con successo." });
         await fetchGameData();
-        // await revalidateGameDataAction(gameId); // Already called in updateGameOverallRatingAfterDelete
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({ title: "Errore", description: `Impossibile eliminare la recensione: ${errorMessage}`, variant: "destructive" });
@@ -793,7 +792,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                                     )}
                                 </div>
                             </AccordionTrigger>
-                            <AccordionContent className="pb-4 pt-2 text-sm">
+                            <AccordionContent className="pb-4 text-sm">
                             <div className="space-y-3">
                                 {play.comments && (
                                 <div className="grid grid-cols-[auto_1fr] gap-x-2 items-baseline">
@@ -803,7 +802,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                                 )}
                                 {play.players && play.players.length > 0 && (
                                 <div>
-                                    <strong className="block mb-1.5 text-muted-foreground text-xs">Giocatori:</strong>
+                                   
                                     <ul className="pl-1">
                                     {play.players
                                         .slice()
