@@ -125,7 +125,7 @@ export default async function HomePage() {
                           .slice()
                           .sort((a, b) => parseInt(b.score || "0", 10) - parseInt(a.score || "0", 10))
                           .map((player, pIndex) => (
-                            <li key={pIndex} className={`flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5 px-1 ${pIndex % 2 === 0 ? 'bg-muted/30' : ''} rounded-sm`}>
+                            <li key={pIndex} className={`flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5 ${pIndex % 2 === 0 ? 'bg-muted/30' : ''} rounded-sm`}>
                               <div className="flex items-center gap-1.5 flex-grow min-w-0">
                                 <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                                 <span className={`truncate ${player.didWin ? 'font-semibold' : ''}`} title={player.name || player.username || 'Sconosciuto'}>
@@ -168,10 +168,7 @@ export default async function HomePage() {
                 >
                   <span
                     aria-hidden="true"
-                    className="absolute pointer-events-none select-none leading-none z-0 font-bold text-muted-foreground/10
-                               -bottom-[55px] -right-[30px] text-[255px]
-                               sm:-bottom-[65px] sm:-right-[30px] sm:text-[300px] 
-                               lg:-bottom-[75px] lg:-right-[36px] lg:text-[340px]"
+                    className="absolute pointer-events-none select-none leading-none z-0 font-bold text-muted-foreground/10 -bottom-[55px] -right-[30px] text-[255px] sm:-bottom-[65px] sm:-right-[30px] sm:text-[300px] lg:-bottom-[75px] lg:-right-[36px] lg:text-[340px]"
                   >
                     {index + 1}
                   </span>
@@ -225,3 +222,4 @@ export default async function HomePage() {
 }
 
 export const revalidate = 3600;
+
