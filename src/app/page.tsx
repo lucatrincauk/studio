@@ -86,23 +86,31 @@ export default async function HomePage() {
               <Dices className="h-7 w-7 text-primary" />
               Ultima Partita Giocata
             </h2>
-            <div className="flex flex-row gap-4 items-start"> {/* Changed to flex-row */}
-              <div className="w-[120px] sm:w-[150px] md:w-[160px] flex-shrink-0"> {/* Smaller and responsive image wrapper */}
-                <GameCard 
-                  game={lastPlayedGame} 
-                  variant="featured" 
-                  priority={true} 
-                  showOverlayText={true} 
-                />
-              </div>
-              <Card className="flex-1 shadow-md border border-border rounded-lg w-full"> {/* Details card takes remaining space */}
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg font-semibold text-foreground">
-                    Dettagli Partita del {formatReviewDate(lastPlayDetail.date)}
-                  </CardTitle>
-                  {/* Location removed as per previous request, can be re-added if needed */}
-                </CardHeader>
-                <CardContent className="space-y-1.5 text-sm"> {/* Reduced space-y */}
+            <Card className="shadow-md border border-border rounded-lg w-full">
+              <CardHeader className="pb-3 flex flex-row items-start gap-3">
+                 <div className="relative h-24 w-20 flex-shrink-0 rounded-md overflow-hidden shadow-sm">
+                    <SafeImage
+                      src={lastPlayedGame.coverArtUrl}
+                      fallbackSrc={`https://placehold.co/80x120.png?text=${encodeURIComponent(lastPlayedGame.name?.substring(0,3) || 'N/A')}`}
+                      alt={`${lastPlayedGame.name || 'Gioco'} copertina`}
+                      fill
+                      sizes="(max-width: 640px) 80px, 120px"
+                      className="object-cover"
+                      data-ai-hint={`board game ${lastPlayedGame.name?.split(' ')[0]?.toLowerCase() || 'mini'}`}
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <CardTitle className="text-lg font-semibold text-foreground hover:text-primary hover:underline">
+                      <Link href={`/games/${lastPlayedGame.id}`}>
+                        {lastPlayedGame.name}
+                      </Link>
+                    </CardTitle>
+                    <CardDescription className="text-xs text-muted-foreground mt-1">
+                      Partita del {formatReviewDate(lastPlayDetail.date)}
+                    </CardDescription>
+                  </div>
+              </CardHeader>
+              <CardContent className="space-y-1.5 text-sm pt-2">
                   {lastPlayDetail.comments && lastPlayDetail.comments.trim() !== '' && (
                     <div>
                       <h4 className="text-xs font-semibold text-muted-foreground mb-0.5">Commenti:</h4>
@@ -112,7 +120,7 @@ export default async function HomePage() {
                   {lastPlayDetail.players && lastPlayDetail.players.length > 0 && (
                     <div>
                       <h4 className="text-xs font-semibold text-muted-foreground mb-1">Giocatori:</h4>
-                      <ul className="space-y-0.5"> {/* Reduced space-y */}
+                      <ul className="space-y-0.5">
                         {lastPlayDetail.players
                           .slice()
                           .sort((a, b) => parseInt(b.score || "0", 10) - parseInt(a.score || "0", 10))
@@ -141,15 +149,14 @@ export default async function HomePage() {
                     </div>
                   )}
                 </CardContent>
-              </Card>
-            </div>
+            </Card>
             <Separator className="my-10" />
           </div>
         )}
         
         {topRatedGames.length > 0 && (
           <section className="mb-12">
-            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mb-6 text-left flex items-center gap-2">
+             <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mb-6 text-left flex items-center gap-2">
               <TrendingUp className="h-7 w-7 text-primary" />
               Top 10
             </h2>
@@ -218,6 +225,3 @@ export default async function HomePage() {
 }
 
 export const revalidate = 3600;
-
-
-    
