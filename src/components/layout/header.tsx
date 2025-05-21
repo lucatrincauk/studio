@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { LogOut, UserPlus, LogIn, MessagesSquare, Users2, ShieldCheck, UserCircle, Menu, TrendingUp, Library, Edit, BarChart3, Search as SearchIcon, Loader2, LayoutList, Dices, GaugeCircle, Heart, ListPlus, ListChecks } from 'lucide-react';
+import { LogOut, UserPlus, LogIn, MessagesSquare, Users2, ShieldCheck, UserCircle, Menu, TrendingUp, Library, Edit, BarChart3, Search as SearchIcon, Loader2, LayoutList, Dices, GaugeCircle, Heart, ListPlus, ListChecks, ExternalLink, Pin, PinOff, Clock } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import {
   DropdownMenu,
@@ -84,36 +84,36 @@ export function Header() {
     { href: "/plays", label: "Partite", icon: <Dices size={18} /> },
   ];
 
-  useEffect(() => {
-    const performSearch = async () => {
-      if (debouncedSearchTerm.length < 2) {
-        setSearchResults([]);
-        setIsSearching(false);
+  const performSearch = useCallback(async (term: string) => {
+    if (term.length < 2) {
+      setSearchResults([]);
+      setIsSearching(false);
+      setIsDesktopPopoverOpen(false);
+      setIsMobilePopoverOpen(false);
+      return;
+    }
+
+    setIsSearching(true);
+    const result = await searchLocalGamesByNameAction(term);
+
+    if ('error' in result) {
+      setSearchResults([]);
+    } else {
+      setSearchResults(result);
+      if (result.length > 0) {
+        if (desktopSearchInputRef.current === document.activeElement && !isMobileSheetOpen) setIsDesktopPopoverOpen(true);
+        if (mobileSearchInputRef.current === document.activeElement && isMobileSheetOpen) setIsMobilePopoverOpen(true);
+      } else {
         setIsDesktopPopoverOpen(false);
         setIsMobilePopoverOpen(false);
-        return;
       }
+    }
+    setIsSearching(false);
+  }, [isMobileSheetOpen]);
 
-      setIsSearching(true);
-      const result = await searchLocalGamesByNameAction(debouncedSearchTerm);
-
-      if ('error' in result) {
-        setSearchResults([]);
-      } else {
-        setSearchResults(result);
-        if (result.length > 0) {
-          if (desktopSearchInputRef.current === document.activeElement && !isMobileSheetOpen) setIsDesktopPopoverOpen(true);
-          if (mobileSearchInputRef.current === document.activeElement && isMobileSheetOpen) setIsMobilePopoverOpen(true);
-        } else {
-          setIsDesktopPopoverOpen(false);
-          setIsMobilePopoverOpen(false);
-        }
-      }
-      setIsSearching(false);
-    };
-
-    performSearch();
-  }, [debouncedSearchTerm, isMobileSheetOpen]); 
+  useEffect(() => {
+    performSearch(debouncedSearchTerm);
+  }, [debouncedSearchTerm, performSearch]);
 
   const handleResultClick = () => {
     setSearchTerm('');
@@ -125,7 +125,7 @@ export function Header() {
     }
   };
 
-  const authBlockDesktop = (
+  const authBlock = (
     loading ? (
       <div className="h-8 w-20 animate-pulse rounded-md bg-primary-foreground/20"></div>
     ) : user ? (
@@ -178,7 +178,7 @@ export function Header() {
           href="/signin"
           className={cn(
             buttonVariants({ variant: 'ghost', size: 'sm' }),
-            "text-sm font-medium transition-colors hover:bg-primary-foreground/10 hover:text-primary-foreground focus:outline-none focus:ring-2 focus:ring-accent rounded-md px-2 sm:px-3 py-1.5"
+            "text-sm font-medium transition-colors hover:bg-primary-foreground/10 hover:text-primary-foreground focus:outline-none focus:ring-2 focus:ring-accent rounded-md px-3 py-1.5" 
           )}
         >
             <LogIn size={16} className="sm:mr-1.5"/>
@@ -268,9 +268,9 @@ export function Header() {
             <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Morchiometro</h1>
           </Link>
           
-          <div className="flex items-center gap-2">
-            {/* Desktop Search Bar - shown on md and up */}
-            <div className="relative hidden md:block">
+          {/* Desktop Search and Auth Container - Right aligned */}
+          <div className="hidden md:flex items-center gap-4">
+            <div className="relative">
               <Popover 
                 open={isDesktopPopoverOpen && searchTerm.length >=2 && !isMobileSheetOpen && (searchResults.length > 0 || isSearching || (debouncedSearchTerm.length >=2 && !isSearching))} 
                 onOpenChange={setIsDesktopPopoverOpen} 
@@ -287,7 +287,7 @@ export function Header() {
                       onFocus={() => {
                         if (searchTerm.length >=2 && !isMobileSheetOpen && (searchResults.length > 0 || isSearching || (debouncedSearchTerm.length >=2 && !isSearching))) setIsDesktopPopoverOpen(true);
                       }}
-                      className="h-8 w-48 lg:w-64 rounded-md pl-9 pr-3 text-sm bg-primary-foreground/10 text-foreground placeholder:text-muted-foreground border-border focus:ring-accent focus:bg-primary-foreground/20"
+                      className="h-8 w-48 lg:w-64 rounded-md pl-9 pr-3 text-sm bg-card text-card-foreground placeholder:text-muted-foreground border-border focus:ring-accent focus:bg-card"
                     />
                     {isSearching && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />}
                   </div>
@@ -295,75 +295,72 @@ export function Header() {
                 {desktopSearchPopoverContent}
               </Popover>
             </div>
+            {authBlock}
+          </div>
 
-            {/* Auth Controls - visible on all screen sizes, responsive styling within */}
-            <div className="flex items-center">
-              {authBlockDesktop}
-            </div>
+          {/* Mobile Auth and Menu Trigger Container - Right aligned */}
+          <div className="flex items-center gap-1 md:hidden">
+            {authBlock} {/* Auth block also here for mobile, responsive classes handle its content */}
+            <Sheet open={isMobileSheetOpen} onOpenChange={setIsMobileSheetOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="hover:bg-primary-foreground/10 focus-visible:ring-accent">
+                  <Menu className="h-6 w-6" />
+                  <span className="sr-only">Apri menu</span>
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-[280px] bg-card p-0 text-card-foreground flex flex-col">
+                <SheetHeader className="p-4 border-b">
+                  <SheetTitle className="text-left">
+                    <SheetClose asChild>
+                      <Link href="/" className="flex items-center gap-2 text-primary transition-opacity hover:opacity-80">
+                        <PoopEmojiLogo />
+                        <span className="text-lg font-bold">Morchiometro</span>
+                      </Link>
+                    </SheetClose>
+                  </SheetTitle>
+                </SheetHeader>
+                
+                <div className="p-4">
+                  <Popover 
+                    open={isMobilePopoverOpen && searchTerm.length >=2 && searchResults.length > 0 && isMobileSheetOpen} 
+                    onOpenChange={setIsMobilePopoverOpen} 
+                  >
+                    <PopoverAnchor>
+                        <div className="relative flex items-center">
+                          <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                          <Input
+                            ref={mobileSearchInputRef}
+                            type="search"
+                            placeholder="Cerca un gioco..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onFocus={() => {
+                              if (searchTerm.length >=2 && isMobileSheetOpen && (searchResults.length > 0 || isSearching || (debouncedSearchTerm.length >=2 && !isSearching))) setIsMobilePopoverOpen(true);
+                            }}
+                            className="h-9 w-full rounded-md pl-9 pr-3 text-sm bg-background text-foreground border-input focus:ring-primary/50"
+                          />
+                          {isSearching && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />}
+                        </div>
+                      </PopoverAnchor>
+                      {mobileSearchPopoverContent}
+                  </Popover>
+                </div>
 
-            {/* Mobile Menu Trigger - only on mobile */}
-            <div className="md:hidden">
-              <Sheet open={isMobileSheetOpen} onOpenChange={setIsMobileSheetOpen}>
-                <SheetTrigger asChild>
-                  <Button variant="ghost" size="icon" className="hover:bg-primary-foreground/10 focus-visible:ring-accent">
-                    <Menu className="h-6 w-6" />
-                    <span className="sr-only">Apri menu</span>
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="right" className="w-[280px] bg-card p-0 text-card-foreground flex flex-col">
-                  <SheetHeader className="p-4 border-b">
-                    <SheetTitle className="text-left">
-                      <SheetClose asChild>
-                        <Link href="/" className="flex items-center gap-2 text-primary transition-opacity hover:opacity-80">
-                          <PoopEmojiLogo />
-                          <span className="text-lg font-bold">Morchiometro</span>
+                <nav className="flex-1 flex flex-col space-y-1 p-4 pt-0 overflow-y-auto">
+                  {mainNavLinks.map(link => (
+                    <SheetClose asChild key={`mobile-nav-${link.href}`}>
+                        <Link
+                          href={link.href}
+                          className={cn(buttonVariants({ variant: "ghost" }), "w-full justify-start gap-2 text-sm font-medium text-foreground rounded-md px-3 py-2")}
+                        >
+                          {link.icon}
+                          {link.label}
                         </Link>
                       </SheetClose>
-                    </SheetTitle>
-                  </SheetHeader>
-                  
-                  <div className="p-4">
-                    <Popover 
-                      open={isMobilePopoverOpen && searchTerm.length >=2 && searchResults.length > 0 && isMobileSheetOpen} 
-                      onOpenChange={setIsMobilePopoverOpen} 
-                    >
-                      <PopoverAnchor>
-                          <div className="relative flex items-center mb-4">
-                            <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                            <Input
-                              ref={mobileSearchInputRef}
-                              type="search"
-                              placeholder="Cerca un gioco..."
-                              value={searchTerm}
-                              onChange={(e) => setSearchTerm(e.target.value)}
-                              onFocus={() => {
-                                if (searchTerm.length >=2 && isMobileSheetOpen && (searchResults.length > 0 || isSearching || (debouncedSearchTerm.length >=2 && !isSearching))) setIsMobilePopoverOpen(true);
-                              }}
-                              className="h-9 w-full rounded-md pl-9 pr-3 text-sm bg-background text-foreground border-input focus:ring-primary/50"
-                            />
-                            {isSearching && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />}
-                          </div>
-                        </PopoverAnchor>
-                        {mobileSearchPopoverContent}
-                    </Popover>
-                  </div>
-
-                  <nav className="flex-1 flex flex-col space-y-1 p-4 pt-0 overflow-y-auto">
-                    {mainNavLinks.map(link => (
-                      <SheetClose asChild key={`mobile-nav-${link.href}`}>
-                          <Link
-                            href={link.href}
-                            className={cn(buttonVariants({ variant: "ghost" }), "w-full justify-start gap-2 text-sm font-medium text-foreground rounded-md px-3 py-2")}
-                          >
-                            {link.icon}
-                            {link.label}
-                          </Link>
-                        </SheetClose>
-                    ))}
-                  </nav>
-                </SheetContent>
-              </Sheet>
-            </div>
+                  ))}
+                </nav>
+              </SheetContent>
+            </Sheet>
           </div> 
         </div>
       </header>
@@ -389,4 +386,3 @@ export function Header() {
     </div>
   );
 }
-
