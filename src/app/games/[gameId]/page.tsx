@@ -17,6 +17,7 @@ import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-di
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { doc, deleteDoc, updateDoc, getDocs, collection, getDoc, arrayUnion, arrayRemove, increment, writeBatch } from 'firebase/firestore';
+import { fetchUserPlaysForGameFromBggAction, fetchAndUpdateBggGameDetailsAction } from '@/lib/actions';
 
 import {
   Accordion,
@@ -206,7 +207,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         await deleteDoc(reviewDocRef);
         await updateGameOverallRatingAfterDelete(); 
         toast({ title: "Recensione Eliminata", description: "La tua recensione è stata eliminata con successo." });
-        // Re-fetch data to update UI
         await fetchGameData();
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
@@ -551,7 +551,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
         <div className="flex flex-col md:flex-row">
           <div className="flex-1 p-6 space-y-4 md:order-1"> 
-            <div className="flex justify-between items-start mb-2">
+             <div className="flex justify-between items-start mb-2">
                 <div className="flex items-center gap-2 flex-shrink min-w-0 mr-2"> 
                     <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground truncate">{game.name}</h1>
                     {game.bggId > 0 && (
@@ -868,7 +868,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                                             return scoreB - scoreA;
                                         })
                                         .map((player, pIndex) => (
-                                        <li key={pIndex} className={`flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5 ${pIndex % 2 !== 0 ? 'bg-muted/30' : ''}`}>
+                                        <li key={pIndex} className={`flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5 ${pIndex % 2 === 0 ? 'bg-muted/30' : ''}`}>
                                             <div className="flex items-center gap-1.5 flex-grow min-w-0">
                                             <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                                             <span className={`truncate ${player.didWin ? 'font-semibold' : ''}`} title={player.name || player.username || 'Sconosciuto'}>
@@ -1001,3 +1001,4 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
+
