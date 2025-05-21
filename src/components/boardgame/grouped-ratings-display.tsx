@@ -55,10 +55,10 @@ export function GroupedRatingsDisplay({
       {groupedAverages.map((section, index) => {
         const IconComponent = section.iconName ? iconMap[section.iconName] : null;
         return (
-          <AccordionItem 
-            value={`section-${index}`} 
+          <AccordionItem
+            value={`section-${index}`}
             key={section.sectionTitle}
-            className={cn(index === groupedAverages.length - 1 ? "" : "border-b")}
+            className={cn(index === groupedAverages.length - 1 ? "border-b-0" : "border-b")}
           >
             <AccordionTrigger className="hover:no-underline text-left py-3">
               <div className="flex justify-between w-full items-center pr-2 gap-2">
@@ -72,9 +72,15 @@ export function GroupedRatingsDisplay({
               </div>
             </AccordionTrigger>
             <AccordionContent className="pb-2 pt-1">
-              <ul className="space-y-2 pl-2 pt-2">
-                {section.subRatings.map(sub => (
-                  <li key={sub.name} className="flex justify-between items-center text-sm">
+              <ul className="space-y-1 pl-2 pt-2">
+                {section.subRatings.map((sub, subIndex) => (
+                  <li 
+                    key={sub.name} 
+                    className={cn(
+                      "flex justify-between items-center text-sm py-1.5",
+                      subIndex < section.subRatings.length - 1 ? "border-b border-border" : ""
+                    )}
+                  >
                     <span className="text-muted-foreground">{sub.name}:</span>
                     <span className="font-medium text-foreground">{formatRatingNumber(sub.average)} / 5</span>
                   </li>
