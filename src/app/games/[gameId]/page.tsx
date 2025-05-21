@@ -208,7 +208,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         await deleteDoc(reviewDocRef);
         await updateGameOverallRatingAfterDelete(); 
         toast({ title: "Recensione Eliminata", description: "La tua recensione è stata eliminata con successo." });
-        // No need to call revalidateGameDataAction here as updateGameOverallRatingAfterDelete already does
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({ title: "Errore", description: `Impossibile eliminare la recensione: ${errorMessage}`, variant: "destructive" });
@@ -652,7 +651,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             
              <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
                 {hasDataForSection(game.designers) && (
-                  <div className="flex items-baseline gap-2"> {/* Removed col-span-2 */}
+                  <div className="flex items-baseline gap-2">
                     <span className="inline-flex items-center"><PenTool size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
                     <span className="font-medium hidden sm:inline">Autori:</span>
                     <span>{game.designers!.join(', ')}</span>
@@ -693,7 +692,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                     </div>
                 )}
                 <div className="flex items-baseline gap-2">
-                    <span className="inline-flex items-center"><Dices size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
+                    <span className="inline-flex items-center"><Repeat size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
                     <span className="font-medium hidden sm:inline">Partite:</span>
                     <span>{game.lctr01Plays ?? 0}</span>
                 </div>
@@ -769,184 +768,204 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         </div>
       </Card>
 
-       {/* Sezione Partite Registrate */}
-       {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
-        <Card className="shadow-md border border-border rounded-lg">
-            <CardHeader className="flex flex-row justify-between items-center">
-                <CardTitle className="text-xl flex items-center gap-2">
-                    <BarChart3 className="h-5 w-5 text-primary"/>
-                    Partite Registrate
-                </CardTitle>
-                {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
-                    <Badge variant="secondary">{game.lctr01PlayDetails.length}</Badge>
-                )}
-            </CardHeader>
-            <CardContent>
-                <Accordion type="single" collapsible className="w-full">
-                    {game.lctr01PlayDetails.map((play) => {
-                        const winners = play.players?.filter(p => p.didWin) || [];
-                        const winnerNames = winners.map(p => p.name || p.username || 'Sconosciuto').join(', ');
-                        return (
-                        <AccordionItem value={`play-${play.playId}`} key={play.playId}>
-                            <AccordionTrigger className="hover:no-underline text-left py-3 text-sm">
-                                <div className="flex justify-between w-full items-center pr-2 gap-2">
-                                <div className="flex items-center gap-2">
-                                    <Dices size={16} className="text-muted-foreground/80 flex-shrink-0" />
-                                    <span className="font-medium">{formatReviewDate(play.date)}</span>
-                                    {play.quantity > 1 && (
-                                        <>
-                                            <span className="text-muted-foreground">-</span>
-                                            <span>{play.quantity} partite</span>
-                                        </>
+      <div className="lg:col-span-2 space-y-8"> {/* This div wraps the main content below the top card */}
+          {/* Partite Registrate Section */}
+          {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
+            <Card className="shadow-md border border-border rounded-lg">
+                <CardHeader className="flex flex-row justify-between items-center">
+                    <CardTitle className="text-xl flex items-center gap-2">
+                        <Dices className="h-5 w-5 text-primary"/> {/* Changed Icon */}
+                        Partite Registrate
+                    </CardTitle>
+                    {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
+                        <Badge variant="secondary">{game.lctr01PlayDetails.length}</Badge>
+                    )}
+                </CardHeader>
+                <CardContent>
+                    <Accordion type="single" collapsible className="w-full">
+                        {game.lctr01PlayDetails.map((play) => {
+                            const winners = play.players?.filter(p => p.didWin) || [];
+                            const winnerNames = winners.map(p => p.name || p.username || 'Sconosciuto').join(', ');
+                            return (
+                            <AccordionItem value={`play-${play.playId}`} key={play.playId}>
+                                <AccordionTrigger className="hover:no-underline text-left py-3 text-sm">
+                                    <div className="flex justify-between w-full items-center pr-2 gap-2">
+                                    <div className="flex items-center gap-2">
+                                        <Dices size={16} className="text-muted-foreground/80 flex-shrink-0" />
+                                        <span className="font-medium">{formatReviewDate(play.date)}</span>
+                                        {play.quantity > 1 && (
+                                            <>
+                                                <span className="text-muted-foreground">-</span>
+                                                <span>{play.quantity} partite</span>
+                                            </>
+                                        )}
+                                    </div>
+                                        {winners.length > 0 && (
+                                            <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-300 whitespace-nowrap">
+                                                🏆 {winnerNames}
+                                            </Badge>
+                                        )}
+                                    </div>
+                                </AccordionTrigger>
+                                <AccordionContent className="pb-4 pt-2 text-sm">
+                                <div className="space-y-2">
+                                    {(play.location || play.date) && (
+                                        <div className="flex justify-between items-baseline text-xs mb-1">
+                                            {play.location ? (
+                                            <div>
+                                                <strong className="text-muted-foreground">Luogo:</strong>
+                                                <span className="ml-1">{play.location}</span>
+                                            </div>
+                                            ) : <div />}
+                                            {play.date && (
+                                            <div>
+                                                <strong className="text-muted-foreground">Data:</strong>
+                                                <span className="ml-1">{formatPlayDate(play.date)}</span>
+                                            </div>
+                                            )}
+                                        </div>
+                                    )}
+                                    {play.comments && (
+                                    <div className="grid grid-cols-[auto_1fr] gap-x-2 items-baseline">
+                                        <strong className="text-muted-foreground text-xs">Commenti:</strong>
+                                        <p className="text-xs whitespace-pre-wrap">{play.comments}</p>
+                                    </div>
+                                    )}
+                                    {play.players && play.players.length > 0 && (
+                                    <div>
+                                        <strong className="block mb-1.5 text-muted-foreground text-xs">Giocatori:</strong>
+                                        <ul className="space-y-1 pl-1">
+                                        {play.players
+                                            .slice()
+                                            .sort((a, b) => {
+                                                const scoreA = parseInt(a.score || "0", 10);
+                                                const scoreB = parseInt(b.score || "0", 10);
+                                                return scoreB - scoreA;
+                                            })
+                                            .map((player, pIndex) => (
+                                            <li key={pIndex} className="flex items-center gap-2 text-xs">
+                                            <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                                            <span className="flex-grow truncate" title={player.name || player.username || 'Sconosciuto'}>
+                                                {player.name || player.username || 'Sconosciuto'}
+                                            </span>
+                                            {player.didWin && <Badge variant="outline" size="sm" className="text-green-600 border-green-500">Vinto</Badge>}
+                                            {player.isNew && <Badge variant="outline" size="sm" className="text-blue-600 border-blue-500">Nuovo</Badge>}
+                                            {player.score && <Badge variant="secondary" size="sm" className="font-mono text-xs">{player.score} pt.</Badge>}
+                                            </li>
+                                        ))}
+                                        </ul>
+                                    </div>
                                     )}
                                 </div>
-                                    {winners.length > 0 && (
-                                        <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-300 whitespace-nowrap">
-                                            🏆 {winnerNames}
-                                        </Badge>
-                                    )}
-                                </div>
-                            </AccordionTrigger>
-                            <AccordionContent className="pb-4 pt-2 text-sm">
-                            <div className="space-y-2">
-                                {play.location && (
-                                <div className="grid grid-cols-[auto_1fr] gap-x-2 items-baseline">
-                                    <strong className="text-muted-foreground text-xs">Luogo:</strong>
-                                    <span className="text-xs">{play.location}</span>
-                                </div>
-                                )}
-                                {play.comments && (
-                                <div className="grid grid-cols-[auto_1fr] gap-x-2 items-baseline">
-                                    <strong className="text-muted-foreground text-xs">Commenti:</strong>
-                                    <p className="text-xs whitespace-pre-wrap">{play.comments}</p>
-                                </div>
-                                )}
-                                {play.players && play.players.length > 0 && (
-                                <div>
-                                    <strong className="block mb-1.5 text-muted-foreground text-xs">Giocatori:</strong>
-                                    <ul className="space-y-1 pl-1">
-                                    {play.players.map((player, pIndex) => (
-                                        <li key={pIndex} className="flex items-center gap-2 text-xs">
-                                        <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                                        <span className="flex-grow truncate" title={player.name || player.username || 'Sconosciuto'}>
-                                            {player.name || player.username || 'Sconosciuto'}
-                                        </span>
-                                        {player.score && <Badge variant="secondary" size="sm" className="font-mono text-xs">{player.score} pt.</Badge>}
-                                        {player.didWin && <Badge variant="outline" size="sm" className="text-green-600 border-green-500">Vinto</Badge>}
-                                        {player.isNew && <Badge variant="outline" size="sm" className="text-blue-600 border-blue-500">Nuovo</Badge>}
-                                        </li>
-                                    ))}
-                                    </ul>
-                                </div>
-                                )}
-                            </div>
-                            </AccordionContent>
-                        </AccordionItem>
-                    );
-                })}
-                </Accordion>
-            </CardContent>
-        </Card>
-      )}
+                                </AccordionContent>
+                            </AccordionItem>
+                        );
+                    })}
+                    </Accordion>
+                </CardContent>
+            </Card>
+          )}
 
-    <div className="lg:col-span-2 space-y-8">
-        {currentUser && !authLoading && userReview && (
-        <div> 
-            <div className="flex justify-between items-center gap-2 mb-4">
-            <h2 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h2>
-            <div className="flex items-center gap-2 flex-shrink-0">
-                <Button asChild size="sm">
-                  <Link href={`/games/${gameId}/rate`}>
-                    <span className="flex items-center">
-                        <Edit className="mr-0 sm:mr-2 h-4 w-4" />
-                        <span className="hidden sm:inline">Modifica</span>
-                    </span>
-                  </Link>
+          {/* La Tua Recensione / Valuta Questo Gioco Section */}
+          {currentUser && !authLoading && (
+            userReview ? (
+              <div> {/* Removed card styling from this div */}
+                <div className="flex justify-between items-center gap-2 mb-4">
+                  <h2 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h2>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                      <Button asChild size="sm">
+                          <Link href={`/games/${gameId}/rate`}>
+                              <span className="flex items-center">
+                                  <Edit className="mr-0 sm:mr-2 h-4 w-4" />
+                                  <span className="hidden sm:inline">Modifica</span>
+                              </span>
+                          </Link>
+                      </Button>
+                      <AlertDialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
+                         <AlertDialogTrigger asChild>
+                          <Button variant="destructive" size="sm" disabled={isDeletingReview}>
+                              <span className="flex items-center">
+                              {isDeletingReview ? <Loader2 className="mr-0 sm:mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-0 sm:mr-2 h-4 w-4" />}
+                              <span className="hidden sm:inline">Elimina</span>
+                              </span>
+                          </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                          <AlertDialogHeader>
+                          <AlertDialogTitle>Sei sicuro?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                              Questa azione non può essere annullata. Eliminerà permanentemente la tua recensione per {game.name}.
+                          </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                          <AlertDialogCancel>Annulla</AlertDialogCancel>
+                          <AlertDialogAction onClick={confirmDeleteUserReview} className="bg-destructive hover:bg-destructive/90">
+                              {isDeletingReview ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Conferma Eliminazione" }
+                          </AlertDialogAction>
+                          </AlertDialogFooter>
+                      </AlertDialogContent>
+                      </AlertDialog>
+                  </div>
+                </div>
+                <ReviewItem review={userReview} />
+              </div>
+            ) : (
+              <Card className="p-6 border border-border rounded-lg shadow-md bg-card">
+                <CardTitle className="text-xl font-semibold text-foreground mb-1">Condividi la Tua Opinione</CardTitle>
+                <CardDescription className="mb-4">
+                Aiuta gli altri condividendo la tua esperienza con questo gioco.
+                </CardDescription>
+                <Button asChild className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90">
+                <Link href={`/games/${gameId}/rate`}>
+                    <Edit className="mr-2 h-4 w-4" />
+                    Valuta questo Gioco
+                </Link>
                 </Button>
-                <AlertDialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
-                   <AlertDialogTrigger asChild>
-                    <Button variant="destructive" size="sm" disabled={isDeletingReview}>
-                        <span className="flex items-center">
-                        {isDeletingReview ? <Loader2 className="mr-0 sm:mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-0 sm:mr-2 h-4 w-4" />}
-                        <span className="hidden sm:inline">Elimina</span>
-                        </span>
-                    </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                    <AlertDialogTitle>Sei sicuro?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        Questa azione non può essere annullata. Eliminerà permanentemente la tua recensione per {game.name}.
-                    </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                    <AlertDialogCancel>Annulla</AlertDialogCancel>
-                    <AlertDialogAction onClick={confirmDeleteUserReview} className="bg-destructive hover:bg-destructive/90">
-                        {isDeletingReview ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Conferma Eliminazione" }
-                    </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-                </AlertDialog>
-            </div>
-            </div>
-            <ReviewItem review={userReview} />
-        </div>
-        )}
-        
-        {currentUser && !authLoading && !userReview && (
-        <Card className="p-6 border border-border rounded-lg shadow-md bg-card">
-            <CardTitle className="text-xl font-semibold text-foreground mb-1">Condividi la Tua Opinione</CardTitle>
-            <CardDescription className="mb-4">
-            Aiuta gli altri condividendo la tua esperienza con questo gioco.
-            </CardDescription>
-            <Button asChild className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90">
-            <Link href={`/games/${gameId}/rate`}>
-                <Edit className="mr-2 h-4 w-4" />
-                Valuta questo Gioco
-            </Link>
-            </Button>
-        </Card>
-        )}
+              </Card>
+            )
+          )}
 
+          {!currentUser && !authLoading && (
+                  <Alert variant="default" className="bg-secondary/30 border-secondary">
+                  <Info className="h-4 w-4 text-secondary-foreground" />
+                  <AlertDescription className="text-secondary-foreground">
+                      <Link href={`/signin?redirect=/games/${gameId}/rate`} className="font-semibold underline">Accedi</Link> per aggiungere una recensione.
+                  </AlertDescription>
+                  </Alert>
+          )}
+          
+          {/* Altre Recensioni Section */}
+          {remainingReviews.length > 0 && (
+          <>
+              <Separator className="my-6" />
+              <h2 className="text-2xl font-semibold text-foreground mb-6 flex items-center gap-2">
+              <MessageSquare className="h-6 w-6 text-primary"/>
+              {userReview ? `Altre Recensioni (${remainingReviews.length})` : `Recensioni (${remainingReviews.length})`}
+              </h2>
+              <ReviewList reviews={remainingReviews} />
+          </>
+          )}
 
-        {!currentUser && !authLoading && (
-                <Alert variant="default" className="mt-4 bg-secondary/30 border-secondary">
-                <Info className="h-4 w-4 text-secondary-foreground" />
-                <AlertDescription className="text-secondary-foreground">
-                    <Link href={`/signin?redirect=/games/${gameId}/rate`} className="font-semibold underline">Accedi</Link> per aggiungere una recensione.
-                </AlertDescription>
-                </Alert>
-        )}
-        
-        {remainingReviews.length > 0 && (
-        <>
-            <Separator className="my-6" />
-            <h2 className="text-2xl font-semibold text-foreground mb-6 flex items-center gap-2">
-            <MessageSquare className="h-6 w-6 text-primary"/>
-            {userReview ? `Altre Recensioni (${remainingReviews.length})` : `Recensioni (${remainingReviews.length})`}
-            </h2>
-            <ReviewList reviews={remainingReviews} />
-        </>
-        )}
+          {remainingReviews.length === 0 && userReview && (
+          <Alert variant="default" className="mt-6 bg-secondary/30 border-secondary">
+              <Info className="h-4 w-4 text-secondary-foreground" />
+              <AlertDescription className="text-secondary-foreground">
+              Nessun altro ha ancora recensito questo gioco.
+              </AlertDescription>
+          </Alert>
+          )}
 
-        {remainingReviews.length === 0 && userReview && (
-        <Alert variant="default" className="mt-6 bg-secondary/30 border-secondary">
-            <Info className="h-4 w-4 text-secondary-foreground" />
-            <AlertDescription className="text-secondary-foreground">
-            Nessun altro ha ancora recensito questo gioco.
-            </AlertDescription>
-        </Alert>
-        )}
-
-        {remainingReviews.length === 0 && !userReview && (!game.reviews || game.reviews.length === 0) && (
-        <Alert variant="default" className="mt-6 bg-secondary/30 border-secondary">
-            <Info className="h-4 w-4 text-secondary-foreground" />
-            <AlertDescription className="text-secondary-foreground">
-            Nessuna recensione ancora per questo gioco.
-            </AlertDescription>
-        </Alert>
-        )}
-    </div>
+          {remainingReviews.length === 0 && !userReview && (!game.reviews || game.reviews.length === 0) && (
+          <Alert variant="default" className="mt-6 bg-secondary/30 border-secondary">
+              <Info className="h-4 w-4 text-secondary-foreground" />
+              <AlertDescription className="text-secondary-foreground">
+              Nessuna recensione ancora per questo gioco.
+              </AlertDescription>
+          </Alert>
+          )}
+      </div>
     </div>
   );
 }
+
+
