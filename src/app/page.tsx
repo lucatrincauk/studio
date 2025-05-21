@@ -3,7 +3,7 @@ import { getAllGamesAction, getFeaturedGamesAction, getLastPlayedGameAction } fr
 import { GameCard } from '@/components/boardgame/game-card';
 import { Separator } from '@/components/ui/separator';
 import type { BoardGame, BggPlayDetail } from '@/lib/types';
-import { Star, TrendingUp, Library, Info, Dices, UserCircle2, Sparkles, Trophy, Clock, Edit } from 'lucide-react';
+import { Star, TrendingUp, Library, Info, Dices, UserCircle2, Sparkles, Trophy, Clock, Edit, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { formatRatingNumber, formatReviewDate } from '@/lib/utils';
@@ -20,9 +20,11 @@ export default async function HomePage() {
   
   let lastPlayedData: { game: BoardGame | null, lastPlayDetail: BggPlayDetail | null } = { game: null, lastPlayDetail: null };
   try {
+    // For now, hardcoding the username. This could be dynamic if users have BGG usernames linked.
     lastPlayedData = await getLastPlayedGameAction("lctr01");
   } catch (e) {
     console.error("Error fetching last played game on homepage:", e);
+    // Silently fail for this non-critical section, or set a specific error state
   }
 
   const [featuredGamesResult, allGamesResult] = await Promise.all([
@@ -179,15 +181,15 @@ export default async function HomePage() {
                    <span
                     aria-hidden="true"
                     className={cn(
-                        `absolute pointer-events-none select-none leading-none z-0 font-bold text-muted-foreground/10 `,
-                        `-bottom-[55px] -right-[30px] text-[255px]`,                           // Default (mobile)
-                        `sm:-bottom-[65px] sm:-right-[30px] sm:text-[300px]`,  // Small screens
-                        `lg:-bottom-[70px] lg:-right-[36px] lg:text-[340px]`     // Large screens
+                        `absolute pointer-events-none select-none leading-none z-0 font-bold text-muted-foreground/10`,
+                        `text-[255px] -bottom-[55px] -right-[30px]`,                           // Default (mobile)
+                        `sm:text-[300px] sm:-bottom-[65px] sm:-right-[30px]`,  // Small screens
+                        `lg:text-[340px] lg:-bottom-[75px] lg:-right-[36px]`     // Large screens
                     )}
                   >
                     {index + 1}
                   </span>
-                  <div className="relative z-10 flex items-center gap-x-3 sm:gap-x-4 flex-grow mr-5 sm:mr-8 lg:mr-10">
+                  <div className="relative z-10 flex items-center gap-x-3 sm:gap-x-4 flex-grow mr-6 sm:mr-8 lg:mr-10">
                     <div className="w-24 h-32 sm:w-28 sm:h-36 md:w-32 md:h-40 flex-shrink-0"> 
                       <GameCard game={game} variant="featured" priority={index < 5} showOverlayText={false} />
                     </div>
@@ -237,3 +239,4 @@ export default async function HomePage() {
 }
 
 export const revalidate = 3600;
+
