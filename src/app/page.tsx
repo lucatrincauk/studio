@@ -87,12 +87,12 @@ export default async function HomePage() {
               <Dices className="h-7 w-7 text-primary" />
               Ultima Partita Giocata
             </h2>
-            <div className="w-full sm:w-1/2 md:w-1/3 lg:w-1/4 mx-auto sm:mx-0">
+            <div className="w-full max-w-xs mx-auto"> {/* Changed container for better sizing */}
               <GameCard
                 game={lastPlayedGame}
                 variant="featured"
                 priority={true}
-                showOverlayText={true}
+                showOverlayText={true} 
               />
             </div>
             <Separator className="my-10" />
