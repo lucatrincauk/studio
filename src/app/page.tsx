@@ -16,8 +16,14 @@ import { cn } from '@/lib/utils';
 
 export default async function HomePage() {
   const featuredGamesPromise = getFeaturedGamesAction();
-  const allGamesPromise = getAllGamesAction();
+  let allGamesResult: BoardGame[] | { error: string } = [];
   
+  try {
+    allGamesResult = await getAllGamesAction();
+  } catch (e) {
+    console.error("Error fetching all games on homepage:", e);
+  }
+
   let lastPlayedData: { game: BoardGame | null, lastPlayDetail: BggPlayDetail | null } = { game: null, lastPlayDetail: null };
   try {
     lastPlayedData = await getLastPlayedGameAction("lctr01");
@@ -25,12 +31,12 @@ export default async function HomePage() {
     console.error("Error fetching last played game on homepage:", e);
   }
 
-  const [featuredGamesResult, allGamesResult] = await Promise.all([
+  const [featuredGamesResultResolved] = await Promise.all([
     featuredGamesPromise, 
-    allGamesPromise,
+    // allGamesPromise is already resolved above
   ]);
 
-  const featuredGames = Array.isArray(featuredGamesResult) ? featuredGamesResult : [];
+  const featuredGames = Array.isArray(featuredGamesResultResolved) ? featuredGamesResultResolved : [];
   const allGames = Array.isArray(allGamesResult) ? allGamesResult : [];
   
   const lastPlayedGame = lastPlayedData.game;
@@ -90,19 +96,19 @@ export default async function HomePage() {
             </h2>
             <Card className="shadow-md border border-border rounded-lg w-full">
               <CardHeader className="p-3 flex flex-row items-start gap-3">
-                 <div className="relative h-24 w-20 flex-shrink-0 rounded-md overflow-hidden shadow-sm">
+                 <div className="relative h-16 w-12 sm:h-20 sm:w-16 flex-shrink-0 rounded-sm overflow-hidden shadow-sm">
                     <SafeImage
                       src={lastPlayedGame.coverArtUrl}
-                      fallbackSrc={`https://placehold.co/80x120.png?text=${encodeURIComponent(lastPlayedGame.name?.substring(0,3) || 'N/A')}`}
+                      fallbackSrc={`https://placehold.co/64x80.png?text=${encodeURIComponent(lastPlayedGame.name?.substring(0,3) || 'N/A')}`}
                       alt={`${lastPlayedGame.name || 'Gioco'} copertina`}
                       fill
-                      sizes="(max-width: 640px) 80px, 120px"
+                      sizes="(max-width: 640px) 48px, 64px"
                       className="object-cover"
                       data-ai-hint={`board game ${lastPlayedGame.name?.split(' ')[0]?.toLowerCase() || 'mini'}`}
                     />
                   </div>
                   <div className="flex-1 flex justify-between items-start">
-                    <div> {/* Left part: Title and Date */}
+                    <div>
                         <CardTitle className="text-lg font-semibold text-foreground hover:text-primary hover:underline">
                         <Link href={`/games/${lastPlayedGame.id}`}>
                             {lastPlayedGame.name}
@@ -130,13 +136,12 @@ export default async function HomePage() {
                   )}
                   {lastPlayDetail.players && lastPlayDetail.players.length > 0 && (
                     <div>
-                      <h4 className="text-xs font-semibold text-muted-foreground mb-1">Giocatori:</h4>
                       <ul className="pl-1">
                         {lastPlayDetail.players
                           .slice()
                           .sort((a, b) => parseInt(b.score || "0", 10) - parseInt(a.score || "0", 10))
                           .map((player, pIndex) => (
-                            <li key={pIndex} className={cn(`flex items-center justify-between text-xs border-b border-border last:border-b-0 py-0.5 px-2`, pIndex % 2 === 0 ? 'bg-muted/30' : '')}>
+                            <li key={pIndex} className={cn(`flex items-center justify-between text-xs border-b border-border last:border-b-0 py-0.5`, pIndex % 2 === 0 ? 'bg-muted/30' : '', "px-2")}>
                               <div className="flex items-center gap-1.5 flex-grow min-w-0">
                                 <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                                 <span className={cn("truncate", player.didWin ? 'font-semibold' : '')} title={player.name || player.username || 'Sconosciuto'}>
@@ -180,22 +185,20 @@ export default async function HomePage() {
                   <span
                     aria-hidden="true"
                     className={cn(
-                      "absolute pointer-events-none select-none leading-none z-0 text-muted-foreground/10",
+                      "absolute font-bold text-muted-foreground/10 pointer-events-none select-none leading-none z-0",
                       // Mobile
-                      "text-[255pt] -bottom-[55px] -right-[30px]",
+                      "text-[255px] -bottom-[55px] -right-[30px]",
                       // Small screens
-                      "sm:text-[300pt] sm:-bottom-[65px] sm:-right-[30px]",
+                      "sm:text-[300px] sm:-bottom-[65px] sm:-right-[30px]",
                       // Large screens
-                      "lg:text-[340pt] lg:-bottom-[75px] lg:-right-[36px]"
+                      "lg:text-[340px] lg:-bottom-[75px] lg:-right-[36px]"
                     )}
                   >
                     {index + 1}
                   </span>
-                  {/* Game content: image and text */}
                   <div className={cn(
                       "relative z-10 flex items-center gap-x-3 sm:gap-x-4 flex-grow",
-                      // Responsive right margin to make space for the large background number
-                      "mr-5 sm:mr-8 lg:mr-10" 
+                      "mr-5 sm:mr-8 lg:mr-10"
                     )}>
                     <div className="w-24 sm:w-28 md:w-32 flex-shrink-0"> 
                       <GameCard game={game} variant="featured" priority={index < 5} showOverlayText={false} />
@@ -246,5 +249,4 @@ export default async function HomePage() {
 }
 
 export const revalidate = 3600;
-
     
