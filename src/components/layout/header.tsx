@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { LogOut, UserPlus, LogIn, MessagesSquare, Users2, ShieldCheck, UserCircle, Menu, TrendingUp, Library, Edit, BarChart3, Search as SearchIcon, Loader2, LayoutList, Dices, GaugeCircle, Heart, ListPlus, ListChecks, ExternalLink, Pin, PinOff, Clock } from 'lucide-react';
+import { LogOut, UserPlus, LogIn, MessagesSquare, Users2, ShieldCheck, UserCircle, Menu, TrendingUp, Library, Edit, Dices, Search as SearchIcon, Loader2, Settings, ExternalLink, Heart, ListPlus, ListChecks, Pin, PinOff, Clock, BarChart3 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import {
   DropdownMenu,
@@ -84,32 +84,39 @@ export function Header() {
     { href: "/plays", label: "Partite", icon: <Dices size={18} /> },
   ];
 
-  const performSearch = useCallback(async (term: string) => {
+ const performSearch = useCallback(async (term: string) => {
     if (term.length < 2) {
       setSearchResults([]);
       setIsSearching(false);
-      setIsDesktopPopoverOpen(false);
-      setIsMobilePopoverOpen(false);
+      // Do not close popovers here, let onFocus and open prop manage it
       return;
     }
-
     setIsSearching(true);
     const result = await searchLocalGamesByNameAction(term);
+    setIsSearching(false);
 
     if ('error' in result) {
       setSearchResults([]);
+      setIsDesktopPopoverOpen(false);
+      setIsMobilePopoverOpen(false);
     } else {
       setSearchResults(result);
       if (result.length > 0) {
-        if (desktopSearchInputRef.current === document.activeElement && !isMobileSheetOpen) setIsDesktopPopoverOpen(true);
-        if (mobileSearchInputRef.current === document.activeElement && isMobileSheetOpen) setIsMobilePopoverOpen(true);
+        // Open popover only if the corresponding input has focus
+        if (desktopSearchInputRef.current === document.activeElement && !isMobileSheetOpen) {
+            setIsDesktopPopoverOpen(true);
+        }
+        if (mobileSearchInputRef.current === document.activeElement && isMobileSheetOpen) {
+            setIsMobilePopoverOpen(true);
+        }
       } else {
-        setIsDesktopPopoverOpen(false);
-        setIsMobilePopoverOpen(false);
+        // If no results, ensure popovers are closed if they were opened by focus
+        if (desktopSearchInputRef.current === document.activeElement) setIsDesktopPopoverOpen(searchTerm.length >=2);
+        if (mobileSearchInputRef.current === document.activeElement) setIsMobilePopoverOpen(searchTerm.length >=2);
       }
     }
-    setIsSearching(false);
   }, [isMobileSheetOpen]);
+
 
   useEffect(() => {
     performSearch(debouncedSearchTerm);
@@ -120,11 +127,9 @@ export function Header() {
     setSearchResults([]);
     setIsDesktopPopoverOpen(false);
     setIsMobilePopoverOpen(false);
-    if (isMobileSheetOpen) {
-      setIsMobileSheetOpen(false); 
-    }
+    // SheetClose will handle closing the sheet if on mobile
   };
-
+  
   const authBlock = (
     loading ? (
       <div className="h-8 w-20 animate-pulse rounded-md bg-primary-foreground/20"></div>
@@ -178,7 +183,7 @@ export function Header() {
           href="/signin"
           className={cn(
             buttonVariants({ variant: 'ghost', size: 'sm' }),
-            "text-sm font-medium transition-colors hover:bg-primary-foreground/10 hover:text-primary-foreground focus:outline-none focus:ring-2 focus:ring-accent rounded-md px-3 py-1.5" 
+            "text-sm font-medium transition-colors hover:bg-primary-foreground/10 hover:text-primary-foreground focus:outline-none focus:ring-2 focus:ring-accent rounded-md px-2 py-1.5 sm:px-3" 
           )}
         >
             <LogIn size={16} className="sm:mr-1.5"/>
@@ -272,7 +277,7 @@ export function Header() {
           <div className="hidden md:flex items-center gap-4">
             <div className="relative">
               <Popover 
-                open={isDesktopPopoverOpen && searchTerm.length >=2 && !isMobileSheetOpen && (searchResults.length > 0 || isSearching || (debouncedSearchTerm.length >=2 && !isSearching))} 
+                open={isDesktopPopoverOpen && searchTerm.length >=2 && !isMobileSheetOpen && (searchResults.length > 0 || isSearching || (debouncedSearchTerm.length >=2 && !isSearching && desktopSearchInputRef.current === document.activeElement))}
                 onOpenChange={setIsDesktopPopoverOpen} 
               >
                 <PopoverAnchor>
@@ -287,7 +292,7 @@ export function Header() {
                       onFocus={() => {
                         if (searchTerm.length >=2 && !isMobileSheetOpen && (searchResults.length > 0 || isSearching || (debouncedSearchTerm.length >=2 && !isSearching))) setIsDesktopPopoverOpen(true);
                       }}
-                      className="h-8 w-48 lg:w-64 rounded-md pl-9 pr-3 text-sm bg-card text-card-foreground placeholder:text-muted-foreground border-border focus:ring-accent focus:bg-card"
+                      className="h-8 w-48 lg:w-64 rounded-md pl-9 pr-3 text-sm bg-primary-foreground/10 text-card-foreground placeholder:text-muted-foreground border-border focus:ring-accent focus:bg-primary-foreground/20"
                     />
                     {isSearching && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />}
                   </div>
@@ -300,7 +305,7 @@ export function Header() {
 
           {/* Mobile Auth and Menu Trigger Container - Right aligned */}
           <div className="flex items-center gap-1 md:hidden">
-            {authBlock} {/* Auth block also here for mobile, responsive classes handle its content */}
+            {authBlock} 
             <Sheet open={isMobileSheetOpen} onOpenChange={setIsMobileSheetOpen}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" className="hover:bg-primary-foreground/10 focus-visible:ring-accent">
@@ -322,7 +327,7 @@ export function Header() {
                 
                 <div className="p-4">
                   <Popover 
-                    open={isMobilePopoverOpen && searchTerm.length >=2 && searchResults.length > 0 && isMobileSheetOpen} 
+                    open={isMobilePopoverOpen && searchTerm.length >=2 && searchResults.length > 0 && isMobileSheetOpen && mobileSearchInputRef.current === document.activeElement} 
                     onOpenChange={setIsMobilePopoverOpen} 
                   >
                     <PopoverAnchor>
@@ -386,3 +391,4 @@ export function Header() {
     </div>
   );
 }
+
