@@ -3,12 +3,12 @@
 
 import { useEffect, useState, useTransition, useCallback, use, useMemo } from 'react';
 import Link from 'next/link';
-import { getGameDetails, revalidateGameDataAction, fetchUserPlaysForGameFromBggAction } from '@/lib/actions';
+import { getGameDetails, revalidateGameDataAction, fetchUserPlaysForGameFromBggAction, fetchAndUpdateBggGameDetailsAction } from '@/lib/actions';
 import type { BoardGame, Review, Rating as RatingType, GroupedCategoryAverages, BggPlayDetail, BggPlayerInPlay } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, MessageSquare, Repeat, Settings, DownloadCloud, Trophy, Medal, UserCircle2, Heart, ListPlus, ListChecks, Sparkles, Star } from 'lucide-react';
+import { AlertCircle, Loader2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, MessageSquare, Repeat, Settings, DownloadCloud, Trophy, Medal, UserCircle2, Heart, ListPlus, ListChecks, Sparkles, Star, Palette, ClipboardList, Puzzle, Smile } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { calculateGroupedCategoryAverages, calculateOverallCategoryAverage, formatRatingNumber, formatPlayDate, formatReviewDate, calculateCategoryAverages as calculateCatAvgsFromUtils } from '@/lib/utils';
@@ -401,22 +401,45 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     const usernameToFetch = "lctr01"; 
 
     startFetchPlaysTransition(async () => {
-        const serverActionResult = await fetchUserPlaysForGameFromBggAction(game.id, game.bggId, usernameToFetch);
+        const serverActionResult = await fetchUserPlaysForGameFromBggAction(game.bggId, usernameToFetch);
 
         if (!serverActionResult.success || !serverActionResult.plays) {
             toast({ title: 'Errore Caricamento Partite BGG', description: serverActionResult.error || serverActionResult.message || 'Impossibile caricare le partite da BGG.', variant: 'destructive' });
             return;
         }
+        
+        const playsToSave = serverActionResult.plays;
 
-        if (serverActionResult.plays.length > 0) {
-            // Server action already handles saving to Firestore and revalidation
-            // Just need to re-fetch local game data to update the UI
-            toast({
-                title: "Partite Caricate e Salvate",
-                description: serverActionResult.message || `Caricate e salvate ${serverActionResult.plays.length} partite per ${game.name} da BGG per ${usernameToFetch}. Conteggio aggiornato.`,
-            });
-            await fetchGameData(); 
+        if (playsToSave.length > 0) {
+            const batch = writeBatch(db);
+            const playsSubcollectionRef = collection(db, FIRESTORE_COLLECTION_NAME, game.id, `plays_${usernameToFetch.toLowerCase()}`);
             
+            playsToSave.forEach(play => {
+                const playDocRef = doc(playsSubcollectionRef, play.playId);
+                const playDataForFirestore: BggPlayDetail = {
+                    ...play,
+                    userId: usernameToFetch, 
+                    gameBggId: game.bggId,
+                };
+                batch.set(playDocRef, playDataForFirestore, { merge: true });
+            });
+
+            try {
+                await batch.commit();
+                const gameDocRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
+                await updateDoc(gameDocRef, {
+                    lctr01Plays: increment(playsToSave.length) // Or set to new total if API provides total for this game
+                });
+                toast({
+                    title: "Partite Caricate e Salvate",
+                    description: serverActionResult.message || `Caricate e salvate ${playsToSave.length} partite per ${game.name} da BGG per ${usernameToFetch}. Conteggio aggiornato.`,
+                });
+                await revalidateGameDataAction(game.id);
+                await fetchGameData(); 
+            } catch (dbError) {
+                const errorMessage = dbError instanceof Error ? dbError.message : "Impossibile salvare le partite nel database.";
+                toast({ title: 'Errore Salvataggio Partite DB', description: errorMessage, variant: 'destructive' });
+            }
         } else {
             toast({
                 title: "Nessuna Partita Trovata",
@@ -526,84 +549,89 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           {/* Main Content Column */}
           <div className="flex-1 p-6 space-y-4 md:order-1"> 
             <div className="flex justify-between items-start mb-2">
-                <div className="flex items-center gap-2 flex-shrink min-w-0 mr-2"> 
-                    <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground truncate">{game.name}</h1>
-                    {game.bggId > 0 && (
-                    <a
-                        href={`https://boardgamegeek.com/boardgame/${game.bggId}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title="Vedi su BoardGameGeek"
-                        className="inline-flex items-center text-primary hover:text-primary/80 focus:outline-none focus:ring-2 focus:ring-ring rounded-md p-0.5 flex-shrink-0"
-                    >
-                        <ExternalLink size={16} className="h-4 w-4" />
-                    </a>
-                    )}
-                    {currentUser && (
-                    <>
-                        <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={handleToggleFavorite}
-                        disabled={isFavoriting || authLoading}
-                        title={isFavoritedByCurrentUser ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
-                        className={`h-9 w-9 hover:bg-destructive/20 ${isFavoritedByCurrentUser ? 'text-destructive fill-destructive' : 'text-muted-foreground/60 hover:text-destructive'}`}
+                {/* Left part: Title and all action icons */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2 flex-shrink min-w-0 mr-2">
+                    <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">{game.name}</h1>
+                    {/* Icon group */}
+                    <div className="flex items-center gap-1 mt-1 sm:mt-0">
+                        {game.bggId > 0 && (
+                        <a
+                            href={`https://boardgamegeek.com/boardgame/${game.bggId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="Vedi su BoardGameGeek"
+                            className="inline-flex items-center text-primary hover:text-primary/80 focus:outline-none focus:ring-2 focus:ring-ring rounded-md p-0.5 flex-shrink-0"
                         >
-                        {isFavoriting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Heart className={`h-5 w-5 ${isFavoritedByCurrentUser ? 'fill-destructive' : ''}`} />}
-                        </Button>
-                        {currentFavoriteCount > 0 && (
-                        <span className="text-sm text-muted-foreground -ml-2 mr-1">
-                            ({currentFavoriteCount})
-                        </span>
+                            <ExternalLink size={16} className="h-4 w-4" />
+                        </a>
                         )}
-                        <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={handleTogglePlaylist}
-                        disabled={isPlaylisting || authLoading}
-                        title={isPlaylistedByCurrentUser ? "Rimuovi dalla Playlist" : "Aggiungi alla Playlist"}
-                        className={`h-9 w-9 hover:bg-sky-500/20 ${isPlaylistedByCurrentUser ? 'text-sky-500' : 'text-muted-foreground/60 hover:text-sky-500'}`}
-                        >
-                        {isPlaylisting ? <Loader2 className="h-5 w-5 animate-spin" /> : (isPlaylistedByCurrentUser ? <ListChecks className="h-5 w-5" /> : <ListPlus className="h-5 w-5" />)}
-                        </Button>
-                        {isAdmin && (
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-9 w-9 hover:bg-primary/20 text-muted-foreground/80 hover:text-primary">
-                                <Settings className="h-5 w-5" />
+                        {currentUser && (
+                        <>
+                            <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={handleToggleFavorite}
+                            disabled={isFavoriting || authLoading}
+                            title={isFavoritedByCurrentUser ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
+                            className={`h-9 w-9 hover:bg-destructive/20 ${isFavoritedByCurrentUser ? 'text-destructive fill-destructive' : 'text-muted-foreground/60 hover:text-destructive'}`}
+                            >
+                            {isFavoriting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Heart className={`h-5 w-5 ${isFavoritedByCurrentUser ? 'fill-destructive' : ''}`} />}
                             </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                                onSelect={handleTogglePinGame}
-                                disabled={isPinToggling || authLoading}
-                                className="cursor-pointer"
+                            {currentFavoriteCount > 0 && (
+                            <span className="text-sm text-muted-foreground -ml-1"> {/* Adjusted margin */}
+                                ({currentFavoriteCount})
+                            </span>
+                            )}
+                            <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={handleTogglePlaylist}
+                            disabled={isPlaylisting || authLoading}
+                            title={isPlaylistedByCurrentUser ? "Rimuovi dalla Playlist" : "Aggiungi alla Playlist"}
+                            className={`h-9 w-9 hover:bg-sky-500/20 ${isPlaylistedByCurrentUser ? 'text-sky-500' : 'text-muted-foreground/60 hover:text-sky-500'}`}
+                            >
+                            {isPlaylisting ? <Loader2 className="h-5 w-5 animate-spin" /> : (isPlaylistedByCurrentUser ? <ListChecks className="h-5 w-5" /> : <ListPlus className="h-5 w-5" />)}
+                            </Button>
+                            {isAdmin && (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-9 w-9 hover:bg-primary/20 text-muted-foreground/80 hover:text-primary">
+                                    <Settings className="h-5 w-5" />
+                                </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                    onSelect={handleTogglePinGame}
+                                    disabled={isPinToggling || authLoading}
+                                    className="cursor-pointer"
+                                    >
+                                    {currentIsPinned ? <PinOff className="mr-2 h-4 w-4" /> : <Pin className="mr-2 h-4 w-4" />}
+                                    {currentIsPinned ? "Rimuovi da Vetrina" : "Aggiungi a Vetrina"}
+                                    </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    onSelect={handleRefreshBggData}
+                                    disabled={(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) || !game.id || !game.bggId}
+                                    className="cursor-pointer"
                                 >
-                                {currentIsPinned ? <PinOff className="mr-2 h-4 w-4" /> : <Pin className="mr-2 h-4 w-4" />}
-                                {currentIsPinned ? "Rimuovi da Vetrina" : "Aggiungi a Vetrina"}
+                                    {(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DownloadCloud className="mr-2 h-4 w-4" />}
+                                    Aggiorna Dati da BGG
                                 </DropdownMenuItem>
-                            <DropdownMenuItem
-                                onSelect={handleRefreshBggData}
-                                disabled={(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) || !game.id || !game.bggId}
-                                className="cursor-pointer"
-                            >
-                                {(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DownloadCloud className="mr-2 h-4 w-4" />}
-                                Aggiorna Dati da BGG
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                                onSelect={handleFetchBggPlays}
-                                disabled={isFetchingPlays || !game.bggId}
-                                className="cursor-pointer"
-                            >
-                                {isFetchingPlays ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Dices className="mr-2 h-4 w-4" />}
-                                Carica Partite
-                            </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                                <DropdownMenuItem
+                                    onSelect={handleFetchBggPlays}
+                                    disabled={isFetchingPlays || !game.bggId}
+                                    className="cursor-pointer"
+                                >
+                                    {isFetchingPlays ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Dices className="mr-2 h-4 w-4" />}
+                                    Carica Partite
+                                </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                            )}
+                        </>
                         )}
-                    </>
-                    )}
+                    </div>
                 </div>
+                {/* Right part: Score only */}
                 <div className="flex-shrink-0"> 
                     {globalGameAverage !== null ? (
                     <span className="text-primary text-3xl md:text-4xl font-bold whitespace-nowrap">
@@ -613,7 +641,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 </div>
             </div>
             
-            {/* Image for mobile, below title */}
+            {/* Image for mobile, below title/icons */}
             <div className="md:hidden my-4 max-w-[240px] mx-auto">
               <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
                 <SafeImage
@@ -718,13 +746,12 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 sizes="25vw"
               />
             </div>
-            
           </div>
         </div>
       </Card>
 
-      {/* Registered Plays Section */}
-      {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
+    {/* Partite Registrate Section - MOVED UP */}
+    {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
         <Card className="shadow-md border border-border rounded-lg">
             <CardHeader className="flex flex-row justify-between items-center">
                 <CardTitle className="text-xl flex items-center gap-2">
@@ -771,7 +798,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                                 )}
                                 {play.players && play.players.length > 0 && (
                                 <div>
-                                   
                                     <ul className="pl-1">
                                     {play.players
                                         .slice()
@@ -917,3 +943,5 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
   );
 }
       
+
+    
