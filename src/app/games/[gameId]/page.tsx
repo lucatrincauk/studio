@@ -9,7 +9,7 @@ import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, Settings, DownloadCloud, BarChart3, ListChecks, ListPlus, Heart, UserCircle2, MessageSquare, Repeat, Trophy, Medal } from 'lucide-react';
+import { AlertCircle, Loader2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, Settings, DownloadCloud, MessageSquare, Repeat, Trophy, Medal, UserCircle2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { calculateGroupedCategoryAverages, calculateCategoryAverages, calculateOverallCategoryAverage, formatRatingNumber, formatPlayDate, formatReviewDate } from '@/lib/utils';
@@ -420,6 +420,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 
                 try {
                     await batch.commit();
+                    // Update the lctr01Plays count on the main game document
                     const gameDocRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
                     await updateDoc(gameDocRef, {
                         lctr01Plays: serverActionResult.plays.length 
@@ -429,7 +430,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                         description: serverActionResult.message || `Caricate e salvate ${serverActionResult.plays.length} partite per ${game.name} da BGG per ${usernameToFetch}. Conteggio aggiornato.`,
                     });
                     await revalidateGameDataAction(game.id);
-                    await fetchGameData();
+                    await fetchGameData(); // Re-fetch to update UI
                 } catch (dbError) {
                     const errorMessage = dbError instanceof Error ? dbError.message : "Errore sconosciuto durante il salvataggio delle partite nel DB.";
                     toast({ title: 'Errore Salvataggio Partite DB', description: errorMessage, variant: 'destructive' });
@@ -699,7 +700,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                     </div>
                 )}
                 <div className="flex items-baseline gap-2">
-                    <span className="inline-flex items-center"><Repeat size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
+                    <span className="inline-flex items-center"><Dices size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
                     <span className="font-medium hidden sm:inline">Partite:</span>
                     <span>{game.lctr01Plays ?? 0}</span>
                 </div>
@@ -720,7 +721,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             </div>
             
             {(hasDataForSection(game.categories) || hasDataForSection(game.mechanics) ) && (
-              <Accordion type="single" collapsible className="w-full pt-4 border-t border-border hidden md:block" defaultValue={[]}>
+              <Accordion type="single" collapsible className="w-full pt-4 border-t border-border md:hidden" defaultValue={[]}>
                 <AccordionItem value="dettagli-aggiuntivi" className="border-b-0">
                   <AccordionTrigger className="hover:no-underline py-0">
                     <h3 className="text-lg font-semibold text-foreground">Dettagli Aggiuntivi</h3>
@@ -771,6 +772,31 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 sizes="25vw"
               />
             </div>
+            {(hasDataForSection(game.categories) || hasDataForSection(game.mechanics) ) && (
+              <Accordion type="single" collapsible className="w-full pt-4" defaultValue={[]}>
+                <AccordionItem value="dettagli-aggiuntivi" className="border-b-0">
+                  <AccordionTrigger className="hover:no-underline py-0">
+                    <h3 className="text-lg font-semibold text-foreground">Dettagli Aggiuntivi</h3>
+                  </AccordionTrigger>
+                  <AccordionContent className="pt-3">
+                    <div className="space-y-3">
+                      {hasDataForSection(game.categories) && (
+                      <div className="text-sm">
+                          <strong className="text-muted-foreground">Categorie: </strong> 
+                          {game.categories!.map(cat => <Badge key={cat} variant="secondary" className="mr-1 mb-1">{cat}</Badge>)}
+                      </div>
+                      )}
+                      {hasDataForSection(game.mechanics) && (
+                      <div className="text-sm">
+                          <strong className="text-muted-foreground">Meccaniche: </strong> 
+                          {game.mechanics!.map(mech => <Badge key={mech} variant="secondary" className="mr-1 mb-1">{mech}</Badge>)}
+                      </div>
+                      )}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            )}
           </div>
         </div>
       </Card>
@@ -840,7 +866,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                                 {play.players && play.players.length > 0 && (
                                 <div>
                                     <strong className="block mb-1.5 text-muted-foreground text-xs">Giocatori:</strong>
-                                    <ul className="space-y-1 pl-1">
+                                    <ul className="pl-1">
                                     {play.players
                                         .slice()
                                         .sort((a, b) => {
@@ -849,14 +875,14 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                                             return scoreB - scoreA;
                                         })
                                         .map((player, pIndex) => (
-                                        <li key={pIndex} className="flex items-center justify-between text-xs">
+                                        <li key={pIndex} className="flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5 even:bg-muted/30">
                                             <div className="flex items-center gap-1.5 flex-grow min-w-0">
                                             <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                                             <span className="truncate" title={player.name || player.username || 'Sconosciuto'}>
                                                 {player.name || player.username || 'Sconosciuto'}
                                             </span>
                                             {player.didWin && (
-                                                <Badge variant="outline" className="border-green-500 text-green-600 p-0.5 ml-1">
+                                                <Badge variant="outline" size="sm" className="border-green-500 text-green-600 p-0.5 ml-1">
                                                 <Trophy className="h-3 w-3" />
                                                 </Badge>
                                             )}
@@ -867,9 +893,9 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                                             )}
                                             </div>
                                             {player.score && (
-                                            <Badge variant="secondary" size="sm" className="font-mono text-xs whitespace-nowrap ml-2">
+                                            <span className="font-mono text-xs whitespace-nowrap ml-2 text-foreground">
                                                 {player.score} pt.
-                                            </Badge>
+                                            </span>
                                             )}
                                         </li>
                                     ))}
@@ -886,8 +912,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         </Card>
       )}
 
-      <div className="space-y-8"> {/* This div used to wrap the review content below the top card */}
-          {/* La Tua Recensione / Valuta Questo Gioco Section */}
+      <div className="space-y-8"> 
           {currentUser && !authLoading && (
             userReview ? (
               <div> 
@@ -989,7 +1014,3 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
   );
 }
 
-
-
-
-    
