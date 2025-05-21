@@ -85,7 +85,8 @@ export interface BoardGame {
   favoritedByUserIds?: string[];
   favoriteCount?: number;
   playlistedByUserIds?: string[];
-  featuredReason?: 'pinned' | 'recent'; // For UI display in featured sections
+  featuredReason?: 'pinned' | 'recent';
+  lctr01Plays?: number | null; // Added for lctr01's play count
 }
 
 export interface AiSummary {
