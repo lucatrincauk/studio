@@ -9,7 +9,7 @@ import { ReviewList } from '@/components/boardgame/review-list';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, Tag, Heart, ListPlus, ListChecks, BarChart3 } from 'lucide-react';
+import { AlertCircle, Loader2, Wand2, Info, Edit, Trash2, Pin, PinOff, Users, Clock, CalendarDays, ExternalLink, Weight, Tag, Heart, ListPlus, ListChecks, BarChart3, PenTool } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { summarizeReviews } from '@/ai/flows/summarize-reviews';
@@ -211,7 +211,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         const reviewDocRef = doc(db, FIRESTORE_COLLECTION_NAME, gameId, 'reviews', userReview.id);
         await deleteDoc(reviewDocRef);
         toast({ title: "Recensione Eliminata", description: "La tua recensione è stata eliminata con successo." });
-        await updateGameOverallRatingAfterReviewChange(); // This already calls revalidateGameDataAction and fetchGameData
+        await updateGameOverallRatingAfterReviewChange(); 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({ title: "Errore", description: `Impossibile eliminare la recensione: ${errorMessage}`, variant: "destructive" });
@@ -234,7 +234,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `Il gioco è stato ${newPinStatus ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
         });
         await revalidateGameDataAction(game.id);
-        // Optionally refetch or update local game state for immediate consistency
         setGame(prevGame => prevGame ? { ...prevGame, isPinned: newPinStatus } : null);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
@@ -243,7 +242,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `Impossibile aggiornare lo stato vetrina: ${errorMessage}`,
           variant: "destructive",
         });
-        setCurrentIsPinned(!newPinStatus); // Revert optimistic update on error
+        setCurrentIsPinned(!newPinStatus); 
       }
     });
   };
@@ -390,7 +389,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         <div className="flex flex-col md:flex-row">
           <div className="flex-1 p-6 space-y-4 md:order-1">
              <div className="flex justify-between items-start mb-2">
-                <div className="flex items-center gap-2 flex-shrink min-w-0 mr-4">
+                <div className="flex items-center gap-2 flex-shrink min-w-0 mr-2">
                   <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground truncate">{game.name}</h1>
                   {game.bggId > 0 && (
                     <a
@@ -403,56 +402,54 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                       <ExternalLink size={16} className="h-4 w-4" />
                     </a>
                   )}
+                  {currentUser && (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={handleToggleFavorite}
+                        disabled={isFavoriting || authLoading}
+                        title={isFavoritedByCurrentUser ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
+                        className={`h-9 w-9 hover:bg-destructive/20 ${isFavoritedByCurrentUser ? 'text-destructive fill-destructive' : 'text-muted-foreground/60 hover:text-destructive'}`}
+                      >
+                        {isFavoriting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Heart className={`h-5 w-5 ${isFavoritedByCurrentUser ? 'fill-destructive' : ''}`} />}
+                      </Button>
+                      {currentFavoriteCount > 0 && (
+                        <span className="text-sm text-muted-foreground -ml-2 mr-1">
+                          ({currentFavoriteCount})
+                        </span>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={handleTogglePlaylist}
+                        disabled={isPlaylisting || authLoading}
+                        title={isPlaylistedByCurrentUser ? "Rimuovi dalla Playlist" : "Aggiungi alla Playlist"}
+                        className={`h-9 w-9 hover:bg-sky-500/20 ${isPlaylistedByCurrentUser ? 'text-sky-500' : 'text-muted-foreground/60 hover:text-sky-500'}`}
+                      >
+                        {isPlaylisting ? <Loader2 className="h-5 w-5 animate-spin" /> : (isPlaylistedByCurrentUser ? <ListChecks className="h-5 w-5" /> : <ListPlus className="h-5 w-5" />)} 
+                      </Button>
+                    </>
+                  )}
+                  {isAdmin && !isLoadingGame && game && (
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={handleTogglePinGame}
+                        disabled={isPinToggling}
+                        title={currentIsPinned ? "Rimuovi da Vetrina" : "Aggiungi a Vetrina"}
+                        className={`h-9 w-9 hover:bg-accent/20 ${currentIsPinned ? 'text-accent' : 'text-muted-foreground/60 hover:text-accent'}`}
+                    >
+                        {isPinToggling ? <Loader2 className="h-5 w-5 animate-spin" /> : (currentIsPinned ? <PinOff className="h-5 w-5" /> : <Pin className="h-5 w-5" />)}
+                    </Button>
+                  )}
                 </div>
-               <div className="flex items-start gap-3 sm:gap-4 flex-shrink-0">
+               <div className="flex-shrink-0">
                   {globalGameAverage !== null ? (
                      <span className="text-primary text-3xl md:text-4xl font-bold whitespace-nowrap">
                         {formatRatingNumber(globalGameAverage * 2)}
                       </span>
                   ) : ("")}
-                  <div className="flex items-center gap-1 mt-1">
-                    {currentUser && (
-                      <>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={handleToggleFavorite}
-                          disabled={isFavoriting || authLoading}
-                          title={isFavoritedByCurrentUser ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
-                          className={`h-9 w-9 hover:bg-destructive/20 ${isFavoritedByCurrentUser ? 'text-destructive fill-destructive' : 'text-muted-foreground/60 hover:text-destructive'}`}
-                        >
-                          {isFavoriting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Heart className={`h-5 w-5 ${isFavoritedByCurrentUser ? 'fill-destructive' : ''}`} />}
-                        </Button>
-                        {currentFavoriteCount > 0 && (
-                          <span className="text-sm text-muted-foreground -ml-2 mr-1">
-                            ({currentFavoriteCount})
-                          </span>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={handleTogglePlaylist}
-                          disabled={isPlaylisting || authLoading}
-                          title={isPlaylistedByCurrentUser ? "Rimuovi dalla Playlist" : "Aggiungi alla Playlist"}
-                          className={`h-9 w-9 hover:bg-sky-500/20 ${isPlaylistedByCurrentUser ? 'text-sky-500' : 'text-muted-foreground/60 hover:text-sky-500'}`}
-                        >
-                          {isPlaylisting ? <Loader2 className="h-5 w-5 animate-spin" /> : (isPlaylistedByCurrentUser ? <ListChecks className="h-5 w-5" /> : <ListPlus className="h-5 w-5" />)} 
-                        </Button>
-                      </>
-                    )}
-                    {isAdmin && !isLoadingGame && game && (
-                      <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={handleTogglePinGame}
-                          disabled={isPinToggling}
-                          title={currentIsPinned ? "Rimuovi da Vetrina" : "Aggiungi a Vetrina"}
-                          className={`h-9 w-9 hover:bg-accent/20 ${currentIsPinned ? 'text-accent' : 'text-muted-foreground/60 hover:text-accent'}`}
-                      >
-                          {isPinToggling ? <Loader2 className="h-5 w-5 animate-spin" /> : (currentIsPinned ? <PinOff className="h-5 w-5" /> : <Pin className="h-5 w-5" />)}
-                      </Button>
-                    )}
-                  </div>
                </div>
             </div>
 
@@ -471,14 +468,14 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
               </div>
             </div>
             
-            {hasDataForSection(game.designers) && (
-              <div className="text-sm pt-1">
-                <strong className="text-muted-foreground">Autori: </strong>
-                <span>{game.designers!.join(', ')}</span>
-              </div>
-            )}
-
             <div className="text-sm text-muted-foreground space-y-1.5 pt-1 grid grid-cols-2 gap-x-4 gap-y-2">
+              {hasDataForSection(game.designers) && (
+                <div className="flex items-center gap-2">
+                  <PenTool size={16} className="text-primary/80" />
+                  <span className="hidden sm:inline">Autori:</span>
+                  <span>{game.designers!.join(', ')}</span>
+                </div>
+              )}
               {game.yearPublished != null && (
                 <div className="flex items-center gap-2">
                   <CalendarDays size={16} className="text-primary/80" />
@@ -632,7 +629,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                     </AlertDescription>
                   </Alert>
             )}
-
+          
           {remainingReviews.length > 0 ? (
             <div>
               <Separator className="my-6" />
@@ -711,5 +708,3 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     </div>
   );
 }
-
-    
