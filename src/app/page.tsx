@@ -10,6 +10,7 @@ import { formatRatingNumber, formatReviewDate } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { SafeImage } from '@/components/common/SafeImage';
 
 
 export default async function HomePage() {
@@ -21,7 +22,6 @@ export default async function HomePage() {
     lastPlayedData = await getLastPlayedGameAction("lctr01");
   } catch (e) {
     console.error("Error fetching last played game on homepage:", e);
-    // lastPlayedData remains null, and the UI will handle its absence
   }
 
   const [featuredGamesResult, allGamesResult] = await Promise.all([
@@ -86,45 +86,52 @@ export default async function HomePage() {
               <Dices className="h-7 w-7 text-primary" />
               Ultima Partita Giocata
             </h2>
-            <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-start">
-              <div className="w-full max-w-[180px] sm:max-w-[200px] md:w-1/3 lg:w-1/4 flex-shrink-0"> {/* Smaller image container */}
-                <GameCard
-                  game={lastPlayedGame}
-                  variant="featured"
-                  priority={true}
-                  showOverlayText={true} 
-                />
-              </div>
-              <Card className="flex-1 shadow-md border border-border rounded-lg">
-                <CardHeader className="pb-3">
-                  <div className="flex justify-between items-center">
-                    <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                      <CalendarDays size={18} className="text-muted-foreground" />
-                      {formatReviewDate(lastPlayDetail.date)}
-                    </CardTitle>
+            <Card className="shadow-md border border-border rounded-lg">
+              <CardHeader className="flex flex-col sm:flex-row items-start gap-4 p-4">
+                <div className="relative w-20 h-28 flex-shrink-0 rounded-md overflow-hidden shadow-sm">
+                  <SafeImage
+                    src={lastPlayedGame.coverArtUrl}
+                    alt={`${lastPlayedGame.name} copertina`}
+                    fallbackSrc={`https://placehold.co/80x112.png?text=${encodeURIComponent(lastPlayedGame.name.substring(0,3))}`}
+                    fill
+                    sizes="80px"
+                    className="object-cover"
+                    data-ai-hint={`board game ${lastPlayedGame.name.split(' ')[0]?.toLowerCase() || 'mini'}`}
+                  />
+                </div>
+                <div className="flex-1">
+                  <CardTitle className="text-xl font-semibold mb-1">
+                    <Link href={`/games/${lastPlayedGame.id}`} className="hover:text-primary hover:underline">
+                      {lastPlayedGame.name}
+                    </Link>
+                  </CardTitle>
+                  <div className="text-sm text-muted-foreground flex items-center gap-2 mb-1">
+                    <CalendarDays size={16} />
+                    <span>{formatReviewDate(lastPlayDetail.date)}</span>
                     {lastPlayDetail.quantity > 1 && (
-                      <Badge variant="secondary">{lastPlayDetail.quantity} partite</Badge>
+                      <Badge variant="secondary" className="ml-auto">{lastPlayDetail.quantity} partite</Badge>
                     )}
                   </div>
                   {lastPlayDetail.location && (
-                     <CardDescription className="text-xs text-muted-foreground pt-1">Luogo: {lastPlayDetail.location}</CardDescription>
+                    <p className="text-xs text-muted-foreground mt-1">Luogo: {lastPlayDetail.location}</p>
                   )}
-                </CardHeader>
-                <CardContent className="space-y-3 text-sm pt-0">
-                  {lastPlayDetail.comments && lastPlayDetail.comments.trim() !== '' && (
-                    <div>
-                      <h4 className="text-xs font-semibold text-muted-foreground mb-0.5">Commenti:</h4>
-                      <p className="text-xs text-foreground/80 whitespace-pre-wrap">{lastPlayDetail.comments}</p>
-                    </div>
-                  )}
-                  {lastPlayDetail.players && lastPlayDetail.players.length > 0 && (
-                    <div>
-                      <h4 className="text-xs font-semibold text-muted-foreground mb-1">Giocatori:</h4>
-                      <ul className="space-y-0.5">
-                        {lastPlayDetail.players
-                          .slice()
-                          .sort((a, b) => parseInt(b.score || "0", 10) - parseInt(a.score || "0", 10))
-                          .map((player, pIndex) => (
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0 px-4 pb-4 space-y-3 text-sm">
+                {lastPlayDetail.comments && lastPlayDetail.comments.trim() !== '' && (
+                  <div>
+                    <h4 className="text-xs font-semibold text-muted-foreground mb-0.5">Commenti:</h4>
+                    <p className="text-xs text-foreground/80 whitespace-pre-wrap">{lastPlayDetail.comments}</p>
+                  </div>
+                )}
+                {lastPlayDetail.players && lastPlayDetail.players.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-semibold text-muted-foreground mb-1">Giocatori:</h4>
+                    <ul className="space-y-0.5">
+                      {lastPlayDetail.players
+                        .slice()
+                        .sort((a, b) => parseInt(b.score || "0", 10) - parseInt(a.score || "0", 10))
+                        .map((player, pIndex) => (
                           <li key={pIndex} className={`flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5 px-1 ${pIndex % 2 === 0 ? 'bg-muted/30' : ''} rounded-sm`}>
                             <div className="flex items-center gap-1.5 flex-grow min-w-0">
                               <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
@@ -145,12 +152,11 @@ export default async function HomePage() {
                             )}
                           </li>
                         ))}
-                      </ul>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
+                    </ul>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
             <Separator className="my-10" />
           </div>
         )}
