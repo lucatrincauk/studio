@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { LogOut, UserPlus, LogIn, MessagesSquare, Users2, ShieldCheck, UserCircle, Menu, TrendingUp, Library, Edit, Dices, Search as SearchIcon, Loader2, Settings, ExternalLink, Heart, ListPlus, ListChecks, Pin, PinOff, Clock, BarChart3, LayoutList, Bookmark, BookMarked } from 'lucide-react';
+import { LogOut, UserPlus, LogIn, MessagesSquare, Users2, ShieldCheck, UserCircle, Menu, TrendingUp, Library, Edit, Dices, Search as SearchIcon, Loader2, Settings, ExternalLink, Heart, ListPlus, ListChecks, Pin, PinOff, Clock, BarChart3, LayoutList, Bookmark, BookMarked, GaugeCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import {
   DropdownMenu,
@@ -133,7 +133,7 @@ export function Header() {
   };
   
   const authBlock = (
-    authLoading || !isMounted ? ( // Defer auth block rendering until mounted
+    authLoading || !isMounted ? ( 
       <div className="h-9 w-20 animate-pulse rounded-md bg-primary-foreground/20"></div>
     ) : user ? (
       <DropdownMenu>
@@ -160,9 +160,15 @@ export function Header() {
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild className="cursor-pointer">
-            <Link href="/profile">
+            <Link href={`/users/${user.uid}`}>
               <UserCircle className="mr-2 h-4 w-4" />
-              Mio Profilo
+              Il Mio Profilo Pubblico
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild className="cursor-pointer">
+            <Link href="/profile">
+              <Settings className="mr-2 h-4 w-4" />
+              Impostazioni Account
             </Link>
           </DropdownMenuItem>
           {isAdmin && (
@@ -173,6 +179,7 @@ export function Header() {
               </Link>
             </DropdownMenuItem>
           )}
+          <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
             <LogOut className="mr-2 h-4 w-4" />
             <span>Esci</span>
@@ -277,9 +284,10 @@ export function Header() {
             <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Morchiometro</h1>
           </Link>
           
-          <div className="flex items-center gap-2"> {/* Main container for right-side elements */}
-            {/* Desktop Search - hidden on mobile */}
-            <div className="relative hidden md:block"> 
+          {/* Desktop Navigation and Right-Side Controls */}
+          <div className="hidden md:flex flex-1 items-center justify-end">
+            {/* Desktop Search */}
+            <div className="relative"> 
               <Popover 
                 open={isDesktopPopoverOpen && searchTerm.length >=2 && (isSearching || searchResults.length > 0)}
                 onOpenChange={(openState) => {
@@ -304,7 +312,7 @@ export function Header() {
                             setIsDesktopPopoverOpen(true);
                         }
                       }}
-                      className="h-8 w-48 lg:w-64 rounded-md pl-9 pr-3 text-sm bg-card text-card-foreground placeholder:text-muted-foreground border-border focus:bg-card focus:ring-accent"
+                      className="h-8 w-48 lg:w-64 rounded-md pl-9 pr-3 text-sm bg-primary-foreground/10 text-border placeholder:text-border/60 border-border focus:bg-primary-foreground/20 focus:ring-accent"
                     />
                     {isSearching && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-border" />}
                   </div>
@@ -313,83 +321,87 @@ export function Header() {
               </Popover>
             </div>
             
-            {isMounted && authBlock} {/* Defer authBlock rendering */}
+            {/* Desktop Auth Controls */}
+            <div className="ml-3">
+              {isMounted && authBlock}
+            </div>
+          </div>
             
-            {/* Mobile Menu Trigger - Now directly here, only visible on mobile */}
-            <div className="md:hidden">
-              <Sheet open={isMobileSheetOpen} onOpenChange={setIsMobileSheetOpen}>
-                <SheetTrigger asChild>
-                  <Button variant="ghost" size="sm" className="w-9 h-9 p-0 hover:bg-primary-foreground/10 focus-visible:ring-accent">
-                    <Menu className="h-5 w-5" />
-                    <span className="sr-only">Apri menu</span>
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="right" className="w-[280px] bg-card p-0 text-card-foreground flex flex-col">
-                  <SheetHeader className="p-4 border-b">
-                    <SheetTitle className="text-left">
-                      <SheetClose asChild>
-                        <Link href="/" className="flex items-center gap-2 text-primary transition-opacity hover:opacity-80">
-                          <PoopEmojiLogo />
-                          <span className="text-lg font-bold">Morchiometro</span>
+          {/* Mobile Menu Trigger - Only visible on mobile */}
+          <div className="flex items-center md:hidden">
+             {isMounted && authBlock} {/* Auth block for mobile, styled by its internal responsive classes */}
+            <Sheet open={isMobileSheetOpen} onOpenChange={setIsMobileSheetOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="sm" className="ml-1 w-9 h-9 p-0 hover:bg-primary-foreground/10 focus-visible:ring-accent">
+                  <Menu className="h-5 w-5" />
+                  <span className="sr-only">Apri menu</span>
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-[280px] bg-card p-0 text-card-foreground flex flex-col">
+                <SheetHeader className="p-4 border-b">
+                  <SheetTitle className="text-left">
+                    <SheetClose asChild>
+                      <Link href="/" className="flex items-center gap-2 text-primary transition-opacity hover:opacity-80">
+                        <PoopEmojiLogo />
+                        <span className="text-lg font-bold">Morchiometro</span>
+                      </Link>
+                    </SheetClose>
+                  </SheetTitle>
+                </SheetHeader>
+                
+                <div className="p-4">
+                  <Popover 
+                    open={isMobilePopoverOpen && searchTerm.length >=2 && isMobileSheetOpen && (isSearching || searchResults.length > 0)} 
+                    onOpenChange={(openState) => {
+                      if (!openState && mobileSearchInputRef.current !== document.activeElement) {
+                          setIsMobilePopoverOpen(false);
+                      } else if (openState && searchTerm.length >= 2 && searchResults.length > 0 && isMobileSheetOpen) {
+                          setIsMobilePopoverOpen(true);
+                      }
+                    }}
+                  >
+                    <PopoverAnchor>
+                        <div className="relative flex items-center">
+                          <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                          <Input
+                            ref={mobileSearchInputRef}
+                            type="search"
+                            placeholder="Cerca un gioco..."
+                            value={searchTerm}
+                            onChange={(e) => {
+                              setSearchTerm(e.target.value);
+                            }}
+                            onFocus={() => {
+                              if (searchTerm.length >=2 && isMobileSheetOpen) {
+                                  setIsMobilePopoverOpen(true);
+                              }
+                            }}
+                            className="h-9 w-full rounded-md pl-9 pr-3 text-sm bg-background text-foreground border-input focus:ring-primary/50"
+                          />
+                          {isSearching && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />}
+                        </div>
+                      </PopoverAnchor>
+                      {isMounted && mobileSearchPopoverContent}
+                  </Popover>
+                </div>
+
+                <nav className="flex-1 flex flex-col space-y-1 p-4 pt-0 overflow-y-auto">
+                  {mainNavLinks.map(link => (
+                    <SheetClose asChild key={`mobile-nav-${link.href}`}>
+                        <Link
+                          href={link.href}
+                          className={cn(buttonVariants({ variant: "ghost" }), "w-full justify-start gap-2 text-sm font-medium text-foreground rounded-md px-3 py-2")}
+                        >
+                          {link.icon}
+                          {link.label}
                         </Link>
                       </SheetClose>
-                    </SheetTitle>
-                  </SheetHeader>
-                  
-                  <div className="p-4">
-                    <Popover 
-                      open={isMobilePopoverOpen && searchTerm.length >=2 && isMobileSheetOpen && (isSearching || searchResults.length > 0)} 
-                      onOpenChange={(openState) => {
-                        if (!openState && mobileSearchInputRef.current !== document.activeElement) {
-                            setIsMobilePopoverOpen(false);
-                        } else if (openState && searchTerm.length >= 2 && searchResults.length > 0 && isMobileSheetOpen) {
-                            setIsMobilePopoverOpen(true);
-                        }
-                      }}
-                    >
-                      <PopoverAnchor>
-                          <div className="relative flex items-center">
-                            <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                            <Input
-                              ref={mobileSearchInputRef}
-                              type="search"
-                              placeholder="Cerca un gioco..."
-                              value={searchTerm}
-                              onChange={(e) => {
-                                setSearchTerm(e.target.value);
-                              }}
-                              onFocus={() => {
-                                if (searchTerm.length >=2 && isMobileSheetOpen) {
-                                    setIsMobilePopoverOpen(true);
-                                }
-                              }}
-                              className="h-9 w-full rounded-md pl-9 pr-3 text-sm bg-background text-foreground border-input focus:ring-primary/50"
-                            />
-                            {isSearching && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />}
-                          </div>
-                        </PopoverAnchor>
-                        {isMounted && mobileSearchPopoverContent}
-                    </Popover>
-                  </div>
-
-                  <nav className="flex-1 flex flex-col space-y-1 p-4 pt-0 overflow-y-auto">
-                    {mainNavLinks.map(link => (
-                      <SheetClose asChild key={`mobile-nav-${link.href}`}>
-                          <Link
-                            href={link.href}
-                            className={cn(buttonVariants({ variant: "ghost" }), "w-full justify-start gap-2 text-sm font-medium text-foreground rounded-md px-3 py-2")}
-                          >
-                            {link.icon}
-                            {link.label}
-                          </Link>
-                        </SheetClose>
-                    ))}
-                  </nav>
-                  
-                </SheetContent>
-              </Sheet>
-            </div> 
-          </div>
+                  ))}
+                </nav>
+                {/* Mobile Auth controls were moved outside the sheet, handled by the responsive main authBlock */}
+              </SheetContent>
+            </Sheet>
+          </div> 
         </div>
       </header>
 
