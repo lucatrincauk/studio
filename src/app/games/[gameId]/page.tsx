@@ -9,7 +9,9 @@ import type { BoardGame, Review, Rating as RatingType, GroupedCategoryAverages, 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Info, Edit, Trash2, Users, Clock, CalendarDays as CalendarIcon, ExternalLink, Weight, PenTool, Dices, MessageSquare, Heart, ListChecks, Settings, Trophy, Medal, UserCircle2, Sparkles, Pin, PinOff, Wand2, DownloadCloud, Bookmark, BookMarked, Frown } from 'lucide-react';
+import {
+  AlertCircle, Loader2, Info, Edit, Trash2, Users, Clock, CalendarDays as CalendarIcon, ExternalLink, Weight, PenTool, Dices, MessageSquare, Heart, ListPlus, ListChecks, Settings, Trophy, Medal, UserCircle2, Star, Palette, ClipboardList, Repeat, Sparkles, Pin, PinOff, Wand2, DownloadCloud, Bookmark, BookMarked, Frown
+} from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { calculateGroupedCategoryAverages, calculateOverallCategoryAverage, formatRatingNumber, formatPlayDate, formatReviewDate, calculateCategoryAverages as calculateCatAvgsFromUtils } from '@/lib/utils';
@@ -522,7 +524,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 batch.set(playDocRef, playDataForFirestore, { merge: true });
             });
             
-            // Update lctr01Plays count on the main game document
             batch.update(gameRef, { lctr01Plays: playsToSave.length });
 
             try {
@@ -667,27 +668,38 @@ const handleGenerateRecommendations = async () => {
       <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
         <div className="flex flex-col"> 
           <div className="flex flex-col md:flex-row">
+            {/* Main Content Column */}
             <div className="flex-1 p-6 space-y-4 md:order-1">
-                {/* Main Header: Title and Score */}
+                {/* Main Header: Title, BGG Link, Score, Action Icons */}
                 <div className="flex justify-between items-start mb-2">
+                    {/* Left side: Title & BGG Link */}
                     <div className="flex flex-col sm:flex-row sm:items-center sm:gap-1 flex-shrink min-w-0 mr-2">
                        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
                            {game.name}
                            {game.bggId && (
-                            <a href={`https://boardgamegeek.com/boardgame/${game.bggId}`} target="_blank" rel="noopener noreferrer" title="Vedi su BGG" className="ml-1 text-primary/60 hover:text-primary inline-flex items-center">
-                                <ExternalLink className="h-4 w-4" />
+                            <a
+                              href={`https://boardgamegeek.com/boardgame/${game.bggId}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="Vedi su BGG"
+                              className="ml-1 text-primary/60 hover:text-primary inline-flex items-center"
+                            >
+                              <ExternalLink className="h-4 w-4" />
                             </a>
                            )}
                         </h1>
                     </div>
-                    <div className="flex-shrink-0 flex flex-col items-end">
-                        <span className="text-3xl md:text-4xl font-bold text-primary whitespace-nowrap">
-                            {globalGameAverage !== null ? formatRatingNumber(globalGameAverage * 2) : ''}
-                        </span>
+                    {/* Right side: Score */}
+                    <div className="flex-shrink-0">
+                        {globalGameAverage !== null && (
+                            <span className="text-3xl md:text-4xl font-bold text-primary whitespace-nowrap">
+                                {formatRatingNumber(globalGameAverage * 2)}
+                            </span>
+                        )}
                     </div>
                 </div>
                 
-                {/* Mobile Image */}
+                {/* Mobile Image - Placed after header block */}
                 <div className="md:hidden my-4 max-w-[240px] mx-auto">
                   <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
                     <SafeImage
@@ -706,6 +718,7 @@ const handleGenerateRecommendations = async () => {
                 {/* Button Bar */}
                 <div className="py-4 border-y border-border">
                     <div className="flex justify-evenly items-center gap-1 sm:gap-2">
+                        {/* Favorite Button */}
                         <Button
                             variant="ghost"
                             size="sm"
@@ -722,6 +735,7 @@ const handleGenerateRecommendations = async () => {
                             <span className="ml-1 text-xs">({currentFavoriteCount})</span>
                             )}
                         </Button>
+                        {/* Morchia Button */}
                         <Button
                             variant="ghost"
                             size="sm"
@@ -734,10 +748,11 @@ const handleGenerateRecommendations = async () => {
                             )}
                         >
                             <Frown className={cn(`h-5 w-5`, isMorchiaByCurrentUser ? 'fill-orange-600/30' : '')} />
-                            {currentMorchiaCount > 0 && (
+                             {currentMorchiaCount > 0 && (
                                 <span className="ml-1 text-xs">({currentMorchiaCount})</span>
                             )}
                         </Button>
+                        {/* Playlist Button */}
                         <Button
                             variant="ghost"
                             size="sm"
@@ -754,6 +769,7 @@ const handleGenerateRecommendations = async () => {
                                 <span className="ml-1 text-xs">({game.playlistedByUserIds.length})</span>
                             )}
                         </Button>
+                        {/* BGG Link Button */}
                         {game.bggId && (
                              <Button variant="ghost" size="icon" asChild className="h-9 w-9 text-primary/80 hover:text-primary hover:bg-primary/10">
                                 <a href={`https://boardgamegeek.com/boardgame/${game.bggId}`} target="_blank" rel="noopener noreferrer" title="Vedi su BGG">
@@ -761,6 +777,7 @@ const handleGenerateRecommendations = async () => {
                                 </a>
                             </Button>
                         )}
+                        {/* Admin Settings Dropdown */}
                         {isAdmin && (
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
