@@ -2,7 +2,7 @@
 'use client';
 
 import type { User as FirebaseUser, AuthError } from 'firebase/auth';
-import type { UserProfile } from '@/lib/types'; // Import UserProfile
+import type { UserProfile } from '@/lib/types';
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import {
   onAuthStateChanged,
@@ -16,7 +16,7 @@ import {
 import { auth, db } from '@/lib/firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
-import { useRouter } from 'next/navigation'; 
+import { useRouter } from 'next/navigation';
 
 const ADMIN_EMAIL = "lucatrinca.uk@gmail.com";
 const USER_PROFILES_COLLECTION = 'user_profiles';
@@ -41,10 +41,9 @@ const updateUserProfileInFirestore = async (user: FirebaseUser) => {
   const userProfileRef = doc(db, USER_PROFILES_COLLECTION, user.uid);
   
   let profileDataToSave: Partial<UserProfile> = {
-    uid: user.uid, // Firestore UserProfile uses 'id', but we're saving uid here
+    uid: user.uid, 
     email: user.email,
     photoURL: user.photoURL,
-    // name will be set based on displayName or email
   };
 
   try {
@@ -52,24 +51,34 @@ const updateUserProfileInFirestore = async (user: FirebaseUser) => {
     if (profileSnap.exists()) {
       const existingData = profileSnap.data() as UserProfile;
       profileDataToSave.name = user.displayName || existingData.name || user.email?.split('@')[0] || 'Utente Anonimo';
-      // Preserve existing bggUsername if not explicitly being overwritten now (which it isn't in this helper)
       profileDataToSave.bggUsername = existingData.bggUsername === "" ? null : (existingData.bggUsername || null);
-    } else { // New profile
+      // Preserve existing hasSubmittedReview status if it exists, otherwise it will be undefined and set below
+      if (existingData.hasSubmittedReview !== undefined) {
+        profileDataToSave.hasSubmittedReview = existingData.hasSubmittedReview;
+      }
+    } else { 
       profileDataToSave.name = user.displayName || user.email?.split('@')[0] || 'Utente Anonimo';
-      profileDataToSave.bggUsername = null; // Default for new profiles
+      profileDataToSave.bggUsername = null; 
+      profileDataToSave.hasSubmittedReview = false; // Initialize for new profiles
     }
+    // Ensure hasSubmittedReview is set if it was not present on existing data
+    if (profileDataToSave.hasSubmittedReview === undefined) {
+      profileDataToSave.hasSubmittedReview = false;
+    }
+
     await setDoc(userProfileRef, profileDataToSave, { merge: true });
   } catch (firestoreError) {
     console.error("Error updating user profile in Firestore during initial setup/login:", firestoreError);
-    // Fallback if getDoc fails, ensure basic data is attempted
     if (!profileDataToSave.name) {
        profileDataToSave.name = user.displayName || user.email?.split('@')[0] || 'Utente Anonimo';
     }
-    if (typeof profileDataToSave.bggUsername === 'undefined') { // ensure it's set even on fallback
+    if (typeof profileDataToSave.bggUsername === 'undefined') {
        profileDataToSave.bggUsername = null;
     }
+    if (profileDataToSave.hasSubmittedReview === undefined) {
+        profileDataToSave.hasSubmittedReview = false;
+    }
     try {
-      // Attempt to save again with minimal data if getDoc failed
       await setDoc(userProfileRef, profileDataToSave, { merge: true });
     } catch (nestedError) {
       console.error("Nested error during Firestore profile update fallback:", nestedError);
@@ -90,7 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(firebaseUser);
       if (firebaseUser) {
         setIsAdmin(firebaseUser.email === ADMIN_EMAIL);
-        await updateUserProfileInFirestore(firebaseUser); // Ensures profile exists/is updated on login
+        await updateUserProfileInFirestore(firebaseUser); 
       } else {
         setIsAdmin(false);
       }
@@ -192,14 +201,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     setError(null);
-    const firestoreUpdatePayload: { name?: string; bggUsername?: string | null } = {};
+    const firestoreUpdatePayload: Partial<UserProfile> = {}; // Changed to Partial<UserProfile>
     let authProfileUpdated = false;
 
     if (typeof updates.displayName === 'string' && updates.displayName !== auth.currentUser.displayName) {
       try {
         await firebaseUpdateProfile(auth.currentUser, { displayName: updates.displayName });
         authProfileUpdated = true;
-        // Prepare name for Firestore update
         firestoreUpdatePayload.name = updates.displayName;
       } catch (e) {
         const updateError = e as AuthError;
@@ -207,9 +215,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         toast({ title: "Errore Aggiornamento Nome Visualizzato", description: updateError.message, variant: "destructive" });
         return false;
       }
-    } else if (updates.displayName) { // If same name is submitted, still ensure it's in Firestore payload
+    } else if (updates.displayName) { 
         firestoreUpdatePayload.name = updates.displayName;
-    } else if (auth.currentUser.displayName) { // If displayName not in updates, use current auth one
+    } else if (auth.currentUser.displayName) { 
         firestoreUpdatePayload.name = auth.currentUser.displayName;
     }
 
@@ -220,11 +228,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     try {
       const userProfileRef = doc(db, USER_PROFILES_COLLECTION, auth.currentUser.uid);
-      await setDoc(userProfileRef, firestoreUpdatePayload, { merge: true });
+      // Fetch existing profile to preserve fields like hasSubmittedReview
+      const profileSnap = await getDoc(userProfileRef);
+      let finalPayload = { ...firestoreUpdatePayload };
+      if (profileSnap.exists()) {
+        const existingData = profileSnap.data() as UserProfile;
+        if (existingData.hasSubmittedReview !== undefined && finalPayload.hasSubmittedReview === undefined) {
+          finalPayload.hasSubmittedReview = existingData.hasSubmittedReview;
+        }
+      }
+      
+      await setDoc(userProfileRef, finalPayload, { merge: true });
       
       if (authProfileUpdated && auth.currentUser) {
          await auth.currentUser.reload(); 
-         const reloadedUser = auth.currentUser; // get the latest instance
+         const reloadedUser = auth.currentUser; 
          setUser(reloadedUser ? { ...reloadedUser } : null);
       }
       toast({ title: "Profilo Aggiornato", description: "Il tuo profilo è stato aggiornato con successo." });

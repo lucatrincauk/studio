@@ -1,11 +1,11 @@
 
 'use client';
 
-import type { BoardGame, UserProfile } from '@/lib/types';
+import type { BoardGame, UserProfile, EarnedBadge } from '@/lib/types'; // Added EarnedBadge
 import { useAuth } from '@/contexts/auth-context';
 import { UpdateProfileForm } from '@/components/profile/update-profile-form';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, AlertCircle, UserCircle2, ListChecks, Heart, Frown } from 'lucide-react';
+import { Loader2, AlertCircle, UserCircle2, ListChecks, Heart, Frown, Award, CalendarDays } from 'lucide-react'; // Added Award
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ThemeSwitcher } from '@/components/profile/theme-switcher'; 
@@ -13,8 +13,9 @@ import { Separator } from '@/components/ui/separator';
 import { useState, useEffect, useCallback } from 'react';
 import { getFavoritedGamesForUserAction, getPlaylistedGamesForUserAction, getMorchiaGamesForUserAction } from '@/lib/actions';
 import { GameCard } from '@/components/boardgame/game-card';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, orderBy, type Timestamp } from 'firebase/firestore'; // Added collection, getDocs, orderBy
 import { db } from '@/lib/firebase';
+import { formatReviewDate } from '@/lib/utils'; // For formatting badge earned date
 
 const USER_PROFILES_COLLECTION = 'user_profiles';
 
@@ -26,9 +27,12 @@ export default function ProfilePage() {
   const [favoritedGames, setFavoritedGames] = useState<BoardGame[]>([]);
   const [playlistedGames, setPlaylistedGames] = useState<BoardGame[]>([]);
   const [morchiaGames, setMorchiaGames] = useState<BoardGame[]>([]);
+  const [earnedBadges, setEarnedBadges] = useState<EarnedBadge[]>([]); // New state for badges
+
   const [isLoadingFavorites, setIsLoadingFavorites] = useState(false);
   const [isLoadingPlaylist, setIsLoadingPlaylist] = useState(false);
   const [isLoadingMorchia, setIsLoadingMorchia] = useState(false);
+  const [isLoadingBadges, setIsLoadingBadges] = useState(false); // New loading state for badges
 
   const fetchUserProfileAndLists = useCallback(async () => {
     if (firebaseUser) {
@@ -36,6 +40,7 @@ export default function ProfilePage() {
       setIsLoadingFavorites(true);
       setIsLoadingPlaylist(true);
       setIsLoadingMorchia(true);
+      setIsLoadingBadges(true); // Start loading badges
 
       const profileRef = doc(db, USER_PROFILES_COLLECTION, firebaseUser.uid);
       try {
@@ -49,6 +54,7 @@ export default function ProfilePage() {
             email: firebaseUser.email,
             photoURL: firebaseUser.photoURL,
             bggUsername: null,
+            hasSubmittedReview: false,
           });
         }
       } catch (error) {
@@ -83,16 +89,38 @@ export default function ProfilePage() {
       } finally {
         setIsLoadingMorchia(false);
       }
+      
+      // Fetch earned badges
+      try {
+        const badgesCollectionRef = collection(db, USER_PROFILES_COLLECTION, firebaseUser.uid, 'earned_badges');
+        const badgesQuery = query(badgesCollectionRef, orderBy('earnedAt', 'desc'));
+        const badgesSnapshot = await getDocs(badgesQuery);
+        const badgesData = badgesSnapshot.docs.map(docSnap => {
+          const data = docSnap.data() as Omit<EarnedBadge, 'earnedAt'> & { earnedAt: Timestamp };
+          return {
+            ...data,
+            earnedAt: data.earnedAt.toDate().toISOString(), // Convert Firestore Timestamp to ISO string
+          };
+        }) as EarnedBadge[];
+        setEarnedBadges(badgesData);
+      } catch (e) {
+        console.error("Error fetching earned badges:", e);
+        setEarnedBadges([]);
+      } finally {
+        setIsLoadingBadges(false);
+      }
 
     } else {
       setUserProfileData(null);
       setFavoritedGames([]);
       setPlaylistedGames([]);
       setMorchiaGames([]);
+      setEarnedBadges([]); // Reset badges if no user
       setIsLoadingProfile(false);
       setIsLoadingFavorites(false);
       setIsLoadingPlaylist(false);
       setIsLoadingMorchia(false);
+      setIsLoadingBadges(false); // Stop loading badges
     }
   }, [firebaseUser]);
 
@@ -129,6 +157,11 @@ export default function ProfilePage() {
     );
   }
 
+  const iconMap: { [key: string]: React.ElementType } = {
+    Award: Award,
+    // Add more icon mappings here if needed for other badges
+  };
+
   return (
     <div className="max-w-4xl mx-auto py-8 space-y-12">
       <Card className="shadow-xl">
@@ -155,6 +188,40 @@ export default function ProfilePage() {
       </Card>
       
       <ThemeSwitcher />
+
+      <Separator />
+
+      <section>
+        <h2 className="text-2xl font-semibold mb-6 text-foreground flex items-center gap-2">
+          <Award className="h-6 w-6 text-yellow-500" />
+          I Tuoi Distintivi
+        </h2>
+        {isLoadingBadges ? (
+          <div className="flex justify-center py-4"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+        ) : earnedBadges.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {earnedBadges.map((badge) => {
+              const IconComponent = badge.iconName ? iconMap[badge.iconName] : Award; // Default to Award icon
+              return (
+                <Card key={badge.badgeId} className="p-4 border rounded-lg bg-card shadow-sm">
+                  <div className="flex items-center gap-3 mb-2">
+                    {IconComponent && <IconComponent className="h-8 w-8 text-primary" />}
+                    <h3 className="text-lg font-semibold text-foreground">{badge.name}</h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-2">{badge.description}</p>
+                  <div className="flex items-center text-xs text-muted-foreground/80 gap-1">
+                    <CalendarDays size={12} /> 
+                    <span>Guadagnato: {formatReviewDate(badge.earnedAt as string)}</span>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="text-muted-foreground">Non hai ancora guadagnato distintivi.</p>
+        )}
+      </section>
+
 
       <Separator />
 
@@ -218,4 +285,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-

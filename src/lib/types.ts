@@ -77,7 +77,7 @@ export interface BoardGame {
   maxPlaytime?: number | null;
   averageWeight?: number | null;
   overallAverageRating?: number | null;
-  voteCount?: number;
+  voteCount?: number; // Renamed from reviewCount
   isPinned?: boolean;
   mechanics?: string[];
   categories?: string[];
@@ -85,8 +85,8 @@ export interface BoardGame {
   favoritedByUserIds?: string[];
   favoriteCount?: number;
   playlistedByUserIds?: string[];
-  morchiaByUserIds?: string[]; // New field
-  morchiaCount?: number;      // New field
+  morchiaByUserIds?: string[];
+  morchiaCount?: number;
   featuredReason?: 'pinned' | 'recent';
   lctr01Plays?: number | null;
   lctr01PlayDetails?: BggPlayDetail[];
@@ -118,6 +118,7 @@ export interface UserProfile {
   photoURL?: string | null;
   email?: string | null;
   bggUsername?: string | null;
+  hasSubmittedReview?: boolean; // New field for badge system
 }
 
 export interface BggPlayerInPlay {
@@ -138,8 +139,8 @@ export interface BggPlayDetail {
   comments: string | null;
   location?: string | null;
   players?: BggPlayerInPlay[];
-  userId?: string;
-  gameBggId: number;
+  userId?: string; // The user who logged this play (e.g., "lctr01")
+  gameBggId: number; // The BGG ID of the game played
 }
 
 export interface AugmentedBggPlayDetail extends BggPlayDetail {
@@ -162,3 +163,12 @@ export type RecommendedGame = {
 export type RecommendGamesOutput = {
   recommendations: RecommendedGame[];
 };
+
+// New type for Earned Badges
+export interface EarnedBadge {
+  badgeId: string;
+  name: string;
+  description: string;
+  iconName?: string; // e.g., a lucide-react icon name string
+  earnedAt: any; // Firestore Timestamp (will be converted to Date on client)
+}
