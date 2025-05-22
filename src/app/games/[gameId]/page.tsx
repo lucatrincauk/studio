@@ -436,8 +436,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                     title: "Partite Caricate e Salvate",
                     description: bggFetchResult.message || `Caricate e salvate ${playsToSave.length} partite per ${game.name} da BGG per ${usernameToFetch}. Conteggio aggiornato.`,
                 });
-                await revalidateGameDataAction(game.id); // Revalidate after successful save
-                fetchGameData(); // Refresh data on the page
+                await revalidateGameDataAction(game.id);
+                fetchGameData();
             } catch (dbError) {
                 const errorMessage = dbError instanceof Error ? dbError.message : "Impossibile salvare le partite nel database.";
                 toast({ title: 'Errore Salvataggio Partite DB', description: errorMessage, variant: 'destructive' });
@@ -447,10 +447,10 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 title: "Nessuna Partita Trovata",
                 description: bggFetchResult.message || `Nessuna partita trovata su BGG per ${usernameToFetch} per questo gioco. Conteggio azzerato.`,
             });
-            try { // Attempt to set count to 0 if no plays found
+            try { 
                 await updateDoc(gameRef, { lctr01Plays: 0 });
                 await revalidateGameDataAction(game.id);
-                fetchGameData(); // Refresh data
+                fetchGameData(); 
             } catch (dbError) {
                  // Silently ignore if update to 0 fails
             }
@@ -590,23 +590,23 @@ const handleGenerateRecommendations = async () => {
           <div className="flex-1 p-6 space-y-4 md:order-1">
             {/* Main header: Title, Icons, Score */}
             <div className="flex justify-between items-start mb-2">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:gap-1 flex-shrink min-w-0 mr-2">
-                  <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
-                      {game.name}
-                      {game.bggId > 0 && (
+                <div className="flex-1 min-w-0 mr-2">
+                     <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
+                        {game.name}
+                        {game.bggId > 0 && (
                           <a href={`https://boardgamegeek.com/boardgame/${game.bggId}`} target="_blank" rel="noopener noreferrer" title="Vedi su BGG" className="inline-flex items-center text-muted-foreground hover:text-primary transition-colors ml-1">
                               <ExternalLink size={16} className="h-4 w-4" />
                           </a>
-                      )}
-                  </h1>
-              </div>
-              <div className="flex-shrink-0 flex flex-col items-end">
+                        )}
+                    </h1>
+                </div>
+                <div className="flex-shrink-0 flex flex-col items-end">
                   {globalGameAverage !== null ? (
                   <span className="text-3xl md:text-4xl font-bold text-primary whitespace-nowrap">
                       {formatRatingNumber(globalGameAverage * 2)}
                   </span>
                   ) : (<span className="text-primary text-3xl md:text-4xl font-bold whitespace-nowrap"></span>) }
-              </div>
+                </div>
             </div>
 
             {/* Image for mobile, below title/icons */}
@@ -690,26 +690,27 @@ const handleGenerateRecommendations = async () => {
             </div>
 
             {/* BUTTON BAR */}
-            <div className="flex justify-evenly gap-2 py-4 border-t mt-4">
+             <div className="flex justify-evenly gap-2 py-4 border-t mt-4">
                 {currentUser && (
-                  <>
-                    <div className="flex items-center"> {/* Group Favorite Button + Count */}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={handleToggleFavorite}
-                        disabled={isFavoriting || authLoading}
-                        title={isFavoritedByCurrentUser ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
-                        className={`h-9 w-9 hover:bg-destructive/20 ${isFavoritedByCurrentUser ? 'text-destructive fill-destructive' : 'text-muted-foreground/60 hover:text-destructive'}`}
-                      >
-                        {isFavoriting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Heart className={`h-5 w-5 ${isFavoritedByCurrentUser ? 'fill-destructive' : ''}`} />}
-                      </Button>
-                      {currentFavoriteCount > 0 && (
-                        <span className="text-sm text-muted-foreground -ml-2 mr-1"> 
-                            ({currentFavoriteCount})
-                        </span>
-                      )}
-                    </div>
+                  <div className="flex items-center"> {/* Group Favorite Button + Count */}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleToggleFavorite}
+                      disabled={isFavoriting || authLoading}
+                      title={isFavoritedByCurrentUser ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
+                      className={`h-9 w-9 hover:bg-destructive/20 ${isFavoritedByCurrentUser ? 'text-destructive fill-destructive' : 'text-muted-foreground/60 hover:text-destructive'}`}
+                    >
+                      {isFavoriting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Heart className={`h-5 w-5 ${isFavoritedByCurrentUser ? 'fill-destructive' : ''}`} />}
+                    </Button>
+                    {currentFavoriteCount > 0 && (
+                      <span className="text-sm text-muted-foreground -ml-2 mr-1"> 
+                          ({currentFavoriteCount})
+                      </span>
+                    )}
+                  </div>
+                )}
+                {currentUser && (
                     <Button
                       variant="ghost"
                       size="icon"
@@ -720,10 +721,9 @@ const handleGenerateRecommendations = async () => {
                     >
                       {isPlaylisting ? <Loader2 className="h-5 w-5 animate-spin" /> : (isPlaylistedByCurrentUser ? <ListChecks className="h-5 w-5" /> : <ListPlus className="h-5 w-5" />)}
                     </Button>
-                  </>
                 )}
                 {game.bggId > 0 && (
-                    <Button variant="outline" size="icon" asChild className="h-9 w-9" disabled={!game.bggId}>
+                    <Button variant="ghost" size="icon" asChild className="h-9 w-9" disabled={!game.bggId}>
                         <a href={`https://boardgamegeek.com/boardgame/${game.bggId}`} target="_blank" rel="noopener noreferrer" title="Vedi su BGG">
                             <ExternalLink className="h-5 w-5" />
                         </a>
@@ -867,7 +867,7 @@ const handleGenerateRecommendations = async () => {
                                                 <span className={cn("truncate", player.didWin ? 'font-semibold' : '')} title={player.name || player.username || 'Sconosciuto'}>
                                                     {player.name || player.username || 'Sconosciuto'}
                                                 </span>
-                                                {player.didWin && (
+                                                 {player.didWin && (
                                                     <Trophy className="h-3.5 w-3.5 text-green-600 ml-1 flex-shrink-0" />
                                                 )}
                                                 {player.isNew && (
