@@ -15,17 +15,17 @@ export type RatingCategory =
   | 'setupTeardown';
 
 export const RATING_CATEGORIES: Record<RatingCategory, string> = {
-  excitedToReplay: 'Entusiasmo nel Rigiocare',
-  mentallyStimulating: 'Stimolazione Mentale',
-  fun: 'Fattore Divertimento',
-  decisionDepth: 'Profondità Decisionale',
-  replayability: 'Varietà e Rigiocabilità',
-  luck: 'Assenza di Fortuna', // 1=High Luck, 5=Low Luck (High "Assenza di Fortuna")
-  lengthDowntime: 'Durata',
-  graphicDesign: 'Grafica e Componenti',
-  componentsThemeLore: 'Tema e Ambientazione',
-  effortToLearn: 'Facilità di Apprendimento',
-  setupTeardown: 'Preparazione e Ripristino',
+  excitedToReplay: "Entusiasmo nel Rigiocare",
+  mentallyStimulating: "Stimolazione Mentale",
+  fun: "Fattore Divertimento",
+  decisionDepth: "Profondità Decisionale",
+  replayability: "Varietà e Rigiocabilità",
+  luck: "Assenza di Fortuna",
+  lengthDowntime: "Durata",
+  graphicDesign: "Grafica e Componenti",
+  componentsThemeLore: "Tema e Ambientazione",
+  effortToLearn: "Facilità di Apprendimento",
+  setupTeardown: "Preparazione e Ripristino",
 };
 
 export interface Rating {
@@ -84,7 +84,6 @@ export interface BoardGame {
   mechanics?: string[];
   categories?: string[];
   designers?: string[];
-  // publishers?: string[]; // Removed as per user request
   favoritedByUserIds?: string[];
   favoriteCount?: number;
   playlistedByUserIds?: string[];
@@ -124,6 +123,8 @@ export interface UserProfile {
   hasSubmittedReview?: boolean;
   hasGivenFirstOne?: boolean;
   hasGivenFirstFive?: boolean;
+  hasEarnedComprehensiveCritic?: boolean;
+  hasEarnedNightOwlReviewer?: boolean;
 }
 
 export interface BggPlayerInPlay {
@@ -178,7 +179,10 @@ export type LucideIconName =
   | 'Trash2'
   | 'Medal'
   | 'MinusCircle'
-  | 'PlusCircle';
+  | 'PlusCircle'
+  | 'Sparkles'
+  | 'ClipboardCheck'
+  | 'Moon';
 
 export interface EarnedBadge {
   badgeId: string;
@@ -194,3 +198,4 @@ export interface BadgeDefinition {
   description: string; // How to earn it
   iconName: LucideIconName;
 }
+

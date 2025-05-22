@@ -5,11 +5,11 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useRouter }
 from 'next/navigation';
 import { getUserDetailsAndReviewsAction, getFavoritedGamesForUserAction, getPlaylistedGamesForUserAction, getMorchiaGamesForUserAction } from '@/lib/actions'; 
-import type { AugmentedReview, UserProfile, BoardGame, EarnedBadge } from '@/lib/types';
+import type { AugmentedReview, UserProfile, BoardGame, EarnedBadge, LucideIconName } from '@/lib/types';
 import { ReviewItem } from '@/components/boardgame/review-item';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { MessageSquareText, AlertCircle, Gamepad2, UserCircle2, Star, Heart, ListChecks, Loader2, ExternalLink, Frown, Award, Edit3, FileText, BookOpenText, Trash2, Medal, MinusCircle, PlusCircle, type LucideIcon, BookMarked } from 'lucide-react';
+import { MessageSquareText, AlertCircle, Gamepad2, UserCircle2, Star, Heart, ListChecks, Loader2, ExternalLink, Frown, Award, Edit3, FileText, BookOpenText, Trash2, Medal, MinusCircle, PlusCircle, Sparkles, ClipboardCheck, Moon, type LucideIcon, BookMarked } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { SafeImage } from '@/components/common/SafeImage';
@@ -23,7 +23,7 @@ interface UserDetailPageParams {
   userId: string;
 }
 
-const iconMap: Record<string, LucideIcon> = {
+const iconMap: Record<LucideIconName, LucideIcon> = {
   Award: Award,
   Edit3: Edit3,
   FileText: FileText,
@@ -32,6 +32,9 @@ const iconMap: Record<string, LucideIcon> = {
   Medal: Medal,
   MinusCircle: MinusCircle,
   PlusCircle: PlusCircle,
+  Sparkles: Sparkles,
+  ClipboardCheck: ClipboardCheck,
+  Moon: Moon,
 };
 
 export default function UserDetailPage() {
@@ -66,27 +69,27 @@ export default function UserDetailPage() {
     setError(null);
 
     try {
-      const [profileAndReviewsData, favData, playlistData, morchiaData] = await Promise.allSettled([ 
-        getUserDetailsAndReviewsAction(userId),
+      const [profileAndContentData, favData, playlistData, morchiaData] = await Promise.allSettled([ 
+        getUserDetailsAndReviewsAction(userId), // This action now returns user, reviews, and badges
         getFavoritedGamesForUserAction(userId),
         getPlaylistedGamesForUserAction(userId),
         getMorchiaGamesForUserAction(userId) 
       ]);
 
-      if (profileAndReviewsData.status === 'fulfilled') {
-        if (profileAndReviewsData.value.user) {
-          setViewedUser(profileAndReviewsData.value.user);
-          setUserReviews(profileAndReviewsData.value.reviews);
-          setEarnedBadges(profileAndReviewsData.value.badges); // Set badges
+      if (profileAndContentData.status === 'fulfilled') {
+        if (profileAndContentData.value.user) {
+          setViewedUser(profileAndContentData.value.user);
+          setUserReviews(profileAndContentData.value.reviews);
+          setEarnedBadges(profileAndContentData.value.badges); 
         } else {
           setError('Utente non trovato.');
         }
       } else {
-        setError(profileAndReviewsData.reason?.message || 'Impossibile caricare il profilo utente e le recensioni.');
+        setError(profileAndContentData.reason?.message || 'Impossibile caricare il profilo utente e i contenuti correlati.');
       }
       setIsLoadingProfile(false);
       setIsLoadingReviews(false);
-      setIsLoadingBadges(false); // Badges loading done
+      setIsLoadingBadges(false);
 
       if (favData.status === 'fulfilled') {
         setFavoritedGames(favData.value);
@@ -238,12 +241,12 @@ export default function UserDetailPage() {
       <section>
          <h2 className="text-2xl font-semibold mb-4 text-foreground flex items-center gap-3">
             <MessageSquareText className="h-6 w-6 text-primary" />
-            Tutte le Recensioni di {viewedUser.name} ({userReviews.length})
+            Tutti i Voti di {viewedUser.name} ({userReviews.length})
         </h2>
         {isLoadingReviews ? (
            <div className="flex justify-center py-4"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
         ) : userReviews.length > 0 ? (
-          <div className="flex space-x-4 overflow-x-auto pb-4">
+            <div className="flex space-x-4 overflow-x-auto pb-4">
             {userReviews.map((review, index) => {
               const gameForCard: Partial<BoardGame> = {
                 id: review.gameId,

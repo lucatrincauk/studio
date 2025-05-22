@@ -44,5 +44,22 @@ export const ALL_BADGE_DEFINITIONS: BadgeDefinition[] = [
     description: "Contrassegna 5 giochi come 'morchia'.",
     iconName: "Trash2",
   },
-  // Add other future badge definitions here
+  {
+    badgeId: "rating_pioneer",
+    name: "Pioniere dei Voti",
+    description: "Sii il primo a inviare un voto per un gioco.",
+    iconName: "Sparkles",
+  },
+  {
+    badgeId: "comprehensive_critic",
+    name: "Critico Completo",
+    description: "Invia un voto utilizzando almeno tre valori diversi sulla scala (es. 1, 3, 5).",
+    iconName: "ClipboardCheck",
+  },
+  {
+    badgeId: "night_owl_reviewer",
+    name: "Recensore Notturno",
+    description: "Invia un voto tra mezzanotte e le 5 del mattino.",
+    iconName: "Moon",
+  },
 ];

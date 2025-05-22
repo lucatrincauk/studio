@@ -52,32 +52,27 @@ const updateUserProfileInFirestore = async (user: FirebaseUser) => {
       const existingData = profileSnap.data() as UserProfile;
       profileDataToSave.name = user.displayName || existingData.name || user.email?.split('@')[0] || 'Utente Anonimo';
       profileDataToSave.bggUsername = existingData.bggUsername === "" ? null : (existingData.bggUsername || null);
-      if (existingData.hasSubmittedReview !== undefined) {
-        profileDataToSave.hasSubmittedReview = existingData.hasSubmittedReview;
-      }
-      if (existingData.hasGivenFirstOne !== undefined) {
-        profileDataToSave.hasGivenFirstOne = existingData.hasGivenFirstOne;
-      }
-      if (existingData.hasGivenFirstFive !== undefined) {
-        profileDataToSave.hasGivenFirstFive = existingData.hasGivenFirstFive;
-      }
+      profileDataToSave.hasSubmittedReview = existingData.hasSubmittedReview ?? false;
+      profileDataToSave.hasGivenFirstOne = existingData.hasGivenFirstOne ?? false;
+      profileDataToSave.hasGivenFirstFive = existingData.hasGivenFirstFive ?? false;
+      profileDataToSave.hasEarnedComprehensiveCritic = existingData.hasEarnedComprehensiveCritic ?? false;
+      profileDataToSave.hasEarnedNightOwlReviewer = existingData.hasEarnedNightOwlReviewer ?? false;
     } else { 
       profileDataToSave.name = user.displayName || user.email?.split('@')[0] || 'Utente Anonimo';
       profileDataToSave.bggUsername = null; 
       profileDataToSave.hasSubmittedReview = false; 
       profileDataToSave.hasGivenFirstOne = false;
       profileDataToSave.hasGivenFirstFive = false;
+      profileDataToSave.hasEarnedComprehensiveCritic = false;
+      profileDataToSave.hasEarnedNightOwlReviewer = false;
     }
     
-    if (profileDataToSave.hasSubmittedReview === undefined) {
-        profileDataToSave.hasSubmittedReview = false;
-    }
-    if (profileDataToSave.hasGivenFirstOne === undefined) {
-        profileDataToSave.hasGivenFirstOne = false;
-    }
-    if (profileDataToSave.hasGivenFirstFive === undefined) {
-        profileDataToSave.hasGivenFirstFive = false;
-    }
+    // Ensure boolean fields always have a default if somehow missed
+    profileDataToSave.hasSubmittedReview = profileDataToSave.hasSubmittedReview ?? false;
+    profileDataToSave.hasGivenFirstOne = profileDataToSave.hasGivenFirstOne ?? false;
+    profileDataToSave.hasGivenFirstFive = profileDataToSave.hasGivenFirstFive ?? false;
+    profileDataToSave.hasEarnedComprehensiveCritic = profileDataToSave.hasEarnedComprehensiveCritic ?? false;
+    profileDataToSave.hasEarnedNightOwlReviewer = profileDataToSave.hasEarnedNightOwlReviewer ?? false;
 
 
     await setDoc(userProfileRef, profileDataToSave, { merge: true });
@@ -90,15 +85,11 @@ const updateUserProfileInFirestore = async (user: FirebaseUser) => {
     if (typeof profileDataToSave.bggUsername === 'undefined') {
        profileDataToSave.bggUsername = null;
     }
-    if (profileDataToSave.hasSubmittedReview === undefined) {
-        profileDataToSave.hasSubmittedReview = false;
-    }
-    if (profileDataToSave.hasGivenFirstOne === undefined) {
-        profileDataToSave.hasGivenFirstOne = false;
-    }
-    if (profileDataToSave.hasGivenFirstFive === undefined) {
-        profileDataToSave.hasGivenFirstFive = false;
-    }
+    profileDataToSave.hasSubmittedReview = profileDataToSave.hasSubmittedReview ?? false;
+    profileDataToSave.hasGivenFirstOne = profileDataToSave.hasGivenFirstOne ?? false;
+    profileDataToSave.hasGivenFirstFive = profileDataToSave.hasGivenFirstFive ?? false;
+    profileDataToSave.hasEarnedComprehensiveCritic = profileDataToSave.hasEarnedComprehensiveCritic ?? false;
+    profileDataToSave.hasEarnedNightOwlReviewer = profileDataToSave.hasEarnedNightOwlReviewer ?? false;
     try {
       await setDoc(userProfileRef, profileDataToSave, { merge: true });
     } catch (nestedError) {
@@ -253,19 +244,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       let finalPayload = { ...firestoreUpdatePayload };
       if (profileSnap.exists()) {
         const existingData = profileSnap.data() as UserProfile;
-        if (existingData.hasSubmittedReview !== undefined && finalPayload.hasSubmittedReview === undefined) {
-          finalPayload.hasSubmittedReview = existingData.hasSubmittedReview;
-        }
-        if (existingData.hasGivenFirstOne !== undefined && finalPayload.hasGivenFirstOne === undefined) {
-          finalPayload.hasGivenFirstOne = existingData.hasGivenFirstOne;
-        }
-        if (existingData.hasGivenFirstFive !== undefined && finalPayload.hasGivenFirstFive === undefined) {
-          finalPayload.hasGivenFirstFive = existingData.hasGivenFirstFive;
-        }
-      } else { // Ensure flags are initialized if profile didn't exist (should be rare here)
+        finalPayload.hasSubmittedReview = existingData.hasSubmittedReview ?? false;
+        finalPayload.hasGivenFirstOne = existingData.hasGivenFirstOne ?? false;
+        finalPayload.hasGivenFirstFive = existingData.hasGivenFirstFive ?? false;
+        finalPayload.hasEarnedComprehensiveCritic = existingData.hasEarnedComprehensiveCritic ?? false;
+        finalPayload.hasEarnedNightOwlReviewer = existingData.hasEarnedNightOwlReviewer ?? false;
+      } else { 
         finalPayload.hasSubmittedReview = finalPayload.hasSubmittedReview ?? false;
         finalPayload.hasGivenFirstOne = finalPayload.hasGivenFirstOne ?? false;
         finalPayload.hasGivenFirstFive = finalPayload.hasGivenFirstFive ?? false;
+        finalPayload.hasEarnedComprehensiveCritic = finalPayload.hasEarnedComprehensiveCritic ?? false;
+        finalPayload.hasEarnedNightOwlReviewer = finalPayload.hasEarnedNightOwlReviewer ?? false;
       }
       
       await setDoc(userProfileRef, finalPayload, { merge: true });
