@@ -216,7 +216,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         
         toast({ title: "Voto Eliminato", description: "Il tuo voto è stato eliminato con successo." });
         await updateGameOverallRatingAfterReviewOrDelete();
-        // fetchGameData() is called inside updateGameOverallRatingAfterReviewOrDelete
+        await revalidateGameDataAction(gameId);
+        fetchGameData();
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({ title: "Errore", description: `Impossibile eliminare il voto: ${errorMessage}`, variant: "destructive" });
@@ -240,9 +241,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `Il gioco è stato ${newPinStatus ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
         });
         await revalidateGameDataAction(game.id);
-        // Optionally call fetchGameData() if you want to be absolutely sure,
-        // but revalidatePath and local state update should often suffice.
-        // fetchGameData(); 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({
@@ -292,7 +290,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
         setIsFavoritedByCurrentUser(newFavoritedStatus);
         setCurrentFavoriteCount(newFavoriteCount);
-        // Update local game state for immediate UI feedback
         setGame(prevGame => prevGame ? {
           ...prevGame,
           favoriteCount: newFavoriteCount,
@@ -307,7 +304,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         });
 
         await revalidateGameDataAction(game.id);
-        // fetchGameData(); // Potentially redundant if optimistic update + revalidate works well
 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Impossibile aggiornare i preferiti.";
@@ -360,7 +356,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         });
 
         await revalidateGameDataAction(game.id);
-        // fetchGameData();
 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Impossibile aggiornare la playlist.";
@@ -428,12 +423,11 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 const playDataForFirestore: BggPlayDetail = {
                     ...play,
                     userId: usernameToFetch,
-                    gameBggId: game.bggId, // Ensure this is set
+                    gameBggId: game.bggId,
                 };
                 batch.set(playDocRef, playDataForFirestore, { merge: true });
             });
 
-            // Update the play count on the main game document
             batch.update(gameRef, { lctr01Plays: playsToSave.length });
 
             try {
@@ -443,14 +437,13 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                     description: bggFetchResult.message || `Caricate e salvate ${playsToSave.length} partite per ${game.name}. Conteggio aggiornato.`,
                 });
                 await revalidateGameDataAction(game.id);
-                fetchGameData(); // Re-fetch game data to update UI, including the new plays count
+                fetchGameData();
             } catch (dbError) {
                 const errorMessage = dbError instanceof Error ? dbError.message : "Impossibile salvare le partite nel database.";
                 toast({ title: 'Errore Salvataggio Partite DB', description: errorMessage, variant: 'destructive' });
             }
         } else {
              try {
-                // If no plays are found, set the count to 0 on the main game document
                 await updateDoc(gameRef, { lctr01Plays: 0 });
                 toast({
                     title: "Nessuna Partita Trovata",
@@ -459,7 +452,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 await revalidateGameDataAction(game.id);
                 fetchGameData();
             } catch (dbError) {
-                 // Silently ignore if update to 0 fails, or log specific error
+                 // Silently ignore
             }
         }
     });
@@ -500,16 +493,13 @@ const handleGenerateRecommendations = async () => {
     if (!game || !game.lctr01PlayDetails || game.lctr01PlayDetails.length === 0) {
       return null;
     }
-
     const playerStats: Map<string, { wins: number; totalScore: number; name: string }> = new Map();
-
     game.lctr01PlayDetails.forEach(play => {
       if (play.players && play.players.length > 0) {
         play.players.forEach(p => {
           if (p.didWin) {
             const playerIdentifier = p.username || p.name;
             const displayName = p.name || p.username;
-
             if (playerIdentifier && displayName) {
               const current = playerStats.get(playerIdentifier) || { wins: 0, totalScore: 0, name: displayName };
               current.wins += (play.quantity || 1);
@@ -521,21 +511,11 @@ const handleGenerateRecommendations = async () => {
         });
       }
     });
-
     if (playerStats.size === 0) return null;
-
     let topPlayer: { wins: number; totalScore: number; name: string } | null = null;
     for (const stats of playerStats.values()) {
-      if (!topPlayer) {
+      if (!topPlayer || stats.wins > topPlayer.wins || (stats.wins === topPlayer.wins && stats.totalScore > topPlayer.totalScore)) {
         topPlayer = stats;
-      } else {
-        if (stats.wins > topPlayer.wins) {
-          topPlayer = stats;
-        } else if (stats.wins === topPlayer.wins) {
-          if (stats.totalScore > topPlayer.totalScore) {
-            topPlayer = stats;
-          }
-        }
       }
     }
     return topPlayer ? { name: topPlayer.name, wins: topPlayer.wins } : null;
@@ -553,9 +533,7 @@ const handleGenerateRecommendations = async () => {
           if (p.score) {
             const score = parseInt(p.score, 10);
             if (!isNaN(score)) {
-              if (score > maxScore) {
-                maxScore = score;
-              }
+              if (score > maxScore) maxScore = score;
               scoreFound = true;
             }
           }
@@ -592,21 +570,24 @@ const handleGenerateRecommendations = async () => {
   return (
     <div className="space-y-8">
       <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
-        <div className="flex flex-col">
+        <div className="flex flex-col"> {/* Main card flex column */}
+          
+          {/* Top Section: Game Info and Desktop Image */}
           <div className="flex flex-col md:flex-row">
-            {/* Main Content Area */}
+            {/* Main Content Area (Info) */}
             <div className="flex-1 p-6 space-y-4 md:order-1">
               {/* Header: Game Title, Icons, and Overall Score */}
               <div className="flex justify-between items-start mb-2">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:gap-1 flex-shrink min-w-0 mr-2">
-                  <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
-                    {game.name}
-                  </h1>
+                   <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
+                     {game.name}
+                   </h1>
                 </div>
                 <div className="flex-shrink-0 flex flex-col items-end">
                   <span className="text-3xl md:text-4xl font-bold text-primary whitespace-nowrap">
                     {globalGameAverage !== null ? formatRatingNumber(globalGameAverage * 2) : ''}
                   </span>
+                  {/* Icons moved to button bar below */}
                 </div>
               </div>
 
@@ -625,9 +606,9 @@ const handleGenerateRecommendations = async () => {
                   />
                 </div>
               </div>
-              
-              {/* Button Bar */}
-              <div className="px-0 py-4 border-t border-b border-border">
+
+              {/* Button Bar - Now below title/mobile image, before metadata grid */}
+              <div className="py-4 border-t border-b border-border">
                 <div className="flex justify-evenly items-center gap-1 sm:gap-2">
                     <Button
                         variant="ghost"
@@ -635,11 +616,11 @@ const handleGenerateRecommendations = async () => {
                         onClick={handleToggleFavorite}
                         disabled={isFavoriting || authLoading || !currentUser}
                         title={isFavoritedByCurrentUser ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
-                        className={`h-9 px-2 ${isFavoritedByCurrentUser ? 'text-destructive fill-destructive hover:bg-destructive/20' : 'text-destructive/60 hover:text-destructive hover:bg-destructive/10'}`}
+                        className={`h-9 px-2 ${isFavoritedByCurrentUser ? 'text-destructive hover:bg-destructive/20' : 'text-destructive/60 hover:text-destructive hover:bg-destructive/10'}`}
                     >
                         {isFavoriting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Heart className={`h-5 w-5 ${isFavoritedByCurrentUser ? 'fill-destructive' : ''}`} />}
                         {currentFavoriteCount > 0 && (
-                        <span className="ml-1 text-xs">({currentFavoriteCount})</span>
+                          <span className="ml-1 text-xs">({currentFavoriteCount})</span>
                         )}
                     </Button>
                     
@@ -653,7 +634,7 @@ const handleGenerateRecommendations = async () => {
                     >
                         {isPlaylisting ? <Loader2 className="h-5 w-5 animate-spin" /> : (isPlaylistedByCurrentUser ? <BookMarked className="h-5 w-5" /> : <Bookmark className="h-5 w-5" />)}
                         {game?.playlistedByUserIds && game.playlistedByUserIds.length > 0 && (
-                        <span className="ml-1 text-xs">({game.playlistedByUserIds.length})</span>
+                           <span className="ml-1 text-xs">({game.playlistedByUserIds.length})</span>
                         )}
                     </Button>
                     
@@ -702,10 +683,10 @@ const handleGenerateRecommendations = async () => {
                     )}
                 </div>
               </div>
-              
-              {/* Metadata Grid */}
+
+              {/* Metadata Grid - Now After Button Bar */}
               <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
-                {/* Left Column */}
+                {/* First Column */}
                 {(game.designers && game.designers.length > 0) && (
                   <div className="flex items-baseline gap-2">
                       <PenTool size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
@@ -713,14 +694,14 @@ const handleGenerateRecommendations = async () => {
                       <span>{game.designers.join(', ')}</span>
                   </div>
                 )}
-                {(game.minPlayers != null || game.maxPlayers != null) && (
+                 {(game.minPlayers != null || game.maxPlayers != null) && (
                     <div className="flex items-baseline gap-2">
                       <Users size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
                       <span className="font-medium hidden sm:inline">Giocatori:</span>
                       <span>{game.minPlayers}{game.maxPlayers && game.minPlayers !== game.maxPlayers ? `-${game.maxPlayers}` : ''}</span>
                     </div>
                 )}
-                 {game.averageWeight !== null && typeof game.averageWeight === 'number' && (
+                {game.averageWeight !== null && typeof game.averageWeight === 'number' && (
                     <div className="flex items-baseline gap-2">
                       <Weight size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
                       <span className="font-medium hidden sm:inline">Complessità:</span>
@@ -735,7 +716,7 @@ const handleGenerateRecommendations = async () => {
                   </div>
                 )}
 
-                {/* Right Column */}
+                {/* Second Column - Right Aligned */}
                 {game.yearPublished != null && (
                     <div className="flex items-baseline gap-2 justify-end">
                       <span className="font-medium hidden sm:inline">Anno:</span>
@@ -770,7 +751,7 @@ const handleGenerateRecommendations = async () => {
                 )}
               </div>
               
-              {/* Valutazione Media Section */}
+              {/* Valutazione Media Section - Now After Metadata */}
               {(game.reviews && game.reviews.length > 0) && (
                 <div className="w-full pt-4 border-t border-border">
                   <h3 className="text-sm md:text-lg font-semibold text-foreground mb-3">Valutazione Media:</h3>
@@ -803,7 +784,7 @@ const handleGenerateRecommendations = async () => {
         </div>
       </Card>
       
-      {/* Partite Registrate Card */}
+      {/* Partite Registrate Card - Remains a separate card below */}
       {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
         <Card className="shadow-md border border-border rounded-lg">
           <CardHeader className="flex flex-row justify-between items-center">
@@ -1047,4 +1028,3 @@ const handleGenerateRecommendations = async () => {
     </div>
   );
 }
-
