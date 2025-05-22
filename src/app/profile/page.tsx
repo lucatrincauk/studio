@@ -201,7 +201,7 @@ export default function ProfilePage() {
       <section>
         <h2 className="text-2xl font-semibold mb-6 text-foreground flex items-center gap-2">
           <Frown className="h-6 w-6 text-orange-600" />
-          La Tua Morchia List
+          La Tua Morchia
         </h2>
         {isLoadingMorchia ? (
           <div className="flex justify-center py-4"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
@@ -218,3 +218,4 @@ export default function ProfilePage() {
     </div>
   );
 }
+
