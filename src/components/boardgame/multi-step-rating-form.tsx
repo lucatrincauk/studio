@@ -17,13 +17,13 @@ import type { User as FirebaseUser } from 'firebase/auth';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Slider } from '@/components/ui/slider';
 import {
-  calculateOverallCategoryAverage as calculateGlobalOverallAverage, // Renamed for clarity in this file
+  calculateOverallCategoryAverage as calculateGlobalOverallAverage,
   calculateGroupedCategoryAverages,
   formatRatingNumber,
-  calculateCategoryAverages,
+  calculateCategoryAverages
 } from '@/lib/utils';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, doc, updateDoc, query, where, getDocs, limit, writeBatch, getDoc, serverTimestamp, setDoc, type DocumentReference, collectionGroup, getCountFromServer } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc, query, where, getDocs, limit, writeBatch, getDoc, serverTimestamp, setDoc, type DocumentReference, collectionGroup, getCountFromServer, type Timestamp } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { revalidateGameDataAction } from '@/lib/actions';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -90,22 +90,22 @@ const RatingSliderInput: React.FC<RatingSliderInputProps> = React.memo(({ fieldN
 
         return (
           <FormItem className="pb-4 border-b border-border last:border-b-0">
-            <FormLabel>{label}</FormLabel>
-            <p className="text-xs text-muted-foreground mt-1 mb-2">{description}</p>
-            <div className="flex items-center gap-4">
-              <Slider
-                value={sliderValue}
-                onValueChange={(value: number[]) => {
-                  const numericValue = value[0];
-                  if (numericValue !== currentFieldValue) {
-                    field.onChange(numericValue);
-                  }
-                }}
-                min={1} max={5} step={1}
-                className="w-full"
-              />
-              <span className="text-lg font-semibold w-8 text-center">{currentFieldValue}</span>
+            <div className="flex justify-between items-baseline mb-1">
+              <FormLabel>{label}</FormLabel>
+              <span className="text-lg font-semibold text-primary">{currentFieldValue}</span>
             </div>
+            <p className="text-xs text-muted-foreground mb-2">{description}</p>
+            <Slider
+              value={sliderValue}
+              onValueChange={(value: number[]) => {
+                const numericValue = value[0];
+                if (numericValue !== currentFieldValue) {
+                  field.onChange(numericValue);
+                }
+              }}
+              min={1} max={5} step={1}
+              className="w-full"
+            />
             <div className="flex justify-between text-xs text-muted-foreground mt-1 px-1">
               <span>{minLabel}</span>
               <span>{maxLabel}</span>
@@ -122,7 +122,7 @@ RatingSliderInput.displayName = 'RatingSliderInput';
 
 interface MultiStepRatingFormProps {
   gameId: string;
-  gameName?: string;
+  gameName: string; // Make gameName mandatory for the form
   gameCoverArtUrl?: string | null;
   currentUser: FirebaseUser;
   existingReview?: Review | null;
@@ -132,7 +132,7 @@ interface MultiStepRatingFormProps {
 }
 
 const totalInputSteps = 4;
-const totalDisplaySteps = 5; 
+const totalDisplaySteps = 5;
 
 const stepCategories: RatingCategory[][] = [
   ['excitedToReplay', 'mentallyStimulating', 'fun'],
@@ -156,7 +156,6 @@ const stepUIDescriptions: Record<number, string> = {
   4: "Quanto è stato facile apprendere e gestire il gioco?",
   5: "La tua recensione è stata salvata. Ecco il riepilogo dei tuoi voti:",
 };
-
 
 const StepIcon = ({ step }: { step: number }) => {
   if (step > totalInputSteps) return null;
@@ -183,7 +182,8 @@ export function MultiStepRatingForm({
   const [formError, setFormError] = useState<string | null>(null);
   const [groupedAveragesForSummary, setGroupedAveragesForSummary] = useState<GroupedCategoryAveragesType | null>(null);
   const [newlyEarnedBadges, setNewlyEarnedBadges] = useState<Array<Pick<EarnedBadge, 'name' | 'iconName' | 'description'>>>([]);
-  
+
+
   const { toast } = useToast();
   const router = useRouter();
 
@@ -243,7 +243,7 @@ export function MultiStepRatingForm({
       const gameDocRef = doc(db, "boardgames_collection", gameId);
       await updateDoc(gameDocRef, {
         overallAverageRating: newOverallAverage,
-        voteCount: newVoteCount 
+        voteCount: newVoteCount
       });
 
       return { success: true, initialReviewCount: initialReviewCountOnGame };
@@ -291,7 +291,7 @@ export function MultiStepRatingForm({
       author: currentUser.displayName || 'Anonimo',
       authorPhotoURL: currentUser.photoURL || null,
       rating: ratingDataToSave,
-      comment: "", 
+      comment: "",
       date: new Date().toISOString(),
     };
 
@@ -319,6 +319,7 @@ export function MultiStepRatingForm({
           await addDoc(reviewsCollectionRef, reviewDataForFirestore);
           toast({ title: "Successo!", description: "Voto inviato con successo!", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
           wasNewReviewAdded = true;
+
           if (userProfileData && !userProfileData.hasSubmittedReview) {
             const badgeRef = doc(userProfileRef, 'earned_badges', 'first_reviewer');
             const badgeData: EarnedBadge = { badgeId: "first_reviewer", name: "Primo Voto!", description: "Hai inviato il tuo primo voto per un gioco!", iconName: "Award", earnedAt: serverTimestamp() };
@@ -331,16 +332,16 @@ export function MultiStepRatingForm({
 
       submissionSuccess = true;
       gameUpdateResult = await updateGameOverallRating(wasNewReviewAdded);
-      revalidateGameDataAction(gameId);
+      await revalidateGameDataAction(gameId);
 
-      userProfileSnap = await getDoc(userProfileRef); 
+      userProfileSnap = await getDoc(userProfileRef); // Re-fetch after potential updates
       userProfileData = userProfileSnap.exists() ? userProfileSnap.data() as UserProfile : null;
 
       if (userProfileData) {
         if (wasNewReviewAdded && gameUpdateResult.success && gameUpdateResult.initialReviewCount === 0) {
           const pioneerBadgeRef = doc(userProfileRef, 'earned_badges', 'rating_pioneer');
           const pioneerBadgeSnap = await getDoc(pioneerBadgeRef);
-          if (!pioneerBadgeSnap.exists()) {
+           if (!pioneerBadgeSnap.exists()) {
             const badgeData: EarnedBadge = { badgeId: "rating_pioneer", name: "Pioniere dei Voti", description: "Sei stato il primo a inviare un voto per questo gioco!", iconName: "Sparkles", earnedAt: serverTimestamp() };
             await setDoc(pioneerBadgeRef, badgeData, { merge: true });
             awardedBadgesInThisSession.push({ name: badgeData.name, iconName: badgeData.iconName, description: badgeData.description });
@@ -472,7 +473,7 @@ export function MultiStepRatingForm({
             userId: currentUser.uid,
             authorPhotoURL: currentUser.photoURL || null,
             rating: currentRatings,
-            comment: "", 
+            comment: "",
             date: existingReview?.date || new Date().toISOString(),
           };
           setGroupedAveragesForSummary(calculateGroupedCategoryAverages([tempReviewForSummary]));
@@ -508,12 +509,12 @@ export function MultiStepRatingForm({
                 <div className="relative h-16 w-12 flex-shrink-0 rounded-sm overflow-hidden">
                   <SafeImage
                     src={gameCoverArtUrl}
-                    fallbackSrc={`https://placehold.co/48x64.png?text=${encodeURIComponent(gameName || 'N/A').substring(0, 3)}`}
-                    alt={`${gameName || 'Gioco'} copertina`}
+                    fallbackSrc={`https://placehold.co/48x64.png?text=${encodeURIComponent(gameName).substring(0, 3)}`}
+                    alt={`${gameName} copertina`}
                     fill
                     sizes="48px"
                     className="object-cover"
-                    data-ai-hint={`${gameName?.split(' ')[0]?.toLowerCase() || 'game'} thumbnail`}
+                    data-ai-hint={`${gameName.split(' ')[0]?.toLowerCase() || 'game'} thumbnail`}
                   />
                 </div>
               )}
@@ -524,7 +525,6 @@ export function MultiStepRatingForm({
           </Card>
         )}
         {currentStep === 1 && <Separator className="mb-6" />}
-
 
         {currentStep <= totalInputSteps && (
           <div className="mb-4">
@@ -538,42 +538,60 @@ export function MultiStepRatingForm({
                       {stepUIDescriptions[currentStep]}
                     </p>
                 </div>
+                { currentStep > 0 && currentStep <= totalInputSteps && gameName && (
+                    <div className="hidden sm:flex items-center gap-2 text-right flex-shrink-0 ml-4">
+                        {gameCoverArtUrl && (
+                        <div className="relative h-12 w-9 rounded-sm overflow-hidden">
+                            <SafeImage
+                            src={gameCoverArtUrl}
+                            fallbackSrc={`https://placehold.co/36x48.png?text=${encodeURIComponent(gameName).substring(0, 3)}`}
+                            alt={`${gameName} miniatura`}
+                            fill
+                            sizes="36px"
+                            className="object-cover"
+                            data-ai-hint="game mini"
+                            />
+                        </div>
+                        )}
+                        <span className="text-xs text-muted-foreground max-w-[100px] truncate" title={gameName}>{gameName}</span>
+                    </div>
+                )}
             </div>
           </div>
         )}
         
         {currentStep === totalDisplaySteps && (
-            <>
+          <>
             <Card className="mb-6 shadow-sm border-border">
-                <CardHeader className="p-3 flex flex-row items-center justify-between gap-3 bg-muted/30">
-                    <div className="flex items-center gap-3">
-                        {gameCoverArtUrl && (
-                        <div className="relative h-16 w-12 flex-shrink-0 rounded-sm overflow-hidden">
-                            <SafeImage
-                            src={gameCoverArtUrl}
-                            fallbackSrc={`https://placehold.co/48x64.png?text=${encodeURIComponent(gameName || 'N/A').substring(0, 3)}`}
-                            alt={`${gameName || 'Gioco'} copertina`}
-                            fill
-                            sizes="48px"
-                            className="object-cover"
-                            data-ai-hint={`${gameName?.split(' ')[0]?.toLowerCase() || 'game'} thumbnail`}
-                            />
-                        </div>
-                        )}
-                        <div className="flex-1">
-                          <h4 className="font-semibold text-md text-foreground">{gameName}</h4>
-                        </div>
+              <CardHeader className="p-3 flex flex-row items-center justify-between gap-3 bg-muted/30">
+                <div className="flex items-center gap-3">
+                  {gameCoverArtUrl && (
+                    <div className="relative h-16 w-12 flex-shrink-0 rounded-sm overflow-hidden">
+                      <SafeImage
+                        src={gameCoverArtUrl}
+                        fallbackSrc={`https://placehold.co/48x64.png?text=${encodeURIComponent(gameName).substring(0, 3)}`}
+                        alt={`${gameName} copertina`}
+                        fill
+                        sizes="48px"
+                        className="object-cover"
+                        data-ai-hint={`${gameName.split(' ')[0]?.toLowerCase() || 'game'} thumbnail`}
+                      />
                     </div>
-                    {yourOverallAverage !== null && (
-                        <div className="text-right">
-                            <span className="text-primary text-3xl md:text-4xl font-bold whitespace-nowrap">
-                                {formatRatingNumber(yourOverallAverage * 2)}
-                            </span>
-                        </div>
-                    )}
-                </CardHeader>
+                  )}
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-md text-foreground">{gameName}</h4>
+                  </div>
+                </div>
+                {yourOverallAverage !== null && (
+                  <div className="text-right">
+                    <span className="text-primary text-3xl md:text-4xl font-bold whitespace-nowrap">
+                      {formatRatingNumber(yourOverallAverage * 2)}
+                    </span>
+                  </div>
+                )}
+              </CardHeader>
             </Card>
-            <CardHeader className="px-0 pt-0 pb-4">
+             <CardHeader className="px-0 pt-0 pb-4">
                 <CardTitle className="text-xl font-semibold flex items-center">
                     {stepUITitles[currentStep]}
                 </CardTitle>
@@ -581,7 +599,7 @@ export function MultiStepRatingForm({
                    {stepUIDescriptions[currentStep]}
                 </CardDescription>
             </CardHeader>
-            </>
+          </>
         )}
 
         <div className="min-h-[240px] sm:min-h-[280px]">
@@ -675,21 +693,19 @@ export function MultiStepRatingForm({
           currentStep === 1 || (currentStep > 1 && currentStep <= totalInputSteps) ? 'justify-between' : 'justify-end'
         )}>
           {/* Left-aligned buttons */}
-          {(currentStep === 1 || (currentStep > 1 && currentStep <= totalInputSteps)) && (
-            <div>
-              {currentStep === 1 && (
-                <Button type="button" variant="outline" onClick={() => router.push(`/games/${gameId}`)} disabled={isSubmitting}>
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Torna al Gioco
-                </Button>
-              )}
-              {(currentStep > 1 && currentStep <= totalInputSteps) && (
-                <Button type="button" variant="outline" onClick={handlePrevious} disabled={isSubmitting}>
-                  Indietro
-                </Button>
-              )}
-            </div>
-          )}
+          <div>
+            {currentStep === 1 && (
+              <Button type="button" variant="outline" onClick={() => router.push(`/games/${gameId}`)} disabled={isSubmitting}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Torna al Gioco
+              </Button>
+            )}
+            {(currentStep > 1 && currentStep <= totalInputSteps) && (
+              <Button type="button" variant="outline" onClick={handlePrevious} disabled={isSubmitting}>
+                Indietro
+              </Button>
+            )}
+          </div>
 
           {/* Right-aligned buttons */}
           <div>
@@ -715,3 +731,4 @@ export function MultiStepRatingForm({
     </Form>
   );
 }
+
