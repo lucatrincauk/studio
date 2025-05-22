@@ -12,7 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { AlertCircle, Loader2, Info, Edit, Trash2, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, MessageSquare, Heart, ListPlus, ListChecks, Settings, Trophy, Medal, UserCircle2, Brain, Star, Palette, ClipboardList, Repeat, Sparkles, Pin, PinOff, DownloadCloud, Wand2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
-import { calculateGroupedCategoryAverages, calculateOverallCategoryAverage as calculateGlobalOverallAverage, formatRatingNumber, formatPlayDate, formatReviewDate } from '@/lib/utils';
+import { calculateGroupedCategoryAverages, calculateOverallCategoryAverage as calculateGlobalOverallAverage, formatRatingNumber, formatPlayDate, formatReviewDate, calculateCategoryAverages } from '@/lib/utils';
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
@@ -119,7 +119,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       setRemainingReviews(gameData.reviews?.filter(r => r.id !== foundUserReview?.id) || []);
 
       if (gameData.reviews && gameData.reviews.length > 0) {
-        const categoryAvgs = calculateCatAvgsFromUtils(gameData.reviews);
+        const categoryAvgs = calculateCategoryAverages(gameData.reviews);
         if (categoryAvgs) {
           setGlobalGameAverage(calculateGlobalOverallAverage(categoryAvgs));
         } else {
@@ -183,7 +183,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         return { id: docSnap.id, ...reviewDocData, rating } as Review;
       });
 
-      const categoryAvgs = calculateCatAvgsFromUtils(allReviewsForGame);
+      const categoryAvgs = calculateCategoryAverages(allReviewsForGame);
       const newOverallAverage = categoryAvgs ? calculateGlobalOverallAverage(categoryAvgs) : null;
       const newVoteCount = allReviewsForGame.length;
 
@@ -193,13 +193,14 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         voteCount: newVoteCount
       });
 
-      revalidateGameDataAction(game.id); 
+      await revalidateGameDataAction(game.id);
       fetchGameData(); 
     } catch (error) {
       console.error("Errore durante l'aggiornamento del punteggio medio del gioco:", error);
       toast({ title: "Errore", description: "Impossibile aggiornare il punteggio medio del gioco.", variant: "destructive" });
     }
   }, [game, toast, fetchGameData]);
+
 
   const confirmDeleteUserReview = async () => {
     setShowDeleteConfirmDialog(false);
@@ -212,7 +213,9 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       try {
         const reviewDocRef = doc(db, FIRESTORE_COLLECTION_NAME, gameId, 'reviews', userReview.id);
         await deleteDoc(reviewDocRef);
-        await updateGameOverallRatingAfterReviewChange(); // Use the combined update function
+        await updateGameOverallRatingAfterReviewChange(); 
+        await revalidateGameDataAction(gameId);
+        fetchGameData();
         toast({ title: "Voto Eliminato", description: "Il tuo voto è stato eliminato con successo." });
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
@@ -237,6 +240,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         });
         setGame(prevGame => prevGame ? { ...prevGame, isPinned: newPinStatus } : null);
         await revalidateGameDataAction(game.id);
+        fetchGameData();
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({
@@ -587,25 +591,25 @@ const handleGenerateRecommendations = async () => {
             {/* Main header: Title, BGG Link, Score, and action icons moved to button bar */}
             <div className="flex justify-between items-start mb-2">
                 <div className="flex-1 flex flex-col sm:flex-row sm:items-center sm:gap-1 min-w-0 mr-2">
-                    <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground inline-flex items-center">
+                     <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
                         {game.name}
                         {game.bggId > 0 && (
-                        <a
-                            href={`https://boardgamegeek.com/boardgame/${game.bggId}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            title="Vedi su BoardGameGeek"
-                            className="inline-flex items-center text-primary hover:text-primary/80 focus:outline-none focus:ring-2 focus:ring-ring rounded-md p-0.5 ml-1"
-                        >
-                            <ExternalLink size={16} className="h-4 w-4" />
-                        </a>
+                            <a
+                                href={`https://boardgamegeek.com/boardgame/${game.bggId}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="Vedi su BoardGameGeek"
+                                className="inline-flex items-center text-primary hover:text-primary/80 focus:outline-none focus:ring-2 focus:ring-ring rounded-md p-0.5 ml-1"
+                            >
+                                <ExternalLink size={16} className="h-4 w-4" />
+                            </a>
                         )}
                     </h1>
                 </div>
                 <div className="flex-shrink-0">
                     {globalGameAverage !== null ? (
                     <span className="text-3xl md:text-4xl font-bold text-primary whitespace-nowrap">
-                        {formatRatingNumber(globalGameAverage * 2)}
+                        {formatRatingNumber(globalGameAverage)}
                     </span>
                     ) : (<span className="text-primary text-3xl md:text-4xl font-bold whitespace-nowrap"></span>) }
                 </div>
@@ -719,6 +723,13 @@ const handleGenerateRecommendations = async () => {
                 >
                   {isPlaylisting ? <Loader2 className="h-5 w-5 animate-spin" /> : (isPlaylistedByCurrentUser ? <ListChecks className="h-5 w-5" /> : <ListPlus className="h-5 w-5" />)}
                 </Button>
+                 {game.bggId > 0 && (
+                    <Button variant="outline" size="icon" asChild className="h-9 w-9">
+                        <a href={`https://boardgamegeek.com/boardgame/${game.bggId}`} target="_blank" rel="noopener noreferrer" title="Vedi su BGG">
+                            <ExternalLink className="h-5 w-5" />
+                        </a>
+                    </Button>
+                 )}
                 {isAdmin && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -890,11 +901,11 @@ const handleGenerateRecommendations = async () => {
       <div className="space-y-8">
           {currentUser && !authLoading && (
             userReview ? (
-              <div>
-                <div className="flex justify-between items-center gap-2 mb-4">
+              <div className="p-6 border border-border rounded-lg shadow-md bg-card">
+                <div className="flex flex-row items-center justify-between gap-2 mb-4">
                   <h3 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h3>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                      <Button asChild size="sm" variant="default">
+                      <Button asChild size="sm" variant="default" className="bg-primary hover:bg-primary/90 text-primary-foreground">
                         <Link href={`/games/${gameId}/rate`}>
                            <span className="flex items-center">
                              <Edit className="mr-0 sm:mr-2 h-4 w-4" />
@@ -960,7 +971,7 @@ const handleGenerateRecommendations = async () => {
               <Separator className="my-6" />
               <h2 className="text-2xl font-semibold text-foreground mb-6 flex items-center gap-2">
               <MessageSquare className="h-6 w-6 text-primary"/>
-              {userReview ? `Altri Voti (${remainingReviews.length})` : `Voti (${remainingReviews.length})`}
+              {userReview ? `Altre Recensioni (${remainingReviews.length})` : `Recensioni (${remainingReviews.length})`}
               </h2>
               <ReviewList reviews={remainingReviews} />
           </>
@@ -970,7 +981,7 @@ const handleGenerateRecommendations = async () => {
           <Alert variant="default" className="mt-6 bg-secondary/30 border-secondary">
               <Info className="h-4 w-4 text-secondary-foreground" />
               <AlertDescription className="text-secondary-foreground">
-              Nessun altro ha ancora dato un voto a questo gioco.
+              Nessun altro ha ancora recensito questo gioco.
               </AlertDescription>
           </Alert>
           )}
@@ -979,7 +990,7 @@ const handleGenerateRecommendations = async () => {
           <Alert variant="default" className="mt-6 bg-secondary/30 border-secondary">
               <Info className="h-4 w-4 text-secondary-foreground" />
               <AlertDescription className="text-secondary-foreground">
-              Nessun voto ancora per questo gioco.
+              Nessuna recensione ancora per questo gioco.
               </AlertDescription>
           </Alert>
           )}
@@ -1041,4 +1052,3 @@ const handleGenerateRecommendations = async () => {
     </div>
   );
 }
-
