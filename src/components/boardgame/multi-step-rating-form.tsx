@@ -26,6 +26,22 @@ import { db } from '@/lib/firebase';
 import { collection, addDoc, doc, updateDoc, query, where, getDocs, limit, writeBatch, getDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { revalidateGameDataAction } from '@/lib/actions';
+import { SafeImage } from '../common/SafeImage';
+import { Separator } from '../ui/separator';
+
+const SLIDER_LEGENDS: Record<RatingCategory, { minLabel: string; maxLabel: string }> = {
+  excitedToReplay: { minLabel: "Neanche morto", maxLabel: "Quando rigiochiamo?" },
+  mentallyStimulating: { minLabel: "Cervello in standby", maxLabel: "Che mal di testa" },
+  fun: { minLabel: "💩 Morchia dell'anno", maxLabel: "Troppo togo." },
+  decisionDepth: { minLabel: "Pilota automatico", maxLabel: "E se poi te ne penti?" },
+  replayability: { minLabel: "Sempre uguale", maxLabel: "Ogni volta diverso!" },
+  luck: { minLabel: "Regno della Dea Bendata", maxLabel: "Tutto in mano mia!" },
+  lengthDowntime: { minLabel: "Non finisce più! / Già finito?", maxLabel: "Tempo perfetto!" },
+  graphicDesign: { minLabel: "Meglio essere ciechi", maxLabel: "Ganzissimo!" },
+  componentsThemeLore: { minLabel: "Tema? Quale tema?", maxLabel: "Immersione totale!" },
+  effortToLearn: { minLabel: "Manuale da incubo", maxLabel: "Si impara in un attimo!" },
+  setupTeardown: { minLabel: "Un'impresa titanica", maxLabel: "Pronti, via!" },
+};
 
 
 interface RatingSliderInputProps {
@@ -43,7 +59,7 @@ const RatingSliderInput: React.FC<RatingSliderInputProps> = ({ fieldName, contro
       control={control}
       name={fieldName}
       render={({ field }) => {
-        const currentFieldValue = Number(field.value); // Ensure it's a number
+        const currentFieldValue = Number(field.value);
         const sliderValue = useMemo(() => [currentFieldValue], [currentFieldValue]);
 
         return (
@@ -74,20 +90,6 @@ const RatingSliderInput: React.FC<RatingSliderInputProps> = ({ fieldName, contro
       }}
     />
   );
-};
-
-const SLIDER_LEGENDS: Record<RatingCategory, { minLabel: string; maxLabel: string }> = {
-  excitedToReplay: { minLabel: "Neanche morto", maxLabel: "Quando rigiochiamo?" },
-  mentallyStimulating: { minLabel: "Cervello in standby", maxLabel: "Che mal di testa" },
-  fun: { minLabel: "Du Palle", maxLabel: "Troppo togo!" },
-  decisionDepth: { minLabel: "Pilota automatico", maxLabel: "Scelte cruciali!" },
-  replayability: { minLabel: "Sempre uguale", maxLabel: "Ogni volta diverso!" },
-  luck: { minLabel: "Regno della Dea Bendata", maxLabel: "Tutto in mano mia!" },
-  lengthDowntime: { minLabel: "Non finisce più! / Già finito?", maxLabel: "Tempo perfetto!" },
-  graphicDesign: { minLabel: "Meglio essere ciechi", maxLabel: "Ganzissimo!" },
-  componentsThemeLore: { minLabel: "Tema? Quale tema?", maxLabel: "Immersione totale!" },
-  effortToLearn: { minLabel: "Manuale da incubo", maxLabel: "Si impara in un attimo!" },
-  setupTeardown: { minLabel: "Un'impresa titanica", maxLabel: "Pronti, via!" },
 };
 
 
@@ -214,12 +216,12 @@ export function MultiStepRatingForm({
 
       const categoryAvgs = calculateCatAvgsFromUtils(allReviewsForGame);
       const newOverallAverage = categoryAvgs ? calculateGlobalOverallAverageFromUtils(categoryAvgs) : null;
-      const newReviewCount = allReviewsForGame.length;
+      const newVoteCount = allReviewsForGame.length;
 
       const gameDocRef = doc(db, "boardgames_collection", gameId);
       await updateDoc(gameDocRef, {
         overallAverageRating: newOverallAverage,
-        voteCount: newReviewCount,
+        voteCount: newVoteCount,
       });
       await revalidateGameDataAction(gameId);
     } catch (error) {
@@ -230,7 +232,9 @@ export function MultiStepRatingForm({
 
 
   useEffect(() => {
-    form.reset(defaultFormValues);
+    if (currentStep <= totalInputSteps) {
+        form.reset(defaultFormValues);
+    }
   }, [defaultFormValues, form.reset]);
 
 
@@ -262,7 +266,7 @@ export function MultiStepRatingForm({
       author: currentUser.displayName || 'Anonimo',
       authorPhotoURL: currentUser.photoURL || null,
       rating: ratingDataToSave,
-      comment: "",
+      comment: "", // Comments are no longer part of the form
       date: new Date().toISOString(),
     };
 
@@ -388,26 +392,39 @@ export function MultiStepRatingForm({
   return (
     <Form {...form}>
       <form className="space-y-6">
-        {(currentStep <= totalInputSteps) && (
+        {currentStep <= totalInputSteps && (
           <div className="mb-4">
             <div className="flex justify-between items-start">
               <div className="flex-1">
-                <h3 className="text-xl font-semibold flex items-center">
+                 <h3 className="text-xl font-semibold flex items-center">
                   <StepIcon step={currentStep} />
                   {stepUITitles[currentStep]} ({currentStep} di {totalInputSteps})
                 </h3>
-                {stepUIDescriptions[currentStep] && currentStep <= totalInputSteps && (
-                  <p className="text-sm text-muted-foreground mt-1">
+                 <p className="text-sm text-muted-foreground mt-1">
                     {stepUIDescriptions[currentStep]}
                   </p>
-                )}
               </div>
+               {gameName && gameCoverArtUrl && (
+                <div className="ml-4 flex-shrink-0 text-right">
+                  <SafeImage
+                    src={gameCoverArtUrl}
+                    alt={`${gameName} copertina`}
+                    fallbackSrc={`https://placehold.co/60x90.png?text=${encodeURIComponent(gameName.substring(0,3))}`}
+                    width={48}
+                    height={72}
+                    className="rounded-sm shadow-sm object-cover"
+                    data-ai-hint="game cover small"
+                    sizes="48px"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1 max-w-[100px] truncate">{gameName}</p>
+                </div>
+              )}
             </div>
           </div>
         )}
 
         {currentStep === totalDisplaySteps && (
-          <CardHeader className="px-0 pt-0 pb-4"> {/* Adjusted padding for consistency */}
+          <CardHeader className="px-0 pt-6 pb-4">
             <div className="flex justify-between items-baseline mb-2">
               <div className="flex-1">
                 <CardTitle className="text-2xl md:text-3xl text-left">
@@ -427,6 +444,21 @@ export function MultiStepRatingForm({
                 </div>
               )}
             </div>
+            {gameName && gameCoverArtUrl && (
+                 <div className="mt-2 flex items-center gap-2 border-t pt-3">
+                     <SafeImage
+                        src={gameCoverArtUrl}
+                        alt={`${gameName} copertina`}
+                        fallbackSrc={`https://placehold.co/40x60.png?text=${encodeURIComponent(gameName.substring(0,3))}`}
+                        width={32}
+                        height={48}
+                        className="rounded-sm shadow-sm object-cover"
+                        data-ai-hint="game cover tiny"
+                        sizes="32px"
+                     />
+                     <p className="text-sm font-medium text-muted-foreground">Riepilogo per: {gameName}</p>
+                 </div>
+             )}
           </CardHeader>
         )}
 
@@ -548,3 +580,4 @@ export function MultiStepRatingForm({
     </Form>
   );
 }
+
