@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useTransition, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useTransition, useMemo, useCallback, useRef } from 'react';
 import { useForm, type Control } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
@@ -70,7 +70,7 @@ const RatingSliderInput: React.FC<RatingSliderInputProps> = ({ fieldName, contro
       control={control}
       name={fieldName}
       render={({ field }) => {
-        const currentFieldValue = Number(field.value);
+        const currentFieldValue = Number(field.value); // Ensure it's a number
         const sliderValue = useMemo(() => [currentFieldValue], [currentFieldValue]);
 
         return (
@@ -82,7 +82,7 @@ const RatingSliderInput: React.FC<RatingSliderInputProps> = ({ fieldName, contro
                 value={sliderValue}
                 onValueChange={(value: number[]) => {
                   const numericValue = value[0];
-                  if (numericValue !== currentFieldValue) {
+                  if (numericValue !== currentFieldValue) { // Compare number with number
                     field.onChange(numericValue);
                   }
                 }}
@@ -137,7 +137,7 @@ const stepUIDescriptions: Record<number, string> = {
   2: "Come giudichi gli aspetti legati al design del gioco?",
   3: "Valuta l'impatto visivo e l'immersione tematica.",
   4: "Quanto è stato facile apprendere e gestire il gioco?",
-  5: "La tua recensione è stata salvata.\nEcco il riepilogo dei tuoi voti per {gameName}:",
+  5: "La tua recensione è stata salvata.\nEcco il riepilogo dei tuoi voti:",
 };
 
 const categoryDescriptions: Record<RatingCategory, string> = {
@@ -495,6 +495,7 @@ export function MultiStepRatingForm({
 
   const yourOverallAverage = calculateGlobalOverallAverage(form.getValues());
   
+  const currentStepUITitle = stepUITitles[currentStep] || "";
   const currentStepDescriptionText = (currentStep === totalDisplaySteps && gameName)
     ? (stepUIDescriptions[currentStep] || "").replace('{gameName}', gameName)
     : stepUIDescriptions[currentStep] || "";
@@ -508,21 +509,36 @@ export function MultiStepRatingForm({
              <div className="flex justify-between items-start">
                 <div className="flex-1">
                     <h3 className="text-xl font-semibold flex items-center">
-                    <StepIcon step={currentStep} />
-                    {stepUITitles[currentStep]} ({currentStep} di {totalInputSteps})
+                      <StepIcon step={currentStep} />
+                      {currentStepUITitle} ({currentStep} di {totalInputSteps})
                     </h3>
                     <p className="text-sm text-muted-foreground mt-1">
-                    {stepUIDescriptions[currentStep]}
+                      {stepUIDescriptions[currentStep]}
                     </p>
                 </div>
-                 {/* Game image and name removed from steps 1-4 header, will be added to step 5 */}
+                 {gameCoverArtUrl && gameName && (
+                  <div className="ml-4 flex-shrink-0 hidden sm:block">
+                    <div className="relative w-16 h-24 rounded-md overflow-hidden shadow-sm">
+                      <SafeImage
+                        src={gameCoverArtUrl}
+                        fallbackSrc={`https://placehold.co/64x96.png?text=${encodeURIComponent(gameName.substring(0,3))}`}
+                        alt={`${gameName} copertina`}
+                        fill
+                        sizes="64px"
+                        className="object-cover"
+                        data-ai-hint={`${gameName.split(' ')[0]?.toLowerCase() || 'game'} thumbnail`}
+                      />
+                    </div>
+                    <p className="text-xs text-center mt-1 text-muted-foreground w-16 truncate" title={gameName}>{gameName}</p>
+                  </div>
+                )}
             </div>
           </div>
         )}
 
         {currentStep === totalDisplaySteps && (
-           <CardHeader className="px-0 pt-6 pb-4">
-            <div className="flex justify-between items-baseline mb-2">
+           <CardHeader className="px-0 pt-0 pb-4">
+             <div className="flex justify-between items-baseline mb-2">
                 <CardTitle className="text-2xl md:text-3xl text-left">
                     {stepUITitles[currentStep]}
                 </CardTitle>
@@ -534,30 +550,33 @@ export function MultiStepRatingForm({
                     </div>
                 )}
             </div>
-            {gameCoverArtUrl && gameName && (
-              <Card className="mb-4 shadow-sm border-border">
-                <CardHeader className="p-3 flex flex-row items-center gap-3 bg-muted/30">
-                  <div className="relative h-16 w-12 flex-shrink-0 rounded-sm overflow-hidden">
-                    <SafeImage
-                      src={gameCoverArtUrl}
-                      fallbackSrc={`https://placehold.co/48x64.png?text=${encodeURIComponent(gameName.substring(0,3))}`}
-                      alt={`${gameName} copertina`}
-                      fill
-                      sizes="48px"
-                      className="object-cover"
-                      data-ai-hint={`${gameName.split(' ')[0]?.toLowerCase() || 'game'} thumbnail`}
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="font-semibold text-md text-foreground">{gameName}</h4>
-                  </div>
-                </CardHeader>
-              </Card>
-            )}
             <CardDescription className="text-left text-sm text-muted-foreground mt-1 whitespace-pre-line">
                 {currentStepDescriptionText}
             </CardDescription>
           </CardHeader>
+        )}
+
+        {currentStep === totalDisplaySteps && gameName && (
+            <Card className="mb-4 shadow-sm border-border">
+                <CardHeader className="p-3 flex flex-row items-center gap-3 bg-muted/30">
+                  {gameCoverArtUrl && (
+                    <div className="relative h-16 w-12 flex-shrink-0 rounded-sm overflow-hidden">
+                        <SafeImage
+                        src={gameCoverArtUrl}
+                        fallbackSrc={`https://placehold.co/48x64.png?text=${encodeURIComponent(gameName.substring(0,3))}`}
+                        alt={`${gameName} copertina`}
+                        fill
+                        sizes="48px"
+                        className="object-cover"
+                        data-ai-hint={`${gameName.split(' ')[0]?.toLowerCase() || 'game'} thumbnail`}
+                        />
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-md text-foreground">{gameName}</h4>
+                  </div>
+                </CardHeader>
+            </Card>
         )}
 
 
@@ -665,10 +684,10 @@ export function MultiStepRatingForm({
 
         <div className={cn(
           "flex items-center pt-4 border-t mt-6",
-          currentStep === totalDisplaySteps ? 'justify-end' : 'justify-between'
+          currentStep === totalDisplaySteps || currentStep === 1 ? 'justify-end' : 'justify-between' 
         )}>
             <div className="flex">
-              {(currentStep === 1) && (
+              {currentStep === 1 && (
                   <Button type="button" variant="outline" onClick={() => router.push(`/games/${gameId}`)} disabled={isSubmitTransitionPending}>
                   <ArrowLeft className="mr-2 h-4 w-4" />
                   Torna al Gioco
@@ -689,7 +708,7 @@ export function MultiStepRatingForm({
               ) : currentStep === totalInputSteps ? (
                 <Button type="button" onClick={handleStep4Submit} disabled={isSubmitTransitionPending} className="bg-accent hover:bg-accent/90 text-accent-foreground">
                   {isSubmitTransitionPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  {existingReview ? 'Aggiorna Recensione' : 'Invia Recensione'}
+                  {existingReview ? 'Aggiorna Voto' : 'Invia Voto'}
                 </Button>
               ) : currentStep === totalDisplaySteps ? (
                 <Button type="button" onClick={handleFinish} className="bg-primary hover:bg-primary/90 text-primary-foreground">
@@ -702,4 +721,3 @@ export function MultiStepRatingForm({
     </Form>
   );
 }
-
