@@ -9,7 +9,7 @@ import type { BoardGame, Review, Rating as RatingType, GroupedCategoryAverages, 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Info, Edit, Trash2, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, MessageSquare, Heart, Settings, Trophy, Medal, UserCircle2, Sparkles, Pin, PinOff, Wand2, DownloadCloud, Bookmark, BookMarked, Frown } from 'lucide-react';
+import { AlertCircle, Loader2, Info, Edit, Trash2, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, MessageSquare, Heart, ListPlus, ListChecks, Settings, Trophy, Medal, UserCircle2, Sparkles, Pin, PinOff, Wand2, DownloadCloud, Bookmark, BookMarked, Frown } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { calculateGroupedCategoryAverages, calculateOverallCategoryAverage, formatRatingNumber, formatPlayDate, formatReviewDate, calculateCategoryAverages as calculateCatAvgsFromUtils } from '@/lib/utils';
@@ -642,19 +642,126 @@ const handleGenerateRecommendations = async () => {
         <div className="flex flex-col"> 
           <div className="flex flex-col md:flex-row">
             <div className="flex-1 p-6 space-y-4 md:order-1">
+                {/* Main Game Header: Title, Icons, Score */}
                 <div className="flex justify-between items-start mb-2">
-                    <div className="flex-1 min-w-0 mr-2">
+                    {/* Left side: Title and BGG link */}
+                    <div className="flex-shrink min-w-0 mr-2">
                         <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
                            {game.name}
+                           {game.bggId && (
+                            <a href={`https://boardgamegeek.com/boardgame/${game.bggId}`} target="_blank" rel="noopener noreferrer" title="Vedi su BGG" className="ml-2 text-primary/60 hover:text-primary inline-flex items-center">
+                                <ExternalLink className="h-4 w-4" />
+                            </a>
+                           )}
                         </h1>
                     </div>
-                    <div className="flex-shrink-0">
-                         <span className="text-3xl md:text-4xl font-bold text-primary whitespace-nowrap">
+                    {/* Right side: Score and Action Icons */}
+                    <div className="flex-shrink-0 flex flex-col items-end">
+                        <span className="text-3xl md:text-4xl font-bold text-primary whitespace-nowrap">
                             {globalGameAverage !== null ? formatRatingNumber(globalGameAverage * 2) : ''}
                         </span>
+                        {/* Action Icons below the score */}
+                        <div className="flex items-center gap-1 mt-1">
+                           <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={handleToggleFavorite}
+                                disabled={isFavoriting || authLoading || !currentUser}
+                                title={isFavoritedByCurrentUser ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
+                                className={cn(
+                                    `h-8 w-8 hover:bg-destructive/10`,
+                                    isFavoritedByCurrentUser ? 'text-destructive hover:bg-destructive/20' : 'text-destructive/60 hover:text-destructive'
+                                )}
+                            >
+                                <Heart className={cn(`h-5 w-5`, isFavoritedByCurrentUser ? 'fill-destructive' : '')} />
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={handleToggleMorchia}
+                                disabled={isTogglingMorchia || authLoading || !currentUser}
+                                title={isMorchiaByCurrentUser ? "Rimuovi da Morchie" : "Aggiungi alle Morchie"}
+                                className={cn(
+                                    `h-8 w-8 hover:bg-orange-600/10`,
+                                    isMorchiaByCurrentUser ? 'text-orange-600 hover:bg-orange-600/20' : 'text-orange-600/60 hover:text-orange-600'
+                                )}
+                            >
+                                <Frown className={cn(`h-5 w-5`, isMorchiaByCurrentUser ? 'fill-orange-600/30' : '')} />
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={handleTogglePlaylist}
+                                disabled={isPlaylisting || authLoading || !currentUser}
+                                title={isPlaylistedByCurrentUser ? "Rimuovi dalla Playlist" : "Aggiungi alla Playlist"}
+                                className={cn(
+                                    `h-8 w-8 hover:bg-sky-500/10`,
+                                    isPlaylistedByCurrentUser ? 'text-sky-500 hover:bg-sky-500/20' : 'text-sky-500/60 hover:text-sky-500'
+                                )}
+                            >
+                                {isPlaylistedByCurrentUser ? <BookMarked className="h-5 w-5" /> : <Bookmark className="h-5 w-5" />}
+                            </Button>
+                            {isAdmin && (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-primary/80 hover:text-primary hover:bg-primary/10">
+                                    <Settings className="h-5 w-5" />
+                                </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                    onSelect={handleTogglePinGame}
+                                    disabled={isPinToggling || authLoading}
+                                    className="cursor-pointer"
+                                >
+                                    {isPinToggling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (currentIsPinned ? <PinOff className="mr-2 h-4 w-4" /> : <Pin className="mr-2 h-4 w-4" />)}
+                                    {currentIsPinned ? "Rimuovi da Vetrina" : "Aggiungi a Vetrina"}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    onSelect={handleRefreshBggData}
+                                    disabled={(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) || !game || !game.bggId}
+                                    className="cursor-pointer"
+                                >
+                                    {(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DownloadCloud className="mr-2 h-4 w-4" />}
+                                    Aggiorna Dati da BGG
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    onSelect={handleFetchBggPlays}
+                                    disabled={isFetchingPlays || !game || !game.bggId || !currentUser}
+                                    className="cursor-pointer"
+                                >
+                                    {isFetchingPlays ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Dices className="mr-2 h-4 w-4" />}
+                                    Carica Partite
+                                </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                            )}
+                        </div>
+                         {/* Favorite and Playlist Counts */}
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
+                            {currentFavoriteCount > 0 && (
+                                <span className="flex items-center">
+                                    <Heart className="mr-1 h-3 w-3 text-destructive/80" />
+                                    {currentFavoriteCount}
+                                </span>
+                            )}
+                            {game?.playlistedByUserIds && game.playlistedByUserIds.length > 0 && (
+                                <span className="flex items-center">
+                                <Bookmark className="mr-1 h-3 w-3 text-sky-500/80" />
+                                {game.playlistedByUserIds.length}
+                                </span>
+                            )}
+                             {currentMorchiaCount > 0 && (
+                                <span className="flex items-center">
+                                <Frown className="mr-1 h-3 w-3 text-orange-600/80" />
+                                {currentMorchiaCount}
+                                </span>
+                            )}
+                        </div>
                     </div>
                 </div>
                 
+                {/* Mobile Image - below title/score/icons block */}
                 <div className="md:hidden my-4 max-w-[240px] mx-auto">
                   <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
                     <SafeImage
@@ -670,165 +777,173 @@ const handleGenerateRecommendations = async () => {
                   </div>
                 </div>
                 
-                <div className="flex justify-evenly items-center gap-1 sm:gap-2 py-4 border-y border-border">
-                   <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleToggleFavorite}
-                        disabled={isFavoriting || authLoading || !currentUser}
-                        title={isFavoritedByCurrentUser ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
-                        className={cn(
-                            `h-9 px-2 hover:bg-destructive/10`,
-                            isFavoritedByCurrentUser ? 'text-destructive hover:bg-destructive/20' : 'text-destructive/60 hover:text-destructive'
-                        )}
-                    >
-                        <Heart className={cn(`h-5 w-5`, isFavoritedByCurrentUser ? 'fill-destructive' : '')} />
-                        {currentFavoriteCount > 0 && (
-                        <span className="ml-1 text-xs">({currentFavoriteCount})</span>
-                        )}
-                    </Button>
-                     <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleToggleMorchia}
-                        disabled={isTogglingMorchia || authLoading || !currentUser}
-                        title={isMorchiaByCurrentUser ? "Rimuovi da Morchie" : "Aggiungi alle Morchie"}
-                        className={cn(
-                            `h-9 px-2 hover:bg-orange-600/10`,
-                            isMorchiaByCurrentUser ? 'text-orange-600 hover:bg-orange-600/20' : 'text-orange-600/60 hover:text-orange-600'
-                        )}
-                    >
-                        <Frown className={cn(`h-5 w-5`, isMorchiaByCurrentUser ? 'fill-orange-600/30' : '')} />
-                         {currentMorchiaCount > 0 && (
-                            <span className="ml-1 text-xs">({currentMorchiaCount})</span>
-                        )}
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleTogglePlaylist}
-                        disabled={isPlaylisting || authLoading || !currentUser}
-                        title={isPlaylistedByCurrentUser ? "Rimuovi dalla Playlist" : "Aggiungi alla Playlist"}
-                        className={cn(
-                            `h-9 px-2 hover:bg-sky-500/10`,
-                            isPlaylistedByCurrentUser ? 'text-sky-500 hover:bg-sky-500/20' : 'text-sky-500/60 hover:text-sky-500'
-                        )}
-                    >
-                        {isPlaylistedByCurrentUser ? <BookMarked className="h-5 w-5" /> : <Bookmark className="h-5 w-5" />}
-                        {game?.playlistedByUserIds && game.playlistedByUserIds.length > 0 && (
-                            <span className="ml-1 text-xs">({game.playlistedByUserIds.length})</span>
-                        )}
-                    </Button>
-                    {game.bggId && (
-                      <Button variant="ghost" size="icon" asChild className="h-9 w-9 text-primary/80 hover:text-primary hover:bg-primary/10">
-                        <a href={`https://boardgamegeek.com/boardgame/${game.bggId}`} target="_blank" rel="noopener noreferrer" title="Vedi su BGG">
-                          <ExternalLink className="h-5 w-5" />
-                        </a>
-                      </Button>
-                    )}
-                    {isAdmin && (
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-9 w-9 text-primary/80 hover:text-primary hover:bg-primary/10">
-                            <Settings className="h-5 w-5" />
+                 {/* Button Bar */}
+                <div className="py-4 border-y border-border mt-4">
+                    <div className="flex justify-evenly items-center gap-1 sm:gap-2">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleToggleFavorite}
+                            disabled={isFavoriting || authLoading || !currentUser}
+                            title={isFavoritedByCurrentUser ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
+                            className={cn(
+                                `h-9 px-2 hover:bg-destructive/10`,
+                                isFavoritedByCurrentUser ? 'text-destructive hover:bg-destructive/20' : 'text-destructive/60 hover:text-destructive'
+                            )}
+                        >
+                            <Heart className={cn(`h-5 w-5`, isFavoritedByCurrentUser ? 'fill-destructive' : '')} />
+                            {currentFavoriteCount > 0 && (
+                            <span className="ml-1 text-xs">({currentFavoriteCount})</span>
+                            )}
                         </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                            onSelect={handleTogglePinGame}
-                            disabled={isPinToggling || authLoading}
-                            className="cursor-pointer"
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleToggleMorchia}
+                            disabled={isTogglingMorchia || authLoading || !currentUser}
+                            title={isMorchiaByCurrentUser ? "Rimuovi da Morchie" : "Aggiungi alle Morchie"}
+                            className={cn(
+                                `h-9 px-2 hover:bg-orange-600/10`,
+                                isMorchiaByCurrentUser ? 'text-orange-600 hover:bg-orange-600/20' : 'text-orange-600/60 hover:text-orange-600'
+                            )}
                         >
-                            {isPinToggling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (currentIsPinned ? <PinOff className="mr-2 h-4 w-4" /> : <Pin className="mr-2 h-4 w-4" />)}
-                            {currentIsPinned ? "Rimuovi da Vetrina" : "Aggiungi a Vetrina"}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                            onSelect={handleRefreshBggData}
-                            disabled={(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) || !game || !game.bggId}
-                            className="cursor-pointer"
+                            <Frown className={cn(`h-5 w-5`, isMorchiaByCurrentUser ? 'fill-orange-600/30' : '')} />
+                            {currentMorchiaCount > 0 && (
+                                <span className="ml-1 text-xs">({currentMorchiaCount})</span>
+                            )}
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleTogglePlaylist}
+                            disabled={isPlaylisting || authLoading || !currentUser}
+                            title={isPlaylistedByCurrentUser ? "Rimuovi dalla Playlist" : "Aggiungi alla Playlist"}
+                            className={cn(
+                                `h-9 px-2 hover:bg-sky-500/10`,
+                                isPlaylistedByCurrentUser ? 'text-sky-500 hover:bg-sky-500/20' : 'text-sky-500/60 hover:text-sky-500'
+                            )}
                         >
-                            {(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DownloadCloud className="mr-2 h-4 w-4" />}
-                            Aggiorna Dati da BGG
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                            onSelect={handleFetchBggPlays}
-                            disabled={isFetchingPlays || !game || !game.bggId || !currentUser}
-                            className="cursor-pointer"
-                        >
-                            {isFetchingPlays ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Dices className="mr-2 h-4 w-4" />}
-                            Carica Partite
-                        </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                            {isPlaylistedByCurrentUser ? <BookMarked className="h-5 w-5" /> : <Bookmark className="h-5 w-5" />}
+                            {game?.playlistedByUserIds && game.playlistedByUserIds.length > 0 && (
+                                <span className="ml-1 text-xs">({game.playlistedByUserIds.length})</span>
+                            )}
+                        </Button>
+                        {game.bggId && (
+                          <Button variant="ghost" size="icon" asChild className="h-9 w-9 text-primary/80 hover:text-primary hover:bg-primary/10">
+                            <a href={`https://boardgamegeek.com/boardgame/${game.bggId}`} target="_blank" rel="noopener noreferrer" title="Vedi su BGG">
+                              <ExternalLink className="h-5 w-5" />
+                            </a>
+                          </Button>
+                        )}
+                        {isAdmin && (
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-9 w-9 text-primary/80 hover:text-primary hover:bg-primary/10">
+                                <Settings className="h-5 w-5" />
+                            </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                                onSelect={handleTogglePinGame}
+                                disabled={isPinToggling || authLoading}
+                                className="cursor-pointer"
+                            >
+                                {isPinToggling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (currentIsPinned ? <PinOff className="mr-2 h-4 w-4" /> : <Pin className="mr-2 h-4 w-4" />)}
+                                {currentIsPinned ? "Rimuovi da Vetrina" : "Aggiungi a Vetrina"}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                onSelect={handleRefreshBggData}
+                                disabled={(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) || !game || !game.bggId}
+                                className="cursor-pointer"
+                            >
+                                {(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DownloadCloud className="mr-2 h-4 w-4" />}
+                                Aggiorna Dati da BGG
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                onSelect={handleFetchBggPlays}
+                                disabled={isFetchingPlays || !game || !game.bggId || !currentUser}
+                                className="cursor-pointer"
+                            >
+                                {isFetchingPlays ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Dices className="mr-2 h-4 w-4" />}
+                                Carica Partite
+                            </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                        )}
+                    </div>
+                </div>
+
+                {/* Metadata Grid */}
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
+                    {game.designers && game.designers.length > 0 && (
+                        <div className="flex items-baseline gap-2">
+                            <PenTool size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
+                            <span className="font-medium hidden sm:inline">Autori:</span>
+                            <span>{game.designers.join(', ')}</span>
+                        </div>
+                    )}
+                     <div className="flex items-baseline gap-2">
+                            <CalendarDays size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
+                            <span className="font-medium hidden sm:inline">Anno:</span>
+                            <span>{game.yearPublished ?? '-'}</span>
+                    </div>
+                    <div className="flex items-baseline gap-2">
+                            <Users size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
+                            <span className="font-medium hidden sm:inline">Giocatori:</span>
+                            <span>{game.minPlayers}{game.maxPlayers && game.minPlayers !== game.maxPlayers ? `-${game.maxPlayers}` : ''}{!game.minPlayers && !game.maxPlayers ? '-' : ''}</span>
+                    </div>
+                    <div className="flex items-baseline gap-2">
+                            <Clock size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
+                            <span className="font-medium hidden sm:inline">Durata:</span>
+                            <span>
+                                {game.minPlaytime != null && game.maxPlaytime != null ?
+                                (game.minPlaytime === game.maxPlaytime ? `${game.minPlaytime} min` : `${game.minPlaytime} - ${game.maxPlaytime} min`)
+                                : (game.playingTime != null ? `${game.playingTime} min` : '-')
+                                }
+                                {game.minPlaytime != null && game.maxPlaytime != null && game.playingTime != null && game.minPlaytime !== game.maxPlaytime && game.playingTime !== game.minPlaytime && game.playingTime !== game.maxPlaytime && ` (Tipica: ${game.playingTime} min)`}
+                            </span>
+                    </div>
+                    <div className="flex items-baseline gap-2">
+                            <Weight size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
+                            <span className="font-medium hidden sm:inline">Complessità:</span>
+                            <span>{game.averageWeight !== null && typeof game.averageWeight === 'number' ? `${formatRatingNumber(game.averageWeight)} / 5` : '-'}</span>
+                    </div>
+                    <div className="flex items-baseline gap-2">
+                        <Dices size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
+                        <span className="font-medium hidden sm:inline">Partite:</span>
+                        <span>{game.lctr01Plays ?? 0}</span>
+                    </div>
+                    {topWinnerStats && (
+                        <div className="flex items-baseline gap-2">
+                        <Trophy size={14} className="text-amber-500 flex-shrink-0 relative top-px" />
+                        <span className="font-medium hidden sm:inline">Campione:</span>
+                        <span>{topWinnerStats.name} ({topWinnerStats.wins} {topWinnerStats.wins === 1 ? 'vittoria' : 'vittorie'})</span>
+                        </div>
+                    )}
+                    {highestScoreAchieved !== null && (
+                        <div className="flex items-baseline gap-2">
+                            <Medal size={14} className="text-amber-500 flex-shrink-0 relative top-px" />
+                            <span className="font-medium hidden sm:inline">Miglior Punteggio:</span>
+                            <span>{formatRatingNumber(highestScoreAchieved)} pt.</span>
+                        </div>
                     )}
                 </div>
-                
-              <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
-                  <div className="flex items-baseline gap-2">
-                      <PenTool size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
-                      <span className="font-medium hidden sm:inline">Autori:</span>
-                      <span>{game.designers && game.designers.length > 0 ? game.designers.join(', ') : '-'}</span>
-                  </div>
-                  <div className="flex items-baseline gap-2">
-                        <CalendarDays size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
-                        <span className="font-medium hidden sm:inline">Anno:</span>
-                        <span>{game.yearPublished ?? '-'}</span>
-                  </div>
-                   <div className="flex items-baseline gap-2">
-                        <Users size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
-                        <span className="font-medium hidden sm:inline">Giocatori:</span>
-                        <span>{game.minPlayers}{game.maxPlayers && game.minPlayers !== game.maxPlayers ? `-${game.maxPlayers}` : ''}{!game.minPlayers && !game.maxPlayers ? '-' : ''}</span>
-                  </div>
-                  <div className="flex items-baseline gap-2">
-                        <Clock size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
-                        <span className="font-medium hidden sm:inline">Durata:</span>
-                        <span>
-                            {game.minPlaytime != null && game.maxPlaytime != null ?
-                            (game.minPlaytime === game.maxPlaytime ? `${game.minPlaytime} min` : `${game.minPlaytime} - ${game.maxPlaytime} min`)
-                            : (game.playingTime != null ? `${game.playingTime} min` : '-')
-                            }
-                            {game.minPlaytime != null && game.maxPlaytime != null && game.playingTime != null && game.minPlaytime !== game.maxPlaytime && game.playingTime !== game.minPlaytime && game.playingTime !== game.maxPlaytime && ` (Tipica: ${game.playingTime} min)`}
-                        </span>
-                    </div>
-                  <div className="flex items-baseline gap-2">
-                        <Weight size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
-                        <span className="font-medium hidden sm:inline">Complessità:</span>
-                        <span>{game.averageWeight !== null && typeof game.averageWeight === 'number' ? `${formatRatingNumber(game.averageWeight)} / 5` : '-'}</span>
-                    </div>
-                  <div className="flex items-baseline gap-2">
-                      <Dices size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
-                      <span className="font-medium hidden sm:inline">Partite:</span>
-                      <span>{game.lctr01Plays ?? 0}</span>
-                  </div>
-                   {topWinnerStats && (
-                    <div className="flex items-baseline gap-2">
-                      <Trophy size={14} className="text-amber-500 flex-shrink-0 relative top-px" />
-                      <span className="font-medium hidden sm:inline">Campione:</span>
-                      <span>{topWinnerStats.name} ({topWinnerStats.wins} {topWinnerStats.wins === 1 ? 'vittoria' : 'vittorie'})</span>
-                    </div>
-                  )}
-                   {highestScoreAchieved !== null && (
-                      <div className="flex items-baseline gap-2">
-                           <Medal size={14} className="text-amber-500 flex-shrink-0 relative top-px" />
-                          <span className="font-medium hidden sm:inline">Miglior Punteggio:</span>
-                          <span>{formatRatingNumber(highestScoreAchieved)} pt.</span>
-                      </div>
-                  )}
-              </div>
               
-              {game.reviews && game.reviews.length > 0 && (
-                <div className="w-full pt-4 border-t border-border">
-                  <h3 className="text-sm md:text-lg font-semibold text-foreground mb-3">Valutazione Media:</h3>
-                  <GroupedRatingsDisplay
-                      groupedAverages={groupedCategoryAverages}
-                      noRatingsMessage="Nessuna valutazione per calcolare le medie."
-                      isLoading={isLoadingGame}
-                      defaultOpenSections={[]}
-                  />
-                </div>
-              )}
+                {/* Average Ratings Accordion */}
+                {game.reviews && game.reviews.length > 0 && (
+                    <div className="w-full pt-4 border-t border-border">
+                    <h3 className="text-sm md:text-lg font-semibold text-foreground mb-3">Valutazione Media:</h3>
+                    <GroupedRatingsDisplay
+                        groupedAverages={groupedCategoryAverages}
+                        noRatingsMessage="Nessuna valutazione per calcolare le medie."
+                        isLoading={isLoadingGame}
+                        defaultOpenSections={[]}
+                    />
+                    </div>
+                )}
             </div>
 
+            {/* Desktop Image Sidebar */}
             <div className="hidden md:block md:w-1/4 p-6 flex-shrink-0 self-start md:order-2 space-y-4">
               <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
                 <SafeImage
@@ -847,6 +962,7 @@ const handleGenerateRecommendations = async () => {
         </div>
       </Card>
       
+      {/* Play Logs Section */}
       {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
         <Card className="shadow-md border border-border rounded-lg">
           <CardHeader className="flex flex-row justify-between items-center">
@@ -868,7 +984,7 @@ const handleGenerateRecommendations = async () => {
                       <AccordionTrigger className="hover:no-underline text-left py-3 text-sm">
                         <div className="flex justify-between w-full items-center pr-2 gap-2">
                           <div className="flex items-center gap-2">
-                              <Dices size={16} className="text-muted-foreground/80 flex-shrink-0" />
+                              <CalendarDays size={16} className="text-muted-foreground/80 flex-shrink-0" />
                               <span className="font-medium">{formatReviewDate(play.date)}</span>
                               {play.quantity > 1 && (
                                   <>
@@ -916,8 +1032,9 @@ const handleGenerateRecommendations = async () => {
                                     })
                                     .map((player, pIndex) => (
                                     <li key={pIndex} className={cn(
-                                      "flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5 px-2",
-                                      pIndex % 2 === 0 ? 'bg-muted/30' : '' 
+                                      "flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5",
+                                      pIndex % 2 === 0 ? 'bg-muted/30' : '', 
+                                      "px-2"
                                     )}>
                                         <div className="flex items-center gap-1.5 flex-grow min-w-0">
                                             <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 relative top-px" />
@@ -950,7 +1067,8 @@ const handleGenerateRecommendations = async () => {
           </CardContent>
         </Card>
       )}
-        
+      
+      {/* User's Review Section */}
       <div className="space-y-4">
           {currentUser && !authLoading && userReview && (
             <div className="space-y-4">
@@ -1020,6 +1138,7 @@ const handleGenerateRecommendations = async () => {
           )}
         </div>
         
+      {/* Other Players' Reviews Section */}
       {remainingReviews.length > 0 ? (
         <>
             <Separator className="my-6" />
@@ -1027,7 +1146,6 @@ const handleGenerateRecommendations = async () => {
             <MessageSquare className="h-6 w-6 text-primary"/>
             {userReview ? `Altri Voti (${remainingReviews.length})` : `Voti (${remainingReviews.length})`}
             </h2>
-            {/* ReviewList removed for brevity, using direct map for now */}
             <div className="space-y-4">
               {remainingReviews.map(review => <ReviewItem key={review.id} review={review} />)}
             </div>
@@ -1048,6 +1166,7 @@ const handleGenerateRecommendations = async () => {
         </Alert>
       )}
 
+      {/* AI Recommendations Section */}
       <div className="pt-8">
         <Card className="shadow-md border border-border rounded-lg">
         <CardHeader>
@@ -1105,4 +1224,6 @@ const handleGenerateRecommendations = async () => {
     </div>
   );
 }
+
+
 
