@@ -4,14 +4,14 @@
 import type { ChangeEvent } from 'react';
 import { useEffect, useState, useTransition, useCallback, use, useMemo } from 'react';
 import Link from 'next/link';
-import { getGameDetails, revalidateGameDataAction, fetchUserPlaysForGameFromBggAction, fetchAndUpdateBggGameDetailsAction, getAllGamesAction } from '@/lib/actions';
+import { getGameDetails, revalidateGameDataAction, fetchUserPlaysForGameFromBggAction, fetchAndUpdateBggGameDetailsAction } from '@/lib/actions';
 import { recommendGames } from '@/ai/flows/recommend-games';
-import type { BoardGame, Review, Rating as RatingType, GroupedCategoryAverages, BggPlayDetail, BggPlayerInPlay, RecommendedGame as AIRecommendedGame, UserProfile, EarnedBadge } from '@/lib/types';
+import type { BoardGame, Review, Rating as RatingType, GroupedCategoryAverages, BggPlayDetail, BggPlayerInPlay, RecommendedGame as AIRecommendedGame, UserProfile } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import {
-  AlertCircle, Loader2, Info, Edit, Trash2, Users, Clock, CalendarDays as CalendarIcon, ExternalLink, Weight, PenTool, Dices, MessageSquare, Heart, Settings, Trophy, Medal, UserCircle2, Star, Palette, ClipboardList, Repeat, Sparkles, Pin, PinOff, Wand2, DownloadCloud, Bookmark, BookMarked, Frown, Award, Compass, HeartPulse, ListMusic
+  AlertCircle, Loader2, Info, Edit, Trash2, Users, Clock, CalendarDays as CalendarIcon, ExternalLink, Weight, PenTool, Dices, MessageSquare, Heart, Settings, Trophy, Medal, UserCircle2, Star, Palette, ClipboardList, Repeat, Sparkles, Pin, PinOff, Wand2, DownloadCloud, Bookmark, BookMarked, Frown
 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
@@ -19,7 +19,7 @@ import { calculateGroupedCategoryAverages, calculateOverallCategoryAverage, form
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { doc, deleteDoc, updateDoc, getDocs, collection, getDoc, arrayUnion, arrayRemove, increment, writeBatch, serverTimestamp, setDoc, where, getCountFromServer, query, orderBy, type DocumentReference } from 'firebase/firestore';
+import { doc, deleteDoc, updateDoc, getDocs, collection, getDoc, arrayUnion, arrayRemove, increment, writeBatch, serverTimestamp, setDoc } from 'firebase/firestore';
 import {
   Accordion,
   AccordionContent,
@@ -368,7 +368,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                     const totalFavorites = favoritesSnapshot.data().count;
                     if (totalFavorites >= 5) {
                         const badgeRef = doc(userProfileRef, 'earned_badges', 'favorite_fanatic_5');
-                        const badgeData: EarnedBadge = {
+                        const badgeData = {
                             badgeId: 'favorite_fanatic_5',
                             name: 'Collezionista di Cuori',
                             description: 'Hai aggiunto 5 giochi ai tuoi preferiti!',
@@ -491,7 +491,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                     const totalPlaylisted = playlistSnapshot.data().count;
                     if (totalPlaylisted >= 5) {
                         const badgeRef = doc(userProfileRef, 'earned_badges', 'playlist_pro_5');
-                        const badgeData: EarnedBadge = {
+                        const badgeData = {
                             badgeId: 'playlist_pro_5',
                             name: 'Maestro di Playlist',
                             description: 'Hai aggiunto 5 giochi alla tua playlist!',
@@ -579,7 +579,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           const userProfileSnap = await getDoc(userProfileRef);
           if (userProfileSnap.exists()){
               const userProfileData = userProfileSnap.data() as UserProfile;
-              // Check if the 'morchia_hunter_5' badge exists before trying to check its specific flag
               const morchiaBadgeRef = doc(userProfileRef, 'earned_badges', 'morchia_hunter_5');
               const morchiaBadgeSnap = await getDoc(morchiaBadgeRef);
 
@@ -589,7 +588,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                   const totalMorchiaMarked = morchiaSnapshot.data().count;
 
                   if (totalMorchiaMarked >= 5) {
-                      const badgeData: EarnedBadge = {
+                      const badgeData = {
                           badgeId: 'morchia_hunter_5',
                           name: 'Cacciatore di Morchie',
                           description: 'Hai contrassegnato 5 giochi come "morchia"!',
@@ -597,7 +596,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                           earnedAt: serverTimestamp(),
                       };
                       await setDoc(morchiaBadgeRef, badgeData);
-                      // No specific flag to update on userProfile, badge existence is enough
                       toast({
                           title: "Distintivo Guadagnato!",
                           description: "Complimenti! Hai ricevuto il distintivo: Cacciatore di Morchie!",
@@ -859,14 +857,20 @@ const handleGenerateRecommendations = async () => {
       <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
         <div className="flex flex-col">
            <div className="flex justify-between items-start p-6 pb-2 mb-2">
-            <div className="flex-1 min-w-0 mr-2">
+            <div className="flex-1 flex items-center gap-1 flex-shrink min-w-0 mr-2">
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
                 {game.name}
               </h1>
+              {game.bggId && (
+                <a href={`https://boardgamegeek.com/boardgame/${game.bggId}`} target="_blank" rel="noopener noreferrer" title="Vedi su BGG" className="inline-flex items-center text-primary/80 hover:text-primary hover:bg-primary/10 p-1 rounded-md">
+                    <ExternalLink size={16} className="h-4 w-4" />
+                </a>
+              )}
             </div>
-            <div className="flex-shrink-0 flex flex-col items-end space-y-1">
+            <div className="flex-shrink-0 flex flex-col items-end">
                 {globalGameAverage !== null && (
-                  <span className="text-3xl md:text-4xl font-bold text-primary whitespace-nowrap">
+                  <span className="text-3xl md:text-4xl font-bold text-primary whitespace-nowrap flex items-center">
+                    <Star className="h-6 w-6 md:h-7 md:w-7 text-accent fill-accent relative top-px mr-1" />
                     {formatRatingNumber(globalGameAverage * 2)}
                   </span>
                 )}
@@ -891,8 +895,7 @@ const handleGenerateRecommendations = async () => {
               </div>
               
                <div className="flex justify-evenly items-center gap-1 sm:gap-2 py-4 border-t border-b border-border">
-                <div className="flex items-center">
-                  <Button
+                <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => handleToggleFavorite(game.id, game.name)}
@@ -908,8 +911,7 @@ const handleGenerateRecommendations = async () => {
                     <span className="ml-1 text-xs">({currentFavoriteCount})</span>
                     )}
                   </Button>
-                </div>
-
+                
                 <Button
                     variant="ghost"
                     size="sm"
@@ -927,33 +929,23 @@ const handleGenerateRecommendations = async () => {
                     )}
                 </Button>
 
-                <div className="flex items-center">
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleTogglePlaylist(game.id, game.name)}
-                        disabled={isPlaylisting || authLoading || !currentUser}
-                        title={isPlaylistedByCurrentUser ? "Rimuovi dalla Playlist" : "Aggiungi alla Playlist"}
-                        className={cn(
-                            `h-9 px-2 hover:bg-sky-500/10`,
-                            isPlaylistedByCurrentUser ? 'text-sky-500 hover:bg-sky-500/20' : 'text-sky-500/60 hover:text-sky-500'
-                        )}
-                    >
-                        {isPlaylistedByCurrentUser ? <BookMarked className="h-5 w-5" /> : <Bookmark className="h-5 w-5" />}
-                        {game?.playlistedByUserIds && game.playlistedByUserIds.length > 0 && (
-                            <span className="ml-1 text-xs">({game.playlistedByUserIds.length})</span>
-                        )}
-                    </Button>
-                </div>
-
-                {game.bggId && (
-                  <Button variant="ghost" size="icon" className="h-9 w-9 text-primary/80 hover:text-primary hover:bg-primary/10" asChild>
-                    <a href={`https://boardgamegeek.com/boardgame/${game.bggId}`} target="_blank" rel="noopener noreferrer" title="Vedi su BGG">
-                      <ExternalLink className="h-5 w-5" />
-                    </a>
-                  </Button>
-                )}
-
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleTogglePlaylist(game.id, game.name)}
+                    disabled={isPlaylisting || authLoading || !currentUser}
+                    title={isPlaylistedByCurrentUser ? "Rimuovi dalla Playlist" : "Aggiungi alla Playlist"}
+                    className={cn(
+                        `h-9 px-2 hover:bg-sky-500/10`,
+                        isPlaylistedByCurrentUser ? 'text-sky-500 hover:bg-sky-500/20' : 'text-sky-500/60 hover:text-sky-500'
+                    )}
+                >
+                    {isPlaylistedByCurrentUser ? <BookMarked className="h-5 w-5" /> : <Bookmark className="h-5 w-5" />}
+                    {game?.playlistedByUserIds && game.playlistedByUserIds.length > 0 && (
+                        <span className="ml-1 text-xs">({game.playlistedByUserIds.length})</span>
+                    )}
+                </Button>
+                
                 {isAdmin && (
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -1000,7 +992,7 @@ const handleGenerateRecommendations = async () => {
                   </div>
                 )}
                 {game.yearPublished !== null && (
-                  <div className="flex items-baseline gap-2 justify-start md:justify-end">
+                  <div className="flex items-baseline gap-2 justify-start md:justify-start"> {/* Changed to justify-start for left align */}
                     <CalendarIcon size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
                     <span className="font-medium hidden sm:inline">Anno:</span>
                     <span>{game.yearPublished}</span>
@@ -1014,8 +1006,8 @@ const handleGenerateRecommendations = async () => {
                   </div>
                 )}
                 {(game.minPlaytime != null || game.maxPlaytime != null || game.playingTime != null) && (
-                  <div className="flex items-baseline gap-2 justify-start md:justify-end">
-                    <Clock size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
+                  <div className="flex items-baseline gap-2 justify-start md:justify-start"> {/* Changed to justify-start for left align */}
+                     <Clock size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
                     <span className="font-medium hidden sm:inline">Durata:</span>
                     <span>
                       {game.minPlaytime != null && game.maxPlaytime != null ?
@@ -1033,7 +1025,7 @@ const handleGenerateRecommendations = async () => {
                   </div>
                 )}
                  {game.lctr01Plays !== null && (
-                    <div className="flex items-baseline gap-2 justify-start md:justify-end">
+                    <div className="flex items-baseline gap-2 justify-start md:justify-start"> {/* Changed to justify-start for left align */}
                         <Dices size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
                         <span className="font-medium hidden sm:inline">Partite:</span>
                         <span>{game.lctr01Plays ?? 0}</span>
@@ -1047,7 +1039,7 @@ const handleGenerateRecommendations = async () => {
                   </div>
                 )}
                 {highestScoreAchieved !== null && (
-                  <div className="flex items-baseline gap-2 justify-start md:justify-end">
+                  <div className="flex items-baseline gap-2 justify-start md:justify-start"> {/* Changed to justify-start for left align */}
                       <Medal size={14} className="text-amber-500 flex-shrink-0 relative top-px" />
                       <span className="font-medium hidden sm:inline">Miglior Punteggio:</span>
                       <span>{formatRatingNumber(highestScoreAchieved)} pt.</span>
@@ -1095,7 +1087,7 @@ const handleGenerateRecommendations = async () => {
             </CardTitle>
              <Badge variant="secondary">{game.lctr01PlayDetails.length}</Badge>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent>
             <Accordion type="single" collapsible className="w-full">
               {game.lctr01PlayDetails.map((play) => {
                   const winners = play.players?.filter(p => p.didWin) || [];
@@ -1153,8 +1145,9 @@ const handleGenerateRecommendations = async () => {
                                     })
                                     .map((player, pIndex) => (
                                     <li key={pIndex} className={cn(
-                                      "flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5 px-2",
-                                      pIndex % 2 === 0 ? 'bg-muted/30' : ''
+                                      "flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5",
+                                      pIndex % 2 === 0 ? 'bg-muted/30' : '', 
+                                      "px-2"
                                     )}>
                                         <div className="flex items-center gap-1.5 flex-grow min-w-0">
                                             <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 relative top-px" />
@@ -1188,7 +1181,7 @@ const handleGenerateRecommendations = async () => {
         </Card>
       )}
       
-      {currentUser && !authLoading && userReview && (
+       {userReview && (
         <div className="space-y-4">
           <div className="flex flex-row items-center justify-between gap-2">
             <h3 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h3>
@@ -1260,7 +1253,7 @@ const handleGenerateRecommendations = async () => {
           <Separator className="my-6" />
           <h2 className="text-2xl font-semibold text-foreground mb-6 flex items-center gap-2">
           <MessageSquare className="h-6 w-6 text-primary"/>
-          {userReview ? `Altri Voti (${remainingReviews.length})` : `Voti (${remainingReviews.length})`}
+          {userReview ? `Altri Voti (${remainingReviews.length})` : `Recensioni (${remainingReviews.length})`}
           </h2>
           <div className="space-y-4">
             {remainingReviews.map(review => <ReviewItem key={review.id} review={review} />)}
@@ -1277,7 +1270,7 @@ const handleGenerateRecommendations = async () => {
       <Alert variant="default" className="mt-6 bg-secondary/30 border-secondary">
           <Info className="h-4 w-4 text-secondary-foreground" />
           <AlertDescription className="text-secondary-foreground">
-            Nessun voto ancora per questo gioco.
+            Nessuna recensione ancora per questo gioco.
           </AlertDescription>
       </Alert>
       )}
@@ -1382,3 +1375,4 @@ const handleGenerateRecommendations = async () => {
     </div>
   );
 }
+

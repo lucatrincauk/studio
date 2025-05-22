@@ -18,8 +18,8 @@ export default async function Top10Page() {
     .slice(0, 10);
 
   const mostReviewedGames = [...allGames] 
-    .filter(game => typeof game.voteCount === 'number' && game.voteCount > 0) // Changed from reviewCount
-    .sort((a, b) => (b.voteCount ?? 0) - (a.voteCount ?? 0)) // Changed from reviewCount
+    .filter(game => typeof game.voteCount === 'number' && game.voteCount > 0)
+    .sort((a, b) => (b.voteCount ?? 0) - (a.voteCount ?? 0))
     .slice(0, 10);
 
   return (
@@ -48,44 +48,51 @@ export default async function Top10Page() {
               {topRatedGames.map((game, index) => (
                 <div
                   key={`top-rated-${game.id}`}
-                  className="relative flex items-center gap-x-3 sm:gap-x-4 p-3 rounded-lg bg-card hover:bg-muted/50 transition-colors border border-border overflow-hidden"
+                  className={cn(
+                      "relative bg-card p-3 rounded-lg border border-border flex items-center gap-x-3 sm:gap-x-4 overflow-hidden",
+                      "hover:bg-muted/50 transition-colors"
+                  )}
                 >
                    <span
                     aria-hidden="true"
                     className={cn(
                         "absolute z-0 font-bold text-muted-foreground/10 pointer-events-none select-none leading-none",
-                        "-bottom-[55px] -right-[30px] text-[255px]",
-                        "sm:-bottom-[65px] sm:-right-[30px] sm:text-[300px]",
-                        "lg:-bottom-[75px] lg:-right-[36px] lg:text-[340px]"
+                         "top-1/2 -translate-y-1/2", // Vertical centering
+                        "-right-[30px] text-[255px]", // Default (mobile)
+                        "sm:-right-[30px] sm:text-[300px]", // Small screens
+                        "lg:-right-[36px] lg:text-[340px]" // Large screens
                     )}
                   >
                     {index + 1}
                   </span>
                   <div className={cn(
                       "relative z-10 flex items-center gap-x-3 sm:gap-x-4 flex-grow",
-                      "mr-5 sm:mr-8 lg:mr-10" 
+                       "mr-5 sm:mr-8 lg:mr-10" // Adjusted for larger numbers
                     )}>
                     <div className="w-24 sm:w-28 md:w-32 flex-shrink-0">
                       <GameCard game={game} variant="featured" priority={index < 5} showOverlayText={false} />
                     </div>
                     <div className="flex-grow min-w-0 flex justify-between items-center">
-                      <Link href={`/games/${game.id}`} className="group flex-1">
-                        <h3 className="text-md sm:text-lg font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-3 hover:underline">
-                          {game.name}
+                      <div className="group flex-1">
+                        <h3 className="text-md sm:text-lg font-semibold text-foreground group-hover:text-primary transition-colors">
+                          <Link href={`/games/${game.id}`} className="hover:underline focus:outline-none focus:ring-2 focus:ring-ring rounded">
+                            {game.name}
+                          </Link>
                         </h3>
                         {game.yearPublished && (
                           <p className="text-xs sm:text-sm text-muted-foreground">
-                            ({game.yearPublished})
+                            {game.yearPublished}
                           </p>
                         )}
-                      </Link>
+                      </div>
                       <div className="text-right ml-2 flex-shrink-0">
                         {game.overallAverageRating !== null && typeof game.overallAverageRating === 'number' && (
-                          <p className="text-xl sm:text-2xl font-bold text-primary">
+                          <p className="text-xl sm:text-2xl font-bold text-primary flex items-center">
+                            <Star className="h-4 w-4 text-accent fill-accent relative top-px mr-1" />
                             {formatRatingNumber(game.overallAverageRating * 2)}
                           </p>
                         )}
-                        {game.voteCount !== null && typeof game.voteCount === 'number' && ( // Changed from reviewCount
+                        {game.voteCount !== null && typeof game.voteCount === 'number' && ( 
                           <p className="text-xs text-muted-foreground">
                             {game.voteCount} {game.voteCount === 1 ? 'voto' : 'voti'} 
                           </p>
@@ -132,34 +139,38 @@ export default async function Top10Page() {
                     aria-hidden="true"
                     className={cn(
                         "absolute z-0 font-bold text-muted-foreground/10 pointer-events-none select-none leading-none",
-                        "-bottom-[55px] -right-[30px] text-[255px]",
-                        "sm:-bottom-[65px] sm:-right-[30px] sm:text-[300px]",
-                        "lg:-bottom-[75px] lg:-right-[36px] lg:text-[340px]"
+                        "top-1/2 -translate-y-1/2", // Vertical centering
+                        "-right-[30px] text-[255px]", // Default (mobile)
+                        "sm:-right-[30px] sm:text-[300px]", // Small screens
+                        "lg:-right-[36px] lg:text-[340px]" // Large screens
                     )}
                   >
                     {index + 1}
                   </span>
                   <div className={cn(
                       "relative z-10 flex items-center gap-x-3 sm:gap-x-4 flex-grow",
-                      "mr-5 sm:mr-8 lg:mr-10"
+                      "mr-5 sm:mr-8 lg:mr-10" // Adjusted for larger numbers
                     )}>
                     <div className="w-24 sm:w-28 md:w-32 flex-shrink-0">
                       <GameCard game={game} variant="featured" priority={index < 5} showOverlayText={false} />
                     </div>
                     <div className="flex-grow min-w-0 flex justify-between items-center">
-                       <Link href={`/games/${game.id}`} className="group flex-1">
-                        <h3 className="text-md sm:text-lg font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-3 hover:underline">
-                          {game.name}
+                       <div className="group flex-1">
+                        <h3 className="text-md sm:text-lg font-semibold text-foreground group-hover:text-primary transition-colors">
+                          <Link href={`/games/${game.id}`} className="hover:underline focus:outline-none focus:ring-2 focus:ring-ring rounded">
+                            {game.name}
+                          </Link>
                         </h3>
                         {game.yearPublished && (
                           <p className="text-xs sm:text-sm text-muted-foreground">
-                            ({game.yearPublished})
+                            {game.yearPublished}
                           </p>
                         )}
-                      </Link>
+                        </div>
                       <div className="text-right ml-2 flex-shrink-0">
-                        {game.voteCount !== null && typeof game.voteCount === 'number' && ( // Changed from reviewCount
-                          <p className="text-xl sm:text-2xl font-bold text-primary">
+                        {game.voteCount !== null && typeof game.voteCount === 'number' && ( 
+                          <p className="text-xl sm:text-2xl font-bold text-primary flex items-center">
+                             <MessageSquareText className="h-4 w-4 text-accent fill-accent relative top-px mr-1" />
                             {game.voteCount}
                           </p>
                         )}
@@ -180,3 +191,4 @@ export default async function Top10Page() {
 }
 
 export const revalidate = 3600; 
+

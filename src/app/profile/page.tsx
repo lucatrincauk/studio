@@ -5,21 +5,25 @@ import type { UserProfile, EarnedBadge, BoardGame } from '@/lib/types';
 import { useAuth } from '@/contexts/auth-context';
 import { UpdateProfileForm } from '@/components/profile/update-profile-form';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, AlertCircle, Settings2 as SettingsIcon } from 'lucide-react'; // Changed UserCircle2 to Settings2
+import { Loader2, AlertCircle, Settings2 as SettingsIcon, Frown, BookMarked, Heart } from 'lucide-react'; 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ThemeSwitcher } from '@/components/profile/theme-switcher';
 import { useState, useEffect, useCallback } from 'react';
-import { doc, getDoc, collection, getDocs, orderBy, type Timestamp, query } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, orderBy, query, type Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { getFavoritedGamesForUserAction, getPlaylistedGamesForUserAction, getMorchiaGamesForUserAction } from '@/lib/actions'; 
+import { GameCard } from '@/components/boardgame/game-card';
+import { Separator } from '@/components/ui/separator';
+
 
 const USER_PROFILES_COLLECTION = 'user_profiles';
 
-export default function ProfileSettingsPage() { // Renamed component for clarity
+export default function ProfileSettingsPage() { 
   const { user: firebaseUser, loading: authLoading } = useAuth();
   const [userProfileData, setUserProfileData] = useState<UserProfile | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
-
+ 
   const fetchUserProfileData = useCallback(async () => {
     if (firebaseUser) {
       setIsLoadingProfile(true);
@@ -32,15 +36,22 @@ export default function ProfileSettingsPage() { // Renamed component for clarity
           setUserProfileData({
             id: firebaseUser.uid,
             name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Utente Anonimo',
-            email: firebaseUser.email,
-            photoURL: firebaseUser.photoURL,
+            email: firebaseUser.email || null,
+            photoURL: firebaseUser.photoURL || null,
             bggUsername: null,
             hasSubmittedReview: false,
+            hasGivenFirstOne: false,
+            hasGivenFirstFive: false,
+            hasEarnedComprehensiveCritic: false,
+            hasEarnedNightOwlReviewer: false,
+            hasReceivedWelcomeBadge: false,
+            hasEarnedFavoriteFanaticBadge: false,
+            hasEarnedPlaylistProBadge: false,
           });
         }
       } catch (error) {
         console.error("Error fetching user profile from Firestore:", error);
-        setUserProfileData(null); // Handle error case
+        setUserProfileData(null);
       }
       setIsLoadingProfile(false);
     } else {
@@ -65,7 +76,7 @@ export default function ProfileSettingsPage() { // Renamed component for clarity
     );
   }
 
-  if (!firebaseUser) { // userProfileData might be null if fetch fails, firebaseUser is the primary check
+  if (!firebaseUser) { 
     return (
       <div className="flex flex-col items-center justify-center text-center py-10">
         <AlertCircle className="h-12 w-12 text-destructive mb-4" />
@@ -104,8 +115,8 @@ export default function ProfileSettingsPage() { // Renamed component for clarity
     <div className="max-w-2xl mx-auto py-8 space-y-12">
       <Card className="shadow-xl">
         <CardHeader className="text-center">
-          <SettingsIcon className="h-16 w-16 text-primary mx-auto mb-3" /> {/* Changed icon */}
-          <CardTitle className="text-2xl font-bold">Impostazioni Account</CardTitle> {/* Changed title */}
+          <SettingsIcon className="h-16 w-16 text-primary mx-auto mb-3" />
+          <CardTitle className="text-2xl font-bold">Impostazioni Account</CardTitle> 
           <CardDescription>Gestisci le informazioni del tuo account e le preferenze dell'applicazione.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -117,7 +128,7 @@ export default function ProfileSettingsPage() { // Renamed component for clarity
              <UpdateProfileForm
                 initialValues={{
                     displayName: userProfileData.name || firebaseUser.displayName || '',
-                    bggUsername: userProfileData.bggUsername || '', // Ensure empty string if null
+                    bggUsername: userProfileData.bggUsername || '', 
                 }}
                 onProfileUpdate={fetchUserProfileData}
             />
@@ -127,8 +138,6 @@ export default function ProfileSettingsPage() { // Renamed component for clarity
       
       <ThemeSwitcher />
 
-      {/* Removed Badges, Favorites, Playlist, and Morchia sections */}
-      {/* Users can view these on their public profile page /users/{theirOwnUserId} */}
        <Card className="shadow-md">
         <CardHeader>
             <CardTitle className="text-xl">Il Tuo Profilo Pubblico</CardTitle>
@@ -147,3 +156,4 @@ export default function ProfileSettingsPage() { // Renamed component for clarity
     </div>
   );
 }
+

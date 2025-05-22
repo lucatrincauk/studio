@@ -10,7 +10,7 @@ import { RATING_CATEGORIES } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import {
   Loader2, AlertCircle, CheckCircle, Smile, Puzzle, Palette, ClipboardList, ArrowLeft,
-  Award, Edit3, FileText, BookOpenText, MinusCircle, PlusCircle, Sparkles, ClipboardCheck as ClipboardCheckIcon, Moon, Trash2, Compass, HeartPulse, ListMusic, type LucideIcon
+  Award, Edit3, FileText, BookOpenText, MinusCircle, PlusCircle, Sparkles, ClipboardCheck as ClipboardCheckIcon, Moon, Trash2, Compass, HeartPulse, ListMusic, Star, type LucideIcon
 } from 'lucide-react';
 import { reviewFormSchema, type RatingFormValues } from '@/lib/validators';
 import type { User as FirebaseUser } from 'firebase/auth';
@@ -20,10 +20,10 @@ import {
   calculateOverallCategoryAverage,
   calculateGroupedCategoryAverages,
   formatRatingNumber,
-  calculateCategoryAverages as calculateCatAvgsFromUtils,
+  calculateCategoryAverages,
 } from '@/lib/utils';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, doc, updateDoc, query, where, getDocs, limit, writeBatch, getDoc, serverTimestamp, setDoc, type DocumentReference, collectionGroup, getCountFromServer } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc, query, where, getDocs, limit, writeBatch, getDoc, serverTimestamp, setDoc, collectionGroup, getCountFromServer } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { revalidateGameDataAction } from '@/lib/actions';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -221,7 +221,7 @@ export function MultiStepRatingForm({
         return { id: docSnap.id, ...data, rating } as Review;
       });
 
-      const categoryAvgs = calculateCatAvgsFromUtils(allReviewsForGame);
+      const categoryAvgs = calculateCategoryAverages(allReviewsForGame);
       const newOverallAverage = categoryAvgs ? calculateOverallCategoryAverage(categoryAvgs) : null;
       const newVoteCount = allReviewsForGame.length;
 
@@ -239,10 +239,8 @@ export function MultiStepRatingForm({
   }, [gameId, toast]);
 
   useEffect(() => {
-      if (currentStep <= totalInputSteps) { // Only reset for input steps if defaultFormValues change
-        form.reset(defaultFormValues);
-      }
-  }, [defaultFormValues, form.reset]); // Removed currentStep to avoid reset on step change
+      form.reset(defaultFormValues);
+  }, [defaultFormValues, form.reset]);
 
 
   const processSubmitAndStay = useCallback(async (data: RatingFormValues): Promise<boolean> => {
@@ -276,7 +274,7 @@ export function MultiStepRatingForm({
       author: currentUser.displayName || 'Anonimo',
       authorPhotoURL: currentUser.photoURL || null,
       rating: ratingDataToSave,
-      comment: "",
+      comment: "", // Comments are not part of this form
       date: new Date().toISOString(),
     };
 
@@ -314,7 +312,7 @@ export function MultiStepRatingForm({
       submissionSuccess = true;
       gameUpdateResult = await updateGameOverallRating(wasNewReviewAdded);
       
-      userProfileSnap = await getDoc(userProfileRef); // Re-fetch profile
+      userProfileSnap = await getDoc(userProfileRef); 
       userProfileData = userProfileSnap.exists() ? userProfileSnap.data() as UserProfile : null;
 
       if (wasNewReviewAdded && gameUpdateResult.success && gameUpdateResult.initialReviewCount === 0) {
@@ -494,16 +492,15 @@ export function MultiStepRatingForm({
     return stepUITitles[currentStep] || `Passo ${currentStep}`;
   };
   
-  const getCurrentStepDescription = () => {
-    if (currentStep > totalInputSteps) return stepUIDescriptions[5]; // Summary step
-    return stepUIDescriptions[currentStep] || `Completa le valutazioni per questo passo.`;
+  const getCurrentStepDescription = (step: number) => {
+    if (step > totalInputSteps) return stepUIDescriptions[5]; // Summary step
+    return stepUIDescriptions[step] || `Completa le valutazioni per questo passo.`;
   };
 
 
   return (
     <Form {...form}>
       <form>
-         {/* Game Info Card - Step 1 Only */}
          {currentStep === 1 && gameName && (
           <>
             <Card className="mb-4 shadow-sm border-border bg-muted/30">
@@ -528,7 +525,6 @@ export function MultiStepRatingForm({
           </>
         )}
 
-        {/* Step Header (Steps 1-4) */}
         {currentStep <= totalInputSteps && (
           <div className="mb-4">
              <div className="flex justify-between items-start">
@@ -538,20 +534,21 @@ export function MultiStepRatingForm({
                       {getCurrentStepTitle()}
                     </h3>
                     <p className="text-sm text-muted-foreground mt-1">
-                      {getCurrentStepDescription()}
+                      {getCurrentStepDescription(currentStep)}
                     </p>
                 </div>
             </div>
           </div>
         )}
 
-         {/* Summary Step (Step 5) */}
          {currentStep === totalDisplaySteps && (
            <>
              <CardHeader className="px-0 pt-6 pb-4">
-               <CardTitle className="text-xl font-semibold">
-                 Riepilogo Valutazione
-               </CardTitle>
+               <div className="flex justify-between items-baseline">
+                  <CardTitle className="text-xl font-semibold">
+                    Riepilogo Valutazione
+                  </CardTitle>
+               </div>
                <CardDescription className="text-sm text-muted-foreground mt-1 whitespace-pre-line">
                  {stepUIDescriptions[5]}
                </CardDescription>
@@ -576,7 +573,8 @@ export function MultiStepRatingForm({
                  </div>
                  {yourOverallAverage !== null && (
                    <div className="text-right">
-                     <span className="text-primary text-md font-semibold whitespace-nowrap">
+                     <span className="text-primary text-md font-semibold whitespace-nowrap flex items-center">
+                       <Star className="h-4 w-4 text-accent fill-accent relative top-px mr-1" />
                        {formatRatingNumber(yourOverallAverage * 2)}
                      </span>
                    </div>
@@ -675,9 +673,9 @@ export function MultiStepRatingForm({
 
         <div className={cn(
           "flex items-center pt-4 border-t mt-6",
-           (currentStep > 1 && currentStep <= totalInputSteps) || currentStep === 1 ? 'justify-between' : 'justify-end'
+           (currentStep > 1 && currentStep < totalDisplaySteps) || currentStep === 1 ? 'justify-between' : 'justify-end'
         )}>
-          <div> {/* Wrapper for left button(s) */}
+          <div> 
             {currentStep === 1 && (
                 <Button type="button" variant="outline" onClick={() => router.push(`/games/${gameId}`)} disabled={isSubmitting}>
                     <ArrowLeft className="mr-2 h-4 w-4" />
@@ -691,7 +689,7 @@ export function MultiStepRatingForm({
             )}
           </div>
 
-          <div> {/* Wrapper for right button(s) */}
+          <div> 
             {currentStep < totalInputSteps && (
               <Button type="button" onClick={handleNext} disabled={isSubmitting} className="bg-primary hover:bg-primary/90 text-primary-foreground">
                 Avanti
@@ -714,3 +712,4 @@ export function MultiStepRatingForm({
     </Form>
   );
 }
+

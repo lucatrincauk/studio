@@ -5,7 +5,7 @@ import type { Review } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { formatReviewDate, calculateOverallCategoryAverage, formatRatingNumber, calculateGroupedCategoryAverages } from '@/lib/utils';
-import { UserCircle2 } from 'lucide-react';
+import { UserCircle2, Star } from 'lucide-react';
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 import { useMemo } from 'react';
 import Link from 'next/link';
@@ -18,7 +18,7 @@ export function ReviewItem({ review }: ReviewItemProps) {
   const overallReviewRating = calculateOverallCategoryAverage(review.rating);
 
   const groupedAveragesForReview = useMemo(() => {
-    return calculateGroupedCategoryAverages([review]); // Pass as an array for the utility function
+    return calculateGroupedCategoryAverages([review]);
   }, [review]);
 
   const getAuthorInitial = () => {
@@ -47,7 +47,8 @@ export function ReviewItem({ review }: ReviewItemProps) {
             </Link>
           </div>
           <div className="flex flex-col items-end">
-            <div className="text-2xl font-bold text-primary">
+            <div className="text-2xl font-bold text-primary flex items-center">
+              <Star className="h-5 w-5 text-accent fill-accent relative top-px mr-1" />
               {formatRatingNumber(overallReviewRating * 2)}
             </div>
           </div>
@@ -66,3 +67,4 @@ export function ReviewItem({ review }: ReviewItemProps) {
     </Card>
   );
 }
+

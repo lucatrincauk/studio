@@ -37,8 +37,7 @@ export function GameCard({
       <Link href={finalHref} className="block group w-full h-full">
         <Card className={cn(
           "relative overflow-hidden transition-all duration-300 ease-in-out w-full aspect-[3/4]",
-          "shadow-lg hover:shadow-xl rounded-lg border border-border group-hover:border-primary/50"
-          // Removed: !showOverlayText && "bg-[#f9fbf9]"
+          "shadow-lg hover:shadow-xl rounded-lg border border-border group-hover:border-primary/50",
         )}>
           {featuredReason && (
             <div className="absolute top-1.5 left-1.5 z-20 rounded-full bg-black/60 p-1 shadow-md">
@@ -57,16 +56,18 @@ export function GameCard({
             )}
             data-ai-hint={game.name ? `board game ${game.name.split(' ')[0]?.toLowerCase()}` : 'board game thumbnail'}
             priority={priority}
-            sizes={showOverlayText ? "(max-width: 767px) 50vw, 33vw" : "(max-width: 639px) 96px, (max-width: 767px) 112px, 128px"}
+            sizes={showOverlayText ? "(max-width: 767px) 50vw, 33vw" : "(max-width: 640px) 96px, (max-width: 767px) 112px, 128px"}
           />
           {showOverlayText && (
             <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/60 via-black/25 to-transparent p-2 sm:p-3">
               <div className="flex justify-between items-end">
-                <h3 className="text-primary-foreground font-semibold text-base leading-tight drop-shadow-sm line-clamp-2 mr-1">
+                <h3 className="text-primary-foreground font-semibold text-sm sm:text-base leading-tight drop-shadow-sm line-clamp-2 mr-1">
                   {game.name}
+                  {game.yearPublished && <span className="ml-1 text-xs opacity-80">({game.yearPublished})</span>}
                 </h3>
                 {game.overallAverageRating !== null && typeof game.overallAverageRating === 'number' && (
-                  <p className="text-lg font-bold text-accent drop-shadow-sm whitespace-nowrap">
+                  <p className="text-xs sm:text-sm font-bold text-accent drop-shadow-sm whitespace-nowrap flex items-center">
+                    <Star className="h-3 w-3 text-accent fill-accent relative top-px mr-0.5" />
                     {formatRatingNumber(game.overallAverageRating * 2)}
                   </p>
                 )}
@@ -131,3 +132,4 @@ export function GameCard({
     </Card>
   );
 }
+

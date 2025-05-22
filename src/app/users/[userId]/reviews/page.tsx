@@ -8,11 +8,12 @@ import type { AugmentedReview, UserProfile } from '@/lib/types';
 import { ReviewItem } from '@/components/boardgame/review-item';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { MessageSquareText, AlertCircle, Gamepad2, UserCircle2, ArrowLeft, Loader2 } from 'lucide-react';
+import { MessageSquareText, AlertCircle, Gamepad2, UserCircle2, ArrowLeft, Loader2, Star } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { SafeImage } from '@/components/common/SafeImage';
+import { formatRatingNumber } from '@/lib/utils';
 
 interface UserReviewsPageParams {
   userId: string;
@@ -89,7 +90,7 @@ export default function UserReviewsPage() {
 
   return (
     <div className="space-y-8">
-      <Button onClick={() => router.back()} variant="outline" size="sm" className="mb-6">
+      <Button onClick={() => router.push(`/users/${userId}`)} variant="outline" size="sm" className="mb-6">
         <ArrowLeft className="mr-2 h-4 w-4" /> Torna al Profilo di {viewedUser.name}
       </Button>
 
@@ -103,10 +104,10 @@ export default function UserReviewsPage() {
           </Avatar>
           <div>
             <CardTitle className="text-2xl font-bold text-foreground">
-              Recensioni di {viewedUser.name}
+              Voti di {viewedUser.name}
             </CardTitle>
             <CardDescription>
-              Sfoglia tutte le recensioni inviate da {viewedUser.name}.
+              Sfoglia tutti i voti inviati da {viewedUser.name}.
             </CardDescription>
           </div>
         </CardHeader>
@@ -114,9 +115,9 @@ export default function UserReviewsPage() {
           {userReviews.length === 0 ? (
             <Alert variant="default" className="bg-secondary/30 border-secondary">
               <Gamepad2 className="h-4 w-4" />
-              <AlertTitle>Nessuna Recensione</AlertTitle>
+              <AlertTitle>Nessun Voto</AlertTitle>
               <AlertDescription>
-                {viewedUser.name} non ha ancora inviato recensioni.
+                {viewedUser.name} non ha ancora inviato voti.
               </AlertDescription>
             </Alert>
           ) : (
@@ -159,3 +160,4 @@ export default function UserReviewsPage() {
     </div>
   );
 }
+

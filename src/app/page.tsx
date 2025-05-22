@@ -3,7 +3,7 @@ import { getAllGamesAction, getFeaturedGamesAction, getLastPlayedGameAction } fr
 import { GameCard } from '@/components/boardgame/game-card';
 import { Separator } from '@/components/ui/separator';
 import type { BoardGame, BggPlayDetail } from '@/lib/types';
-import { Star, TrendingUp, Library, Info, Dices, UserCircle2, Sparkles, Trophy, Edit, Medal, Clock10, BarChart3 } from 'lucide-react';
+import { Star, TrendingUp, Library, Info, Dices, UserCircle2, Sparkles, Trophy, Medal, Clock10, BarChart3, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { formatRatingNumber, formatReviewDate } from '@/lib/utils';
@@ -19,36 +19,37 @@ export default async function HomePage() {
   let allGames: BoardGame[] = [];
   let lastPlayedGame: BoardGame | null = null;
   let lastPlayDetail: BggPlayDetail | null = null;
+  let lastPlayedGameError: string | null = null;
 
   try {
-    // Fetch all data in parallel
-    const [
-      featuredGamesResult,
-      allGamesResult,
-      lastPlayedResult,
-    ] = await Promise.allSettled([
-      getFeaturedGamesAction(),
-      getAllGamesAction(),
-      getLastPlayedGameAction("lctr01"),
+    const featuredGamesPromise = getFeaturedGamesAction();
+    const allGamesPromise = getAllGamesAction();
+    const lastPlayedPromise = getLastPlayedGameAction("lctr01");
+
+    const results = await Promise.allSettled([
+      featuredGamesPromise,
+      allGamesPromise,
+      lastPlayedPromise,
     ]);
 
-    if (featuredGamesResult.status === 'fulfilled' && featuredGamesResult.value) {
-      featuredGames = featuredGamesResult.value;
-    } else if (featuredGamesResult.status === 'rejected') {
-      console.error("Error fetching featured games:", featuredGamesResult.reason);
+    if (results[0].status === 'fulfilled' && results[0].value) {
+      featuredGames = results[0].value;
+    } else if (results[0].status === 'rejected') {
+      console.error("Error fetching featured games:", results[0].reason);
     }
 
-    if (allGamesResult.status === 'fulfilled' && Array.isArray(allGamesResult.value)) {
-      allGames = allGamesResult.value;
-    } else if (allGamesResult.status === 'rejected') {
-      console.error("Error fetching all games:", allGamesResult.reason);
+    if (results[1].status === 'fulfilled' && Array.isArray(results[1].value)) {
+      allGames = results[1].value;
+    } else if (results[1].status === 'rejected') {
+      console.error("Error fetching all games:", results[1].reason);
     }
     
-    if (lastPlayedResult.status === 'fulfilled' && lastPlayedResult.value) {
-      lastPlayedGame = lastPlayedResult.value.game;
-      lastPlayDetail = lastPlayedResult.value.lastPlayDetail;
-    } else if (lastPlayedResult.status === 'rejected') {
-       console.error("Error fetching last played game:", lastPlayedResult.reason);
+    if (results[2].status === 'fulfilled' && results[2].value) {
+      lastPlayedGame = results[2].value.game;
+      lastPlayDetail = results[2].value.lastPlayDetail;
+    } else if (results[2].status === 'rejected') {
+       console.error("Error fetching last played game:", results[2].reason);
+       lastPlayedGameError = "Impossibile caricare l'ultima partita giocata.";
     }
 
   } catch (error) {
@@ -108,7 +109,7 @@ export default async function HomePage() {
               Ultima Partita Giocata
             </h2>
             <Card className="shadow-md border border-border rounded-lg overflow-hidden">
-              <CardHeader className="space-y-1.5 bg-card p-3 flex flex-row items-start gap-3">
+              <CardHeader className="space-y-1.5 p-3 flex flex-row items-start gap-3">
                 <div className="relative h-16 w-12 sm:h-20 sm:w-16 flex-shrink-0 rounded-sm overflow-hidden shadow-sm">
                   <SafeImage
                     src={lastPlayedGame.coverArtUrl}
@@ -132,10 +133,11 @@ export default async function HomePage() {
                       </CardDescription>
                   </div>
                   {lastPlayedGame.overallAverageRating !== null && typeof lastPlayedGame.overallAverageRating === 'number' && (
-                      <div className="text-right flex-shrink-0">
-                      <span className="text-lg font-semibold text-primary">
-                          {formatRatingNumber(lastPlayedGame.overallAverageRating * 2)}
-                      </span>
+                      <div className="text-right flex-shrink-0 flex items-center">
+                        <Star className="h-4 w-4 text-accent fill-accent relative top-px mr-1" />
+                        <span className="text-lg font-semibold text-primary">
+                            {formatRatingNumber(lastPlayedGame.overallAverageRating * 2)}
+                        </span>
                       </div>
                   )}
                 </div>
@@ -201,7 +203,8 @@ export default async function HomePage() {
                   <span
                     aria-hidden="true"
                     className={cn(
-                        "absolute z-0 font-bold text-muted-foreground/10 pointer-events-none select-none leading-none top-1/2 -translate-y-1/2",
+                        "absolute z-0 font-bold text-muted-foreground/10 pointer-events-none select-none leading-none",
+                        "top-1/2 -translate-y-1/2", 
                         "-right-[30px] text-[255px]",
                         "sm:-right-[30px] sm:text-[300px]", 
                         "lg:-right-[36px] lg:text-[340px]"
@@ -233,7 +236,8 @@ export default async function HomePage() {
                       </div>
                       <div className="text-right ml-2 flex-shrink-0">
                         {game.overallAverageRating !== null && typeof game.overallAverageRating === 'number' && (
-                          <p className="text-xl sm:text-2xl font-bold text-primary">
+                          <p className="text-xl sm:text-2xl font-bold text-primary flex items-center">
+                             <Star className="h-4 w-4 text-accent fill-accent relative top-px mr-1" />
                             {formatRatingNumber(game.overallAverageRating * 2)}
                           </p>
                         )}
@@ -257,7 +261,7 @@ export default async function HomePage() {
               <Info className="h-4 w-4" />
               <AlertTitle>Catalogo in Costruzione!</AlertTitle>
               <AlertDescription>
-                Non ci sono ancora giochi in evidenza, nella top 10, o partite registrate. Torna più tardi o inizia ad aggiungere giochi e voti tramite la sezione Admin!
+                Non ci sono ancora giochi in evidenza o nella top 10. Torna più tardi o inizia ad aggiungere giochi e voti tramite la sezione Admin!
               </AlertDescription>
             </Alert>
         )}

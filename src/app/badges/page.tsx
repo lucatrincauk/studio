@@ -9,7 +9,7 @@ import type { EarnedBadge, LucideIconName } from '@/lib/types';
 import { ALL_BADGE_DEFINITIONS } from '@/data/badge-definitions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
-  Award, Edit3, FileText, BookOpenText, Trash2, Medal, MinusCircle, PlusCircle, Sparkles, ClipboardCheck, Moon, Compass, HeartPulse, ListMusic, CheckCircle2, Loader2, type LucideIcon
+  Award, Edit3, FileText, BookOpenText, Trash2, Medal, MinusCircle, PlusCircle, Sparkles, ClipboardCheck, Moon, Compass, HeartPulse, ListMusic, CheckCircle2, Loader2, Star, type LucideIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -124,3 +124,4 @@ export default function AllBadgesPage() {
     </div>
   );
 }
+
