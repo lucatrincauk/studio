@@ -27,7 +27,7 @@ export default function GameRatePage() {
   const [isLoadingGame, setIsLoadingGame] = useState(true);
   const [currentRatingFormStep, setCurrentRatingFormStep] = useState(1);
   
-  const cardRef = useRef<HTMLDivElement>(null); // Keep for potential future use if needed, but not for current scroll logic
+  const cardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     async function fetchGameData() {
@@ -118,12 +118,19 @@ export default function GameRatePage() {
   return (
     <div className="max-w-2xl mx-auto py-8 px-4">
       <Card ref={cardRef} className="shadow-xl border border-border rounded-lg">
-        {/* The main page header is removed to let the form handle step-specific headers */}
+        <CardHeader>
+            <CardTitle className="text-2xl md:text-3xl text-left">
+                {pageTitle} {game.name}
+            </CardTitle>
+            <CardDescription className="text-left text-sm text-muted-foreground mt-1 whitespace-pre-line">
+                {descriptionText}
+            </CardDescription>
+        </CardHeader>
         <CardContent className={currentRatingFormStep === 5 ? 'pt-0' : 'pt-6'}>
           <MultiStepRatingForm
             gameId={game.id}
             gameName={game.name} 
-            gameCoverArtUrl={game.coverArtUrl} // Pass cover art for summary step
+            gameCoverArtUrl={game.coverArtUrl}
             currentUser={currentUser}
             existingReview={userReview}
             onReviewSubmitted={() => router.push(`/games/${gameId}`)}
