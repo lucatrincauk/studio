@@ -9,10 +9,10 @@ import type { BoardGame, Review, Rating as RatingType, GroupedCategoryAverages, 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Info, Edit, Trash2, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, MessageSquare, Heart, Settings, Trophy, Medal, UserCircle2, Brain, Star, Palette, ClipboardList, Repeat, Sparkles, Pin, PinOff, Wand2, DownloadCloud, Bookmark, BookmarkCheck, ChevronDown, ChevronUp, LayoutList } from 'lucide-react';
+import { AlertCircle, Loader2, Info, Edit, Trash2, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, MessageSquare, Heart, Settings, Trophy, Medal, UserCircle2, Brain, Star, Palette, ClipboardList, Repeat, Sparkles, Pin, PinOff, Wand2, DownloadCloud, Bookmark, BookmarkCheck, LayoutList } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
-import { calculateGroupedCategoryAverages, calculateOverallCategoryAverage, formatRatingNumber, formatPlayDate, formatReviewDate, calculateCategoryAverages as calculateCatAvgsFromUtils } from '@/lib/utils';
+import { calculateGroupedCategoryAverages, calculateOverallCategoryAverage, formatRatingNumber, formatPlayDate, formatReviewDate, calculateCategoryAverages } from '@/lib/utils';
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
@@ -119,7 +119,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       setRemainingReviews(gameData.reviews?.filter(r => r.id !== foundUserReview?.id) || []);
 
       if (gameData.reviews && gameData.reviews.length > 0) {
-        const categoryAvgs = calculateCatAvgsFromUtils(gameData.reviews);
+        const categoryAvgs = calculateCategoryAverages(gameData.reviews);
         if (categoryAvgs) {
           setGlobalGameAverage(calculateOverallCategoryAverage(categoryAvgs));
         } else {
@@ -183,7 +183,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         return { id: docSnap.id, ...reviewDocData, rating } as Review;
       });
 
-      const categoryAvgs = calculateCatAvgsFromUtils(allReviewsForGame);
+      const categoryAvgs = calculateCategoryAverages(allReviewsForGame);
       const newOverallAverage = categoryAvgs ? calculateOverallCategoryAverage(categoryAvgs) : null;
       const newVoteCount = allReviewsForGame.length;
 
@@ -214,35 +214,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         const reviewDocRef = doc(db, FIRESTORE_COLLECTION_NAME, gameId, 'reviews', userReview.id);
         await deleteDoc(reviewDocRef);
         
-        const reviewsCollectionRef = collection(db, FIRESTORE_COLLECTION_NAME, gameId, 'reviews');
-        const reviewsSnapshot = await getDocs(reviewsCollectionRef);
-        const allReviewsForGame: Review[] = reviewsSnapshot.docs.map(docSnap => {
-            const reviewDocData = docSnap.data();
-            const rating: RatingType = {
-                excitedToReplay: reviewDocData.rating?.excitedToReplay || 0,
-                mentallyStimulating: reviewDocData.rating?.mentallyStimulating || 0,
-                fun: reviewDocData.rating?.fun || 0,
-                decisionDepth: reviewDocData.rating?.decisionDepth || 0,
-                replayability: reviewDocData.rating?.replayability || 0,
-                luck: reviewDocData.rating?.luck || 0,
-                lengthDowntime: reviewDocData.rating?.lengthDowntime || 0,
-                graphicDesign: reviewDocData.rating?.graphicDesign || 0,
-                componentsThemeLore: reviewDocData.rating?.componentsThemeLore || 0,
-                effortToLearn: reviewDocData.rating?.effortToLearn || 0,
-                setupTeardown: reviewDocData.rating?.setupTeardown || 0,
-            };
-            return { id: docSnap.id, ...reviewDocData, rating } as Review;
-        });
-
-        const categoryAvgs = calculateCatAvgsFromUtils(allReviewsForGame);
-        const newOverallAverage = categoryAvgs ? calculateOverallCategoryAverage(categoryAvgs) : null;
-        const newVoteCount = allReviewsForGame.length;
-
-        const gameDocRef = doc(db, FIRESTORE_COLLECTION_NAME, gameId);
-        await updateDoc(gameDocRef, {
-            overallAverageRating: newOverallAverage,
-            voteCount: newVoteCount
-        });
+        await updateGameOverallRatingAfterReviewChange();
         
         await revalidateGameDataAction(gameId);
         toast({ title: "Voto Eliminato", description: "Il tuo voto è stato eliminato con successo." });
@@ -296,9 +268,9 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           return;
         }
 
-        const gameData = gameSnap.data() as BoardGame;
-        const currentFavoritedByUserIds = gameData.favoritedByUserIds || [];
-        let newFavoriteCount = gameData.favoriteCount || 0;
+        const gameDataFromSnap = gameSnap.data() as BoardGame;
+        const currentFavoritedByUserIds = gameDataFromSnap.favoritedByUserIds || [];
+        let newFavoriteCount = gameDataFromSnap.favoriteCount || 0;
         let newFavoritedStatus = false;
 
         if (currentFavoritedByUserIds.includes(currentUser.uid)) {
@@ -355,8 +327,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           return;
         }
 
-        const gameData = gameSnap.data() as BoardGame;
-        const currentPlaylistedByUserIds = gameData.playlistedByUserIds || [];
+        const gameDataFromSnap = gameSnap.data() as BoardGame;
+        const currentPlaylistedByUserIds = gameDataFromSnap.playlistedByUserIds || [];
         let newPlaylistedStatus = false;
 
         if (currentPlaylistedByUserIds.includes(currentUser.uid)) {
@@ -639,7 +611,7 @@ const handleGenerateRecommendations = async () => {
         {isPlaylisting ? <Loader2 className="h-5 w-5 animate-spin" /> : (isPlaylistedByCurrentUser ? <BookmarkCheck className="h-5 w-5" /> : <Bookmark className="h-5 w-5" />)}
       </Button>
       {game.bggId > 0 && (
-        <Button variant="ghost" size="icon" asChild className="h-9 w-9">
+        <Button variant="outline" size="icon" asChild className="h-9 w-9">
           <a href={`https://boardgamegeek.com/boardgame/${game.bggId}`} target="_blank" rel="noopener noreferrer" title="Vedi su BGG">
             <ExternalLink className="h-4 w-4 text-primary/80" />
           </a>
@@ -684,12 +656,13 @@ const handleGenerateRecommendations = async () => {
   );
 
   return (
-    <Card className="overflow-hidden shadow-xl border border-border rounded-lg flex flex-col">
+    <div className="space-y-8"> {/* Main page container for vertical spacing */}
+      <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
         {/* Top Section: Game Info + Desktop Image Sidebar */}
         <div className="flex flex-col md:flex-row">
           {/* Main Content Column (Info + Mobile Image + Mobile Details) */}
           <div className="flex-1 p-6 space-y-4 md:order-1">
-            {/* Header: Title, BGG Link, Score */}
+            {/* Header: Title, Icons, Score */}
             <div className="flex justify-between items-start mb-2">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:gap-1 flex-shrink min-w-0 mr-2">
                     <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
@@ -784,11 +757,10 @@ const handleGenerateRecommendations = async () => {
                   </div>
               )}
             </div>
-
-            {/* Mobile-only Dettagli Aggiuntivi + Valutazione Media */}
-            <div className="md:hidden">
+            
+            {/* Mobile-only Dettagli Aggiuntivi Accordion */}
+            <div className="md:hidden pt-4 border-t border-border">
                 {((game.categories && game.categories.length > 0) || (game.mechanics && game.mechanics.length > 0)) && (
-                  <div className="pt-4 border-t border-border">
                     <Accordion type="single" collapsible className="w-full">
                         <AccordionItem value="dettagli-aggiuntivi-mobile" className="border-b-0">
                             <AccordionTrigger>Dettagli Aggiuntivi</AccordionTrigger>
@@ -812,11 +784,18 @@ const handleGenerateRecommendations = async () => {
                             </AccordionContent>
                         </AccordionItem>
                     </Accordion>
-                  </div>
                 )}
+            </div>
 
-                {game.reviews && game.reviews.length > 0 && (
-                  <div className="w-full pt-4 border-t border-border">
+             {/* Mobile-only Button Bar - Placed after mobile image & metadata */}
+             <div className="md:hidden py-4 border-t border-border">
+                <div className="flex justify-evenly items-center gap-1">{actionBarJSX}</div>
+            </div>
+
+            {/* Mobile-only "Valutazione Media" Accordion */}
+            <div className="md:hidden pt-4 border-t border-border">
+                {(game.reviews && game.reviews.length > 0) && (
+                    <div className="w-full">
                     <h3 className="text-lg font-semibold text-foreground mb-3">Valutazione Media:</h3>
                     <GroupedRatingsDisplay
                         groupedAverages={groupedCategoryAverages}
@@ -824,12 +803,8 @@ const handleGenerateRecommendations = async () => {
                         isLoading={isLoadingGame}
                         defaultOpenSections={[]}
                     />
-                  </div>
+                    </div>
                 )}
-            </div>
-             {/* Mobile-only Button Bar - Placed after mobile image & metadata */}
-             <div className="md:hidden py-4 border-t border-border">
-                <div className="flex justify-evenly items-center gap-1">{actionBarJSX}</div>
             </div>
           </div>
 
@@ -847,9 +822,9 @@ const handleGenerateRecommendations = async () => {
                 sizes="25vw"
               />
             </div>
-            {/* Desktop Dettagli Aggiuntivi + Valutazione Media */}
+             {/* Desktop "Dettagli Aggiuntivi" Accordion */}
             {((game.categories && game.categories.length > 0) || (game.mechanics && game.mechanics.length > 0)) && (
-              <div className="hidden md:block pt-4 border-t border-border">
+              <div className="pt-4 border-t border-border">
                 <Accordion type="single" collapsible className="w-full">
                     <AccordionItem value="dettagli-aggiuntivi-desktop" className="border-b-0">
                         <AccordionTrigger>Dettagli Aggiuntivi</AccordionTrigger>
@@ -875,8 +850,9 @@ const handleGenerateRecommendations = async () => {
                 </Accordion>
               </div>
             )}
-            {game.reviews && game.reviews.length > 0 && (
-              <div className="hidden md:block w-full pt-4 border-t border-border">
+            {/* Desktop "Valutazione Media" Accordion */}
+            {(game.reviews && game.reviews.length > 0) && (
+              <div className="w-full pt-4 border-t border-border">
                 <h3 className="text-lg font-semibold text-foreground mb-3">Valutazione Media:</h3>
                 <GroupedRatingsDisplay
                     groupedAverages={groupedCategoryAverages}
@@ -893,112 +869,114 @@ const handleGenerateRecommendations = async () => {
         <div className="hidden md:block px-6 py-4 border-t border-border">
             <div className="flex justify-evenly items-center gap-1">{actionBarJSX}</div>
         </div>
+      </Card>
 
-        {/* Play Logs and Reviews Content */}
-        <CardContent className="p-6 space-y-8">
-          {/* Partite Registrate Section */}
-          {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
-              <Card className="shadow-md border border-border rounded-lg">
-                  <CardHeader className="flex flex-row justify-between items-center">
-                      <CardTitle className="text-xl flex items-center gap-2">
-                          <Dices className="h-5 w-5 text-primary"/>
-                          Partite Registrate
-                      </CardTitle>
-                      {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
-                          <Badge variant="secondary">{game.lctr01PlayDetails.length}</Badge>
-                      )}
-                  </CardHeader>
-                  <CardContent className="pb-4 text-sm">
-                      <Accordion type="single" collapsible className="w-full">
-                          {game.lctr01PlayDetails.map((play) => {
-                              const winners = play.players?.filter(p => p.didWin) || [];
-                              const winnerNames = winners.map(p => p.name || p.username || 'Sconosciuto').join(', ');
-                              return (
-                              <AccordionItem value={`play-${play.playId}`} key={play.playId}>
-                                  <AccordionTrigger className="hover:no-underline text-left py-3 text-sm">
-                                    <div className="flex justify-between w-full items-center pr-2 gap-2">
-                                      <div className="flex items-center gap-2">
-                                          <Dices size={16} className="text-muted-foreground/80 flex-shrink-0" />
-                                          <span className="font-medium">{formatReviewDate(play.date)}</span>
-                                          {play.quantity > 1 && (
-                                              <>
-                                                  <span className="text-muted-foreground">-</span>
-                                                  <span>{play.quantity} partite</span>
-                                              </>
-                                          )}
-                                      </div>
-                                          {winners.length > 0 && (
-                                              <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300 whitespace-nowrap">
-                                                  <Trophy className="mr-1 h-3.5 w-3.5"/> {winnerNames}
-                                              </Badge>
-                                          )}
-                                      </div>
-                                  </AccordionTrigger>
-                                  <AccordionContent className="pb-4 text-sm">
-                                  <div className="space-y-3">
-                                      {play.comments && play.comments.trim() !== '' && (
-                                      <div className="grid grid-cols-[auto_1fr] gap-x-2 items-baseline pt-1">
-                                          <strong className="text-muted-foreground text-xs">Commenti:</strong>
-                                          <p className="text-xs whitespace-pre-wrap">{play.comments}</p>
-                                      </div>
-                                      )}
-                                      {play.players && play.players.length > 0 && (
-                                      <div>
-                                          <ul className="">
-                                          {play.players
-                                              .slice()
-                                              .sort((a, b) => {
-                                                  const scoreA = parseInt(a.score || "0", 10);
-                                                  const scoreB = parseInt(b.score || "0", 10);
-                                                  return scoreB - scoreA;
-                                              })
-                                              .map((player, pIndex) => (
-                                              <li key={pIndex} className={cn(
-                                                "flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5",
-                                                pIndex % 2 === 0 ? 'bg-muted/30' : '',
-                                                "px-2" 
-                                              )}>
-                                                  <div className="flex items-center gap-1.5 flex-grow min-w-0">
-                                                      <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 relative top-px" />
-                                                      <span className={cn("truncate", player.didWin ? 'font-semibold' : '')} title={player.name || player.username || 'Sconosciuto'}>
-                                                          {player.name || player.username || 'Sconosciuto'}
-                                                      </span>
-                                                       {player.didWin && (
-                                                          <Trophy className="h-3.5 w-3.5 text-green-600 ml-1 flex-shrink-0" />
-                                                      )}
-                                                      {player.isNew && (
-                                                          <Sparkles className="h-3.5 w-3.5 text-blue-600 ml-1 flex-shrink-0" />
-                                                      )}
-                                                  </div>
-                                                  {player.score && (
-                                                  <span className={cn("font-mono text-xs whitespace-nowrap ml-2 text-foreground", player.didWin ? 'font-semibold' : '')}>
-                                                      {player.score} pt.
-                                                  </span>
-                                                  )}
-                                              </li>
-                                          ))}
-                                          </ul>
-                                      </div>
-                                      )}
-                                      <div className="flex justify-between text-xs text-muted-foreground/80 pt-2 mt-2">
-                                          {play.location && play.location.trim() !== '' && (
-                                              <span>Luogo: {play.location}</span>
-                                          )}
-                                          <span>{formatPlayDate(play.date)}</span>
-                                      </div>
-                                  </div>
-                                  </AccordionContent>
-                              </AccordionItem>
-                          );
-                      })}
-                      </Accordion>
-                  </CardContent>
-              </Card>
-          )}
-          
-          {/* User's Own Review Section */}
+      {/* Subsequent sections like Play Logs and Reviews are direct children of the main page layout, not nested in the top Card */}
+      <div className="space-y-8">
+        {/* Partite Registrate Section */}
+        {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
+            <Card className="shadow-md border border-border rounded-lg">
+                <CardHeader className="flex flex-row justify-between items-center">
+                    <CardTitle className="text-xl flex items-center gap-2">
+                        <Dices className="h-5 w-5 text-primary"/>
+                        Partite Registrate
+                    </CardTitle>
+                    {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
+                        <Badge variant="secondary">{game.lctr01PlayDetails.length}</Badge>
+                    )}
+                </CardHeader>
+                <CardContent>
+                    <Accordion type="single" collapsible className="w-full">
+                        {game.lctr01PlayDetails.map((play) => {
+                            const winners = play.players?.filter(p => p.didWin) || [];
+                            const winnerNames = winners.map(p => p.name || p.username || 'Sconosciuto').join(', ');
+                            return (
+                            <AccordionItem value={`play-${play.playId}`} key={play.playId}>
+                                <AccordionTrigger className="hover:no-underline text-left py-3 text-sm">
+                                <div className="flex justify-between w-full items-center pr-2 gap-2">
+                                    <div className="flex items-center gap-2">
+                                        <Dices size={16} className="text-muted-foreground/80 flex-shrink-0" />
+                                        <span className="font-medium">{formatReviewDate(play.date)}</span>
+                                        {play.quantity > 1 && (
+                                            <>
+                                                <span className="text-muted-foreground">-</span>
+                                                <span>{play.quantity} partite</span>
+                                            </>
+                                        )}
+                                    </div>
+                                        {winners.length > 0 && (
+                                            <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300 whitespace-nowrap">
+                                                <Trophy className="mr-1 h-3.5 w-3.5"/> {winnerNames}
+                                            </Badge>
+                                        )}
+                                    </div>
+                                </AccordionTrigger>
+                                <AccordionContent className="pb-4 text-sm">
+                                <div className="space-y-3">
+                                    {play.comments && play.comments.trim() !== '' && (
+                                    <div className="grid grid-cols-[auto_1fr] gap-x-2 items-baseline pt-1">
+                                        <strong className="text-muted-foreground text-xs">Commenti:</strong>
+                                        <p className="text-xs whitespace-pre-wrap">{play.comments}</p>
+                                    </div>
+                                    )}
+                                    {play.players && play.players.length > 0 && (
+                                    <div>
+                                        <ul className="space-y-0.5"> {/* Removed space-y-0.5 for tighter list */}
+                                        {play.players
+                                            .slice()
+                                            .sort((a, b) => {
+                                                const scoreA = parseInt(a.score || "0", 10);
+                                                const scoreB = parseInt(b.score || "0", 10);
+                                                return scoreB - scoreA;
+                                            })
+                                            .map((player, pIndex) => (
+                                            <li key={pIndex} className={cn(
+                                            "flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5 px-2", // Added px-2
+                                            pIndex % 2 === 0 ? 'bg-muted/30' : '', // even rows for 0-indexed
+                                            )}>
+                                                <div className="flex items-center gap-1.5 flex-grow min-w-0">
+                                                    <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 relative top-px" />
+                                                    <span className={cn("truncate", player.didWin ? 'font-semibold' : '')} title={player.name || player.username || 'Sconosciuto'}>
+                                                        {player.name || player.username || 'Sconosciuto'}
+                                                    </span>
+                                                    {player.didWin && (
+                                                        <Trophy className="h-3.5 w-3.5 text-green-600 ml-1 flex-shrink-0" />
+                                                    )}
+                                                    {player.isNew && (
+                                                        <Sparkles className="h-3.5 w-3.5 text-blue-600 ml-1 flex-shrink-0" />
+                                                    )}
+                                                </div>
+                                                {player.score && (
+                                                <span className={cn("font-mono text-xs whitespace-nowrap ml-2 text-foreground", player.didWin ? 'font-semibold' : '')}>
+                                                    {player.score} pt.
+                                                </span>
+                                                )}
+                                            </li>
+                                        ))}
+                                        </ul>
+                                    </div>
+                                    )}
+                                    {/* Location and Date moved to the bottom */}
+                                    <div className="flex justify-between text-xs text-muted-foreground/80 pt-2 mt-2">
+                                        {play.location && play.location.trim() !== '' && (
+                                            <span>Luogo: {play.location}</span>
+                                        )}
+                                        <span>{formatPlayDate(play.date)}</span>
+                                    </div>
+                                </div>
+                                </AccordionContent>
+                            </AccordionItem>
+                        );
+                        })}
+                    </Accordion>
+                </CardContent>
+            </Card>
+        )}
+        
+        {/* User's Own Review Section */}
+        <div className="space-y-4">
           {currentUser && !authLoading && userReview && (
-            <div className="space-y-4">
+            <>
               <div className="flex flex-row items-center justify-between gap-2">
                 <h3 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h3>
                 <div className="flex items-center gap-2 flex-shrink-0">
@@ -1037,7 +1015,7 @@ const handleGenerateRecommendations = async () => {
                 </div>
               </div>
               <ReviewItem review={userReview} />
-            </div>
+            </>
           )}
 
           {currentUser && !authLoading && !userReview && (
@@ -1063,41 +1041,42 @@ const handleGenerateRecommendations = async () => {
                   </AlertDescription>
                   </Alert>
           )}
+        </div>
+        
+        {/* Other Player Reviews Section */}
+        {remainingReviews.length > 0 && (
+        <>
+            <Separator className="my-6" />
+            <h2 className="text-2xl font-semibold text-foreground mb-6 flex items-center gap-2">
+            <MessageSquare className="h-6 w-6 text-primary"/>
+            {userReview ? `Altri Voti (${remainingReviews.length})` : `Voti (${remainingReviews.length})`}
+            </h2>
+            <ReviewList reviews={remainingReviews} />
+        </>
+        )}
 
-          {/* Other Player Reviews Section */}
-          {remainingReviews.length > 0 && (
-          <>
-              <Separator className="my-6" />
-              <h2 className="text-2xl font-semibold text-foreground mb-6 flex items-center gap-2">
-              <MessageSquare className="h-6 w-6 text-primary"/>
-              {userReview ? `Altri Voti (${remainingReviews.length})` : `Voti (${remainingReviews.length})`}
-              </h2>
-              <ReviewList reviews={remainingReviews} />
-          </>
-          )}
+        {remainingReviews.length === 0 && userReview && (
+        <Alert variant="default" className="mt-6 bg-secondary/30 border-secondary">
+            <Info className="h-4 w-4 text-secondary-foreground" />
+            <AlertDescription className="text-secondary-foreground">
+            Nessun altro ha ancora dato un voto a questo gioco.
+            </AlertDescription>
+        </Alert>
+        )}
 
-          {remainingReviews.length === 0 && userReview && (
-          <Alert variant="default" className="mt-6 bg-secondary/30 border-secondary">
-              <Info className="h-4 w-4 text-secondary-foreground" />
-              <AlertDescription className="text-secondary-foreground">
-              Nessun altro ha ancora dato un voto a questo gioco.
-              </AlertDescription>
-          </Alert>
-          )}
+        {remainingReviews.length === 0 && !userReview && (!game.reviews || game.reviews.length === 0) && (
+        <Alert variant="default" className="mt-6 bg-secondary/30 border-secondary">
+            <Info className="h-4 w-4 text-secondary-foreground" />
+            <AlertDescription className="text-secondary-foreground">
+            Nessun voto ancora per questo gioco.
+            </AlertDescription>
+        </Alert>
+        )}
 
-          {remainingReviews.length === 0 && !userReview && (!game.reviews || game.reviews.length === 0) && (
-          <Alert variant="default" className="mt-6 bg-secondary/30 border-secondary">
-              <Info className="h-4 w-4 text-secondary-foreground" />
-              <AlertDescription className="text-secondary-foreground">
-              Nessun voto ancora per questo gioco.
-              </AlertDescription>
-          </Alert>
-          )}
-        </CardContent>
-
-        {aiRecommendations.length > 0 || isFetchingRecommendations || recommendationError ? (
-            <CardContent className="p-6 border-t border-border">
-            <CardHeader className="p-0 mb-4">
+        {/* AI Recommendations Section */}
+        <div className="pt-8">
+            <Card className="shadow-md border border-border rounded-lg">
+            <CardHeader>
                 <CardTitle className="text-xl flex items-center gap-2">
                     <Wand2 className="h-5 w-5 text-primary" />
                     Potrebbe Piacerti Anche
@@ -1106,58 +1085,52 @@ const handleGenerateRecommendations = async () => {
                     Suggerimenti AI basati su questo gioco dal nostro catalogo.
                 </CardDescription>
             </CardHeader>
-            
-            <Button onClick={handleGenerateRecommendations} disabled={isFetchingRecommendations} className="w-full sm:w-auto mb-4">
-                {isFetchingRecommendations ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                <Wand2 className="mr-2 h-4 w-4" />
-                )}
-                {aiRecommendations.length > 0 ? "Ottieni Nuovi Suggerimenti" : "Ottieni Suggerimenti AI"}
-            </Button>
-
-            {recommendationError && (
-                <Alert variant="destructive" className="mt-4">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Errore Suggerimenti AI</AlertTitle>
-                <AlertDescription>{recommendationError}</AlertDescription>
-                </Alert>
-            )}
-            {aiRecommendations.length > 0 && (
-                <div className="mt-2 space-y-4">
-                <h4 className="text-md font-semibold text-foreground">Giochi Suggeriti:</h4>
-                <ul className="space-y-3">
-                    {aiRecommendations.map((rec) => (
-                    <li key={rec.id} className="p-3 border rounded-md bg-muted/50 hover:bg-muted/80 transition-colors">
-                        <Link href={`/games/${rec.id}`} className="group">
-                        <h5 className="font-semibold text-primary group-hover:underline">{rec.name}</h5>
-                        </Link>
-                        <p className="text-xs text-muted-foreground mt-0.5">{rec.reason}</p>
-                    </li>
-                    ))}
-                </ul>
-                </div>
-            )}
-            </CardContent>
-        ) : (
-            <CardContent className="p-6 border-t border-border text-center">
-                 <Button onClick={handleGenerateRecommendations} disabled={isFetchingRecommendations} className="w-full sm:w-auto">
+            <CardContent>
+                <Button onClick={handleGenerateRecommendations} disabled={isFetchingRecommendations} className="w-full sm:w-auto mb-4">
                     {isFetchingRecommendations ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     ) : (
                     <Wand2 className="mr-2 h-4 w-4" />
                     )}
-                    Ottieni Suggerimenti AI
+                    {aiRecommendations.length > 0 ? "Ottieni Nuovi Suggerimenti" : "Ottieni Suggerimenti AI"}
                 </Button>
-                <Alert variant="default" className="mt-4 bg-secondary/30 border-secondary text-left">
-                    <Info className="h-4 w-4 text-secondary-foreground" />
-                    <AlertDescription className="text-secondary-foreground">
-                        Clicca il pulsante per vedere cosa suggerisce l&apos;AI!
-                    </AlertDescription>
-                </Alert>
+
+                {recommendationError && (
+                    <Alert variant="destructive" className="mt-4">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Errore Suggerimenti AI</AlertTitle>
+                    <AlertDescription>{recommendationError}</AlertDescription>
+                    </Alert>
+                )}
+                {aiRecommendations.length > 0 && (
+                    <div className="mt-2 space-y-4">
+                    <h4 className="text-md font-semibold text-foreground">Giochi Suggeriti:</h4>
+                    <ul className="space-y-3">
+                        {aiRecommendations.map((rec) => (
+                        <li key={rec.id} className="p-3 border rounded-md bg-muted/50 hover:bg-muted/80 transition-colors">
+                            <Link href={`/games/${rec.id}`} className="group">
+                            <h5 className="font-semibold text-primary group-hover:underline">{rec.name}</h5>
+                            </Link>
+                            <p className="text-xs text-muted-foreground mt-0.5">{rec.reason}</p>
+                        </li>
+                        ))}
+                    </ul>
+                    </div>
+                )}
+                {!isFetchingRecommendations && aiRecommendations.length === 0 && !recommendationError && (
+                    <Alert variant="default" className="mt-4 bg-secondary/30 border-secondary text-left">
+                        <Info className="h-4 w-4 text-secondary-foreground" />
+                        <AlertDescription className="text-secondary-foreground">
+                            Clicca il pulsante per vedere cosa suggerisce l&apos;AI!
+                        </AlertDescription>
+                    </Alert>
+                )}
             </CardContent>
-        )}
-    </Card>
+            </Card>
+        </div>
+      </div>
+    </div>
   );
 }
 
+    
