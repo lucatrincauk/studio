@@ -20,13 +20,11 @@ import {
   calculateGroupedCategoryAverages as calculateGroupedAveragesUtil,
   formatRatingNumber,
   calculateCategoryAverages, // Keep for updateGameOverallRating
-  calculateOverallCategoryAverage // Keep for updateGameOverallRating
 } from '@/lib/utils';
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, doc, updateDoc, query, where, getDocs, limit, writeBatch, getDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
-import { SafeImage } from '@/components/common/SafeImage';
 import { revalidateGameDataAction } from '@/lib/actions';
 
 
@@ -45,7 +43,7 @@ const RatingSliderInput: React.FC<RatingSliderInputProps> = ({ fieldName, contro
       control={control}
       name={fieldName}
       render={({ field }) => {
-        const currentFieldValue = Number(field.value); // Ensure it's a number
+        const currentFieldValue = Number(field.value);
         const sliderValue = useMemo(() => [currentFieldValue], [currentFieldValue]);
 
         return (
@@ -57,7 +55,7 @@ const RatingSliderInput: React.FC<RatingSliderInputProps> = ({ fieldName, contro
                 value={sliderValue}
                 onValueChange={(value: number[]) => {
                   const numericValue = value[0];
-                  if (numericValue !== currentFieldValue) { // Compare number with number
+                  if (numericValue !== currentFieldValue) { 
                     field.onChange(numericValue);
                   }
                 }}
@@ -79,9 +77,9 @@ const RatingSliderInput: React.FC<RatingSliderInputProps> = ({ fieldName, contro
 };
 
 const SLIDER_LEGENDS: Record<RatingCategory, { minLabel: string; maxLabel: string }> = {
-  excitedToReplay: { minLabel: "Mai più!", maxLabel: "Subito un'altra!" },
+  excitedToReplay: { minLabel: "Neanche morto", maxLabel: "Subito un'altra!" },
   mentallyStimulating: { minLabel: "Cervello in vacanza", maxLabel: "Spremi meningi!" },
-  fun: { minLabel: "Sbadigli...", maxLabel: "Risate a crepapelle!" },
+  fun: { minLabel: "Sbadigli...", maxLabel: "Troppo togo" },
   decisionDepth: { minLabel: "Pilota automatico", maxLabel: "Scelte cruciali!" },
   replayability: { minLabel: "Sempre uguale", maxLabel: "Ogni volta diverso!" },
   luck: { minLabel: "Regno della Dea Bendata", maxLabel: "Tutto in mano mia!" },
@@ -215,7 +213,7 @@ export function MultiStepRatingForm({
       });
 
       const categoryAvgs = calculateCategoryAverages(allReviewsForGame);
-      const newOverallAverage = categoryAvgs ? calculateOverallCategoryAverage(categoryAvgs) : null;
+      const newOverallAverage = categoryAvgs ? calculateGlobalOverallAverage(categoryAvgs) : null;
       const newVoteCount = allReviewsForGame.length;
 
       const gameDocRef = doc(db, "boardgames_collection", gameId);
@@ -232,7 +230,6 @@ export function MultiStepRatingForm({
 
 
   useEffect(() => {
-    // Only reset if defaultFormValues itself has changed (e.g., loading a different existing review)
     form.reset(defaultFormValues);
   }, [defaultFormValues, form.reset]);
 
@@ -265,7 +262,7 @@ export function MultiStepRatingForm({
       author: currentUser.displayName || 'Anonimo',
       authorPhotoURL: currentUser.photoURL || null,
       rating: ratingDataToSave,
-      comment: "", // Comments are removed from this form
+      comment: "", 
       date: new Date().toISOString(),
     };
 
@@ -363,7 +360,7 @@ export function MultiStepRatingForm({
             userId: currentUser.uid,
             authorPhotoURL: currentUser.photoURL || null,
             rating: currentRatings,
-            comment: '', // Comments are no longer part of the form
+            comment: '', 
             date: existingReview?.date || new Date().toISOString(),
           };
           setGroupedAveragesForSummary(calculateGroupedAveragesUtil([tempReviewForSummary]));
@@ -405,21 +402,16 @@ export function MultiStepRatingForm({
                       </p>
                     )}
                 </div>
-                {gameName && gameCoverArtUrl && (
-                    <div className="ml-4 flex-shrink-0 flex flex-col items-end w-20 text-right">
-                        {/* This game image block is no longer shown in steps 1-4 as per recent requests */}
-                    </div>
-                )}
              </div>
            </div>
         )}
 
-        {currentStep === totalDisplaySteps && (
+        {currentStep === totalDisplaySteps && gameName && (
              <CardHeader className="px-0 pt-6 pb-4">
                 <div className="flex justify-between items-baseline mb-2">
                     <div className="flex-1">
                         <CardTitle className="text-2xl md:text-3xl text-left">
-                         {stepUITitles[currentStep]}
+                         {stepUITitles[currentStep]} per {gameName}
                         </CardTitle>
                          {stepUIDescriptions[currentStep] && (
                             <CardDescription className="text-left text-sm text-muted-foreground mt-1 whitespace-pre-line">
@@ -556,4 +548,3 @@ export function MultiStepRatingForm({
     </Form>
   );
 }
-
