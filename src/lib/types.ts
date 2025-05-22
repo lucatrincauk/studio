@@ -1,4 +1,6 @@
 
+import type { LucideIcon } from 'lucide-react';
+
 export type RatingCategory =
   | 'excitedToReplay'
   | 'mentallyStimulating'
@@ -18,7 +20,7 @@ export const RATING_CATEGORIES: Record<RatingCategory, string> = {
   fun: 'Fattore Divertimento',
   decisionDepth: 'Profondità Decisionale',
   replayability: 'Varietà e Rigiocabilità',
-  luck: 'Assenza di Fortuna',
+  luck: 'Assenza di Fortuna', // 1=High Luck, 5=Low Luck (High "Assenza di Fortuna")
   lengthDowntime: 'Durata',
   graphicDesign: 'Grafica e Componenti',
   componentsThemeLore: 'Tema e Ambientazione',
@@ -82,6 +84,7 @@ export interface BoardGame {
   mechanics?: string[];
   categories?: string[];
   designers?: string[];
+  // publishers?: string[]; // Removed as per user request
   favoritedByUserIds?: string[];
   favoriteCount?: number;
   playlistedByUserIds?: string[];
@@ -94,7 +97,7 @@ export interface BoardGame {
 
 export interface SectionAverage {
   sectionTitle: string;
-  iconName?: string;
+  iconName?: LucideIconName;
   sectionAverage: number;
   subRatings: SubRatingAverage[];
 }
@@ -141,12 +144,12 @@ export interface BggPlayDetail {
   comments: string | null;
   location?: string | null;
   players?: BggPlayerInPlay[];
-  userId?: string; 
-  gameBggId: number; 
+  userId?: string;
+  gameBggId: number;
 }
 
 export interface AugmentedBggPlayDetail extends BggPlayDetail {
-  gameId: string; 
+  gameId: string;
   gameName: string;
   gameCoverArtUrl?: string | null;
 }
@@ -166,10 +169,28 @@ export type RecommendGamesOutput = {
   recommendations: RecommendedGame[];
 };
 
+// Valid Lucide icon names used for badges
+export type LucideIconName =
+  | 'Award'
+  | 'Edit3'
+  | 'FileText'
+  | 'BookOpenText'
+  | 'Trash2'
+  | 'Medal'
+  | 'MinusCircle'
+  | 'PlusCircle';
+
 export interface EarnedBadge {
   badgeId: string;
   name: string;
   description: string;
-  iconName?: string; 
-  earnedAt: any; 
+  iconName?: LucideIconName;
+  earnedAt: any; // Firestore Timestamp or string
+}
+
+export interface BadgeDefinition {
+  badgeId: string;
+  name: string;
+  description: string; // How to earn it
+  iconName: LucideIconName;
 }
