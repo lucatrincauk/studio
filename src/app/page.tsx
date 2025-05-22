@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils';
 
 export default async function HomePage() {
   const featuredGamesPromise = getFeaturedGamesAction();
-  const allGamesPromise = getAllGamesAction({ skipRatingCalculation: false }); // Optimized for Top 10, ratings are on docs
+  const allGamesPromise = getAllGamesAction({ skipRatingCalculation: false });
   const lastPlayedPromise = getLastPlayedGameAction("lctr01");
 
   let featuredGames: BoardGame[] = [];
@@ -108,7 +108,7 @@ export default async function HomePage() {
               Ultima Partita Giocata
             </h2>
             <Card className="shadow-md border border-border rounded-lg overflow-hidden">
-              <CardHeader className="p-3 flex flex-row items-start gap-3"> {/* Removed bg-muted/30 */}
+              <CardHeader className="p-3 flex flex-row items-start gap-3">
                 <div className="relative h-16 w-12 sm:h-20 sm:w-16 flex-shrink-0 rounded-sm overflow-hidden shadow-sm">
                   <SafeImage
                     src={lastPlayedGame.coverArtUrl}
@@ -149,12 +149,12 @@ export default async function HomePage() {
                   )}
                   {lastPlayDetail.players && lastPlayDetail.players.length > 0 && (
                     <div>
-                      <ul className="pl-1">
+                      <ul className="pl-1 space-y-0.5">
                         {lastPlayDetail.players
                           .slice()
                           .sort((a, b) => parseInt(b.score || "0", 10) - parseInt(a.score || "0", 10))
                           .map((player, pIndex) => (
-                            <li key={pIndex} className={cn(`flex items-center justify-between text-xs border-b border-border last:border-b-0 py-0.5 px-2`, pIndex % 2 === 0 ? 'bg-muted/30' : '')}>
+                            <li key={pIndex} className={cn(`flex items-center justify-between text-xs border-b border-border last:border-b-0 py-0.5`, pIndex % 2 === 0 ? 'bg-muted/30' : '', 'px-2')}>
                               <div className="flex items-center gap-1.5 flex-grow min-w-0">
                                 <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                                 <span className={cn("truncate", player.didWin ? 'font-semibold' : '')} title={player.name || player.username || 'Sconosciuto'}>
@@ -193,23 +193,31 @@ export default async function HomePage() {
               {topRatedGames.map((game, index) => (
                 <div
                   key={`top-rated-${game.id}`}
-                  className="relative flex items-center gap-x-3 sm:gap-x-4 p-3 rounded-lg bg-card hover:bg-muted/50 transition-colors border border-border overflow-hidden"
+                  className={cn(
+                      "relative overflow-hidden bg-card p-3 rounded-lg border border-border",
+                      "flex items-center gap-x-3 sm:gap-x-4"
+                  )}
                 >
                   <span
                     aria-hidden="true"
                     className={cn(
                         "absolute z-0 font-bold text-muted-foreground/10 pointer-events-none select-none leading-none",
-                        "-bottom-[55px] -right-[30px] text-[255px]",
-                        "sm:-bottom-[65px] sm:-right-[30px] sm:text-[300px]",
-                        "lg:-bottom-[75px] lg:-right-[36px] lg:text-[340px]"
+                        // Responsive positioning and font size for the large number
+                        "top-1/2 -translate-y-1/2", // Vertical centering
+                        "-right-[30px] text-[255px]", // Mobile
+                        "sm:-right-[30px] sm:text-[300px]", // SM
+                        "lg:-right-[36px] lg:text-[340px]" // LG
                     )}
                   >
                     {index + 1}
                   </span>
-                  <div className={cn(
+                  <div
+                    className={cn(
                       "relative z-10 flex items-center gap-x-3 sm:gap-x-4 flex-grow",
-                      "mr-5 sm:mr-8 lg:mr-10" 
-                    )}>
+                      // Responsive right margin to make space for the number
+                       "mr-5 sm:mr-8 lg:mr-10"
+                    )}
+                  >
                     <div className="w-24 sm:w-28 md:w-32 flex-shrink-0">
                         <GameCard game={game} variant="featured" priority={index < 5} showOverlayText={false} />
                     </div>
@@ -259,3 +267,4 @@ export default async function HomePage() {
 
 export const revalidate = 3600;
     
+
