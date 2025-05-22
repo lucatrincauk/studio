@@ -77,7 +77,7 @@ export interface BoardGame {
   maxPlaytime?: number | null;
   averageWeight?: number | null;
   overallAverageRating?: number | null;
-  voteCount?: number; // Changed from reviewCount
+  voteCount?: number;
   isPinned?: boolean;
   mechanics?: string[];
   categories?: string[];
@@ -85,6 +85,8 @@ export interface BoardGame {
   favoritedByUserIds?: string[];
   favoriteCount?: number;
   playlistedByUserIds?: string[];
+  morchiaByUserIds?: string[]; // New field
+  morchiaCount?: number;      // New field
   featuredReason?: 'pinned' | 'recent';
   lctr01Plays?: number | null;
   lctr01PlayDetails?: BggPlayDetail[];
