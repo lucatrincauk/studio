@@ -9,10 +9,10 @@ import type { BoardGame, Review, Rating as RatingType, GroupedCategoryAverages, 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Info, Edit, Trash2, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, MessageSquare, Heart, ListPlus, ListChecks, Settings, Trophy, Medal, UserCircle2, Brain, Star, Palette, ClipboardList, Repeat, Sparkles, Pin, PinOff, Wand2, DownloadCloud } from 'lucide-react';
+import { AlertCircle, Loader2, Info, Edit, Trash2, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, MessageSquare, Heart, ListPlus, ListChecks, Settings, Trophy, Medal, UserCircle2, Brain, Star, Palette, ClipboardList, Repeat, Sparkles, Pin, PinOff, Wand2, DownloadCloud, BookMarked, BookMark } from 'lucide-react'; // Added BookMarked, BookMark
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
-import { calculateGroupedCategoryAverages, calculateOverallCategoryAverage, formatRatingNumber, formatPlayDate, formatReviewDate, calculateCategoryAverages } from '@/lib/utils';
+import { calculateGroupedCategoryAverages, calculateOverallCategoryAverage, formatRatingNumber, formatPlayDate, formatReviewDate, calculateCategoryAverages as calculateCatAvgsFromUtils } from '@/lib/utils';
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
@@ -119,7 +119,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       setRemainingReviews(gameData.reviews?.filter(r => r.id !== foundUserReview?.id) || []);
 
       if (gameData.reviews && gameData.reviews.length > 0) {
-        const categoryAvgs = calculateCategoryAverages(gameData.reviews);
+        const categoryAvgs = calculateCatAvgsFromUtils(gameData.reviews);
         if (categoryAvgs) {
           setGlobalGameAverage(calculateOverallCategoryAverage(categoryAvgs));
         } else {
@@ -183,7 +183,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         return { id: docSnap.id, ...reviewDocData, rating } as Review;
       });
 
-      const categoryAvgs = calculateCategoryAverages(allReviewsForGame);
+      const categoryAvgs = calculateCatAvgsFromUtils(allReviewsForGame);
       const newOverallAverage = categoryAvgs ? calculateOverallCategoryAverage(categoryAvgs) : null;
       const newVoteCount = allReviewsForGame.length;
 
@@ -213,7 +213,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       try {
         const reviewDocRef = doc(db, FIRESTORE_COLLECTION_NAME, gameId, 'reviews', userReview.id);
         await deleteDoc(reviewDocRef);
-        await updateGameOverallRatingAfterReviewChange(); // This will also revalidate and fetchGameData
+        await updateGameOverallRatingAfterReviewChange(); 
         toast({ title: "Voto Eliminato", description: "Il tuo voto è stato eliminato con successo." });
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
@@ -587,25 +587,13 @@ const handleGenerateRecommendations = async () => {
           <div className="flex-1 p-6 space-y-4 md:order-1">
             {/* Main header: Title, BGG link, and Action Icons/Score */}
             <div className="flex justify-between items-start mb-2">
-              {/* Left part: Title and BGG icon */}
               <div className="flex flex-col sm:flex-row sm:items-center sm:gap-1 flex-shrink min-w-0 mr-2">
                 <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
                   {game.name}
-                  {game.bggId > 0 && (
-                    <a 
-                      href={`https://boardgamegeek.com/boardgame/${game.bggId}`} 
-                      target="_blank" 
-                      rel="noopener noreferrer" 
-                      title="Vedi su BGG" 
-                      className="inline-flex items-center text-muted-foreground hover:text-primary transition-colors ml-1.5"
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                    </a>
-                  )}
                 </h1>
               </div>
 
-              {/* Right part: Score */}
+              {/* Right part: Score and Action Icons */}
               <div className="flex-shrink-0 flex flex-col items-end">
                 {globalGameAverage !== null ? (
                   <span className="text-3xl md:text-4xl font-bold text-primary whitespace-nowrap">
@@ -633,86 +621,88 @@ const handleGenerateRecommendations = async () => {
 
             {/* Metadata Grid */}
             <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
+              {(game.designers && game.designers.length > 0) && (
                 <div className="flex items-baseline gap-2">
                     <PenTool size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
                     <span className="font-medium hidden sm:inline">Autori:</span>
-                    <span>{(game.designers && game.designers.length > 0) ? game.designers.join(', ') : '-'}</span>
+                    <span>{game.designers.join(', ')}</span>
                 </div>
-                {game.yearPublished != null && (
-                    <div className="flex items-baseline gap-2">
-                      <CalendarDays size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
-                      <span className="font-medium hidden sm:inline">Anno:</span>
-                      <span>{game.yearPublished}</span>
-                    </div>
-                )}
-                {(game.minPlayers != null || game.maxPlayers != null) && (
-                    <div className="flex items-baseline gap-2">
-                      <Users size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
-                      <span className="font-medium hidden sm:inline">Giocatori:</span>
-                      <span>{game.minPlayers}{game.maxPlayers && game.minPlayers !== game.maxPlayers ? `-${game.maxPlayers}` : ''}</span>
-                    </div>
-                )}
-                { (game.minPlaytime != null && game.maxPlaytime != null) || game.playingTime != null ? (
-                    <div className="flex items-baseline gap-2">
-                      <Clock size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
-                      <span className="font-medium hidden sm:inline">Durata:</span>
-                      <span>
-                          {game.minPlaytime != null && game.maxPlaytime != null ?
-                          (game.minPlaytime === game.maxPlaytime ? `${game.minPlaytime} min` : `${game.minPlaytime} - ${game.maxPlaytime} min`)
-                          : (game.playingTime != null ? `${game.playingTime} min` : 'N/D')
-                          }
-                          {game.minPlaytime != null && game.maxPlaytime != null && game.playingTime != null && game.playingTime !== game.minPlaytime && game.playingTime !== game.maxPlaytime && ` (Tipica: ${game.playingTime} min)`}
-                      </span>
-                    </div>
-                ) : null}
-                {game.averageWeight !== null && typeof game.averageWeight === 'number' && (
-                    <div className="flex items-baseline gap-2">
-                      <Weight size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
-                      <span className="font-medium hidden sm:inline">Complessità:</span>
-                      <span>{formatRatingNumber(game.averageWeight)} / 5</span>
-                    </div>
-                )}
-                <div className="flex items-baseline gap-2">
-                    <Dices size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
-                    <span className="font-medium hidden sm:inline">Partite:</span>
-                    <span>{game.lctr01Plays ?? 0}</span>
-                </div>
-                {topWinnerStats && (
+              )}
+              {game.yearPublished != null && (
                   <div className="flex items-baseline gap-2">
-                    <Trophy size={14} className="text-amber-500 flex-shrink-0 relative top-px" />
-                    <span className="font-medium hidden sm:inline">Campione:</span>
-                    <span>{topWinnerStats.name} ({topWinnerStats.wins} {topWinnerStats.wins === 1 ? 'vittoria' : 'vittorie'})</span>
+                    <CalendarDays size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
+                    <span className="font-medium hidden sm:inline">Anno:</span>
+                    <span>{game.yearPublished}</span>
                   </div>
-                )}
-                 {highestScoreAchieved !== null && (
-                    <div className="flex items-baseline gap-2">
-                        <Medal size={14} className="text-amber-500 flex-shrink-0 relative top-px" />
-                        <span className="font-medium hidden sm:inline">Miglior Punteggio:</span>
-                        <span>{formatRatingNumber(highestScoreAchieved)} pt.</span>
-                    </div>
-                )}
+              )}
+              {(game.minPlayers != null || game.maxPlayers != null) && (
+                  <div className="flex items-baseline gap-2">
+                    <Users size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
+                    <span className="font-medium hidden sm:inline">Giocatori:</span>
+                    <span>{game.minPlayers}{game.maxPlayers && game.minPlayers !== game.maxPlayers ? `-${game.maxPlayers}` : ''}</span>
+                  </div>
+              )}
+              { (game.minPlaytime != null && game.maxPlaytime != null) || game.playingTime != null ? (
+                  <div className="flex items-baseline gap-2">
+                    <Clock size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
+                    <span className="font-medium hidden sm:inline">Durata:</span>
+                    <span>
+                        {game.minPlaytime != null && game.maxPlaytime != null ?
+                        (game.minPlaytime === game.maxPlaytime ? `${game.minPlaytime} min` : `${game.minPlaytime} - ${game.maxPlaytime} min`)
+                        : (game.playingTime != null ? `${game.playingTime} min` : 'N/D')
+                        }
+                        {game.minPlaytime != null && game.maxPlaytime != null && game.playingTime != null && game.playingTime !== game.minPlaytime && game.playingTime !== game.maxPlaytime && ` (Tipica: ${game.playingTime} min)`}
+                    </span>
+                  </div>
+              ) : null}
+              {game.averageWeight !== null && typeof game.averageWeight === 'number' && (
+                  <div className="flex items-baseline gap-2">
+                    <Weight size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
+                    <span className="font-medium hidden sm:inline">Complessità:</span>
+                    <span>{formatRatingNumber(game.averageWeight)} / 5</span>
+                  </div>
+              )}
+              <div className="flex items-baseline gap-2">
+                  <Dices size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
+                  <span className="font-medium hidden sm:inline">Partite:</span>
+                  <span>{game.lctr01Plays ?? 0}</span>
+              </div>
+              {topWinnerStats && (
+                <div className="flex items-baseline gap-2">
+                  <Trophy size={14} className="text-amber-500 flex-shrink-0 relative top-px" />
+                  <span className="font-medium hidden sm:inline">Campione:</span>
+                  <span>{topWinnerStats.name} ({topWinnerStats.wins} {topWinnerStats.wins === 1 ? 'vittoria' : 'vittorie'})</span>
+                </div>
+              )}
+               {highestScoreAchieved !== null && (
+                  <div className="flex items-baseline gap-2">
+                      <Medal size={14} className="text-amber-500 flex-shrink-0 relative top-px" />
+                      <span className="font-medium hidden sm:inline">Miglior Punteggio:</span>
+                      <span>{formatRatingNumber(highestScoreAchieved)} pt.</span>
+                  </div>
+              )}
             </div>
-
-             {/* Button Bar for Favorite, Playlist, BGG Link, Admin Settings */}
+            
+            {/* Button Bar for Favorite, Playlist, BGG Link, Admin Settings */}
             <div className="flex justify-evenly gap-2 py-4 border-t mt-4">
                 {currentUser && (
-                    <div className="flex items-center">
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={handleToggleFavorite}
-                            disabled={isFavoriting || authLoading}
-                            title={isFavoritedByCurrentUser ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
-                            className={`h-9 w-9 ${isFavoritedByCurrentUser ? 'text-destructive fill-destructive hover:bg-destructive/20' : 'text-destructive/60 hover:text-destructive hover:bg-destructive/10'}`}
-                        >
-                            {isFavoriting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Heart className={`h-5 w-5 ${isFavoritedByCurrentUser ? 'fill-destructive' : ''}`} />}
-                        </Button>
-                        {currentFavoriteCount > 0 && (
-                            <span className="text-xs text-muted-foreground -ml-1.5">
-                                ({currentFavoriteCount})
-                            </span>
-                        )}
-                    </div>
+                  <div className="flex items-center">
+                      <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={handleToggleFavorite}
+                          disabled={isFavoriting || authLoading}
+                          title={isFavoritedByCurrentUser ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
+                          className={`h-9 w-9 ${isFavoritedByCurrentUser ? 'text-destructive fill-destructive hover:bg-destructive/20' : 'text-destructive/60 hover:text-destructive hover:bg-destructive/10'}`}
+                      >
+                          {isFavoriting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Heart className={`h-5 w-5 ${isFavoritedByCurrentUser ? 'fill-destructive' : ''}`} />}
+                      </Button>
+                      {currentFavoriteCount > 0 && (
+                          <span className="text-xs text-muted-foreground -ml-1.5">
+                              ({currentFavoriteCount})
+                          </span>
+                      )}
+                  </div>
                 )}
                 {currentUser && (
                     <Button
@@ -723,11 +713,11 @@ const handleGenerateRecommendations = async () => {
                         title={isPlaylistedByCurrentUser ? "Rimuovi dalla Playlist" : "Aggiungi alla Playlist"}
                         className={`h-9 w-9 ${isPlaylistedByCurrentUser ? 'text-sky-500 hover:bg-sky-500/20' : 'text-sky-500/60 hover:text-sky-500 hover:bg-sky-500/10'}`}
                     >
-                        {isPlaylisting ? <Loader2 className="h-5 w-5 animate-spin" /> : (isPlaylistedByCurrentUser ? <ListChecks className="h-5 w-5" /> : <ListPlus className="h-5 w-5" />)}
+                        {isPlaylisting ? <Loader2 className="h-5 w-5 animate-spin" /> : (isPlaylistedByCurrentUser ? <BookMarked className="h-5 w-5" /> : <BookMark className="h-5 w-5" />)}
                     </Button>
                 )}
                 {game.bggId > 0 && (
-                  <Button variant="ghost" size="icon" asChild className="h-9 w-9">
+                  <Button variant="outline" size="icon" asChild className="h-9 w-9">
                     <a href={`https://boardgamegeek.com/boardgame/${game.bggId}`} target="_blank" rel="noopener noreferrer" title="Vedi su BGG">
                       <ExternalLink className="h-4 w-4 text-primary/80" />
                     </a>
@@ -864,9 +854,8 @@ const handleGenerateRecommendations = async () => {
                                           })
                                           .map((player, pIndex) => (
                                           <li key={pIndex} className={cn(
-                                            "flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5",
-                                            pIndex % 2 === 0 ? 'bg-muted/30' : '', 
-                                            "px-2"
+                                            "flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5 px-2",
+                                            pIndex % 2 === 0 ? 'bg-muted/30' : ''
                                           )}>
                                               <div className="flex items-center gap-1.5 flex-grow min-w-0">
                                                   <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 relative top-px" />
@@ -874,7 +863,7 @@ const handleGenerateRecommendations = async () => {
                                                       {player.name || player.username || 'Sconosciuto'}
                                                   </span>
                                                    {player.didWin && (
-                                                       <Trophy className="ml-1 h-3.5 w-3.5 text-green-600 flex-shrink-0" />
+                                                      <Trophy className="ml-1 h-3.5 w-3.5 text-green-600 flex-shrink-0" />
                                                   )}
                                                   {player.isNew && (
                                                        <Sparkles className="ml-1 h-3.5 w-3.5 text-blue-600 flex-shrink-0" />
@@ -1063,3 +1052,4 @@ const handleGenerateRecommendations = async () => {
     </div>
   );
 }
+
