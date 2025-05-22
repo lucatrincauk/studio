@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useTransition, useMemo, useRef } from 'react';
+import { useState, useEffect, useTransition, useMemo, useRef, useCallback } from 'react';
 import type { Control } from 'react-hook-form';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -18,15 +18,16 @@ import { Slider } from '@/components/ui/slider';
 import {
   calculateOverallCategoryAverage as calculateGlobalOverallAverage,
   calculateGroupedCategoryAverages as calculateGroupedAveragesUtil,
-  formatRatingNumber
-} from '@/lib/utils'; // Aliased import
+  formatRatingNumber,
+  calculateCategoryAverages, // Keep for updateGameOverallRating
+  calculateOverallCategoryAverage // Keep for updateGameOverallRating
+} from '@/lib/utils';
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, doc, updateDoc, query, where, getDocs, limit, writeBatch, getDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { SafeImage } from '@/components/common/SafeImage';
 import { revalidateGameDataAction } from '@/lib/actions';
-import { calculateCategoryAverages, calculateOverallCategoryAverage } from '@/lib/utils'; // Keep for updateGameOverallRating
 
 
 interface RatingSliderInputProps {
@@ -44,7 +45,7 @@ const RatingSliderInput: React.FC<RatingSliderInputProps> = ({ fieldName, contro
       control={control}
       name={fieldName}
       render={({ field }) => {
-        const currentFieldValue = Number(field.value);
+        const currentFieldValue = Number(field.value); // Ensure it's a number
         const sliderValue = useMemo(() => [currentFieldValue], [currentFieldValue]);
 
         return (
@@ -56,7 +57,7 @@ const RatingSliderInput: React.FC<RatingSliderInputProps> = ({ fieldName, contro
                 value={sliderValue}
                 onValueChange={(value: number[]) => {
                   const numericValue = value[0];
-                  if (numericValue !== currentFieldValue) {
+                  if (numericValue !== currentFieldValue) { // Compare number with number
                     field.onChange(numericValue);
                   }
                 }}
@@ -78,24 +79,24 @@ const RatingSliderInput: React.FC<RatingSliderInputProps> = ({ fieldName, contro
 };
 
 const SLIDER_LEGENDS: Record<RatingCategory, { minLabel: string; maxLabel: string }> = {
-  excitedToReplay: { minLabel: "Per niente", maxLabel: "Moltissimo" },
-  mentallyStimulating: { minLabel: "Minima", maxLabel: "Massima" },
-  fun: { minLabel: "Nullo", maxLabel: "Elevatissimo" },
-  decisionDepth: { minLabel: "Superficiale", maxLabel: "Molto Profonda" },
-  replayability: { minLabel: "Scarsa", maxLabel: "Elevata" },
-  luck: { minLabel: "Molto Aleatorio", maxLabel: "Poco Aleatorio" }, // For "Assenza di Fortuna" where 1=High Luck, 5=Low Luck
-  lengthDowntime: { minLabel: "Pessima", maxLabel: "Perfetta" },
-  graphicDesign: { minLabel: "Scadente", maxLabel: "Eccellente" },
-  componentsThemeLore: { minLabel: "Debole", maxLabel: "Coinvolgente" },
-  effortToLearn: { minLabel: "Molto Difficile", maxLabel: "Molto Facile" },
-  setupTeardown: { minLabel: "Lungo/Complesso", maxLabel: "Veloce/Semplice" },
+  excitedToReplay: { minLabel: "Mai più!", maxLabel: "Subito un'altra!" },
+  mentallyStimulating: { minLabel: "Cervello in vacanza", maxLabel: "Spremi meningi!" },
+  fun: { minLabel: "Sbadigli...", maxLabel: "Risate a crepapelle!" },
+  decisionDepth: { minLabel: "Pilota automatico", maxLabel: "Scelte cruciali!" },
+  replayability: { minLabel: "Sempre uguale", maxLabel: "Ogni volta diverso!" },
+  luck: { minLabel: "Regno della Dea Bendata", maxLabel: "Tutto in mano mia!" },
+  lengthDowntime: { minLabel: "Non finisce più! / Già finito?", maxLabel: "Tempo perfetto!" },
+  graphicDesign: { minLabel: "Occhio non vuole la sua parte", maxLabel: "Gioia per gli occhi!" },
+  componentsThemeLore: { minLabel: "Tema? Quale tema?", maxLabel: "Immersione totale!" },
+  effortToLearn: { minLabel: "Manuale da incubo", maxLabel: "Si impara in un attimo!" },
+  setupTeardown: { minLabel: "Un'impresa titanica", maxLabel: "Pronti, via!" },
 };
 
 
 interface MultiStepRatingFormProps {
   gameId: string;
-  gameName: string; // Keep for internal step headers
-  gameCoverArtUrl?: string; // For summary step
+  gameName?: string;
+  gameCoverArtUrl?: string;
   currentUser: FirebaseUser;
   existingReview?: Review | null;
   currentStep: number;
@@ -104,7 +105,7 @@ interface MultiStepRatingFormProps {
 }
 
 const totalInputSteps = 4;
-const totalDisplaySteps = 5;
+const totalDisplaySteps = 5; // Includes the summary step
 
 const stepCategories: RatingCategory[][] = [
   ['excitedToReplay', 'mentallyStimulating', 'fun'],
@@ -112,20 +113,6 @@ const stepCategories: RatingCategory[][] = [
   ['graphicDesign', 'componentsThemeLore'],
   ['effortToLearn', 'setupTeardown'],
 ];
-
-const categoryDescriptions: Record<RatingCategory, string> = {
-  excitedToReplay: "Quanto ti entusiasma l’idea di rigiocare questo gioco?",
-  mentallyStimulating: "Quanto ti ha fatto ragionare e elaborare strategie questo gioco?",
-  fun: "In generale, quanto è stata piacevole e divertente l'esperienza di gioco?",
-  decisionDepth: "Quanto sono state significative e incisive le scelte che hai fatto durante il gioco?",
-  replayability: "Quanto diversa ed entusiasmante potrebbe essere la prossima partita?",
-  luck: "Quanto poco il caso o la casualità influenzano l'esito del gioco?",
-  lengthDowntime: "Quanto è appropriata la durata del gioco per la sua profondità e quanto è coinvolgente quando non è il tuo turno?",
-  graphicDesign: "Quanto è visivamente accattivante l'artwork, l'iconografia e il layout generale del gioco?",
-  componentsThemeLore: "Come valuti l'ambientazione e l'applicazione del tema al gioco?",
-  effortToLearn: "Quanto è facile o difficile capire le regole e iniziare a giocare?",
-  setupTeardown: "Quanto è veloce e semplice preparare il gioco e rimettere a posto?",
-};
 
 const stepUITitles: Record<number, string> = {
   1: "Sentimento",
@@ -141,6 +128,20 @@ const stepUIDescriptions: Record<number, string> = {
   3: "Valuta l'impatto visivo e l'immersione tematica.",
   4: "Quanto è stato facile apprendere e gestire il gioco?",
   5: "La tua recensione è stata salvata.\nEcco un riepilogo:",
+};
+
+const categoryDescriptions: Record<RatingCategory, string> = {
+  excitedToReplay: "Quanto ti entusiasma l’idea di rigiocare questo gioco?",
+  mentallyStimulating: "Quanto ti ha fatto ragionare e elaborare strategie questo gioco?",
+  fun: "In generale, quanto è stata piacevole e divertente l'esperienza di gioco?",
+  decisionDepth: "Quanto sono state significative e incisive le scelte che hai fatto durante il gioco?",
+  replayability: "Quanto diversa ed entusiasmante potrebbe essere la prossima partita?",
+  luck: "Quanto poco il caso o la casualità influenzano l'esito del gioco?",
+  lengthDowntime: "Quanto è appropriata la durata del gioco per la sua profondità e quanto è coinvolgente quando non è il tuo turno?",
+  graphicDesign: "Quanto è visivamente accattivante l'artwork, l'iconografia e il layout generale del gioco?",
+  componentsThemeLore: "Come valuti l'ambientazione e l'applicazione del tema al gioco?",
+  effortToLearn: "Quanto è facile o difficile capire le regole e iniziare a giocare?",
+  setupTeardown: "Quanto è veloce e semplice preparare il gioco e rimettere a posto?",
 };
 
 
@@ -191,7 +192,7 @@ export function MultiStepRatingForm({
     mode: 'onChange',
   });
 
-  const updateGameOverallRating = async () => {
+  const updateGameOverallRating = useCallback(async () => {
     try {
       const reviewsCollectionRef = collection(db, "boardgames_collection", gameId, 'reviews');
       const reviewsSnapshot = await getDocs(reviewsCollectionRef);
@@ -227,10 +228,11 @@ export function MultiStepRatingForm({
       console.error("Errore Aggiornamento Punteggio Medio Gioco:", error);
       toast({ title: "Errore Aggiornamento Punteggio", description: "Impossibile aggiornare il punteggio medio del gioco.", variant: "destructive" });
     }
-  };
+  }, [gameId, toast]);
 
 
   useEffect(() => {
+    // Only reset if defaultFormValues itself has changed (e.g., loading a different existing review)
     form.reset(defaultFormValues);
   }, [defaultFormValues, form.reset]);
 
@@ -258,12 +260,12 @@ export function MultiStepRatingForm({
     }
 
     const ratingDataToSave: RatingType = { ...validatedFields.data };
-    const reviewData: Omit<Review, 'id'> = {
+    const reviewDataForFirestore: Omit<Review, 'id'> = {
       userId: currentUser.uid,
       author: currentUser.displayName || 'Anonimo',
       authorPhotoURL: currentUser.photoURL || null,
       rating: ratingDataToSave,
-      comment: "",
+      comment: "", // Comments are removed from this form
       date: new Date().toISOString(),
     };
 
@@ -287,7 +289,7 @@ export function MultiStepRatingForm({
            setFormError("Voto non trovato o non hai i permessi per modificarlo.");
            return false;
         }
-        await updateDoc(reviewDocRef, reviewData);
+        await updateDoc(reviewDocRef, reviewDataForFirestore);
         toast({ title: "Successo!", description: "Voto aggiornato con successo!", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
       } else {
         const existingReviewQuery = query(reviewsCollectionRef, where("userId", "==", currentUser.uid), limit(1));
@@ -295,10 +297,10 @@ export function MultiStepRatingForm({
 
         if (!existingReviewSnapshot.empty) {
            const reviewToUpdateRef = existingReviewSnapshot.docs[0].ref;
-           await updateDoc(reviewToUpdateRef, reviewData);
+           await updateDoc(reviewToUpdateRef, reviewDataForFirestore);
            toast({ title: "Aggiornato!", description: "Il tuo voto esistente è stato aggiornato.", variant: "default", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
         } else {
-          await addDoc(reviewsCollectionRef, reviewData);
+          await addDoc(reviewsCollectionRef, reviewDataForFirestore);
           toast({ title: "Successo!", description: "Voto inviato con successo!", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
         }
       }
@@ -361,7 +363,7 @@ export function MultiStepRatingForm({
             userId: currentUser.uid,
             authorPhotoURL: currentUser.photoURL || null,
             rating: currentRatings,
-            comment: '',
+            comment: '', // Comments are no longer part of the form
             date: existingReview?.date || new Date().toISOString(),
           };
           setGroupedAveragesForSummary(calculateGroupedAveragesUtil([tempReviewForSummary]));
@@ -388,9 +390,9 @@ export function MultiStepRatingForm({
 
   return (
     <Form {...form}>
-      <form className="space-y-6"> {/* Reduced space-y-8 to space-y-6 */}
+      <form className="space-y-6">
         {(currentStep <= totalInputSteps) && (
-           <div className="mb-4"> {/* Reduced mb-6 to mb-4 */}
+           <div className="mb-4">
              <div className="flex justify-between items-start">
                 <div className="flex-1">
                     <h3 className="text-xl font-semibold flex items-center">
@@ -403,7 +405,11 @@ export function MultiStepRatingForm({
                       </p>
                     )}
                 </div>
-                {/* Removed game image from steps 1-4 */}
+                {gameName && gameCoverArtUrl && (
+                    <div className="ml-4 flex-shrink-0 flex flex-col items-end w-20 text-right">
+                        {/* This game image block is no longer shown in steps 1-4 as per recent requests */}
+                    </div>
+                )}
              </div>
            </div>
         )}
@@ -550,3 +556,4 @@ export function MultiStepRatingForm({
     </Form>
   );
 }
+
