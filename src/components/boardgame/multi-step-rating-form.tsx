@@ -8,29 +8,29 @@ import { Button } from '@/components/ui/button';
 import type { Review, Rating as RatingType, RatingCategory, EarnedBadge } from '@/lib/types';
 import { RATING_CATEGORIES } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, AlertCircle, CheckCircle, Smile, Puzzle, Palette, ClipboardList, ArrowLeft, Award, type LucideIcon } from 'lucide-react';
+import { Loader2, AlertCircle, CheckCircle, Smile, Puzzle, Palette, ClipboardList, ArrowLeft, Award, Edit3, FileText, BookOpenText, type LucideIcon } from 'lucide-react';
 import { reviewFormSchema, type RatingFormValues } from '@/lib/validators';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Slider } from '@/components/ui/slider';
 import {
-  calculateOverallCategoryAverage,
-  calculateGroupedCategoryAverages,
+  calculateOverallCategoryAverage as calculateOverallAvg,
+  calculateGroupedCategoryAverages as calculateGroupedAvgs,
   formatRatingNumber,
-  calculateCategoryAverages,
+  calculateCategoryAverages as calculateCatAvgs,
 } from '@/lib/utils';
-import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, doc, updateDoc, query, where, getDocs, limit, writeBatch, getDoc, serverTimestamp, setDoc, type DocumentReference } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc, query, where, getDocs, limit, writeBatch, getDoc, serverTimestamp, setDoc, type DocumentReference, collectionGroup, getCountFromServer } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { revalidateGameDataAction } from '@/lib/actions';
 import { SafeImage } from '../common/SafeImage';
 import { Separator } from '../ui/separator';
+import { GroupedRatingsDisplay } from './grouped-ratings-display';
 import { cn } from '@/lib/utils';
 
 
-const USER_PROFILES_COLLECTION = 'user_profiles'; // Add this constant
+const USER_PROFILES_COLLECTION = 'user_profiles';
 
 const SLIDER_LEGENDS: Record<RatingCategory, { minLabel: string; maxLabel: string }> = {
   excitedToReplay: { minLabel: "Neanche morto", maxLabel: "Quando rigiochiamo?" },
@@ -45,7 +45,6 @@ const SLIDER_LEGENDS: Record<RatingCategory, { minLabel: string; maxLabel: strin
   effortToLearn: { minLabel: "Manuale da incubo", maxLabel: "Si impara in un attimo!" },
   setupTeardown: { minLabel: "Un'impresa titanica", maxLabel: "Pronti, via!" },
 };
-
 
 interface RatingSliderInputProps {
   fieldName: RatingCategory;
@@ -94,7 +93,6 @@ const RatingSliderInput: React.FC<RatingSliderInputProps> = ({ fieldName, contro
     />
   );
 };
-
 
 interface MultiStepRatingFormProps {
   gameId: string;
@@ -146,7 +144,6 @@ const categoryDescriptions: Record<RatingCategory, string> = {
   effortToLearn: "Quanto è stato facile apprendere e iniziare a giocare?",
   setupTeardown: "Quanto è veloce e semplice preparare il gioco e rimettere a posto?",
 };
-
 
 const StepIcon = ({ step }: { step: number }) => {
   if (step > totalInputSteps) return null;
@@ -202,23 +199,23 @@ export function MultiStepRatingForm({
       const allReviewsForGame: Review[] = reviewsSnapshot.docs.map(docSnap => {
         const data = docSnap.data();
         const rating: RatingType = {
-          excitedToReplay: data.rating?.excitedToReplay || 0,
-          mentallyStimulating: data.rating?.mentallyStimulating || 0,
-          fun: data.rating?.fun || 0,
-          decisionDepth: data.rating?.decisionDepth || 0,
-          replayability: data.rating?.replayability || 0,
-          luck: data.rating?.luck || 0,
-          lengthDowntime: data.rating?.lengthDowntime || 0,
-          graphicDesign: data.rating?.graphicDesign || 0,
-          componentsThemeLore: data.rating?.componentsThemeLore || 0,
-          effortToLearn: data.rating?.effortToLearn || 0,
-          setupTeardown: data.rating?.setupTeardown || 0,
+            excitedToReplay: data.rating?.excitedToReplay || 0,
+            mentallyStimulating: data.rating?.mentallyStimulating || 0,
+            fun: data.rating?.fun || 0,
+            decisionDepth: data.rating?.decisionDepth || 0,
+            replayability: data.rating?.replayability || 0,
+            luck: data.rating?.luck || 0,
+            lengthDowntime: data.rating?.lengthDowntime || 0,
+            graphicDesign: data.rating?.graphicDesign || 0,
+            componentsThemeLore: data.rating?.componentsThemeLore || 0,
+            effortToLearn: data.rating?.effortToLearn || 0,
+            setupTeardown: data.rating?.setupTeardown || 0,
         };
         return { id: docSnap.id, ...data, rating } as Review;
       });
 
-      const categoryAvgs = calculateCategoryAverages(allReviewsForGame);
-      const newOverallAverage = categoryAvgs ? calculateOverallCategoryAverage(categoryAvgs) : null;
+      const categoryAvgs = calculateCatAvgs(allReviewsForGame);
+      const newOverallAverage = categoryAvgs ? calculateOverallAvg(categoryAvgs) : null;
       const newVoteCount = allReviewsForGame.length;
 
       const gameDocRef = doc(db, "boardgames_collection", gameId);
@@ -233,16 +230,15 @@ export function MultiStepRatingForm({
     }
   };
 
-
   useEffect(() => {
     form.reset(defaultFormValues);
   }, [defaultFormValues, form.reset]);
-
 
   const processSubmitAndStay = async (data: RatingFormValues): Promise<boolean> => {
     setFormError(null);
     let submissionSuccess = false;
     let isFirstReviewForUser = false;
+    let wasNewReviewAdded = false; // To track if a genuinely new review was added vs an update
 
     if (!currentUser) {
       toast({ title: "Errore", description: "Devi essere loggato per inviare un voto.", variant: "destructive" });
@@ -306,7 +302,7 @@ export function MultiStepRatingForm({
         } else {
           await addDoc(reviewsCollectionRef, reviewDataForFirestore);
           toast({ title: "Successo!", description: "Voto inviato con successo!", icon: <CheckCircle className="h-5 w-5 text-green-500" /> });
-          // Check if it's the user's first review ever
+          wasNewReviewAdded = true;
           const userProfileSnap = await getDoc(userProfileRef);
           if (userProfileSnap.exists() && (userProfileSnap.data()?.hasSubmittedReview === false || userProfileSnap.data()?.hasSubmittedReview === undefined)) {
             isFirstReviewForUser = true;
@@ -314,17 +310,15 @@ export function MultiStepRatingForm({
         }
       }
       submissionSuccess = true;
-      await updateGameOverallRating(); // This also calls revalidateGameDataAction
+      await updateGameOverallRating(); 
 
       if (isFirstReviewForUser) {
         const earnedBadgesRef = collection(userProfileRef, 'earned_badges');
         const firstReviewerBadgeRef = doc(earnedBadgesRef, 'first_reviewer');
         const badgeData: EarnedBadge = {
-          badgeId: "first_reviewer",
-          name: "Primo Voto!",
+          badgeId: "first_reviewer", name: "Primo Voto!",
           description: "Hai inviato il tuo primo voto per un gioco!",
-          iconName: "Award",
-          earnedAt: serverTimestamp(),
+          iconName: "Award", earnedAt: serverTimestamp(),
         };
         await setDoc(firstReviewerBadgeRef, badgeData, { merge: true });
         await setDoc(userProfileRef, { hasSubmittedReview: true }, { merge: true });
@@ -335,6 +329,39 @@ export function MultiStepRatingForm({
         });
       }
 
+      if (wasNewReviewAdded) { // Check for Prolific Reviewer badges only if a new review was added
+        const allUserReviewsQuery = query(collectionGroup(db, 'reviews'), where('userId', '==', currentUser.uid));
+        const userReviewsSnapshot = await getCountFromServer(allUserReviewsQuery);
+        const totalUserReviews = userReviewsSnapshot.data().count;
+
+        const prolificBadges = [
+          { id: 'prolific_reviewer_bronze', threshold: 5, name: 'Recensore Prolifico (Bronzo)', description: 'Hai inviato 5 voti!', icon: Edit3 },
+          { id: 'prolific_reviewer_silver', threshold: 15, name: 'Recensore Prolifico (Argento)', description: 'Hai inviato 15 voti!', icon: FileText },
+          { id: 'prolific_reviewer_gold', threshold: 30, name: 'Recensore Prolifico (Oro)', description: 'Hai inviato 30 voti!', icon: BookOpenText },
+        ];
+
+        for (const badgeInfo of prolificBadges) {
+          if (totalUserReviews >= badgeInfo.threshold) {
+            const badgeRef = doc(db, USER_PROFILES_COLLECTION, currentUser.uid, 'earned_badges', badgeInfo.id);
+            const badgeSnap = await getDoc(badgeRef);
+            if (!badgeSnap.exists()) {
+              const newBadgeData: EarnedBadge = {
+                badgeId: badgeInfo.id, name: badgeInfo.name,
+                description: badgeInfo.description, iconName: badgeInfo.icon.displayName || 'Award',
+                earnedAt: serverTimestamp(),
+              };
+              await setDoc(badgeRef, newBadgeData);
+              toast({
+                title: "Distintivo Guadagnato!",
+                description: `Complimenti! Hai ricevuto il distintivo: ${badgeInfo.name}`,
+                icon: React.createElement(badgeInfo.icon, { className: "h-5 w-5 text-yellow-500" }),
+              });
+            }
+          }
+        }
+      }
+
+
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
       toast({ title: "Errore", description: `Impossibile inviare il voto: ${errorMessage}`, variant: "destructive" });
@@ -343,7 +370,6 @@ export function MultiStepRatingForm({
     }
     return submissionSuccess;
   };
-
 
   const handleNext = async () => {
     let fieldsToValidate: (keyof RatingFormValues)[] = [];
@@ -394,7 +420,7 @@ export function MultiStepRatingForm({
             comment: '',
             date: existingReview?.date || new Date().toISOString(),
           };
-          setGroupedAveragesForSummary(calculateGroupedCategoryAverages([tempReviewForSummary]));
+          setGroupedAveragesForSummary(calculateGroupedAvgs([tempReviewForSummary]));
           onStepChange(totalDisplaySteps);
         }
       });
@@ -414,23 +440,36 @@ export function MultiStepRatingForm({
     onReviewSubmitted();
   };
 
-  const yourOverallAverage = calculateOverallCategoryAverage(form.getValues());
+  const yourOverallAverage = calculateOverallAvg(form.getValues());
 
   return (
     <Form {...form}>
       <form className="space-y-6">
         {currentStep <= totalInputSteps && (
           <div className="mb-4">
-            <div className="flex justify-between items-start">
-              <div className="flex-1">
-                 <h3 className="text-xl font-semibold flex items-center">
-                  <StepIcon step={currentStep} />
-                  {stepUITitles[currentStep]} ({currentStep} di {totalInputSteps})
-                </h3>
-                 <p className="text-sm text-muted-foreground mt-1">
-                    {stepUIDescriptions[currentStep]}
-                  </p>
-              </div>
+             <div className="flex justify-between items-start">
+                <div className="flex-1">
+                    <h3 className="text-xl font-semibold flex items-center">
+                    <StepIcon step={currentStep} />
+                    {stepUITitles[currentStep]} ({currentStep} di {totalInputSteps})
+                    </h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                        {stepUIDescriptions[currentStep]}
+                    </p>
+                </div>
+                {gameName && gameCoverArtUrl && (
+                    <div className="ml-4 flex-shrink-0 text-right hidden sm:block">
+                        <SafeImage
+                            src={gameCoverArtUrl}
+                            alt={`${gameName} copertina`}
+                            width={48}
+                            height={64}
+                            className="rounded-sm object-cover shadow-md"
+                            data-ai-hint={`board game ${gameName.split(' ')[0]?.toLowerCase() || 'mini'}`}
+                        />
+                        <p className="text-xs text-muted-foreground mt-1 max-w-[100px] truncate" title={gameName}>{gameName}</p>
+                    </div>
+                )}
             </div>
           </div>
         )}
@@ -454,6 +493,19 @@ export function MultiStepRatingForm({
                 </div>
               )}
             </div>
+             {gameName && gameCoverArtUrl && (
+                <div className="mt-2 flex items-center gap-2 border-t pt-3">
+                     <SafeImage
+                        src={gameCoverArtUrl}
+                        alt={`${gameName} copertina`}
+                        width={40}
+                        height={53}
+                        className="rounded-sm object-cover shadow-md"
+                        data-ai-hint={`board game ${gameName.split(' ')[0]?.toLowerCase() || 'mini'}`}
+                    />
+                    <span className="text-sm text-muted-foreground">Voto per: <span className="font-semibold text-foreground">{gameName}</span></span>
+                </div>
+            )}
           </CardHeader>
         )}
 
@@ -540,41 +592,42 @@ export function MultiStepRatingForm({
         )}
 
         <div className={cn(
-          `flex items-center pt-4 border-t mt-6`,
+          "flex items-center pt-4 border-t mt-6",
           currentStep === totalDisplaySteps ? 'justify-end' : 'justify-between'
         )}>
-          <div>
-            {currentStep === 1 && (
-              <Button type="button" variant="outline" onClick={() => router.push(`/games/${gameId}`)} disabled={isSubmitting}>
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Torna al Gioco
-              </Button>
-            )}
-            {(currentStep > 1 && currentStep <= totalInputSteps) && (
-              <Button type="button" variant="outline" onClick={handlePrevious} disabled={isSubmitting}>
-                Indietro
-              </Button>
-            )}
-          </div>
+            <div> {/* Left button container */}
+              {currentStep === 1 && (
+                <Button type="button" variant="outline" onClick={() => router.push(`/games/${gameId}`)} disabled={isSubmitting}>
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Torna al Gioco
+                </Button>
+              )}
+              {(currentStep > 1 && currentStep <= totalInputSteps) && (
+                <Button type="button" variant="outline" onClick={handlePrevious} disabled={isSubmitting}>
+                  Indietro
+                </Button>
+              )}
+            </div>
 
-          <div>
-            {currentStep < totalInputSteps ? (
-              <Button type="button" onClick={handleNext} disabled={isSubmitting} className="bg-primary hover:bg-primary/90 text-primary-foreground">
-                Avanti
-              </Button>
-            ) : currentStep === totalInputSteps ? (
-              <Button type="button" onClick={handleStep4Submit} disabled={isSubmitting} className="bg-accent hover:bg-accent/90 text-accent-foreground">
-                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                {existingReview ? 'Aggiorna Voto' : 'Invia Voto'}
-              </Button>
-            ) : currentStep === totalDisplaySteps ? (
-              <Button type="button" onClick={handleFinish} className="bg-primary hover:bg-primary/90 text-primary-foreground">
-                Termina e Torna al Gioco
-              </Button>
-            ) : null}
-          </div>
+            <div> {/* Right button container */}
+              {currentStep < totalInputSteps ? (
+                <Button type="button" onClick={handleNext} disabled={isSubmitting} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                  Avanti
+                </Button>
+              ) : currentStep === totalInputSteps ? (
+                <Button type="button" onClick={handleStep4Submit} disabled={isSubmitting} className="bg-accent hover:bg-accent/90 text-accent-foreground">
+                  {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  {existingReview ? 'Aggiorna Voto' : 'Invia Voto'}
+                </Button>
+              ) : currentStep === totalDisplaySteps ? (
+                <Button type="button" onClick={handleFinish} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                  Termina e Torna al Gioco
+                </Button>
+              ) : null}
+            </div>
         </div>
       </form>
     </Form>
   );
 }
+

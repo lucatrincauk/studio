@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ChangeEvent } from 'react';
@@ -5,20 +6,20 @@ import { useEffect, useState, useTransition, useCallback, use, useMemo } from 'r
 import Link from 'next/link';
 import { getGameDetails, revalidateGameDataAction, fetchUserPlaysForGameFromBggAction, fetchAndUpdateBggGameDetailsAction, getAllGamesAction } from '@/lib/actions';
 import { recommendGames } from '@/ai/flows/recommend-games';
-import type { BoardGame, Review, Rating as RatingType, GroupedCategoryAverages, BggPlayDetail, BggPlayerInPlay, RecommendedGame as AIRecommendedGame } from '@/lib/types';
+import type { BoardGame, Review, Rating as RatingType, GroupedCategoryAverages, BggPlayDetail, BggPlayerInPlay, RecommendedGame as AIRecommendedGame, EarnedBadge } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import {
-  AlertCircle, Loader2, Info, Edit, Trash2, Users, Clock, CalendarDays as CalendarIcon, ExternalLink, Weight, PenTool, Dices, MessageSquare, Heart, Settings, Trophy, Medal, UserCircle2, Star, Palette, ClipboardList, Repeat, Sparkles, Pin, PinOff, Wand2, DownloadCloud, Bookmark, BookMarked, Frown
-} from 'lucide-react'; // Added Bookmark, BookMarked
+  AlertCircle, Loader2, Info, Edit, Trash2, Users, Clock, CalendarDays as CalendarIcon, ExternalLink, Weight, PenTool, Dices, MessageSquare, Heart, Settings, Trophy, Medal, UserCircle2, Star, Palette, ClipboardList, Repeat, Sparkles, Pin, PinOff, Wand2, DownloadCloud, Bookmark, BookMarked, Frown, Award
+} from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
-import { calculateGroupedCategoryAverages, calculateOverallCategoryAverage, formatRatingNumber, formatPlayDate, formatReviewDate, calculateCategoryAverages as calculateCatAvgsFromUtils } from '@/lib/utils';
+import { calculateGroupedCategoryAverages, calculateOverallCategoryAverage, formatRatingNumber, formatPlayDate, calculateCategoryAverages as calculateCatAvgsFromUtils } from '@/lib/utils';
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { doc, deleteDoc, updateDoc, getDocs, collection, getDoc, arrayUnion, arrayRemove, increment, writeBatch } from 'firebase/firestore';
+import { doc, deleteDoc, updateDoc, getDocs, collection, getDoc, arrayUnion, arrayRemove, increment, writeBatch, serverTimestamp, setDoc, where, getCountFromServer, query } from 'firebase/firestore';
 import {
   Accordion,
   AccordionContent,
@@ -49,6 +50,7 @@ import { cn } from '@/lib/utils';
 
 
 const FIRESTORE_COLLECTION_NAME = 'boardgames_collection';
+const USER_PROFILES_COLLECTION = 'user_profiles';
 
 interface GameDetailPageProps {
   params: Promise<{
@@ -76,7 +78,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
   const [userReview, setUserReview] = useState<Review | undefined>(undefined);
   const [remainingReviews, setRemainingReviews] = useState<Review[]>([]);
-  const [groupedCategoryAverages, setGroupedCategoryAverages] = useState<GroupedCategoryAverages | null>(null);
+  const [groupedCategoryAverages, setGroupedCategoryAveragesState] = useState<GroupedCategoryAverages | null>(null);
   const [globalGameAverage, setGlobalGameAverage] = useState<number | null>(null);
 
   const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false);
@@ -141,10 +143,10 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         } else {
           setGlobalGameAverage(null);
         }
-        setGroupedCategoryAverages(calculateGroupedCategoryAverages(gameData.reviews));
+        setGroupedCategoryAveragesState(calculateGroupedCategoryAverages(gameData.reviews));
       } else {
         setGlobalGameAverage(null);
-        setGroupedCategoryAverages(null);
+        setGroupedCategoryAveragesState(null);
       }
 
     } else {
@@ -156,7 +158,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       setCurrentMorchiaCount(0);
       setUserReview(undefined);
       setRemainingReviews([]);
-      setGroupedCategoryAverages(null);
+      setGroupedCategoryAveragesState(null);
       setGlobalGameAverage(null);
     }
     setIsLoadingGame(false);
@@ -188,17 +190,17 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       const allReviewsForGame: Review[] = reviewsSnapshot.docs.map(docSnap => {
         const reviewDocData = docSnap.data();
         const rating: RatingType = {
-          excitedToReplay: reviewDocData.rating?.excitedToReplay || 0,
-          mentallyStimulating: reviewDocData.rating?.mentallyStimulating || 0,
-          fun: reviewDocData.rating?.fun || 0,
-          decisionDepth: reviewDocData.rating?.decisionDepth || 0,
-          replayability: reviewDocData.rating?.replayability || 0,
-          luck: reviewDocData.rating?.luck || 0,
-          lengthDowntime: reviewDocData.rating?.lengthDowntime || 0,
-          graphicDesign: reviewDocData.rating?.graphicDesign || 0,
-          componentsThemeLore: reviewDocData.rating?.componentsThemeLore || 0,
-          effortToLearn: reviewDocData.rating?.effortToLearn || 0,
-          setupTeardown: reviewDocData.rating?.setupTeardown || 0,
+            excitedToReplay: reviewDocData.rating?.excitedToReplay || 0,
+            mentallyStimulating: reviewDocData.rating?.mentallyStimulating || 0,
+            fun: reviewDocData.rating?.fun || 0,
+            decisionDepth: reviewDocData.rating?.decisionDepth || 0,
+            replayability: reviewDocData.rating?.replayability || 0,
+            luck: reviewDocData.rating?.luck || 0,
+            lengthDowntime: reviewDocData.rating?.lengthDowntime || 0,
+            graphicDesign: reviewDocData.rating?.graphicDesign || 0,
+            componentsThemeLore: reviewDocData.rating?.componentsThemeLore || 0,
+            effortToLearn: reviewDocData.rating?.effortToLearn || 0,
+            setupTeardown: reviewDocData.rating?.setupTeardown || 0,
         };
         return { id: docSnap.id, ...reviewDocData, rating } as Review;
       });
@@ -236,7 +238,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         
         toast({ title: "Voto Eliminato", description: "Il tuo voto è stato eliminato con successo." });
         await updateGameOverallRatingAfterDelete();
-        // fetchGameData(); // Already called by updateGameOverallRatingAfterDelete
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({ title: "Errore", description: `Impossibile eliminare il voto: ${errorMessage}`, variant: "destructive" });
@@ -483,6 +484,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         const currentMorchiaByUserIds = gameDataFromSnap.morchiaByUserIds || [];
         let newMorchiaCount = gameDataFromSnap.morchiaCount || 0;
         let newMorchiaStatus = false;
+        let isNewBadgeAwarded = false;
 
         if (currentMorchiaByUserIds.includes(currentUser.uid)) {
           await updateDoc(gameRef, {
@@ -491,6 +493,10 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           });
           newMorchiaCount = Math.max(0, newMorchiaCount - 1);
           newMorchiaStatus = false;
+          toast({
+            title: "Rimosso dalle Morchie",
+            description: `${game.name} è stato rimosso dalle morchie.`,
+          });
         } else {
           await updateDoc(gameRef, {
             morchiaByUserIds: arrayUnion(currentUser.uid),
@@ -498,6 +504,28 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           });
           newMorchiaCount = newMorchiaCount + 1;
           newMorchiaStatus = true;
+          toast({
+            title: "Aggiunto alle Morchie!",
+            description: `${game.name} è stato aggiunto alla lista morchia.`,
+          });
+          
+          // Check for Morchia Hunter Badge
+          if (newMorchiaCount >= 5) {
+            const userProfileRef = doc(db, USER_PROFILES_COLLECTION, currentUser.uid);
+            const badgeRef = doc(userProfileRef, 'earned_badges', 'morchia_hunter_5');
+            const badgeSnap = await getDoc(badgeRef);
+            if (!badgeSnap.exists()) {
+              const badgeData: EarnedBadge = {
+                badgeId: 'morchia_hunter_5',
+                name: 'Cacciatore di Morchie',
+                description: 'Hai contrassegnato 5 giochi come "morchia"!',
+                iconName: 'Trash2',
+                earnedAt: serverTimestamp(),
+              };
+              await setDoc(badgeRef, badgeData);
+              isNewBadgeAwarded = true;
+            }
+          }
         }
 
         setIsMorchiaByCurrentUser(newMorchiaStatus);
@@ -509,11 +537,15 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             ? [...(prevGame.morchiaByUserIds || []), currentUser.uid]
             : (prevGame.morchiaByUserIds || []).filter(uid => uid !== currentUser.uid)
         } : null);
+        
+        if (isNewBadgeAwarded) {
+           toast({
+            title: "Distintivo Guadagnato!",
+            description: "Complimenti! Hai ricevuto il distintivo: Cacciatore di Morchie!",
+            icon: <Trash2 className="h-5 w-5 text-orange-500" />,
+          });
+        }
 
-        toast({
-          title: newMorchiaStatus ? "Aggiunto alle Morchie!" : "Rimosso dalle Morchie",
-          description: `${game.name} è stato ${newMorchiaStatus ? 'aggiunto alla lista morchia' : 'rimosso dalle morchie'}.`,
-        });
         await revalidateGameDataAction(game.id);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Impossibile aggiornare la Morchia List.";
@@ -758,20 +790,20 @@ const handleGenerateRecommendations = async () => {
           <div className="flex flex-col md:flex-row">
             {/* Main Content Column */}
             <div className="flex-1 p-6 space-y-4 md:order-1">
-                {/* Main Header: Title, BGG Link, Score, Action Icons */}
-                 <div className="flex justify-between items-start mb-2">
-                    <div className="flex-1 flex flex-col sm:flex-row sm:items-center sm:gap-1 min-w-0 mr-2">
-                        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
-                           {game.name}
+                {/* Main Header: Title, BGG Link, Score */}
+                <div className="flex justify-between items-start mb-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:gap-1 flex-shrink min-w-0 mr-2">
+                         <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
+                            {game.name}
                         </h1>
                     </div>
-                    <div className="flex-shrink-0 flex flex-col items-end">
-                        {globalGameAverage !== null && (
+                    {globalGameAverage !== null && (
+                        <div className="flex-shrink-0">
                             <span className="text-3xl md:text-4xl font-bold text-primary whitespace-nowrap">
                                 {formatRatingNumber(globalGameAverage * 2)}
                             </span>
-                        )}
-                    </div>
+                        </div>
+                    )}
                 </div>
                 
                 {/* Mobile Image - Placed after header block */}
@@ -789,9 +821,9 @@ const handleGenerateRecommendations = async () => {
                     />
                   </div>
                 </div>
-
+                
                 {/* Button Bar */}
-                 <div className="flex justify-evenly items-center gap-1 sm:gap-2 py-4 border-t border-b border-border">
+                <div className="flex justify-evenly gap-1 sm:gap-2 py-4 border-t border-b border-border">
                       <Button
                           variant="ghost"
                           size="sm"
@@ -808,7 +840,8 @@ const handleGenerateRecommendations = async () => {
                           <span className="ml-1 text-xs">({currentFavoriteCount})</span>
                           )}
                       </Button>
-                      <Button
+
+                       <Button
                           variant="ghost"
                           size="sm"
                           onClick={handleToggleMorchia}
@@ -824,6 +857,7 @@ const handleGenerateRecommendations = async () => {
                               <span className="ml-1 text-xs">({currentMorchiaCount})</span>
                           )}
                       </Button>
+
                       <Button
                           variant="ghost"
                           size="sm"
@@ -1276,3 +1310,4 @@ const handleGenerateRecommendations = async () => {
     </div>
   );
 }
+
