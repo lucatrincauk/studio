@@ -5,22 +5,33 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter }
 from 'next/navigation';
 import { getUserDetailsAndReviewsAction, getFavoritedGamesForUserAction, getPlaylistedGamesForUserAction, getMorchiaGamesForUserAction } from '@/lib/actions'; 
-import type { AugmentedReview, UserProfile, BoardGame } from '@/lib/types';
+import type { AugmentedReview, UserProfile, BoardGame, EarnedBadge } from '@/lib/types';
 import { ReviewItem } from '@/components/boardgame/review-item';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { MessageSquareText, AlertCircle, Gamepad2, UserCircle2, Star, Heart, ListChecks, Loader2, ExternalLink, Frown } from 'lucide-react';
+import { MessageSquareText, AlertCircle, Gamepad2, UserCircle2, Star, Heart, ListChecks, Loader2, ExternalLink, Frown, Award, Edit3, FileText, BookOpenText, Trash2, Medal, type LucideIcon, BookMarked } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { SafeImage } from '@/components/common/SafeImage';
-import { calculateOverallCategoryAverage, formatRatingNumber } from '@/lib/utils';
+import { calculateOverallCategoryAverage, formatRatingNumber, formatReviewDate } from '@/lib/utils';
 import { GameCard } from '@/components/boardgame/game-card';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import type { Timestamp } from 'firebase/firestore';
 
 interface UserDetailPageParams {
   userId: string;
 }
+
+const iconMap: Record<string, LucideIcon> = {
+  Award: Award,
+  Edit3: Edit3,
+  FileText: FileText,
+  BookOpenText: BookOpenText,
+  Trash2: Trash2,
+  Medal: Medal,
+  // Add other icons as needed
+};
 
 export default function UserDetailPage() {
   const params = useParams() as UserDetailPageParams;
@@ -32,12 +43,14 @@ export default function UserDetailPage() {
   const [favoritedGames, setFavoritedGames] = useState<BoardGame[]>([]);
   const [playlistedGames, setPlaylistedGames] = useState<BoardGame[]>([]); 
   const [morchiaGames, setMorchiaGames] = useState<BoardGame[]>([]);
+  const [earnedBadges, setEarnedBadges] = useState<EarnedBadge[]>([]);
   
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [isLoadingReviews, setIsLoadingReviews] = useState(true);
   const [isLoadingFavorites, setIsLoadingFavorites] = useState(true);
   const [isLoadingPlaylist, setIsLoadingPlaylist] = useState(true); 
   const [isLoadingMorchia, setIsLoadingMorchia] = useState(true);
+  const [isLoadingBadges, setIsLoadingBadges] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchUserData = useCallback(async () => {
@@ -48,32 +61,54 @@ export default function UserDetailPage() {
     setIsLoadingFavorites(true);
     setIsLoadingPlaylist(true); 
     setIsLoadingMorchia(true);
+    setIsLoadingBadges(true);
     setError(null);
 
     try {
-      const [profileAndReviewsData, favData, playlistData, morchiaData] = await Promise.all([ 
+      const [profileData, favData, playlistData, morchiaData] = await Promise.allSettled([ 
         getUserDetailsAndReviewsAction(userId),
         getFavoritedGamesForUserAction(userId),
         getPlaylistedGamesForUserAction(userId),
         getMorchiaGamesForUserAction(userId) 
       ]);
 
-      if (profileAndReviewsData.user) {
-        setViewedUser(profileAndReviewsData.user);
-        setUserReviews(profileAndReviewsData.reviews);
+      if (profileData.status === 'fulfilled') {
+        if (profileData.value.user) {
+          setViewedUser(profileData.value.user);
+          setUserReviews(profileData.value.reviews);
+          setEarnedBadges(profileData.value.badges);
+        } else {
+          setError('Utente non trovato.');
+        }
       } else {
-        setError('Utente non trovato.');
+        setError(profileData.reason?.message || 'Impossibile caricare il profilo utente.');
       }
       setIsLoadingProfile(false);
       setIsLoadingReviews(false);
+      setIsLoadingBadges(false);
 
-      setFavoritedGames(favData);
+      if (favData.status === 'fulfilled') {
+        setFavoritedGames(favData.value);
+      } else {
+        console.error("Error fetching favorites:", favData.reason);
+        setFavoritedGames([]);
+      }
       setIsLoadingFavorites(false);
       
-      setPlaylistedGames(playlistData); 
+      if (playlistData.status === 'fulfilled') {
+        setPlaylistedGames(playlistData.value); 
+      } else {
+        console.error("Error fetching playlist:", playlistData.reason);
+        setPlaylistedGames([]);
+      }
       setIsLoadingPlaylist(false); 
 
-      setMorchiaGames(morchiaData);
+      if (morchiaData.status === 'fulfilled') {
+        setMorchiaGames(morchiaData.value);
+      } else {
+        console.error("Error fetching morchia list:", morchiaData.reason);
+        setMorchiaGames([]);
+      }
       setIsLoadingMorchia(false);
 
     } catch (e) {
@@ -83,6 +118,7 @@ export default function UserDetailPage() {
       setIsLoadingFavorites(false);
       setIsLoadingPlaylist(false); 
       setIsLoadingMorchia(false);
+      setIsLoadingBadges(false);
     }
   }, [userId]);
 
@@ -128,7 +164,6 @@ export default function UserDetailPage() {
     averageScoreGiven = totalScoreSum / userReviews.length;
   }
 
-
   return (
     <div className="space-y-10">
       <Card className="shadow-lg border border-border rounded-lg">
@@ -157,6 +192,46 @@ export default function UserDetailPage() {
       </Card>
 
       <Separator />
+
+      <section>
+        <h2 className="text-2xl font-semibold mb-6 text-foreground flex items-center gap-3">
+            <Award className="h-6 w-6 text-primary" />
+            Distintivi Guadagnati da {viewedUser.name} ({earnedBadges.length})
+        </h2>
+        {isLoadingBadges ? (
+            <div className="flex justify-center py-4"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+        ) : earnedBadges.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                {earnedBadges.map(badge => {
+                    const IconComponent = badge.iconName ? iconMap[badge.iconName] || Award : Award;
+                    return (
+                        <Card key={badge.badgeId} className="p-4 border rounded-lg shadow-sm bg-card hover:shadow-md transition-shadow">
+                           <div className="flex items-center gap-3 mb-2">
+                                <IconComponent className="h-8 w-8 text-accent" />
+                                <CardTitle className="text-md font-semibold">{badge.name}</CardTitle>
+                           </div>
+                            <CardDescription className="text-xs text-muted-foreground">{badge.description}</CardDescription>
+                            {badge.earnedAt && (
+                                <p className="text-xs text-muted-foreground/80 mt-2">
+                                    Ottenuto: {formatReviewDate(badge.earnedAt as string)}
+                                </p>
+                            )}
+                        </Card>
+                    );
+                })}
+            </div>
+        ) : (
+             <Alert variant="default" className="bg-secondary/30 border-secondary">
+                <Gamepad2 className="h-4 w-4" />
+                <AlertTitle>Nessun Distintivo</AlertTitle>
+                <AlertDescription>
+                {viewedUser.name} non ha ancora guadagnato distintivi.
+                </AlertDescription>
+            </Alert>
+        )}
+      </section>
+
+      <Separator />
       
       <section>
          <h2 className="text-2xl font-semibold mb-4 text-foreground flex items-center gap-3">
@@ -168,19 +243,17 @@ export default function UserDetailPage() {
         ) : userReviews.length > 0 ? (
           <div className="flex space-x-4 overflow-x-auto pb-4">
             {userReviews.map((review, index) => {
-              const gameForCard: BoardGame = {
+              const gameForCard: Partial<BoardGame> = {
                 id: review.gameId,
                 name: review.gameName || "Gioco Sconosciuto",
                 coverArtUrl: review.gameCoverArtUrl || '',
-                bggId: 0, 
-                reviews: [],
                 overallAverageRating: calculateOverallCategoryAverage(review.rating), 
               };
               const reviewDetailHref = `/games/${review.gameId}/reviews/${review.id}`;
               return (
                 <div key={review.id} className="w-40 flex-shrink-0">
                     <GameCard 
-                        game={gameForCard}
+                        game={gameForCard as BoardGame}
                         variant="featured" 
                         priority={index < 3} 
                         showOverlayText={true}
@@ -225,7 +298,7 @@ export default function UserDetailPage() {
 
       <section>
         <h2 className="text-2xl font-semibold mb-6 text-foreground flex items-center gap-2">
-          <ListChecks className="h-6 w-6 text-sky-500" />
+          <BookMarked className="h-6 w-6 text-sky-500" /> {/* Changed icon */}
           Playlist di {viewedUser.name} ({playlistedGames.length}) 
         </h2>
         {isLoadingPlaylist ? ( 
@@ -246,7 +319,7 @@ export default function UserDetailPage() {
       <section>
         <h2 className="text-2xl font-semibold mb-6 text-foreground flex items-center gap-2">
           <Frown className="h-6 w-6 text-orange-600" />
-          Morchia List di {viewedUser.name} ({morchiaGames.length})
+          Morchia secondo {viewedUser.name} ({morchiaGames.length}) {/* Changed text */}
         </h2>
         {isLoadingMorchia ? (
           <div className="flex justify-center py-4"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
