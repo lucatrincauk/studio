@@ -6,7 +6,7 @@ import { getGameDetails, revalidateGameDataAction } from '@/lib/actions';
 import type { BoardGame, Review } from '@/lib/types';
 import { useAuth } from '@/contexts/auth-context';
 import { MultiStepRatingForm } from '@/components/boardgame/multi-step-rating-form';
-import { Loader2, AlertCircle, Gamepad2, ArrowLeft } from 'lucide-react';
+import { Loader2, AlertCircle, Gamepad2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -49,7 +49,7 @@ export default function GameRatePage() {
       }
       setIsLoadingGame(false);
     }
-    if (currentUser !== undefined) { // Only fetch if auth state is resolved
+    if (currentUser !== undefined) { 
         fetchGameAndReviewData();
     }
   }, [gameId, currentUser]);
@@ -57,11 +57,11 @@ export default function GameRatePage() {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      if (currentRatingFormStep === 5) {
+      if (currentRatingFormStep === 5) { // Summary step
         setTimeout(() => {
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }, 50);
-      } else if (cardRef.current && currentRatingFormStep >= 1 && currentRatingFormStep <= 4) {
+      } else if (cardRef.current && currentRatingFormStep >= 1 && currentRatingFormStep <= 4) { // Input steps
         setTimeout(() => {
           const cardTopOffset = cardRef.current!.getBoundingClientRect().top + window.scrollY;
           window.scrollTo({ top: cardTopOffset - 30, behavior: 'smooth' });
@@ -115,21 +115,24 @@ export default function GameRatePage() {
   }
 
   const pageTitleText = userReview ? "Modifica la Tua Valutazione" : "Invia la Tua Valutazione";
+  const pageDescriptionText = "Segui i passaggi sottostanti per inviare la tua valutazione.";
 
   return (
     <div className="max-w-2xl mx-auto py-8 px-4">
       <Card ref={cardRef} className="shadow-xl border border-border rounded-lg">
-        <CardHeader>
-            <CardTitle className="text-2xl md:text-3xl text-left">
-              {pageTitleText}
-            </CardTitle>
-            <CardDescription className="text-left text-sm text-muted-foreground mt-1 whitespace-pre-line">
-              Segui i passaggi sottostanti per inviare la tua valutazione.
-            </CardDescription>
-        </CardHeader>
+        {currentRatingFormStep === 1 && (
+          <CardHeader>
+              <CardTitle className="text-2xl md:text-3xl text-left">
+                {pageTitleText}
+              </CardTitle>
+              <CardDescription className="text-left text-sm text-muted-foreground mt-1 whitespace-pre-line">
+                {pageDescriptionText}
+              </CardDescription>
+          </CardHeader>
+        )}
         <CardContent className={cn(
-            currentRatingFormStep === 1 ? 'pt-0' : 'pt-6',
-            currentRatingFormStep === 5 && 'pt-0'
+            currentRatingFormStep === 1 ? 'pt-0' : 'pt-6', // No extra top padding if main header is shown
+            currentRatingFormStep === 5 && 'pt-0' // Summary step handles its own top padding via internal CardHeader
         )}>
           <MultiStepRatingForm
             gameId={game.id}
@@ -150,4 +153,3 @@ export default function GameRatePage() {
 }
 
 export const dynamic = 'force-dynamic';
-

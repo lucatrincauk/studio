@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useTransition, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useTransition, useMemo, useCallback } from 'react';
 import { useForm, type Control, type UseFormReturn, type FieldPath } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,7 @@ import type { User as FirebaseUser } from 'firebase/auth';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Slider } from '@/components/ui/slider';
 import {
-  calculateOverallCategoryAverage as calculateGlobalOverallAverage,
+  calculateOverallCategoryAverage,
   calculateGroupedCategoryAverages,
   formatRatingNumber,
   calculateCategoryAverages
@@ -41,7 +41,7 @@ const SLIDER_LEGENDS: Record<RatingCategory, { minLabel: string; maxLabel: strin
   fun: { minLabel: "💩 Morchia dell'anno", maxLabel: "Troppo togo." },
   decisionDepth: { minLabel: "Pilota automatico", maxLabel: "E se poi te ne penti?" },
   replayability: { minLabel: "Sempre uguale", maxLabel: "Ogni volta diverso!" },
-  luck: { minLabel: "Regno della Dea Bendata", maxLabel: "Tutto in mano mia!" },
+  luck: { minLabel: "Molto Aleatorio", maxLabel: "Poco Aleatorio" },
   lengthDowntime: { minLabel: "Pessima", maxLabel: "Perfetta" },
   graphicDesign: { minLabel: "Meglio essere ciechi", maxLabel: "Ganzissimo!" },
   componentsThemeLore: { minLabel: "Tema? Quale tema?", maxLabel: "Immersione totale!" },
@@ -122,7 +122,7 @@ RatingSliderInput.displayName = 'RatingSliderInput';
 
 interface MultiStepRatingFormProps {
   gameId: string;
-  gameName: string; // Make gameName mandatory for the form
+  gameName: string;
   gameCoverArtUrl?: string | null;
   currentUser: FirebaseUser;
   existingReview?: Review | null;
@@ -132,7 +132,7 @@ interface MultiStepRatingFormProps {
 }
 
 const totalInputSteps = 4;
-const totalDisplaySteps = 5;
+const totalDisplaySteps = 5; // Includes summary step
 
 const stepCategories: RatingCategory[][] = [
   ['excitedToReplay', 'mentallyStimulating', 'fun'],
@@ -237,7 +237,7 @@ export function MultiStepRatingForm({
       });
 
       const categoryAvgs = calculateCategoryAverages(allReviewsForGame);
-      const newOverallAverage = categoryAvgs ? calculateGlobalOverallAverage(categoryAvgs) : null;
+      const newOverallAverage = categoryAvgs ? calculateOverallCategoryAverage(categoryAvgs) : null;
       const newVoteCount = allReviewsForGame.length;
 
       const gameDocRef = doc(db, "boardgames_collection", gameId);
@@ -291,7 +291,7 @@ export function MultiStepRatingForm({
       author: currentUser.displayName || 'Anonimo',
       authorPhotoURL: currentUser.photoURL || null,
       rating: ratingDataToSave,
-      comment: "",
+      comment: "", // Comments removed from form
       date: new Date().toISOString(),
     };
 
@@ -334,7 +334,7 @@ export function MultiStepRatingForm({
       gameUpdateResult = await updateGameOverallRating(wasNewReviewAdded);
       await revalidateGameDataAction(gameId);
 
-      userProfileSnap = await getDoc(userProfileRef); // Re-fetch after potential updates
+      userProfileSnap = await getDoc(userProfileRef); 
       userProfileData = userProfileSnap.exists() ? userProfileSnap.data() as UserProfile : null;
 
       if (userProfileData) {
@@ -497,34 +497,36 @@ export function MultiStepRatingForm({
     onReviewSubmitted();
   };
 
-  const yourOverallAverage = calculateGlobalOverallAverage(form.getValues());
+  const yourOverallAverage = calculateOverallCategoryAverage(form.getValues());
 
   return (
     <Form {...form}>
       <form>
         {currentStep === 1 && (
-          <Card className="mb-4 shadow-sm border-border">
-            <CardHeader className="p-3 flex flex-row items-center gap-3 bg-muted/30">
-              {gameCoverArtUrl && (
-                <div className="relative h-16 w-12 flex-shrink-0 rounded-sm overflow-hidden">
-                  <SafeImage
-                    src={gameCoverArtUrl}
-                    fallbackSrc={`https://placehold.co/48x64.png?text=${encodeURIComponent(gameName).substring(0, 3)}`}
-                    alt={`${gameName} copertina`}
-                    fill
-                    sizes="48px"
-                    className="object-cover"
-                    data-ai-hint={`${gameName.split(' ')[0]?.toLowerCase() || 'game'} thumbnail`}
-                  />
+          <>
+            <Card className="mb-4 shadow-sm border-border">
+              <CardHeader className="p-3 flex flex-row items-center gap-3 bg-muted/30">
+                {gameCoverArtUrl && (
+                  <div className="relative h-16 w-12 flex-shrink-0 rounded-sm overflow-hidden">
+                    <SafeImage
+                      src={gameCoverArtUrl}
+                      fallbackSrc={`https://placehold.co/48x64.png?text=${encodeURIComponent(gameName).substring(0, 3)}`}
+                      alt={`${gameName} copertina`}
+                      fill
+                      sizes="48px"
+                      className="object-cover"
+                      data-ai-hint={`${gameName.split(' ')[0]?.toLowerCase() || 'game'} thumbnail`}
+                    />
+                  </div>
+                )}
+                <div className="flex-1">
+                  <h4 className="font-semibold text-md text-foreground">{gameName}</h4>
                 </div>
-              )}
-              <div className="flex-1">
-                <h4 className="font-semibold text-md text-foreground">{gameName}</h4>
-              </div>
-            </CardHeader>
-          </Card>
+              </CardHeader>
+            </Card>
+            <Separator className="mb-6" />
+          </>
         )}
-        {currentStep === 1 && <Separator className="mb-6" />}
 
         {currentStep <= totalInputSteps && (
           <div className="mb-4">
@@ -538,36 +540,26 @@ export function MultiStepRatingForm({
                       {stepUIDescriptions[currentStep]}
                     </p>
                 </div>
-                { currentStep > 0 && currentStep <= totalInputSteps && gameName && (
-                    <div className="hidden sm:flex items-center gap-2 text-right flex-shrink-0 ml-4">
-                        {gameCoverArtUrl && (
-                        <div className="relative h-12 w-9 rounded-sm overflow-hidden">
-                            <SafeImage
-                            src={gameCoverArtUrl}
-                            fallbackSrc={`https://placehold.co/36x48.png?text=${encodeURIComponent(gameName).substring(0, 3)}`}
-                            alt={`${gameName} miniatura`}
-                            fill
-                            sizes="36px"
-                            className="object-cover"
-                            data-ai-hint="game mini"
-                            />
-                        </div>
-                        )}
-                        <span className="text-xs text-muted-foreground max-w-[100px] truncate" title={gameName}>{gameName}</span>
-                    </div>
-                )}
             </div>
           </div>
         )}
         
         {currentStep === totalDisplaySteps && (
           <>
-            <Card className="mb-6 shadow-sm border-border">
+            <CardHeader className="px-0 pt-0 pb-4">
+                <CardTitle className="text-xl font-semibold flex items-center">
+                    {stepUITitles[currentStep]} {/* "Riepilogo Valutazione" */}
+                </CardTitle>
+                <CardDescription className="text-sm text-muted-foreground mt-1 whitespace-pre-line">
+                   {stepUIDescriptions[currentStep]}
+                </CardDescription>
+            </CardHeader>
+            <Card className="mb-4 shadow-sm border-border">
               <CardHeader className="p-3 flex flex-row items-center justify-between gap-3 bg-muted/30">
                 <div className="flex items-center gap-3">
-                  {gameCoverArtUrl && (
+                    {gameCoverArtUrl && (
                     <div className="relative h-16 w-12 flex-shrink-0 rounded-sm overflow-hidden">
-                      <SafeImage
+                        <SafeImage
                         src={gameCoverArtUrl}
                         fallbackSrc={`https://placehold.co/48x64.png?text=${encodeURIComponent(gameName).substring(0, 3)}`}
                         alt={`${gameName} copertina`}
@@ -575,12 +567,12 @@ export function MultiStepRatingForm({
                         sizes="48px"
                         className="object-cover"
                         data-ai-hint={`${gameName.split(' ')[0]?.toLowerCase() || 'game'} thumbnail`}
-                      />
+                        />
                     </div>
-                  )}
-                  <div className="flex-1">
+                    )}
+                    <div className="flex-1">
                     <h4 className="font-semibold text-md text-foreground">{gameName}</h4>
-                  </div>
+                    </div>
                 </div>
                 {yourOverallAverage !== null && (
                   <div className="text-right">
@@ -591,14 +583,6 @@ export function MultiStepRatingForm({
                 )}
               </CardHeader>
             </Card>
-             <CardHeader className="px-0 pt-0 pb-4">
-                <CardTitle className="text-xl font-semibold flex items-center">
-                    {stepUITitles[currentStep]}
-                </CardTitle>
-                <CardDescription className="text-sm text-muted-foreground mt-1 whitespace-pre-line">
-                   {stepUIDescriptions[currentStep]}
-                </CardDescription>
-            </CardHeader>
           </>
         )}
 
@@ -690,7 +674,7 @@ export function MultiStepRatingForm({
 
         <div className={cn(
           "flex items-center pt-4 border-t mt-6",
-          currentStep === 1 || (currentStep > 1 && currentStep <= totalInputSteps) ? 'justify-between' : 'justify-end'
+           currentStep === 1 || (currentStep > 1 && currentStep <= totalInputSteps) ? 'justify-between' : 'justify-end'
         )}>
           {/* Left-aligned buttons */}
           <div>
@@ -731,4 +715,3 @@ export function MultiStepRatingForm({
     </Form>
   );
 }
-
