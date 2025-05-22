@@ -15,7 +15,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"; // Removed AvatarImage
 import {
   Sheet,
   SheetContent,
@@ -89,15 +89,23 @@ export function Header() {
     { href: "/users", label: "Utenti", icon: <Users2 size={18} /> },
     { href: "/reviews", label: "Voti", icon: <MessagesSquare size={18} /> },
     { href: "/plays", label: "Partite", icon: <Dices size={18} /> },
-    { href: "/badges", label: "Distintivi", icon: <Award size={18} /> }, // New link
+    { href: "/badges", label: "Distintivi", icon: <Award size={18} /> },
+  ];
+  
+  const userNavLinks = [
+    { href: "/playlist", label: "La Mia Playlist", icon: <ListPlus size={18} />, condition: !!user },
   ];
 
+
   const performSearch = useCallback(async (term: string) => {
+    const currentDesktopInput = desktopSearchInputRef.current;
+    const currentMobileInput = mobileSearchInputRef.current;
+
     if (term.length < 2) {
       setSearchResults([]);
       setIsSearching(false);
-      if (desktopSearchInputRef.current === document.activeElement) setIsDesktopPopoverOpen(false);
-      if (mobileSearchInputRef.current === document.activeElement && isMobileSheetOpen) setIsMobilePopoverOpen(false);
+      if (currentDesktopInput === document.activeElement) setIsDesktopPopoverOpen(false);
+      if (currentMobileInput === document.activeElement && isMobileSheetOpen) setIsMobilePopoverOpen(false);
       return;
     }
     setIsSearching(true);
@@ -107,16 +115,20 @@ export function Header() {
     if ('error' in result) {
       setSearchResults([]);
       console.error("Search error:", result.error);
-      if (desktopSearchInputRef.current === document.activeElement && !isMobileSheetOpen) setIsDesktopPopoverOpen(term.length >= 2);
-      if (mobileSearchInputRef.current === document.activeElement && isMobileSheetOpen) setIsMobilePopoverOpen(term.length >= 2);
+      if (currentDesktopInput === document.activeElement && !isMobileSheetOpen) {
+         setIsDesktopPopoverOpen(term.length >= 2);
+      }
+      if (currentMobileInput === document.activeElement && isMobileSheetOpen) {
+        setIsMobilePopoverOpen(term.length >=2);
+      }
 
     } else {
       setSearchResults(result);
       const hasResults = result.length > 0;
-      if (desktopSearchInputRef.current === document.activeElement && !isMobileSheetOpen) {
+      if (currentDesktopInput === document.activeElement && !isMobileSheetOpen) {
         setIsDesktopPopoverOpen(hasResults || term.length >=2);
       }
-      if (mobileSearchInputRef.current === document.activeElement && isMobileSheetOpen) {
+      if (currentMobileInput === document.activeElement && isMobileSheetOpen) {
         setIsMobilePopoverOpen(hasResults || term.length >=2);
       }
     }
@@ -132,6 +144,7 @@ export function Header() {
     setSearchResults([]);
     setIsDesktopPopoverOpen(false);
     setIsMobilePopoverOpen(false);
+    // Closing mobile sheet is handled by SheetClose around the link
   };
   
   const authBlock = (
@@ -142,7 +155,7 @@ export function Header() {
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="relative h-9 w-9 rounded-full p-0 hover:bg-primary-foreground/10 focus-visible:ring-accent">
             <Avatar className="h-9 w-9">
-              {user.photoURL && <AvatarImage src={user.photoURL} alt={user.displayName || user.email || 'User Avatar'} />}
+              {/* Removed AvatarImage to always show fallback */}
               <AvatarFallback className="bg-accent text-accent-foreground">
                 {user.displayName ? user.displayName.substring(0, 1).toUpperCase() : (user.email ? user.email.substring(0, 1).toUpperCase() : 'U')}
               </AvatarFallback>
@@ -246,7 +259,7 @@ export function Header() {
 
   const mobileSearchPopoverContent = (
     <PopoverContent
-      className="w-[calc(100%-2rem)] p-0" 
+      className="w-[248px] p-0" 
       align="start"
       side="bottom"
       sideOffset={4}
@@ -290,11 +303,11 @@ export function Header() {
             {/* Desktop Search - hidden on mobile */}
             <div className="relative hidden md:block"> 
               <Popover 
-                open={isDesktopPopoverOpen && searchTerm.length >=2 && (isSearching || searchResults.length > 0)}
+                open={isDesktopPopoverOpen && searchTerm.length >=2 && !isMobileSheetOpen && (isSearching || searchResults.length > 0)}
                 onOpenChange={(openState) => {
                     if (!openState && desktopSearchInputRef.current !== document.activeElement) {
                         setIsDesktopPopoverOpen(false);
-                    } else if (openState && searchTerm.length >= 2 && (searchResults.length > 0 || isSearching)) {
+                    } else if (openState && searchTerm.length >= 2 && !isMobileSheetOpen && (searchResults.length > 0 || isSearching)) {
                         setIsDesktopPopoverOpen(true);
                     }
                 }}
@@ -326,7 +339,7 @@ export function Header() {
 
             <Sheet open={isMobileSheetOpen} onOpenChange={setIsMobileSheetOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="sm" className="ml-1 w-9 h-9 p-0 md:hidden hover:bg-primary-foreground/10 focus-visible:ring-accent">
+                <Button variant="ghost" size="sm" className="ml-1 h-9 w-9 p-0 md:hidden hover:bg-primary-foreground/10 focus-visible:ring-accent">
                   <Menu className="h-5 w-5" />
                   <span className="sr-only">Apri menu</span>
                 </Button>
@@ -391,6 +404,19 @@ export function Header() {
                         </Link>
                       </SheetClose>
                   ))}
+                  {userNavLinks.map(link => (
+                    link.condition && (
+                      <SheetClose asChild key={`mobile-user-nav-${link.href}`}>
+                          <Link
+                            href={link.href}
+                            className={cn(buttonVariants({ variant: "ghost" }), "w-full justify-start gap-2 text-sm font-medium text-foreground rounded-md px-3 py-2")}
+                          >
+                            {link.icon}
+                            {link.label}
+                          </Link>
+                        </SheetClose>
+                    )
+                  ))}
                 </nav>
               </SheetContent>
             </Sheet>
@@ -411,6 +437,19 @@ export function Header() {
                   {link.label}
                 </Link>
               </li>
+            ))}
+             {userNavLinks.map(link => (
+              link.condition && (
+                <li key={`desktop-user-subnav-${link.href}`}>
+                  <Link
+                    href={link.href}
+                    className="flex items-center gap-1.5 text-sm font-medium text-foreground transition-colors hover:text-primary px-3 py-2 rounded-md"
+                  >
+                    {link.icon}
+                    {link.label}
+                  </Link>
+                </li>
+              )
             ))}
           </ul>
         </div>
