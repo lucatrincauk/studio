@@ -204,7 +204,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         voteCount: newVoteCount
       });
 
-      await revalidateGameDataAction(game.id);
+      revalidateGameDataAction(game.id);
       fetchGameData();
     } catch (error) {
       console.error("Errore durante l'aggiornamento del punteggio medio del gioco:", error);
@@ -249,7 +249,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           title: "Stato Vetrina Aggiornato",
           description: `Il gioco è stato ${newPinStatus ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
         });
-        await revalidateGameDataAction(game.id);
+        revalidateGameDataAction(game.id);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({
@@ -312,7 +312,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `${game.name} è stato ${newFavoritedStatus ? 'aggiunto ai' : 'rimosso dai'} tuoi preferiti.`,
         });
 
-        await revalidateGameDataAction(game.id);
+        revalidateGameDataAction(game.id);
 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Impossibile aggiornare i preferiti.";
@@ -364,7 +364,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `${game.name} è stato ${newPlaylistedStatus ? 'aggiunto alla' : 'rimosso dalla'} tua playlist.`,
         });
 
-        await revalidateGameDataAction(game.id);
+        revalidateGameDataAction(game.id);
 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Impossibile aggiornare la playlist.";
@@ -422,7 +422,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           title: newMorchiaStatus ? "Aggiunto alle Morchie!" : "Rimosso dalle Morchie",
           description: `${game.name} è stato ${newMorchiaStatus ? 'aggiunto alla lista morchia' : 'rimosso dalle morchie'}.`,
         });
-        await revalidateGameDataAction(game.id);
+        revalidateGameDataAction(game.id);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Impossibile aggiornare la Morchia List.";
         toast({ title: "Errore", description: errorMessage, variant: "destructive" });
@@ -454,7 +454,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
         await updateDoc(gameRef, serverActionResult.updateData);
         toast({ title: 'Dettagli Aggiornati', description: `Dettagli per ${game.name} aggiornati con successo.` });
-        await revalidateGameDataAction(game.id);
+        revalidateGameDataAction(game.id);
         fetchGameData();
       } catch (dbError) {
         const errorMessage = dbError instanceof Error ? dbError.message : "Errore sconosciuto durante l'aggiornamento del DB.";
@@ -504,7 +504,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                     title: "Partite Caricate e Salvate",
                     description: bggFetchResult.message || `Caricate e salvate ${playsToSave.length} partite per ${game.name}. Conteggio aggiornato.`,
                 });
-                await revalidateGameDataAction(game.id);
+                revalidateGameDataAction(game.id);
                 fetchGameData();
             } catch (dbError) {
                 const errorMessage = dbError instanceof Error ? dbError.message : "Impossibile salvare le partite nel database.";
@@ -517,7 +517,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                     title: "Nessuna Partita Trovata",
                     description: bggFetchResult.message || `Nessuna partita trovata su BGG per ${usernameToFetch} per questo gioco. Conteggio azzerato.`,
                 });
-                await revalidateGameDataAction(game.id);
+                revalidateGameDataAction(game.id);
                 fetchGameData();
             } catch (dbError) {
                  // Silently ignore
@@ -640,19 +640,12 @@ const handleGenerateRecommendations = async () => {
       <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
         <div className="flex flex-col"> 
           <div className="flex flex-col md:flex-row">
-            {/* Main Content Column */}
             <div className="flex-1 p-6 space-y-4 md:order-1">
-                {/* Game Title, Icons, Score Header */}
                 <div className="flex justify-between items-start mb-2">
                     <div className="flex items-center gap-1 flex-shrink min-w-0 mr-2">
                         <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
                            {game.name}
                         </h1>
-                         {game.bggId && (
-                            <a href={`https://boardgamegeek.com/boardgame/${game.bggId}`} target="_blank" rel="noopener noreferrer" title="Vedi su BGG" className="text-muted-foreground hover:text-primary transition-colors inline-flex items-center">
-                                <ExternalLink className="h-4 w-4" />
-                            </a>
-                        )}
                     </div>
                     <div className="flex-shrink-0 flex flex-col items-end">
                          <span className="text-3xl md:text-4xl font-bold text-primary whitespace-nowrap">
@@ -661,7 +654,6 @@ const handleGenerateRecommendations = async () => {
                     </div>
                 </div>
                 
-                {/* Mobile Image */}
                 <div className="md:hidden my-4 max-w-[240px] mx-auto">
                   <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
                     <SafeImage
@@ -676,7 +668,7 @@ const handleGenerateRecommendations = async () => {
                     />
                   </div>
                 </div>
-                {/* Button Bar */}
+                
                 <div className="flex justify-evenly items-center gap-1 sm:gap-2 py-4 border-y border-border">
                     <Button
                         variant="ghost"
@@ -691,7 +683,7 @@ const handleGenerateRecommendations = async () => {
                         <span className="ml-1 text-xs">({currentFavoriteCount})</span>
                         )}
                     </Button>
-                    <Button
+                     <Button
                         variant="ghost"
                         size="sm"
                         onClick={handleToggleMorchia}
@@ -700,7 +692,7 @@ const handleGenerateRecommendations = async () => {
                         className={`h-9 px-2 ${isMorchiaByCurrentUser ? 'text-orange-600 hover:bg-orange-600/20' : 'text-orange-600/60 hover:text-orange-600 hover:bg-orange-600/10'}`}
                     >
                         <Frown className={`h-5 w-5 ${isMorchiaByCurrentUser ? 'fill-orange-600/30' : ''}`} />
-                        {currentMorchiaCount > 0 && (
+                         {currentMorchiaCount > 0 && (
                             <span className="ml-1 text-xs">({currentMorchiaCount})</span>
                         )}
                     </Button>
@@ -717,6 +709,13 @@ const handleGenerateRecommendations = async () => {
                             <span className="ml-1 text-xs">({game.playlistedByUserIds.length})</span>
                         )}
                     </Button>
+                    {game.bggId && (
+                      <Button variant="ghost" size="icon" asChild className="h-9 w-9 text-primary/80 hover:text-primary hover:bg-primary/10">
+                        <a href={`https://boardgamegeek.com/boardgame/${game.bggId}`} target="_blank" rel="noopener noreferrer" title="Vedi su BGG">
+                          <ExternalLink className="h-5 w-5" />
+                        </a>
+                      </Button>
+                    )}
                     {isAdmin && (
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -754,14 +753,13 @@ const handleGenerateRecommendations = async () => {
                     )}
                 </div>
                 
-              {/* Metadata Grid */}
               <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
                   <div className="flex items-baseline gap-2">
                       <PenTool size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
                       <span className="font-medium hidden sm:inline">Autori:</span>
                       <span>{game.designers && game.designers.length > 0 ? game.designers.join(', ') : '-'}</span>
                   </div>
-                  <div className="flex items-baseline gap-2 justify-start md:justify-end">
+                  <div className="flex items-baseline gap-2">
                         <CalendarDays size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
                         <span className="font-medium hidden sm:inline">Anno:</span>
                         <span>{game.yearPublished ?? '-'}</span>
@@ -771,7 +769,7 @@ const handleGenerateRecommendations = async () => {
                         <span className="font-medium hidden sm:inline">Giocatori:</span>
                         <span>{game.minPlayers}{game.maxPlayers && game.minPlayers !== game.maxPlayers ? `-${game.maxPlayers}` : ''}{!game.minPlayers && !game.maxPlayers ? '-' : ''}</span>
                   </div>
-                  <div className="flex items-baseline gap-2 justify-start md:justify-end">
+                  <div className="flex items-baseline gap-2">
                         <Clock size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
                         <span className="font-medium hidden sm:inline">Durata:</span>
                         <span>
@@ -787,7 +785,7 @@ const handleGenerateRecommendations = async () => {
                         <span className="font-medium hidden sm:inline">Complessità:</span>
                         <span>{game.averageWeight !== null && typeof game.averageWeight === 'number' ? `${formatRatingNumber(game.averageWeight)} / 5` : '-'}</span>
                     </div>
-                  <div className="flex items-baseline gap-2 justify-start md:justify-end">
+                  <div className="flex items-baseline gap-2">
                       <Dices size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
                       <span className="font-medium hidden sm:inline">Partite:</span>
                       <span>{game.lctr01Plays ?? 0}</span>
@@ -800,7 +798,7 @@ const handleGenerateRecommendations = async () => {
                     </div>
                   )}
                    {highestScoreAchieved !== null && (
-                      <div className="flex items-baseline gap-2 justify-start md:justify-end">
+                      <div className="flex items-baseline gap-2">
                            <Medal size={14} className="text-amber-500 flex-shrink-0 relative top-px" />
                           <span className="font-medium hidden sm:inline">Miglior Punteggio:</span>
                           <span>{formatRatingNumber(highestScoreAchieved)} pt.</span>
@@ -821,7 +819,6 @@ const handleGenerateRecommendations = async () => {
               )}
             </div>
 
-            {/* Desktop Image Sidebar */}
             <div className="hidden md:block md:w-1/4 p-6 flex-shrink-0 self-start md:order-2 space-y-4">
               <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
                 <SafeImage
@@ -879,6 +876,12 @@ const handleGenerateRecommendations = async () => {
                       </AccordionTrigger>
                       <AccordionContent className="pb-4 text-sm">
                         <div className="space-y-3">
+                           {play.location && play.location.trim() !== '' && (
+                              <div className="grid grid-cols-[auto_1fr] gap-x-2 items-baseline">
+                                <strong className="text-muted-foreground text-xs">Luogo:</strong>
+                                <p className="text-xs whitespace-pre-wrap">{play.location}</p>
+                              </div>
+                            )}
                           {play.comments && play.comments.trim() !== '' && (
                             <div className="mt-1">
                                 <strong className="text-xs text-muted-foreground">Commenti:</strong>
@@ -898,7 +901,7 @@ const handleGenerateRecommendations = async () => {
                                     .map((player, pIndex) => (
                                     <li key={pIndex} className={cn(
                                       "flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5 px-2",
-                                      pIndex % 2 === 0 ? 'bg-muted/30' : '' // even rows
+                                      pIndex % 2 === 0 ? 'bg-muted/30' : '' 
                                     )}>
                                         <div className="flex items-center gap-1.5 flex-grow min-w-0">
                                             <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 relative top-px" />
@@ -1083,3 +1086,4 @@ const handleGenerateRecommendations = async () => {
     </div>
   );
 }
+
