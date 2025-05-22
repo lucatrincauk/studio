@@ -54,7 +54,7 @@ const PoopEmojiLogo = () => (
 
 
 export function Header() {
-  const { user, signOut, loading, isAdmin } = useAuth();
+  const { user, signOut, loading: authLoading, isAdmin } = useAuth();
   const router = useRouter();
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -69,6 +69,11 @@ export function Header() {
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
   const desktopSearchInputRef = useRef<HTMLInputElement>(null);
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
+
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
 
   const handleSignOut = async () => {
@@ -88,8 +93,8 @@ export function Header() {
     if (term.length < 2) {
       setSearchResults([]);
       setIsSearching(false);
-      setIsDesktopPopoverOpen(false);
-      setIsMobilePopoverOpen(false);
+      if (desktopSearchInputRef.current === document.activeElement) setIsDesktopPopoverOpen(false);
+      if (mobileSearchInputRef.current === document.activeElement && isMobileSheetOpen) setIsMobilePopoverOpen(false);
       return;
     }
     setIsSearching(true);
@@ -99,17 +104,17 @@ export function Header() {
     if ('error' in result) {
       setSearchResults([]);
       console.error("Search error:", result.error);
-      // Keep popover open if input has focus and there's an error or no results but term is long enough
-      if (desktopSearchInputRef.current === document.activeElement) setIsDesktopPopoverOpen(term.length >= 2);
-      if (mobileSearchInputRef.current === document.activeElement) setIsMobilePopoverOpen(term.length >= 2);
+      if (desktopSearchInputRef.current === document.activeElement && !isMobileSheetOpen) setIsDesktopPopoverOpen(term.length >= 2);
+      if (mobileSearchInputRef.current === document.activeElement && isMobileSheetOpen) setIsMobilePopoverOpen(term.length >= 2);
+
     } else {
       setSearchResults(result);
       const hasResults = result.length > 0;
       if (desktopSearchInputRef.current === document.activeElement && !isMobileSheetOpen) {
-        setIsDesktopPopoverOpen(hasResults || term.length >= 2);
+        setIsDesktopPopoverOpen(hasResults || term.length >=2);
       }
       if (mobileSearchInputRef.current === document.activeElement && isMobileSheetOpen) {
-        setIsMobilePopoverOpen(hasResults || term.length >= 2);
+        setIsMobilePopoverOpen(hasResults || term.length >=2);
       }
     }
   }, [isMobileSheetOpen]);
@@ -124,13 +129,11 @@ export function Header() {
     setSearchResults([]);
     setIsDesktopPopoverOpen(false);
     setIsMobilePopoverOpen(false);
-    if (isMobileSheetOpen) { // If coming from mobile search, also close the sheet
-        setIsMobileSheetOpen(false);
-    }
+    // SheetClose will handle closing the sheet on mobile
   };
   
   const authBlock = (
-    loading ? (
+    authLoading || !isMounted ? ( // Defer auth block rendering until mounted
       <div className="h-9 w-20 animate-pulse rounded-md bg-primary-foreground/20"></div>
     ) : user ? (
       <DropdownMenu>
@@ -183,7 +186,7 @@ export function Header() {
           className={cn(
             buttonVariants({ variant: 'ghost', size: 'sm' }),
             "text-sm font-medium transition-colors hover:bg-primary-foreground/10 hover:text-primary-foreground focus:outline-none focus:ring-2 focus:ring-accent rounded-md",
-            "px-2 py-1.5 sm:px-3" 
+            "px-2 py-1.5" 
           )}
         >
             <LogIn size={16} className="sm:mr-1.5"/>
@@ -306,12 +309,11 @@ export function Header() {
                     {isSearching && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-border" />}
                   </div>
                 </PopoverAnchor>
-                {desktopSearchPopoverContent}
+                {isMounted && desktopSearchPopoverContent}
               </Popover>
             </div>
             
-            {/* Auth Controls - Now directly here */}
-            {authBlock}
+            {isMounted && authBlock} {/* Defer authBlock rendering */}
             
             {/* Mobile Menu Trigger - Now directly here, only visible on mobile */}
             <div className="md:hidden">
@@ -366,7 +368,7 @@ export function Header() {
                             {isSearching && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />}
                           </div>
                         </PopoverAnchor>
-                        {mobileSearchPopoverContent}
+                        {isMounted && mobileSearchPopoverContent}
                     </Popover>
                   </div>
 
@@ -412,5 +414,3 @@ export function Header() {
     </div>
   );
 }
-
-    
