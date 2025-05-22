@@ -228,7 +228,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         
         toast({ title: "Voto Eliminato", description: "Il tuo voto è stato eliminato con successo." });
         await updateGameOverallRatingAfterDelete();
-        await fetchGameData(); 
+        // fetchGameData(); // Already called by updateGameOverallRatingAfterDelete
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({ title: "Errore", description: `Impossibile eliminare il voto: ${errorMessage}`, variant: "destructive" });
@@ -676,21 +676,10 @@ const handleGenerateRecommendations = async () => {
                     <div className="flex flex-col sm:flex-row sm:items-center sm:gap-1 flex-shrink min-w-0 mr-2">
                        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
                            {game.name}
-                           {game.bggId && (
-                            <a
-                              href={`https://boardgamegeek.com/boardgame/${game.bggId}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              title="Vedi su BGG"
-                              className="ml-1 text-primary/60 hover:text-primary inline-flex items-center"
-                            >
-                              <ExternalLink className="h-4 w-4" />
-                            </a>
-                           )}
                         </h1>
                     </div>
                     {/* Right side: Score */}
-                    <div className="flex-shrink-0">
+                    <div className="flex-shrink-0 flex flex-col items-end">
                         {globalGameAverage !== null && (
                             <span className="text-3xl md:text-4xl font-bold text-primary whitespace-nowrap">
                                 {formatRatingNumber(globalGameAverage * 2)}
@@ -716,104 +705,102 @@ const handleGenerateRecommendations = async () => {
                 </div>
 
                 {/* Button Bar */}
-                <div className="py-4 border-y border-border">
-                    <div className="flex justify-evenly items-center gap-1 sm:gap-2">
-                        {/* Favorite Button */}
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleToggleFavorite}
-                            disabled={isFavoriting || authLoading || !currentUser}
-                            title={isFavoritedByCurrentUser ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
-                            className={cn(
-                                `h-9 px-2 hover:bg-destructive/10`,
-                                isFavoritedByCurrentUser ? 'text-destructive hover:bg-destructive/20' : 'text-destructive/60 hover:text-destructive'
-                            )}
-                        >
-                            <Heart className={cn(`h-5 w-5`, isFavoritedByCurrentUser ? 'fill-destructive' : '')} />
-                            {currentFavoriteCount > 0 && (
-                            <span className="ml-1 text-xs">({currentFavoriteCount})</span>
-                            )}
-                        </Button>
-                        {/* Morchia Button */}
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleToggleMorchia}
-                            disabled={isTogglingMorchia || authLoading || !currentUser}
-                            title={isMorchiaByCurrentUser ? "Rimuovi da Morchie" : "Aggiungi alle Morchie"}
-                            className={cn(
-                                `h-9 px-2 hover:bg-orange-600/10`,
-                                isMorchiaByCurrentUser ? 'text-orange-600 hover:bg-orange-600/20' : 'text-orange-600/60 hover:text-orange-600'
-                            )}
-                        >
-                            <Frown className={cn(`h-5 w-5`, isMorchiaByCurrentUser ? 'fill-orange-600/30' : '')} />
-                             {currentMorchiaCount > 0 && (
-                                <span className="ml-1 text-xs">({currentMorchiaCount})</span>
-                            )}
-                        </Button>
-                        {/* Playlist Button */}
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleTogglePlaylist}
-                            disabled={isPlaylisting || authLoading || !currentUser}
-                            title={isPlaylistedByCurrentUser ? "Rimuovi dalla Playlist" : "Aggiungi alla Playlist"}
-                            className={cn(
-                                `h-9 px-2 hover:bg-sky-500/10`,
-                                isPlaylistedByCurrentUser ? 'text-sky-500 hover:bg-sky-500/20' : 'text-sky-500/60 hover:text-sky-500'
-                            )}
-                        >
-                            {isPlaylistedByCurrentUser ? <BookMarked className="h-5 w-5" /> : <Bookmark className="h-5 w-5" />}
-                            {game?.playlistedByUserIds && game.playlistedByUserIds.length > 0 && (
-                                <span className="ml-1 text-xs">({game.playlistedByUserIds.length})</span>
-                            )}
-                        </Button>
-                        {/* BGG Link Button */}
-                        {game.bggId && (
-                             <Button variant="ghost" size="icon" asChild className="h-9 w-9 text-primary/80 hover:text-primary hover:bg-primary/10">
-                                <a href={`https://boardgamegeek.com/boardgame/${game.bggId}`} target="_blank" rel="noopener noreferrer" title="Vedi su BGG">
-                                <ExternalLink className="h-5 w-5" />
-                                </a>
-                            </Button>
-                        )}
-                        {/* Admin Settings Dropdown */}
-                        {isAdmin && (
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-9 w-9 text-primary/80 hover:text-primary hover:bg-primary/10">
-                                <Settings className="h-5 w-5" />
-                            </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                                onSelect={handleTogglePinGame}
-                                disabled={isPinToggling || authLoading}
-                                className="cursor-pointer"
-                            >
-                                {isPinToggling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (currentIsPinned ? <PinOff className="mr-2 h-4 w-4" /> : <Pin className="mr-2 h-4 w-4" />)}
-                                {currentIsPinned ? "Rimuovi da Vetrina" : "Aggiungi a Vetrina"}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                                onSelect={handleRefreshBggData}
-                                disabled={(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) || !game || !game.bggId}
-                                className="cursor-pointer"
-                            >
-                                {(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DownloadCloud className="mr-2 h-4 w-4" />}
-                                Aggiorna Dati da BGG
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                                onSelect={handleFetchBggPlays}
-                                disabled={isFetchingPlays || !game || !game.bggId || !currentUser}
-                                className="cursor-pointer"
-                            >
-                                {isFetchingPlays ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Dices className="mr-2 h-4 w-4" />}
-                                Carica Partite
-                            </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                        )}
-                    </div>
+                <div className="flex justify-evenly items-center gap-1 sm:gap-2 py-4 border-t border-b border-border">
+                      {/* Favorite Button */}
+                      <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleToggleFavorite}
+                          disabled={isFavoriting || authLoading || !currentUser}
+                          title={isFavoritedByCurrentUser ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
+                          className={cn(
+                              `h-9 px-2 hover:bg-destructive/10`,
+                              isFavoritedByCurrentUser ? 'text-destructive hover:bg-destructive/20' : 'text-destructive/60 hover:text-destructive'
+                          )}
+                      >
+                          <Heart className={cn(`h-5 w-5`, isFavoritedByCurrentUser ? 'fill-destructive' : '')} />
+                          {currentFavoriteCount > 0 && (
+                          <span className="ml-1 text-xs">({currentFavoriteCount})</span>
+                          )}
+                      </Button>
+                      {/* Morchia Button */}
+                      <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleToggleMorchia}
+                          disabled={isTogglingMorchia || authLoading || !currentUser}
+                          title={isMorchiaByCurrentUser ? "Rimuovi da Morchie" : "Aggiungi alle Morchie"}
+                          className={cn(
+                              `h-9 px-2 hover:bg-orange-600/10`,
+                              isMorchiaByCurrentUser ? 'text-orange-600 hover:bg-orange-600/20' : 'text-orange-600/60 hover:text-orange-600'
+                          )}
+                      >
+                          <Frown className={cn(`h-5 w-5`, isMorchiaByCurrentUser ? 'fill-orange-600/30' : '')} />
+                            {currentMorchiaCount > 0 && (
+                              <span className="ml-1 text-xs">({currentMorchiaCount})</span>
+                          )}
+                      </Button>
+                      {/* Playlist Button */}
+                      <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleTogglePlaylist}
+                          disabled={isPlaylisting || authLoading || !currentUser}
+                          title={isPlaylistedByCurrentUser ? "Rimuovi dalla Playlist" : "Aggiungi alla Playlist"}
+                          className={cn(
+                              `h-9 px-2 hover:bg-sky-500/10`,
+                              isPlaylistedByCurrentUser ? 'text-sky-500 hover:bg-sky-500/20' : 'text-sky-500/60 hover:text-sky-500'
+                          )}
+                      >
+                          {isPlaylistedByCurrentUser ? <BookMarked className="h-5 w-5" /> : <Bookmark className="h-5 w-5" />}
+                          {game?.playlistedByUserIds && game.playlistedByUserIds.length > 0 && (
+                              <span className="ml-1 text-xs">({game.playlistedByUserIds.length})</span>
+                          )}
+                      </Button>
+                      {/* BGG Link Button */}
+                      {game.bggId && (
+                            <Button variant="ghost" size="icon" asChild className="h-9 w-9 text-primary/80 hover:text-primary hover:bg-primary/10">
+                              <a href={`https://boardgamegeek.com/boardgame/${game.bggId}`} target="_blank" rel="noopener noreferrer" title="Vedi su BGG">
+                              <ExternalLink className="h-5 w-5" />
+                              </a>
+                          </Button>
+                      )}
+                      {/* Admin Settings Dropdown */}
+                      {isAdmin && (
+                      <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-9 w-9 text-primary/80 hover:text-primary hover:bg-primary/10">
+                              <Settings className="h-5 w-5" />
+                          </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                              onSelect={handleTogglePinGame}
+                              disabled={isPinToggling || authLoading}
+                              className="cursor-pointer"
+                          >
+                              {isPinToggling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (currentIsPinned ? <PinOff className="mr-2 h-4 w-4" /> : <Pin className="mr-2 h-4 w-4" />)}
+                              {currentIsPinned ? "Rimuovi da Vetrina" : "Aggiungi a Vetrina"}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                              onSelect={handleRefreshBggData}
+                              disabled={(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) || !game || !game.bggId}
+                              className="cursor-pointer"
+                          >
+                              {(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DownloadCloud className="mr-2 h-4 w-4" />}
+                              Aggiorna Dati da BGG
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                              onSelect={handleFetchBggPlays}
+                              disabled={isFetchingPlays || !game || !game.bggId || !currentUser}
+                              className="cursor-pointer"
+                          >
+                              {isFetchingPlays ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Dices className="mr-2 h-4 w-4" />}
+                              Carica Partite
+                          </DropdownMenuItem>
+                          </DropdownMenuContent>
+                      </DropdownMenu>
+                      )}
                 </div>
                 
                 {/* Metadata Grid */}
@@ -1165,3 +1152,4 @@ const handleGenerateRecommendations = async () => {
     </div>
   );
 }
+
