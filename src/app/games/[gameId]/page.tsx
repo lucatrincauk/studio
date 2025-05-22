@@ -588,13 +588,13 @@ const handleGenerateRecommendations = async () => {
         <div className="flex flex-col md:flex-row">
           {/* Main Content Column */}
           <div className="flex-1 p-6 space-y-4 md:order-1">
-            {/* Main header: Title, BGG Link, Score */}
+            {/* Main header: Title, Icons, Score */}
             <div className="flex justify-between items-start mb-2">
               <div className="flex flex-col sm:flex-row sm:items-center sm:gap-1 flex-shrink min-w-0 mr-2">
-                  <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground flex items-center gap-1">
+                  <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
                       {game.name}
                       {game.bggId > 0 && (
-                          <a href={`https://boardgamegeek.com/boardgame/${game.bggId}`} target="_blank" rel="noopener noreferrer" title="Vedi su BGG" className="inline-flex items-center text-muted-foreground hover:text-primary transition-colors">
+                          <a href={`https://boardgamegeek.com/boardgame/${game.bggId}`} target="_blank" rel="noopener noreferrer" title="Vedi su BGG" className="inline-flex items-center text-muted-foreground hover:text-primary transition-colors ml-1">
                               <ExternalLink size={16} className="h-4 w-4" />
                           </a>
                       )}
@@ -606,7 +606,6 @@ const handleGenerateRecommendations = async () => {
                       {formatRatingNumber(globalGameAverage * 2)}
                   </span>
                   ) : (<span className="text-primary text-3xl md:text-4xl font-bold whitespace-nowrap"></span>) }
-                  {/* Buttons now moved below */}
               </div>
             </div>
 
@@ -690,8 +689,8 @@ const handleGenerateRecommendations = async () => {
                 )}
             </div>
 
-            {/* NEW BUTTON BAR */}
-            <div className="flex justify-end items-center gap-2 py-4 border-t mt-4">
+            {/* BUTTON BAR */}
+            <div className="flex justify-evenly gap-2 py-4 border-t mt-4">
                 {currentUser && (
                   <>
                     <div className="flex items-center"> {/* Group Favorite Button + Count */}
@@ -1051,3 +1050,4 @@ const handleGenerateRecommendations = async () => {
     </div>
   );
 }
+
