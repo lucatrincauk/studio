@@ -17,6 +17,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { calculateGroupedCategoryAverages, calculateOverallCategoryAverage, formatRatingNumber, formatPlayDate, formatReviewDate, calculateCategoryAverages as calculateCatAvgsFromUtils } from '@/lib/utils';
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
+import { ReviewList } from '@/components/boardgame/review-list';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { doc, deleteDoc, updateDoc, getDocs, collection, getDoc, arrayUnion, arrayRemove, increment, writeBatch, serverTimestamp, setDoc, query, where, getCountFromServer } from 'firebase/firestore';
@@ -214,10 +215,10 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       const gameDocRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
       await updateDoc(gameDocRef, {
         overallAverageRating: newOverallAverage,
-        voteCount: newVoteCount
+        reviewCount: newVoteCount // Changed from voteCount
       });
 
-      revalidateGameDataAction(game.id);
+      await revalidateGameDataAction(game.id);
       fetchGameData();
     } catch (error) {
       console.error("Errore durante l'aggiornamento del punteggio medio del gioco:", error);
@@ -240,6 +241,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         
         toast({ title: "Voto Eliminato", description: "Il tuo voto è stato eliminato con successo." });
         await updateGameOverallRatingAfterDelete();
+        // fetchGameData(); // This is now called by updateGameOverallRatingAfterDelete
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({ title: "Errore", description: `Impossibile eliminare il voto: ${errorMessage}`, variant: "destructive" });
@@ -262,7 +264,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           title: "Stato Vetrina Aggiornato",
           description: `Il gioco è stato ${newPinStatus ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
         });
-        revalidateGameDataAction(game.id);
+        await revalidateGameDataAction(game.id);
+        fetchGameData();
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({
@@ -343,7 +346,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `${nameToDisplay} è stato ${finalFavoritedStatus ? 'aggiunto ai' : 'rimosso dai'} tuoi preferiti.`,
         });
         
-        revalidateGameDataAction(targetGameId);
+        await revalidateGameDataAction(targetGameId);
         if (targetGameId === game?.id) {
           fetchGameData();
         } else {
@@ -467,7 +470,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `${nameToDisplay} è stato ${finalPlaylistedStatus ? 'aggiunto alla' : 'rimosso dalla'} tua playlist.`,
         });
 
-        revalidateGameDataAction(targetGameId);
+        await revalidateGameDataAction(targetGameId);
          if (targetGameId === game?.id) {
           fetchGameData();
         } else {
@@ -616,7 +619,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             : (prevGame.morchiaByUserIds || []).filter(uid => uid !== currentUser.uid)
         } : null);
         
-        revalidateGameDataAction(game.id);
+        await revalidateGameDataAction(game.id);
+        fetchGameData(); // Re-fetch game data to ensure UI consistency after potential badge award/state change
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Impossibile aggiornare la Morchia List.";
         toast({ title: "Errore", description: errorMessage, variant: "destructive" });
@@ -657,7 +661,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
         await updateDoc(gameRef, serverActionResult.updateData);
         toast({ title: 'Dettagli Aggiornati', description: `Dettagli per ${game.name} aggiornati con successo.` });
-        revalidateGameDataAction(game.id);
+        await revalidateGameDataAction(game.id);
         fetchGameData();
       } catch (dbError) {
         const errorMessage = dbError instanceof Error ? dbError.message : "Errore sconosciuto durante l'aggiornamento del DB.";
@@ -706,7 +710,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                     title: "Partite Caricate e Salvate!",
                     description: bggFetchResult.message || `Caricate e salvate ${playsToSave.length} partite per ${game.name}. Conteggio aggiornato.`,
                 });
-                revalidateGameDataAction(game.id);
+                await revalidateGameDataAction(game.id);
                 fetchGameData();
             } catch (dbError) {
                 const errorMessage = dbError instanceof Error ? dbError.message : "Impossibile salvare le partite nel database.";
@@ -719,7 +723,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                     title: "Nessuna Partita Trovata",
                     description: bggFetchResult.message || `Nessuna partita trovata su BGG per ${usernameToFetch} per questo gioco. Conteggio azzerato.`,
                 });
-                revalidateGameDataAction(game.id);
+                await revalidateGameDataAction(game.id);
                 fetchGameData();
             } catch (dbError) {
                  // Silently ignore error if updating play count to 0 fails
@@ -828,6 +832,8 @@ const handleGenerateRecommendations = async () => {
     return scoreFound ? maxScore : null;
   }, [game]);
 
+  const userOverallScore = userReview ? calculateOverallCategoryAverage(userReview.rating) : null;
+
 
   if (isLoadingGame || authLoading) {
     return (
@@ -892,20 +898,7 @@ const handleGenerateRecommendations = async () => {
               </div>
               
               {/* Button Bar */}
-               <div className="flex justify-evenly items-center gap-1 sm:gap-2 py-4 border-t border-b border-border">
-                {currentUser && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    asChild
-                    title="Valuta questo gioco"
-                    className="h-9 px-2 text-amber-500/70 hover:text-amber-500 hover:bg-amber-500/10"
-                  >
-                    <Link href={`/games/${game.id}/rate`}>
-                      <Star className="h-5 w-5" />
-                    </Link>
-                  </Button>
-                )}
+              <div className="flex justify-evenly items-center gap-1 sm:gap-2 py-4 border-t border-b border-border">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -939,6 +932,26 @@ const handleGenerateRecommendations = async () => {
                         <span className="ml-1 text-xs">({currentMorchiaCount})</span>
                     )}
                 </Button>
+
+                {currentUser && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    asChild
+                    title={userReview ? "Modifica il Tuo Voto" : "Valuta questo Gioco"}
+                    className="h-9 px-2 text-amber-500/70 hover:text-amber-500 hover:bg-amber-500/10"
+                  >
+                    <Link href={`/games/${game.id}/rate`}>
+                      <Star className="h-5 w-5" />
+                       {userOverallScore !== null && (
+                        <span className="ml-1 text-xs font-semibold">
+                          {formatRatingNumber(userOverallScore * 2)}
+                        </span>
+                      )}
+                      {!userReview && <span className="ml-1 text-xs hidden sm:inline">Valuta</span>}
+                    </Link>
+                  </Button>
+                )}
 
                 <Button
                     variant="ghost"
@@ -1042,13 +1055,11 @@ const handleGenerateRecommendations = async () => {
                     <span>{formatRatingNumber(game.averageWeight)} / 5</span>
                   </div>
                 )}
-                 {(game.lctr01Plays ?? 0) > 0 || game.lctr01Plays === 0 && ( // Show even if 0
-                    <div className="flex items-baseline gap-2"> 
-                        <Dices size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
-                        <span className="font-medium hidden sm:inline">Partite:</span>
-                        <span>{game.lctr01Plays ?? 0}</span>
-                    </div>
-                )}
+                <div className="flex items-baseline gap-2"> 
+                    <Dices size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
+                    <span className="font-medium hidden sm:inline">Partite:</span>
+                    <span>{game.lctr01Plays ?? 0}</span>
+                </div>
                 {topWinnerStats && (
                   <div className="flex items-baseline gap-2">
                     <Trophy size={14} className="text-amber-500 flex-shrink-0 relative top-px" />
@@ -1294,7 +1305,7 @@ const handleGenerateRecommendations = async () => {
       <Alert variant="default" className="mt-6 bg-secondary/30 border-secondary">
           <Info className="h-4 w-4 text-secondary-foreground" />
           <AlertDescription className="text-secondary-foreground">
-            Nessuna recensione ancora per questo gioco.
+            Nessun voto ancora per questo gioco.
           </AlertDescription>
       </Alert>
       )}
@@ -1400,6 +1411,4 @@ const handleGenerateRecommendations = async () => {
     </div>
   );
 }
-
-
 
