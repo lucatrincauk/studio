@@ -52,23 +52,38 @@ const updateUserProfileInFirestore = async (user: FirebaseUser) => {
       const existingData = profileSnap.data() as UserProfile;
       profileDataToSave.name = user.displayName || existingData.name || user.email?.split('@')[0] || 'Utente Anonimo';
       profileDataToSave.bggUsername = existingData.bggUsername === "" ? null : (existingData.bggUsername || null);
-      // Preserve existing hasSubmittedReview status if it exists, otherwise it will be undefined and set below
       if (existingData.hasSubmittedReview !== undefined) {
         profileDataToSave.hasSubmittedReview = existingData.hasSubmittedReview;
+      }
+      if (existingData.hasGivenFirstOne !== undefined) {
+        profileDataToSave.hasGivenFirstOne = existingData.hasGivenFirstOne;
+      }
+      if (existingData.hasGivenFirstFive !== undefined) {
+        profileDataToSave.hasGivenFirstFive = existingData.hasGivenFirstFive;
       }
     } else { 
       profileDataToSave.name = user.displayName || user.email?.split('@')[0] || 'Utente Anonimo';
       profileDataToSave.bggUsername = null; 
-      profileDataToSave.hasSubmittedReview = false; // Initialize for new profiles
+      profileDataToSave.hasSubmittedReview = false; 
+      profileDataToSave.hasGivenFirstOne = false;
+      profileDataToSave.hasGivenFirstFive = false;
     }
-    // Ensure hasSubmittedReview is set if it was not present on existing data
+    
     if (profileDataToSave.hasSubmittedReview === undefined) {
-      profileDataToSave.hasSubmittedReview = false;
+        profileDataToSave.hasSubmittedReview = false;
     }
+    if (profileDataToSave.hasGivenFirstOne === undefined) {
+        profileDataToSave.hasGivenFirstOne = false;
+    }
+    if (profileDataToSave.hasGivenFirstFive === undefined) {
+        profileDataToSave.hasGivenFirstFive = false;
+    }
+
 
     await setDoc(userProfileRef, profileDataToSave, { merge: true });
   } catch (firestoreError) {
     console.error("Error updating user profile in Firestore during initial setup/login:", firestoreError);
+    // Fallback assignment if everything else fails
     if (!profileDataToSave.name) {
        profileDataToSave.name = user.displayName || user.email?.split('@')[0] || 'Utente Anonimo';
     }
@@ -77,6 +92,12 @@ const updateUserProfileInFirestore = async (user: FirebaseUser) => {
     }
     if (profileDataToSave.hasSubmittedReview === undefined) {
         profileDataToSave.hasSubmittedReview = false;
+    }
+    if (profileDataToSave.hasGivenFirstOne === undefined) {
+        profileDataToSave.hasGivenFirstOne = false;
+    }
+    if (profileDataToSave.hasGivenFirstFive === undefined) {
+        profileDataToSave.hasGivenFirstFive = false;
     }
     try {
       await setDoc(userProfileRef, profileDataToSave, { merge: true });
@@ -201,7 +222,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     setError(null);
-    const firestoreUpdatePayload: Partial<UserProfile> = {}; // Changed to Partial<UserProfile>
+    const firestoreUpdatePayload: Partial<UserProfile> = {}; 
     let authProfileUpdated = false;
 
     if (typeof updates.displayName === 'string' && updates.displayName !== auth.currentUser.displayName) {
@@ -228,7 +249,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     try {
       const userProfileRef = doc(db, USER_PROFILES_COLLECTION, auth.currentUser.uid);
-      // Fetch existing profile to preserve fields like hasSubmittedReview
       const profileSnap = await getDoc(userProfileRef);
       let finalPayload = { ...firestoreUpdatePayload };
       if (profileSnap.exists()) {
@@ -236,6 +256,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (existingData.hasSubmittedReview !== undefined && finalPayload.hasSubmittedReview === undefined) {
           finalPayload.hasSubmittedReview = existingData.hasSubmittedReview;
         }
+        if (existingData.hasGivenFirstOne !== undefined && finalPayload.hasGivenFirstOne === undefined) {
+          finalPayload.hasGivenFirstOne = existingData.hasGivenFirstOne;
+        }
+        if (existingData.hasGivenFirstFive !== undefined && finalPayload.hasGivenFirstFive === undefined) {
+          finalPayload.hasGivenFirstFive = existingData.hasGivenFirstFive;
+        }
+      } else { // Ensure flags are initialized if profile didn't exist (should be rare here)
+        finalPayload.hasSubmittedReview = finalPayload.hasSubmittedReview ?? false;
+        finalPayload.hasGivenFirstOne = finalPayload.hasGivenFirstOne ?? false;
+        finalPayload.hasGivenFirstFive = finalPayload.hasGivenFirstFive ?? false;
       }
       
       await setDoc(userProfileRef, finalPayload, { merge: true });

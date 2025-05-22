@@ -77,7 +77,7 @@ export interface BoardGame {
   maxPlaytime?: number | null;
   averageWeight?: number | null;
   overallAverageRating?: number | null;
-  voteCount?: number; // Renamed from reviewCount
+  voteCount?: number;
   isPinned?: boolean;
   mechanics?: string[];
   categories?: string[];
@@ -118,7 +118,9 @@ export interface UserProfile {
   photoURL?: string | null;
   email?: string | null;
   bggUsername?: string | null;
-  hasSubmittedReview?: boolean; // New field for badge system
+  hasSubmittedReview?: boolean;
+  hasGivenFirstOne?: boolean;
+  hasGivenFirstFive?: boolean;
 }
 
 export interface BggPlayerInPlay {
@@ -139,12 +141,12 @@ export interface BggPlayDetail {
   comments: string | null;
   location?: string | null;
   players?: BggPlayerInPlay[];
-  userId?: string; // The user who logged this play (e.g., "lctr01")
-  gameBggId: number; // The BGG ID of the game played
+  userId?: string; 
+  gameBggId: number; 
 }
 
 export interface AugmentedBggPlayDetail extends BggPlayDetail {
-  gameId: string; // Firestore ID of the game
+  gameId: string; 
   gameName: string;
   gameCoverArtUrl?: string | null;
 }
@@ -164,11 +166,10 @@ export type RecommendGamesOutput = {
   recommendations: RecommendedGame[];
 };
 
-// New type for Earned Badges
 export interface EarnedBadge {
   badgeId: string;
   name: string;
   description: string;
-  iconName?: string; // e.g., a lucide-react icon name string
-  earnedAt: any; // Firestore Timestamp (will be converted to Date on client)
+  iconName?: string; 
+  earnedAt: any; 
 }

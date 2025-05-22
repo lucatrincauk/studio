@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useRouter }
 from 'next/navigation';
 import { getUserDetailsAndReviewsAction, getFavoritedGamesForUserAction, getPlaylistedGamesForUserAction, getMorchiaGamesForUserAction } from '@/lib/actions'; 
@@ -9,7 +9,7 @@ import type { AugmentedReview, UserProfile, BoardGame, EarnedBadge } from '@/lib
 import { ReviewItem } from '@/components/boardgame/review-item';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { MessageSquareText, AlertCircle, Gamepad2, UserCircle2, Star, Heart, ListChecks, Loader2, ExternalLink, Frown, Award, Edit3, FileText, BookOpenText, Trash2, Medal, type LucideIcon, BookMarked } from 'lucide-react';
+import { MessageSquareText, AlertCircle, Gamepad2, UserCircle2, Star, Heart, ListChecks, Loader2, ExternalLink, Frown, Award, Edit3, FileText, BookOpenText, Trash2, Medal, MinusCircle, PlusCircle, type LucideIcon, BookMarked } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { SafeImage } from '@/components/common/SafeImage';
@@ -30,7 +30,8 @@ const iconMap: Record<string, LucideIcon> = {
   BookOpenText: BookOpenText,
   Trash2: Trash2,
   Medal: Medal,
-  // Add other icons as needed
+  MinusCircle: MinusCircle,
+  PlusCircle: PlusCircle,
 };
 
 export default function UserDetailPage() {
@@ -65,27 +66,27 @@ export default function UserDetailPage() {
     setError(null);
 
     try {
-      const [profileData, favData, playlistData, morchiaData] = await Promise.allSettled([ 
+      const [profileAndReviewsData, favData, playlistData, morchiaData] = await Promise.allSettled([ 
         getUserDetailsAndReviewsAction(userId),
         getFavoritedGamesForUserAction(userId),
         getPlaylistedGamesForUserAction(userId),
         getMorchiaGamesForUserAction(userId) 
       ]);
 
-      if (profileData.status === 'fulfilled') {
-        if (profileData.value.user) {
-          setViewedUser(profileData.value.user);
-          setUserReviews(profileData.value.reviews);
-          setEarnedBadges(profileData.value.badges);
+      if (profileAndReviewsData.status === 'fulfilled') {
+        if (profileAndReviewsData.value.user) {
+          setViewedUser(profileAndReviewsData.value.user);
+          setUserReviews(profileAndReviewsData.value.reviews);
+          setEarnedBadges(profileAndReviewsData.value.badges); // Set badges
         } else {
           setError('Utente non trovato.');
         }
       } else {
-        setError(profileData.reason?.message || 'Impossibile caricare il profilo utente.');
+        setError(profileAndReviewsData.reason?.message || 'Impossibile caricare il profilo utente e le recensioni.');
       }
       setIsLoadingProfile(false);
       setIsLoadingReviews(false);
-      setIsLoadingBadges(false);
+      setIsLoadingBadges(false); // Badges loading done
 
       if (favData.status === 'fulfilled') {
         setFavoritedGames(favData.value);
@@ -126,6 +127,16 @@ export default function UserDetailPage() {
     fetchUserData();
   }, [fetchUserData]);
 
+  const averageScoreGiven = useMemo(() => {
+    if (!userReviews || userReviews.length === 0) return null;
+    const totalScoreSum = userReviews.reduce((sum, review) => {
+      const overallReviewAvg = calculateOverallCategoryAverage(review.rating);
+      return sum + (overallReviewAvg * 2); 
+    }, 0);
+    return totalScoreSum / userReviews.length;
+  }, [userReviews]);
+
+
   if (isLoadingProfile) {
     return (
       <div className="flex flex-col justify-center items-center min-h-[calc(100vh-200px)]">
@@ -153,15 +164,6 @@ export default function UserDetailPage() {
         <AlertDescription>L'utente che cerchi non è stato trovato.</AlertDescription>
       </Alert>
     );
-  }
-
-  let averageScoreGiven: number | null = null;
-  if (userReviews && userReviews.length > 0) {
-    const totalScoreSum = userReviews.reduce((sum, review) => {
-      const overallReviewAvg = calculateOverallCategoryAverage(review.rating);
-      return sum + (overallReviewAvg * 2); 
-    }, 0);
-    averageScoreGiven = totalScoreSum / userReviews.length;
   }
 
   return (
@@ -230,7 +232,7 @@ export default function UserDetailPage() {
             </Alert>
         )}
       </section>
-
+      
       <Separator />
       
       <section>
@@ -298,7 +300,7 @@ export default function UserDetailPage() {
 
       <section>
         <h2 className="text-2xl font-semibold mb-6 text-foreground flex items-center gap-2">
-          <BookMarked className="h-6 w-6 text-sky-500" /> {/* Changed icon */}
+          <BookMarked className="h-6 w-6 text-sky-500" /> 
           Playlist di {viewedUser.name} ({playlistedGames.length}) 
         </h2>
         {isLoadingPlaylist ? ( 
@@ -319,7 +321,7 @@ export default function UserDetailPage() {
       <section>
         <h2 className="text-2xl font-semibold mb-6 text-foreground flex items-center gap-2">
           <Frown className="h-6 w-6 text-orange-600" />
-          Morchia secondo {viewedUser.name} ({morchiaGames.length}) {/* Changed text */}
+          Morchia secondo {viewedUser.name} ({morchiaGames.length}) 
         </h2>
         {isLoadingMorchia ? (
           <div className="flex justify-center py-4"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
