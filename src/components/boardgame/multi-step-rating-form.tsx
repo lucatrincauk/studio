@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useTransition, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useTransition, useMemo, useCallback } from 'react';
 import { useForm, type Control } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
@@ -17,10 +17,10 @@ import type { User as FirebaseUser } from 'firebase/auth';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Slider } from '@/components/ui/slider';
 import {
-  calculateOverallCategoryAverage as calculateOverallCatAvgFromUtils,
-  calculateGroupedCategoryAverages as calculateGroupedCatAvgsFromUtils,
+  calculateOverallCategoryAverage,
+  calculateGroupedCategoryAverages,
   formatRatingNumber,
-  calculateCategoryAverages as calculateCatAvgsLocal
+  calculateCategoryAverages,
 } from '@/lib/utils';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, doc, updateDoc, query, where, getDocs, limit, writeBatch, getDoc, serverTimestamp, setDoc, type DocumentReference, collectionGroup, getCountFromServer, type Timestamp } from 'firebase/firestore';
@@ -41,12 +41,42 @@ const SLIDER_LEGENDS: Record<RatingCategory, { minLabel: string; maxLabel: strin
   fun: { minLabel: "💩 Morchia dell'anno", maxLabel: "Troppo togo." },
   decisionDepth: { minLabel: "Pilota automatico", maxLabel: "E se poi te ne penti?" },
   replayability: { minLabel: "Sempre uguale", maxLabel: "Ogni volta diverso!" },
-  luck: { minLabel: "Molto Aleatorio", maxLabel: "Poco Aleatorio" }, // 1 = High luck
+  luck: { minLabel: "Molto Aleatorio", maxLabel: "Tutto in mano mia!" },
   lengthDowntime: { minLabel: "Pessima", maxLabel: "Perfetta" },
   graphicDesign: { minLabel: "Meglio essere ciechi", maxLabel: "Ganzissimo!" },
   componentsThemeLore: { minLabel: "Tema? Quale tema?", maxLabel: "Immersione totale!" },
   effortToLearn: { minLabel: "Manuale da incubo", maxLabel: "Si impara in un attimo!" },
   setupTeardown: { minLabel: "Un'impresa titanica", maxLabel: "Pronti, via!" },
+};
+
+const RATING_CATEGORY_DESCRIPTIONS: Record<RatingCategory, string> = {
+  excitedToReplay: "Quanto ti entusiasma l’idea di rigiocare questo gioco?",
+  mentallyStimulating: "Quanto questo gioco ti fa pensare, risolvere problemi o elaborare strategie?",
+  fun: "Quanto ti sei divertito complessivamente giocando?",
+  decisionDepth: "Quanto sono state significative e incisive le scelte che hai fatto durante il gioco?",
+  replayability: "Quanto diversa ed entusiasmante potrebbe essere la prossima partita?",
+  luck: "Quanto poco il caso o la casualità influenzano l'esito del gioco?",
+  lengthDowntime: "Come valuti la durata totale e i tempi morti tra un turno e l'altro?",
+  graphicDesign: "Come giudichi la qualità artistica, il design grafico e l'usabilità dei componenti?",
+  componentsThemeLore: "Come valuti l'ambientazione e l'applicazione del tema al gioco?",
+  effortToLearn: "Quanto è stato facile o difficile imparare le regole e iniziare a giocare?",
+  setupTeardown: "Quanto tempo ed energia sono necessari per preparare il gioco e poi rimetterlo via?",
+};
+
+
+const stepCategories: RatingCategory[][] = [
+  ['excitedToReplay', 'mentallyStimulating', 'fun'],
+  ['decisionDepth', 'replayability', 'luck', 'lengthDowntime'],
+  ['graphicDesign', 'componentsThemeLore'],
+  ['effortToLearn', 'setupTeardown'],
+];
+
+const stepUITitles: Record<number, string> = {
+  1: "Sentimento",
+  2: "Design del Gioco",
+  3: "Estetica e Immersione",
+  4: "Apprendimento e Logistica",
+  5: "Riepilogo Valutazione",
 };
 
 const stepUIDescriptions: Record<number, string> = {
@@ -57,11 +87,11 @@ const stepUIDescriptions: Record<number, string> = {
   5: "La tua recensione è stata salvata. Ecco il riepilogo dei tuoi voti:",
 };
 
+
 const BadgeIconMap: Record<LucideIconName, LucideIcon> = {
   Award, Edit3, FileText, BookOpenText, MinusCircle, PlusCircle, Sparkles,
   ClipboardCheck: ClipboardCheckIcon, Moon, Trash2, Compass, HeartPulse, ListMusic
 };
-
 
 interface RatingSliderInputProps {
   fieldName: RatingCategory;
@@ -70,7 +100,7 @@ interface RatingSliderInputProps {
 
 const RatingSliderInput: React.FC<RatingSliderInputProps> = React.memo(({ fieldName, control }) => {
   const label = RATING_CATEGORIES[fieldName];
-  const description = stepUIDescriptions[fieldName as unknown as number] ?? categoryDescriptions[fieldName as RatingCategory];
+  const description = RATING_CATEGORY_DESCRIPTIONS[fieldName];
   const minLabel = SLIDER_LEGENDS[fieldName].minLabel;
   const maxLabel = SLIDER_LEGENDS[fieldName].maxLabel;
 
@@ -79,7 +109,7 @@ const RatingSliderInput: React.FC<RatingSliderInputProps> = React.memo(({ fieldN
       control={control}
       name={fieldName}
       render={({ field }) => {
-        const currentFieldValue = Number(field.value); // Ensure it's a number for memoization and comparison
+        const currentFieldValue = Number(field.value);
         const sliderValue = useMemo(() => [currentFieldValue], [currentFieldValue]);
 
         return (
@@ -88,12 +118,12 @@ const RatingSliderInput: React.FC<RatingSliderInputProps> = React.memo(({ fieldN
               <FormLabel>{label}</FormLabel>
               <span className="text-lg font-semibold text-primary">{currentFieldValue}</span>
             </div>
-            <p className="text-xs text-muted-foreground mb-2">{description}</p>
+            {description && <p className="text-xs text-muted-foreground mb-2">{description}</p>}
             <Slider
               value={sliderValue}
               onValueChange={(value: number[]) => {
                 const numericValue = value[0];
-                if (numericValue !== currentFieldValue) { // Compare number with number
+                if (numericValue !== currentFieldValue) {
                   field.onChange(numericValue);
                 }
               }}
@@ -113,7 +143,6 @@ const RatingSliderInput: React.FC<RatingSliderInputProps> = React.memo(({ fieldN
 });
 RatingSliderInput.displayName = 'RatingSliderInput';
 
-
 interface MultiStepRatingFormProps {
   gameId: string;
   gameName: string;
@@ -127,21 +156,6 @@ interface MultiStepRatingFormProps {
 
 const totalInputSteps = 4;
 const totalDisplaySteps = 5;
-
-const stepCategories: RatingCategory[][] = [
-  ['excitedToReplay', 'mentallyStimulating', 'fun'],
-  ['decisionDepth', 'replayability', 'luck', 'lengthDowntime'],
-  ['graphicDesign', 'componentsThemeLore'],
-  ['effortToLearn', 'setupTeardown'],
-];
-
-const stepUITitles: Record<number, string> = {
-  1: "Sentimento",
-  2: "Design del Gioco",
-  3: "Estetica e Immersione",
-  4: "Apprendimento e Logistica",
-  5: "Riepilogo Valutazione",
-};
 
 
 const StepIcon = ({ step }: { step: number }) => {
@@ -193,7 +207,7 @@ export function MultiStepRatingForm({
     mode: 'onChange',
   });
 
-  const updateGameOverallRating = useCallback(async (wasNewReviewAdded: boolean): Promise<{ success: boolean; initialReviewCount: number }> => {
+   const updateGameOverallRating = useCallback(async (wasNewReviewAdded: boolean): Promise<{ success: boolean; initialReviewCount: number }> => {
     let initialReviewCountOnGame = 0;
     try {
       const gameDocForCountRef = doc(db, "boardgames_collection", gameId);
@@ -222,14 +236,14 @@ export function MultiStepRatingForm({
         return { id: docSnap.id, ...data, rating } as Review;
       });
 
-      const categoryAvgs = calculateCatAvgsLocal(allReviewsForGame);
-      const newOverallAverage = categoryAvgs ? calculateOverallCatAvgFromUtils(categoryAvgs) : null;
+      const categoryAvgs = calculateCategoryAverages(allReviewsForGame);
+      const newOverallAverage = categoryAvgs ? calculateOverallCategoryAverage(categoryAvgs) : null;
       const newVoteCount = allReviewsForGame.length;
 
       const gameDocRef = doc(db, "boardgames_collection", gameId);
       await updateDoc(gameDocRef, {
         overallAverageRating: newOverallAverage,
-        voteCount: newVoteCount
+        voteCount: newVoteCount // Ensure voteCount is updated
       });
       
       return { success: true, initialReviewCount: initialReviewCountOnGame };
@@ -252,7 +266,6 @@ export function MultiStepRatingForm({
     let submissionSuccess = false;
     let wasNewReviewAdded = false;
     const awardedBadgesInThisSession: Array<Pick<EarnedBadge, 'name' | 'iconName' | 'description'>> = [];
-
 
     if (!currentUser) {
       toast({ title: "Errore", description: "Devi essere loggato per inviare un voto.", variant: "destructive" });
@@ -321,14 +334,14 @@ export function MultiStepRatingForm({
       gameUpdateResult = await updateGameOverallRating(wasNewReviewAdded);
       await revalidateGameDataAction(gameId);
 
-      userProfileSnap = await getDoc(userProfileRef); // Re-fetch after potential updates
+      userProfileSnap = await getDoc(userProfileRef);
       userProfileData = userProfileSnap.exists() ? userProfileSnap.data() as UserProfile : null;
 
       if (userProfileData) {
         if (wasNewReviewAdded && gameUpdateResult.success && gameUpdateResult.initialReviewCount === 0) {
           const pioneerBadgeRef = doc(userProfileRef, 'earned_badges', 'rating_pioneer');
           const pioneerBadgeSnap = await getDoc(pioneerBadgeRef);
-           if (!pioneerBadgeSnap.exists()) { // Check if badge already exists to prevent re-awarding if logic runs multiple times
+           if (!pioneerBadgeSnap.exists()) {
             const badgeData: EarnedBadge = { badgeId: "rating_pioneer", name: "Pioniere dei Voti", description: "Sii il primo a inviare un voto per un gioco!", iconName: "Sparkles", earnedAt: serverTimestamp() };
             await setDoc(pioneerBadgeRef, badgeData, { merge: true });
             awardedBadgesInThisSession.push({ name: badgeData.name, iconName: badgeData.iconName, description: badgeData.description });
@@ -350,9 +363,9 @@ export function MultiStepRatingForm({
           await updateDoc(userProfileRef, { hasGivenFirstFive: true });
           awardedBadgesInThisSession.push({ name: badgeData.name, iconName: badgeData.iconName, description: badgeData.description });
         }
-         if (!userProfileData.hasEarnedComprehensiveCritic) {
+         if (!userProfileData.hasEarnedComprehensiveCritic && ratingsGiven.length > 0) {
             const distinctScores = new Set(ratingsGiven);
-            if (distinctScores.size >= 3) { // e.g., used at least 1, 3, and 5
+            if (distinctScores.size >= 3) {
                 const badgeRef = doc(userProfileRef, 'earned_badges', 'comprehensive_critic');
                 const badgeData: EarnedBadge = { badgeId: "comprehensive_critic", name: "Critico Completo", description: "Hai inviato un voto utilizzando almeno tre valori diversi sulla scala!", iconName: "ClipboardCheck", earnedAt: serverTimestamp() };
                 await setDoc(badgeRef, badgeData, { merge: true });
@@ -362,7 +375,7 @@ export function MultiStepRatingForm({
         }
         if (!userProfileData.hasEarnedNightOwlReviewer) {
             const currentHour = new Date().getHours();
-            if (currentHour >= 0 && currentHour <= 4) { // Between midnight (0) and 4:59 AM (4)
+            if (currentHour >= 0 && currentHour <= 4) {
                 const badgeRef = doc(userProfileRef, 'earned_badges', 'night_owl_reviewer');
                 const badgeData: EarnedBadge = { badgeId: "night_owl_reviewer", name: "Recensore Notturno", description: "Hai inviato un voto tra mezzanotte e le 5 del mattino!", iconName: "Moon", earnedAt: serverTimestamp() };
                 await setDoc(badgeRef, badgeData, { merge: true });
@@ -455,7 +468,7 @@ export function MultiStepRatingForm({
         if (submissionSuccessful) {
           const currentRatings = form.getValues();
           const tempReviewForSummary: Review = {
-            id: existingReview?.id || 'summary-review-id', // Use actual ID if editing
+            id: existingReview?.id || 'summary-review-id',
             author: currentUser.displayName || 'Anonimo',
             userId: currentUser.uid,
             authorPhotoURL: currentUser.photoURL || null,
@@ -463,7 +476,7 @@ export function MultiStepRatingForm({
             comment: "",
             date: existingReview?.date || new Date().toISOString(),
           };
-          setGroupedAveragesForSummary(calculateGroupedCatAvgsFromUtils([tempReviewForSummary]));
+          setGroupedAveragesForSummary(calculateGroupedCategoryAverages([tempReviewForSummary]));
           onStepChange(totalDisplaySteps);
         }
       });
@@ -484,37 +497,47 @@ export function MultiStepRatingForm({
     onReviewSubmitted();
   };
 
-  const yourOverallAverage = calculateOverallCatAvgFromUtils(form.getValues());
+  const yourOverallAverage = calculateOverallCategoryAverage(form.getValues());
 
   return (
     <Form {...form}>
-      <form>
-        {currentStep === 1 && (
-            <>
-                <Card className="mb-4 shadow-sm border-border">
-                    <CardHeader className="p-3 flex flex-row items-center gap-3 bg-muted/30">
-                        {gameCoverArtUrl && (
-                        <div className="relative h-16 w-12 flex-shrink-0 rounded-sm overflow-hidden">
-                            <SafeImage
-                            src={gameCoverArtUrl}
-                            fallbackSrc={`https://placehold.co/48x64.png?text=${encodeURIComponent(gameName).substring(0, 3)}`}
-                            alt={`${gameName} copertina`}
-                            fill
-                            sizes="48px"
-                            className="object-cover"
-                            data-ai-hint={`${gameName.split(' ')[0]?.toLowerCase() || 'game'} thumbnail`}
-                            />
-                        </div>
-                        )}
-                        <div className="flex-1">
-                        <h4 className="font-semibold text-md text-foreground">{gameName}</h4>
-                        </div>
-                    </CardHeader>
-                </Card>
-                <Separator className="mb-6" />
-            </>
+      <form className="space-y-6">
+        {/* Game Info Card (Step 1 and 5) */}
+        {(currentStep === 1 || currentStep === totalDisplaySteps) && (
+          <Card className="mb-4 shadow-sm border-border">
+            <CardHeader className="p-3 flex flex-row items-center justify-between gap-3 bg-muted/30">
+              <div className="flex items-center gap-3">
+                {gameCoverArtUrl && (
+                  <div className="relative h-16 w-12 flex-shrink-0 rounded-sm overflow-hidden">
+                    <SafeImage
+                      src={gameCoverArtUrl}
+                      fallbackSrc={`https://placehold.co/48x64.png?text=${encodeURIComponent(gameName).substring(0, 3)}`}
+                      alt={`${gameName} copertina`}
+                      fill
+                      sizes="48px"
+                      className="object-cover"
+                      data-ai-hint={`${gameName.split(' ')[0]?.toLowerCase() || 'game'} thumbnail`}
+                    />
+                  </div>
+                )}
+                <div className="flex-1">
+                  <h4 className="font-semibold text-md text-foreground">{gameName}</h4>
+                </div>
+              </div>
+              {currentStep === totalDisplaySteps && yourOverallAverage !== null && (
+                <div className="text-right">
+                  <span className="text-primary text-3xl md:text-4xl font-bold whitespace-nowrap">
+                    {formatRatingNumber(yourOverallAverage * 2)}
+                  </span>
+                </div>
+              )}
+            </CardHeader>
+          </Card>
         )}
+         {currentStep === 1 && <Separator className="mb-6" />}
 
+
+        {/* Step Header (Steps 1-4) */}
         {(currentStep <= totalInputSteps) && (
           <div className="mb-4">
              <div className="flex justify-between items-start">
@@ -527,50 +550,21 @@ export function MultiStepRatingForm({
                       {stepUIDescriptions[currentStep]}
                     </p>
                 </div>
+                {/* Placeholder for potential top-right content next to step header if needed */}
             </div>
           </div>
         )}
         
+        {/* Summary Step Header (Step 5) */}
         {currentStep === totalDisplaySteps && (
-          <>
-            <CardHeader className="px-0 pt-6 pb-4">
-              <CardTitle className="text-xl font-semibold flex items-center">
-                {stepUITitles[currentStep]}
-              </CardTitle>
-              <CardDescription className="text-sm text-muted-foreground mt-1 whitespace-pre-line">
-                {stepUIDescriptions[currentStep]}
-              </CardDescription>
-            </CardHeader>
-            <Card className="mb-4 shadow-sm border-border">
-              <CardHeader className="p-3 flex flex-row items-center justify-between gap-3 bg-muted/30">
-                <div className="flex items-center gap-3">
-                    {gameCoverArtUrl && (
-                    <div className="relative h-16 w-12 flex-shrink-0 rounded-sm overflow-hidden">
-                        <SafeImage
-                        src={gameCoverArtUrl}
-                        fallbackSrc={`https://placehold.co/48x64.png?text=${encodeURIComponent(gameName).substring(0, 3)}`}
-                        alt={`${gameName} copertina`}
-                        fill
-                        sizes="48px"
-                        className="object-cover"
-                        data-ai-hint={`${gameName.split(' ')[0]?.toLowerCase() || 'game'} thumbnail`}
-                        />
-                    </div>
-                    )}
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-md text-foreground">{gameName}</h4>
-                    </div>
-                </div>
-                {yourOverallAverage !== null && (
-                  <div className="text-right">
-                    <span className="text-primary text-3xl md:text-4xl font-bold whitespace-nowrap">
-                      {formatRatingNumber(yourOverallAverage * 2)}
-                    </span>
-                  </div>
-                )}
-              </CardHeader>
-            </Card>
-          </>
+          <CardHeader className="px-0 pt-6 pb-4">
+            <CardTitle className="text-xl font-semibold flex items-center">
+              {stepUITitles[currentStep]}
+            </CardTitle>
+            <CardDescription className="text-sm text-muted-foreground mt-1 whitespace-pre-line">
+              {stepUIDescriptions[currentStep]}
+            </CardDescription>
+          </CardHeader>
         )}
 
         <div className="min-h-[240px] sm:min-h-[280px]">
@@ -661,10 +655,11 @@ export function MultiStepRatingForm({
 
         <div className={cn(
           "flex items-center pt-4 border-t mt-6",
-           (currentStep === 1 || (currentStep > 1 && currentStep < totalDisplaySteps)) ? 'justify-between' : 'justify-end'
+          (currentStep > 1 && currentStep <= totalInputSteps) ? 'justify-between' : 'justify-end'
         )}>
-          <div> {/* Left-aligned buttons */}
-            {currentStep === 1 && (
+          {/* Left Aligned Buttons */}
+          <div>
+            {(currentStep === 1) && (
               <Button type="button" variant="outline" onClick={() => router.push(`/games/${gameId}`)} disabled={isSubmitting}>
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Torna al Gioco
@@ -677,7 +672,8 @@ export function MultiStepRatingForm({
             )}
           </div>
 
-          <div> {/* Right-aligned buttons */}
+          {/* Right Aligned Buttons */}
+          <div>
             {currentStep < totalInputSteps && (
               <Button type="button" onClick={handleNext} disabled={isSubmitting} className="bg-primary hover:bg-primary/90 text-primary-foreground">
                 Avanti
@@ -700,4 +696,3 @@ export function MultiStepRatingForm({
     </Form>
   );
 }
-
