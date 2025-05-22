@@ -1,10 +1,9 @@
-
 'use client';
 
 import type { ChangeEvent } from 'react';
 import { useEffect, useState, useTransition, useCallback, use, useMemo } from 'react';
 import Link from 'next/link';
-import { getGameDetails, revalidateGameDataAction, fetchUserPlaysForGameFromBggAction, fetchAndUpdateBggGameDetailsAction } from '@/lib/actions';
+import { getGameDetails, revalidateGameDataAction, fetchUserPlaysForGameFromBggAction, fetchAndUpdateBggGameDetailsAction, getAllGamesAction } from '@/lib/actions';
 import { recommendGames } from '@/ai/flows/recommend-games';
 import type { BoardGame, Review, Rating as RatingType, GroupedCategoryAverages, BggPlayDetail, BggPlayerInPlay, RecommendedGame as AIRecommendedGame, UserProfile } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -19,7 +18,7 @@ import { calculateGroupedCategoryAverages, calculateOverallCategoryAverage, form
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { doc, deleteDoc, updateDoc, getDocs, collection, getDoc, arrayUnion, arrayRemove, increment, writeBatch, serverTimestamp, setDoc } from 'firebase/firestore';
+import { doc, deleteDoc, updateDoc, getDocs, collection, getDoc, arrayUnion, arrayRemove, increment, writeBatch, serverTimestamp, setDoc, query, where, getCountFromServer } from 'firebase/firestore'; // Added query, where, getCountFromServer
 import {
   Accordion,
   AccordionContent,
@@ -372,7 +371,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                             badgeId: 'favorite_fanatic_5',
                             name: 'Collezionista di Cuori',
                             description: 'Hai aggiunto 5 giochi ai tuoi preferiti!',
-                            iconName: 'HeartPulse',
+                            iconName: 'HeartPulse' as const,
                             earnedAt: serverTimestamp(),
                         };
                         await setDoc(badgeRef, badgeData);
@@ -495,7 +494,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                             badgeId: 'playlist_pro_5',
                             name: 'Maestro di Playlist',
                             description: 'Hai aggiunto 5 giochi alla tua playlist!',
-                            iconName: 'ListMusic',
+                            iconName: 'ListMusic' as const,
                             earnedAt: serverTimestamp(),
                         };
                         await setDoc(badgeRef, badgeData);
@@ -592,7 +591,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                           badgeId: 'morchia_hunter_5',
                           name: 'Cacciatore di Morchie',
                           description: 'Hai contrassegnato 5 giochi come "morchia"!',
-                          iconName: 'Trash2',
+                          iconName: 'Trash2' as const,
                           earnedAt: serverTimestamp(),
                       };
                       await setDoc(morchiaBadgeRef, badgeData);
@@ -737,7 +736,7 @@ const handleGenerateRecommendations = async () => {
 
     startFetchingRecommendationsTransition(async () => {
       try {
-        const allGamesDataResult = await getAllGamesAction({ skipRatingCalculation: true });
+        const allGamesDataResult = await getAllGamesAction();
         if ('error' in allGamesDataResult) {
           throw new Error(allGamesDataResult.error);
         }
@@ -857,15 +856,10 @@ const handleGenerateRecommendations = async () => {
       <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
         <div className="flex flex-col">
            <div className="flex justify-between items-start p-6 pb-2 mb-2">
-            <div className="flex-1 flex items-center gap-1 flex-shrink min-w-0 mr-2">
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
-                {game.name}
-              </h1>
-              {game.bggId && (
-                <a href={`https://boardgamegeek.com/boardgame/${game.bggId}`} target="_blank" rel="noopener noreferrer" title="Vedi su BGG" className="inline-flex items-center text-primary/80 hover:text-primary hover:bg-primary/10 p-1 rounded-md">
-                    <ExternalLink size={16} className="h-4 w-4" />
-                </a>
-              )}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:gap-1 flex-shrink min-w-0 mr-2">
+                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
+                    {game.name}
+                </h1>
             </div>
             <div className="flex-shrink-0 flex flex-col items-end">
                 {globalGameAverage !== null && (
@@ -894,23 +888,23 @@ const handleGenerateRecommendations = async () => {
                 </div>
               </div>
               
-               <div className="flex justify-evenly items-center gap-1 sm:gap-2 py-4 border-t border-b border-border">
+              <div className="flex justify-evenly items-center gap-1 sm:gap-2 py-4 border-t border-b border-border">
                 <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleToggleFavorite(game.id, game.name)}
-                    disabled={isFavoriting || authLoading || !currentUser}
-                    title={isFavoritedByCurrentUser ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
-                    className={cn(
-                        `h-9 px-2 hover:bg-destructive/10`,
-                        isFavoritedByCurrentUser ? 'text-destructive hover:bg-destructive/20' : 'text-destructive/60 hover:text-destructive'
-                    )}
-                  >
-                    <Heart className={cn(`h-5 w-5`, isFavoritedByCurrentUser ? 'fill-destructive' : '')} />
-                    {currentFavoriteCount > 0 && (
-                    <span className="ml-1 text-xs">({currentFavoriteCount})</span>
-                    )}
-                  </Button>
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleToggleFavorite(game.id, game.name)}
+                  disabled={isFavoriting || authLoading || !currentUser}
+                  title={isFavoritedByCurrentUser ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
+                  className={cn(
+                      `h-9 px-2`,
+                      isFavoritedByCurrentUser ? 'text-destructive hover:bg-destructive/20' : 'text-destructive/60 hover:text-destructive hover:bg-destructive/10'
+                  )}
+                >
+                  <Heart className={cn(`h-5 w-5`, isFavoritedByCurrentUser ? 'fill-destructive' : '')} />
+                  {currentFavoriteCount > 0 && (
+                  <span className="ml-1 text-xs">({currentFavoriteCount})</span>
+                  )}
+                </Button>
                 
                 <Button
                     variant="ghost"
@@ -919,8 +913,8 @@ const handleGenerateRecommendations = async () => {
                     disabled={isTogglingMorchia || authLoading || !currentUser}
                     title={isMorchiaByCurrentUser ? "Rimuovi da Morchie" : "Aggiungi alle Morchie"}
                     className={cn(
-                        `h-9 px-2 hover:bg-orange-600/10`,
-                        isMorchiaByCurrentUser ? 'text-orange-600 hover:bg-orange-600/20' : 'text-orange-600/60 hover:text-orange-600'
+                        `h-9 px-2`,
+                        isMorchiaByCurrentUser ? 'text-orange-600 hover:bg-orange-600/20' : 'text-orange-600/60 hover:text-orange-600 hover:bg-orange-600/10'
                     )}
                 >
                     <Frown className={cn(`h-5 w-5`, isMorchiaByCurrentUser ? 'fill-orange-600/30' : '')} />
@@ -936,14 +930,20 @@ const handleGenerateRecommendations = async () => {
                     disabled={isPlaylisting || authLoading || !currentUser}
                     title={isPlaylistedByCurrentUser ? "Rimuovi dalla Playlist" : "Aggiungi alla Playlist"}
                     className={cn(
-                        `h-9 px-2 hover:bg-sky-500/10`,
-                        isPlaylistedByCurrentUser ? 'text-sky-500 hover:bg-sky-500/20' : 'text-sky-500/60 hover:text-sky-500'
+                        `h-9 px-2`,
+                        isPlaylistedByCurrentUser ? 'text-sky-500 hover:bg-sky-500/20' : 'text-sky-500/60 hover:text-sky-500 hover:bg-sky-500/10'
                     )}
                 >
                     {isPlaylistedByCurrentUser ? <BookMarked className="h-5 w-5" /> : <Bookmark className="h-5 w-5" />}
                     {game?.playlistedByUserIds && game.playlistedByUserIds.length > 0 && (
                         <span className="ml-1 text-xs">({game.playlistedByUserIds.length})</span>
                     )}
+                </Button>
+
+                <Button variant="ghost" size="icon" asChild className="h-9 w-9 text-primary/80 hover:text-primary hover:bg-primary/10" disabled={!game.bggId}>
+                    <a href={`https://boardgamegeek.com/boardgame/${game.bggId}`} target="_blank" rel="noopener noreferrer" title="Vedi su BGG">
+                        <ExternalLink className="h-5 w-5" />
+                    </a>
                 </Button>
                 
                 {isAdmin && (
@@ -992,7 +992,7 @@ const handleGenerateRecommendations = async () => {
                   </div>
                 )}
                 {game.yearPublished !== null && (
-                  <div className="flex items-baseline gap-2 justify-start md:justify-start"> {/* Changed to justify-start for left align */}
+                  <div className="flex items-baseline gap-2"> {/* Removed justify-end */}
                     <CalendarIcon size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
                     <span className="font-medium hidden sm:inline">Anno:</span>
                     <span>{game.yearPublished}</span>
@@ -1006,7 +1006,7 @@ const handleGenerateRecommendations = async () => {
                   </div>
                 )}
                 {(game.minPlaytime != null || game.maxPlaytime != null || game.playingTime != null) && (
-                  <div className="flex items-baseline gap-2 justify-start md:justify-start"> {/* Changed to justify-start for left align */}
+                  <div className="flex items-baseline gap-2"> {/* Removed justify-end */}
                      <Clock size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
                     <span className="font-medium hidden sm:inline">Durata:</span>
                     <span>
@@ -1025,7 +1025,7 @@ const handleGenerateRecommendations = async () => {
                   </div>
                 )}
                  {game.lctr01Plays !== null && (
-                    <div className="flex items-baseline gap-2 justify-start md:justify-start"> {/* Changed to justify-start for left align */}
+                    <div className="flex items-baseline gap-2"> 
                         <Dices size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
                         <span className="font-medium hidden sm:inline">Partite:</span>
                         <span>{game.lctr01Plays ?? 0}</span>
@@ -1039,7 +1039,7 @@ const handleGenerateRecommendations = async () => {
                   </div>
                 )}
                 {highestScoreAchieved !== null && (
-                  <div className="flex items-baseline gap-2 justify-start md:justify-start"> {/* Changed to justify-start for left align */}
+                  <div className="flex items-baseline gap-2"> 
                       <Medal size={14} className="text-amber-500 flex-shrink-0 relative top-px" />
                       <span className="font-medium hidden sm:inline">Miglior Punteggio:</span>
                       <span>{formatRatingNumber(highestScoreAchieved)} pt.</span>
@@ -1077,7 +1077,7 @@ const handleGenerateRecommendations = async () => {
           </div>
         </div>
       </Card>
-      
+
       {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
         <Card className="shadow-md border border-border rounded-lg">
           <CardHeader className="flex flex-row justify-between items-center">
@@ -1375,4 +1375,5 @@ const handleGenerateRecommendations = async () => {
     </div>
   );
 }
+
 
