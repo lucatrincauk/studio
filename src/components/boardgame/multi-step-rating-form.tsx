@@ -19,7 +19,7 @@ import {
   calculateOverallCategoryAverage as calculateGlobalOverallAverage,
   calculateGroupedCategoryAverages as calculateGroupedAveragesUtil,
   formatRatingNumber,
-  calculateCategoryAverages, // Keep for updateGameOverallRating
+  calculateCategoryAverages as calculateCatAvgsUtil, 
 } from '@/lib/utils';
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 import { db } from '@/lib/firebase';
@@ -43,7 +43,7 @@ const RatingSliderInput: React.FC<RatingSliderInputProps> = ({ fieldName, contro
       control={control}
       name={fieldName}
       render={({ field }) => {
-        const currentFieldValue = Number(field.value);
+        const currentFieldValue = Number(field.value); // Ensure it's a number
         const sliderValue = useMemo(() => [currentFieldValue], [currentFieldValue]);
 
         return (
@@ -78,8 +78,8 @@ const RatingSliderInput: React.FC<RatingSliderInputProps> = ({ fieldName, contro
 
 const SLIDER_LEGENDS: Record<RatingCategory, { minLabel: string; maxLabel: string }> = {
   excitedToReplay: { minLabel: "Neanche morto", maxLabel: "Subito un'altra!" },
-  mentallyStimulating: { minLabel: "Cervello in vacanza", maxLabel: "Spremi meningi!" },
-  fun: { minLabel: "Sbadigli...", maxLabel: "Troppo togo" },
+  mentallyStimulating: { minLabel: "Cervello in standby", maxLabel: "Mi è venuto mal di testa" },
+  fun: { minLabel: "Che noia!", maxLabel: "Troppo togo!" },
   decisionDepth: { minLabel: "Pilota automatico", maxLabel: "Scelte cruciali!" },
   replayability: { minLabel: "Sempre uguale", maxLabel: "Ogni volta diverso!" },
   luck: { minLabel: "Regno della Dea Bendata", maxLabel: "Tutto in mano mia!" },
@@ -103,7 +103,7 @@ interface MultiStepRatingFormProps {
 }
 
 const totalInputSteps = 4;
-const totalDisplaySteps = 5; // Includes the summary step
+const totalDisplaySteps = 5; 
 
 const stepCategories: RatingCategory[][] = [
   ['excitedToReplay', 'mentallyStimulating', 'fun'],
@@ -187,7 +187,7 @@ export function MultiStepRatingForm({
   const form = useForm<RatingFormValues>({
     resolver: zodResolver(reviewFormSchema),
     defaultValues: defaultFormValues,
-    mode: 'onChange',
+    mode: 'onChange', 
   });
 
   const updateGameOverallRating = useCallback(async () => {
@@ -212,14 +212,14 @@ export function MultiStepRatingForm({
         return { id: docSnap.id, ...data, rating } as Review;
       });
 
-      const categoryAvgs = calculateCategoryAverages(allReviewsForGame);
+      const categoryAvgs = calculateCatAvgsUtil(allReviewsForGame);
       const newOverallAverage = categoryAvgs ? calculateGlobalOverallAverage(categoryAvgs) : null;
-      const newVoteCount = allReviewsForGame.length;
+      const newReviewCount = allReviewsForGame.length;
 
       const gameDocRef = doc(db, "boardgames_collection", gameId);
       await updateDoc(gameDocRef, {
         overallAverageRating: newOverallAverage,
-        voteCount: newVoteCount
+        voteCount: newReviewCount 
       });
       await revalidateGameDataAction(gameId);
     } catch (error) {
@@ -303,7 +303,6 @@ export function MultiStepRatingForm({
       }
       submissionSuccess = true;
       await updateGameOverallRating();
-      await revalidateGameDataAction(gameId);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
       toast({ title: "Errore", description: `Impossibile inviare il voto: ${errorMessage}`, variant: "destructive" });
@@ -407,13 +406,13 @@ export function MultiStepRatingForm({
         )}
 
         {currentStep === totalDisplaySteps && gameName && (
-             <CardHeader className="px-0 pt-6 pb-4">
+            <CardHeader className="px-0 pt-6 pb-4">
                 <div className="flex justify-between items-baseline mb-2">
                     <div className="flex-1">
                         <CardTitle className="text-2xl md:text-3xl text-left">
-                         {stepUITitles[currentStep]} per {gameName}
+                            Riepilogo Valutazione {gameName ? `per ${gameName}` : ''}
                         </CardTitle>
-                         {stepUIDescriptions[currentStep] && (
+                        {stepUIDescriptions[currentStep] && (
                             <CardDescription className="text-left text-sm text-muted-foreground mt-1 whitespace-pre-line">
                                 {stepUIDescriptions[currentStep]}
                             </CardDescription>
@@ -548,3 +547,6 @@ export function MultiStepRatingForm({
     </Form>
   );
 }
+
+
+    
