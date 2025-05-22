@@ -588,10 +588,10 @@ const handleGenerateRecommendations = async () => {
         <div className="flex flex-col md:flex-row">
           {/* Main Content Column */}
           <div className="flex-1 p-6 space-y-4 md:order-1">
-            {/* Main header: Title, BGG Link, Score, and action icons moved to button bar */}
+            {/* Main header: Title, BGG Link, Score */}
             <div className="flex justify-between items-start mb-2">
                 <div className="flex-1 flex flex-col sm:flex-row sm:items-center sm:gap-1 min-w-0 mr-2">
-                     <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
+                    <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground flex items-center">
                         {game.name}
                         {game.bggId > 0 && (
                             <a
@@ -599,7 +599,7 @@ const handleGenerateRecommendations = async () => {
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 title="Vedi su BoardGameGeek"
-                                className="inline-flex items-center text-primary hover:text-primary/80 focus:outline-none focus:ring-2 focus:ring-ring rounded-md p-0.5 ml-1"
+                                className="inline-flex items-center text-primary hover:text-primary/80 focus:outline-none focus:ring-2 focus:ring-ring rounded-md p-0.5 ml-1.5"
                             >
                                 <ExternalLink size={16} className="h-4 w-4" />
                             </a>
@@ -609,7 +609,7 @@ const handleGenerateRecommendations = async () => {
                 <div className="flex-shrink-0">
                     {globalGameAverage !== null ? (
                     <span className="text-3xl md:text-4xl font-bold text-primary whitespace-nowrap">
-                        {formatRatingNumber(globalGameAverage)}
+                        {formatRatingNumber(globalGameAverage * 2)}
                     </span>
                     ) : (<span className="text-primary text-3xl md:text-4xl font-bold whitespace-nowrap"></span>) }
                 </div>
@@ -632,7 +632,7 @@ const handleGenerateRecommendations = async () => {
             </div>
 
             {/* Metadata Grid */}
-             <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
                 {(game.designers && game.designers.length > 0) && (
                     <div className="flex items-baseline gap-2">
                       <span className="inline-flex items-center"><PenTool size={14} className="text-primary/80 flex-shrink-0 relative top-px" /></span>
@@ -901,12 +901,12 @@ const handleGenerateRecommendations = async () => {
       <div className="space-y-8">
           {currentUser && !authLoading && (
             userReview ? (
-              <div className="p-6 border border-border rounded-lg shadow-md bg-card">
+              <div className="space-y-4"> {/* Removed card styles */}
                 <div className="flex flex-row items-center justify-between gap-2 mb-4">
                   <h3 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h3>
                   <div className="flex items-center gap-2 flex-shrink-0">
                       <Button asChild size="sm" variant="default" className="bg-primary hover:bg-primary/90 text-primary-foreground">
-                        <Link href={`/games/${gameId}/rate`}>
+                         <Link href={`/games/${gameId}/rate`}>
                            <span className="flex items-center">
                              <Edit className="mr-0 sm:mr-2 h-4 w-4" />
                              <span className="hidden sm:inline">Modifica</span>
@@ -1052,3 +1052,4 @@ const handleGenerateRecommendations = async () => {
     </div>
   );
 }
+
