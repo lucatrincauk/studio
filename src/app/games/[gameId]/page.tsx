@@ -19,7 +19,7 @@ import { calculateGroupedCategoryAverages, calculateOverallCategoryAverage, form
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { doc, deleteDoc, updateDoc, getDocs, collection, getDoc, arrayUnion, arrayRemove, increment, writeBatch, serverTimestamp, setDoc, where, getCountFromServer, query } from 'firebase/firestore';
+import { doc, deleteDoc, updateDoc, getDocs, collection, getDoc, arrayUnion, arrayRemove, increment, writeBatch, serverTimestamp, setDoc, where, getCountFromServer, query, orderBy, type DocumentReference } from 'firebase/firestore';
 import {
   Accordion,
   AccordionContent,
@@ -134,7 +134,9 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       }
       setUserReview(foundUserReview);
 
-      setRemainingReviews(gameData.reviews?.filter(r => r.id !== foundUserReview?.id) || []);
+      const otherReviews = gameData.reviews?.filter(r => r.id !== foundUserReview?.id) || [];
+      setRemainingReviews(otherReviews);
+
 
       if (gameData.reviews && gameData.reviews.length > 0) {
         const categoryAvgs = calculateCatAvgsFromUtils(gameData.reviews);
@@ -238,8 +240,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         
         toast({ title: "Voto Eliminato", description: "Il tuo voto è stato eliminato con successo." });
         await updateGameOverallRatingAfterDelete();
-        await revalidateGameDataAction(gameId);
-        // No need to call fetchGameData() here, updateGameOverallRatingAfterDelete does it.
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({ title: "Errore", description: `Impossibile eliminare il voto: ${errorMessage}`, variant: "destructive" });
@@ -251,8 +251,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     if (!game || authLoading || !isAdmin) return;
     startPinToggleTransition(async () => {
       const newPinStatus = !currentIsPinned;
+      const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
       try {
-        const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
         await updateDoc(gameRef, {
           isPinned: newPinStatus
         });
@@ -262,7 +262,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           title: "Stato Vetrina Aggiornato",
           description: `Il gioco è stato ${newPinStatus ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
         });
-        await revalidateGameDataAction(game.id);
+        revalidateGameDataAction(game.id);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({
@@ -270,7 +270,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `Impossibile aggiornare lo stato vetrina: ${errorMessage}`,
           variant: "destructive",
         });
-        setCurrentIsPinned(!newPinStatus);
+        setCurrentIsPinned(!newPinStatus); 
       }
     });
   };
@@ -343,7 +343,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `${nameToDisplay} è stato ${finalFavoritedStatus ? 'aggiunto ai' : 'rimosso dai'} tuoi preferiti.`,
         });
         
-        await revalidateGameDataAction(targetGameId);
+        revalidateGameDataAction(targetGameId);
         if (targetGameId === game?.id) {
           fetchGameData();
         } else {
@@ -467,7 +467,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `${nameToDisplay} è stato ${finalPlaylistedStatus ? 'aggiunto alla' : 'rimosso dalla'} tua playlist.`,
         });
 
-        await revalidateGameDataAction(targetGameId);
+        revalidateGameDataAction(targetGameId);
          if (targetGameId === game?.id) {
           fetchGameData();
         } else {
@@ -618,7 +618,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             : (prevGame.morchiaByUserIds || []).filter(uid => uid !== currentUser.uid)
         } : null);
         
-        await revalidateGameDataAction(game.id);
+        revalidateGameDataAction(game.id);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Impossibile aggiornare la Morchia List.";
         toast({ title: "Errore", description: errorMessage, variant: "destructive" });
@@ -659,8 +659,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
         await updateDoc(gameRef, serverActionResult.updateData);
         toast({ title: 'Dettagli Aggiornati', description: `Dettagli per ${game.name} aggiornati con successo.` });
-        await revalidateGameDataAction(game.id);
-        await fetchGameData();
+        revalidateGameDataAction(game.id);
+        fetchGameData();
       } catch (dbError) {
         const errorMessage = dbError instanceof Error ? dbError.message : "Errore sconosciuto durante l'aggiornamento del DB.";
         toast({ title: 'Errore Aggiornamento Database', description: errorMessage, variant: 'destructive' });
@@ -688,7 +688,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
         if (playsToSave.length > 0) {
             const batch = writeBatch(db);
-            const playsSubcollectionRef = collection(db, FIRESTORE_COLLECTION_NAME, game.id, `plays_${usernameToFetch.toLowerCase()}`);
+            const playsSubcollectionRef = collection(db, FIRESTORE_COLLECTION_NAME, game.id, 'plays_' + usernameToFetch.toLowerCase());
 
             playsToSave.forEach(play => {
                 const playDocRef = doc(playsSubcollectionRef, play.playId);
@@ -708,8 +708,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                     title: "Partite Caricate e Salvate!",
                     description: bggFetchResult.message || `Caricate e salvate ${playsToSave.length} partite per ${game.name}. Conteggio aggiornato.`,
                 });
-                await revalidateGameDataAction(game.id);
-                await fetchGameData();
+                revalidateGameDataAction(game.id);
+                fetchGameData();
             } catch (dbError) {
                 const errorMessage = dbError instanceof Error ? dbError.message : "Impossibile salvare le partite nel database.";
                 toast({ title: 'Errore Salvataggio Partite DB', description: errorMessage, variant: 'destructive' });
@@ -721,8 +721,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                     title: "Nessuna Partita Trovata",
                     description: bggFetchResult.message || `Nessuna partita trovata su BGG per ${usernameToFetch} per questo gioco. Conteggio azzerato.`,
                 });
-                await revalidateGameDataAction(game.id);
-                await fetchGameData();
+                revalidateGameDataAction(game.id);
+                fetchGameData();
             } catch (dbError) {
                  // Silently ignore error if updating play count to 0 fails
             }
@@ -858,26 +858,23 @@ const handleGenerateRecommendations = async () => {
     <div className="space-y-8">
       <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
         <div className="flex flex-col">
-          {/* Top section: Game title, score, action icons */}
-          <div className="flex justify-between items-start p-6 border-b border-border">
-            <div className="flex-1 min-w-0 mr-4">
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground inline-flex items-center gap-1">
+           <div className="flex justify-between items-start p-6 pb-2 mb-2">
+            <div className="flex-1 min-w-0 mr-2">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
                 {game.name}
               </h1>
             </div>
-            <div className="flex-shrink-0 flex flex-col items-end">
-              {globalGameAverage !== null && (
-                <span className="text-3xl md:text-4xl font-bold text-primary whitespace-nowrap">
-                  {formatRatingNumber(globalGameAverage * 2)}
-                </span>
-              )}
+            <div className="flex-shrink-0 flex flex-col items-end space-y-1">
+                {globalGameAverage !== null && (
+                  <span className="text-3xl md:text-4xl font-bold text-primary whitespace-nowrap">
+                    {formatRatingNumber(globalGameAverage * 2)}
+                  </span>
+                )}
             </div>
           </div>
 
           <div className="flex flex-col md:flex-row">
-            {/* Main Content Column */}
-            <div className="flex-1 p-6 space-y-4 md:order-1">
-              {/* Mobile Image - Placed after header block */}
+            <div className="flex-1 p-6 pt-0 space-y-4 md:order-1">
               <div className="md:hidden my-4 max-w-[240px] mx-auto">
                 <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
                   <SafeImage
@@ -892,9 +889,8 @@ const handleGenerateRecommendations = async () => {
                   />
                 </div>
               </div>
-
-              {/* Button Bar */}
-              <div className="flex justify-evenly items-center gap-1 sm:gap-2 py-4 border-t border-b border-border">
+              
+               <div className="flex justify-evenly items-center gap-1 sm:gap-2 py-4 border-t border-b border-border">
                 <div className="flex items-center">
                   <Button
                     variant="ghost"
@@ -995,44 +991,54 @@ const handleGenerateRecommendations = async () => {
                 )}
               </div>
               
-              {/* Metadata Grid */}
               <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
-                <div className="flex items-baseline gap-2">
-                  <PenTool size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
-                  <span className="font-medium hidden sm:inline">Autori:</span>
-                  <span>{game.designers && game.designers.length > 0 ? game.designers.join(', ') : '-'}</span>
-                </div>
-                <div className="flex items-baseline gap-2 justify-start md:justify-end">
-                  <CalendarIcon size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
-                  <span className="font-medium hidden sm:inline">Anno:</span>
-                  <span>{game.yearPublished ?? '-'}</span>
-                </div>
-                <div className="flex items-baseline gap-2">
-                  <Users size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
-                  <span className="font-medium hidden sm:inline">Giocatori:</span>
-                  <span>{game.minPlayers}{game.maxPlayers && game.minPlayers !== game.maxPlayers ? `-${game.maxPlayers}` : ''}{!game.minPlayers && !game.maxPlayers ? '-' : ''}</span>
-                </div>
-                <div className="flex items-baseline gap-2 justify-start md:justify-end">
-                  <Clock size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
-                  <span className="font-medium hidden sm:inline">Durata:</span>
-                  <span>
+                 {game.designers && game.designers.length > 0 && (
+                  <div className="flex items-baseline gap-2">
+                    <PenTool size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
+                    <span className="font-medium hidden sm:inline">Autori:</span>
+                    <span>{game.designers.join(', ')}</span>
+                  </div>
+                )}
+                {game.yearPublished !== null && (
+                  <div className="flex items-baseline gap-2 justify-start md:justify-end">
+                    <CalendarIcon size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
+                    <span className="font-medium hidden sm:inline">Anno:</span>
+                    <span>{game.yearPublished}</span>
+                  </div>
+                )}
+                {(game.minPlayers !== null || game.maxPlayers !== null) && (
+                  <div className="flex items-baseline gap-2">
+                    <Users size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
+                    <span className="font-medium hidden sm:inline">Giocatori:</span>
+                    <span>{game.minPlayers}{game.maxPlayers && game.minPlayers !== game.maxPlayers ? `-${game.maxPlayers}` : ''}</span>
+                  </div>
+                )}
+                {(game.minPlaytime != null || game.maxPlaytime != null || game.playingTime != null) && (
+                  <div className="flex items-baseline gap-2 justify-start md:justify-end">
+                    <Clock size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
+                    <span className="font-medium hidden sm:inline">Durata:</span>
+                    <span>
                       {game.minPlaytime != null && game.maxPlaytime != null ?
-                      (game.minPlaytime === game.maxPlaytime ? `${game.minPlaytime} min` : `${game.minPlaytime} - ${game.maxPlaytime} min`)
-                      : (game.playingTime != null ? `${game.playingTime} min` : '-')
+                        (game.minPlaytime === game.maxPlaytime ? `${game.minPlaytime} min` : `${game.minPlaytime} - ${game.maxPlaytime} min`)
+                        : (game.playingTime != null ? `${game.playingTime} min` : '-')
                       }
-                      {game.minPlaytime != null && game.maxPlaytime != null && game.playingTime != null && game.minPlaytime !== game.maxPlaytime && game.playingTime !== game.minPlaytime && game.playingTime !== game.maxPlaytime && ` (Tipica: ${game.playingTime} min)`}
-                  </span>
-                </div>
-                <div className="flex items-baseline gap-2">
-                  <Weight size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
-                  <span className="font-medium hidden sm:inline">Complessità:</span>
-                  <span>{game.averageWeight !== null && typeof game.averageWeight === 'number' ? `${formatRatingNumber(game.averageWeight)} / 5` : '-'}</span>
-                </div>
-                 <div className="flex items-baseline gap-2 justify-start md:justify-end">
-                  <Dices size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
-                  <span className="font-medium hidden sm:inline">Partite:</span>
-                  <span>{game.lctr01Plays ?? 0}</span>
-                </div>
+                    </span>
+                  </div>
+                )}
+                 {game.averageWeight !== null && typeof game.averageWeight === 'number' && (
+                  <div className="flex items-baseline gap-2">
+                    <Weight size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
+                    <span className="font-medium hidden sm:inline">Complessità:</span>
+                    <span>{formatRatingNumber(game.averageWeight)} / 5</span>
+                  </div>
+                )}
+                 {game.lctr01Plays !== null && (
+                    <div className="flex items-baseline gap-2 justify-start md:justify-end">
+                        <Dices size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
+                        <span className="font-medium hidden sm:inline">Partite:</span>
+                        <span>{game.lctr01Plays ?? 0}</span>
+                    </div>
+                )}
                 {topWinnerStats && (
                   <div className="flex items-baseline gap-2">
                     <Trophy size={14} className="text-amber-500 flex-shrink-0 relative top-px" />
@@ -1049,7 +1055,6 @@ const handleGenerateRecommendations = async () => {
                 )}
               </div>
               
-              {/* Average Ratings Accordion */}
               {game.reviews && game.reviews.length > 0 && (
                   <div className="w-full pt-4 border-t border-border">
                     <h3 className="text-sm md:text-lg font-semibold text-foreground mb-3">Valutazione Media:</h3>
@@ -1063,7 +1068,6 @@ const handleGenerateRecommendations = async () => {
               )}
             </div>
 
-            {/* Desktop Image Sidebar */}
             <div className="hidden md:block md:w-1/4 p-6 flex-shrink-0 self-start md:order-2 space-y-4">
               <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
                 <SafeImage
@@ -1082,7 +1086,6 @@ const handleGenerateRecommendations = async () => {
         </div>
       </Card>
       
-      {/* Registered Plays Section */}
       {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
         <Card className="shadow-md border border-border rounded-lg">
           <CardHeader className="flex flex-row justify-between items-center">
@@ -1092,7 +1095,7 @@ const handleGenerateRecommendations = async () => {
             </CardTitle>
              <Badge variant="secondary">{game.lctr01PlayDetails.length}</Badge>
           </CardHeader>
-          <CardContent className="pt-0">
+          <CardContent className="space-y-3">
             <Accordion type="single" collapsible className="w-full">
               {game.lctr01PlayDetails.map((play) => {
                   const winners = play.players?.filter(p => p.didWin) || [];
@@ -1150,9 +1153,8 @@ const handleGenerateRecommendations = async () => {
                                     })
                                     .map((player, pIndex) => (
                                     <li key={pIndex} className={cn(
-                                      "flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5",
-                                      pIndex % 2 === 0 ? 'bg-muted/30' : '',
-                                      "px-2"
+                                      "flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5 px-2",
+                                      pIndex % 2 === 0 ? 'bg-muted/30' : ''
                                     )}>
                                         <div className="flex items-center gap-1.5 flex-grow min-w-0">
                                             <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 relative top-px" />
@@ -1186,77 +1188,73 @@ const handleGenerateRecommendations = async () => {
         </Card>
       )}
       
-      {/* User Review Section or Rate Game Button */}
-      <div className="space-y-4">
-        {currentUser && !authLoading && userReview && (
-          <div className="space-y-4">
-            <div className="flex flex-row items-center justify-between gap-2">
-              <h3 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h3>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <Button asChild size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground">
-                    <Link href={`/games/${gameId}/rate`}>
-                        <span className="flex items-center">
-                            <Edit className="mr-0 sm:mr-2 h-4 w-4" />
-                            <span className="hidden sm:inline">Modifica</span>
-                        </span>
-                    </Link>
-                </Button>
-                <AlertDialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
-                   <AlertDialogTrigger asChild>
-                    <Button variant="destructive" size="sm" disabled={isDeletingReview}>
-                        <span className="flex items-center">
-                        {isDeletingReview ? <Loader2 className="mr-0 sm:mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-0 sm:mr-2 h-4 w-4" />}
-                        <span className="hidden sm:inline">Elimina</span>
-                        </span>
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                    <AlertDialogTitle>Sei sicuro?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        Questa azione non può essere annullata. Eliminerà permanentemente il tuo voto per {game.name}.
-                    </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                    <AlertDialogCancel>Annulla</AlertDialogCancel>
-                    <AlertDialogAction onClick={confirmDeleteUserReview} className="bg-destructive hover:bg-destructive/90">
-                        {isDeletingReview ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Conferma Eliminazione" }
-                    </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
+      {currentUser && !authLoading && userReview && (
+        <div className="space-y-4">
+          <div className="flex flex-row items-center justify-between gap-2">
+            <h3 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h3>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Button asChild size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                <Link href={`/games/${gameId}/rate`}>
+                  <span className="flex items-center">
+                    <Edit className="mr-0 sm:mr-2 h-4 w-4" />
+                    <span className="hidden sm:inline">Modifica</span>
+                  </span>
+                </Link>
+              </Button>
+              <AlertDialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
+                 <AlertDialogTrigger asChild>
+                  <Button variant="destructive" size="sm" disabled={isDeletingReview}>
+                    <span className="flex items-center">
+                      {isDeletingReview ? <Loader2 className="mr-0 sm:mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-0 sm:mr-2 h-4 w-4" />}
+                      <span className="hidden sm:inline">Elimina</span>
+                    </span>
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                  <AlertDialogTitle>Sei sicuro?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                      Questa azione non può essere annullata. Eliminerà permanentemente il tuo voto per {game.name}.
+                  </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                  <AlertDialogCancel>Annulla</AlertDialogCancel>
+                  <AlertDialogAction onClick={confirmDeleteUserReview} className="bg-destructive hover:bg-destructive/90">
+                      {isDeletingReview ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Conferma Eliminazione" }
+                  </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
-            <ReviewItem review={userReview} />
           </div>
-        )}
+          <ReviewItem review={userReview} />
+        </div>
+      )}
 
-        {currentUser && !authLoading && !userReview && (
-          <Card className="p-6 border border-border rounded-lg shadow-md bg-card">
-            <CardTitle className="text-xl font-semibold text-foreground mb-1">Condividi la Tua Opinione</CardTitle>
-            <CardDescription className="mb-4">
+      {currentUser && !authLoading && !userReview && (
+        <Card className="p-6 border border-border rounded-lg shadow-md bg-card">
+          <CardTitle className="text-xl font-semibold text-foreground mb-1">Condividi la Tua Opinione</CardTitle>
+          <CardDescription className="mb-4">
             Aiuta gli altri condividendo la tua esperienza con questo gioco.
-            </CardDescription>
-            <Button asChild className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90">
-            <Link href={`/games/${gameId}/rate`}>
-                <Edit className="mr-2 h-4 w-4" />
-                Valuta questo Gioco
-            </Link>
-            </Button>
-          </Card>
-        )}
+          </CardDescription>
+          <Button asChild className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90">
+          <Link href={`/games/${gameId}/rate`}>
+              <Edit className="mr-2 h-4 w-4" />
+              Valuta questo Gioco
+          </Link>
+          </Button>
+        </Card>
+      )}
 
-        {!currentUser && !authLoading && (
-                <Alert variant="default" className="bg-secondary/30 border-secondary">
-                <Info className="h-4 w-4 text-secondary-foreground" />
-                <AlertDescription className="text-secondary-foreground">
-                    <Link href={`/signin?redirect=/games/${gameId}/rate`} className="font-semibold underline">Accedi</Link> per dare un voto.
-                </AlertDescription>
-                </Alert>
-        )}
-      </div>
+      {!currentUser && !authLoading && (
+        <Alert variant="default" className="bg-secondary/30 border-secondary">
+          <Info className="h-4 w-4 text-secondary-foreground" />
+          <AlertDescription className="text-secondary-foreground">
+            <Link href={`/signin?redirect=/games/${gameId}/rate`} className="font-semibold underline">Accedi</Link> per dare un voto.
+          </AlertDescription>
+        </Alert>
+      )}
         
-      {/* Other Reviews Section */}
       {remainingReviews.length > 0 ? (
       <>
           <Separator className="my-6" />
@@ -1272,19 +1270,18 @@ const handleGenerateRecommendations = async () => {
       <Alert variant="default" className="mt-6 bg-secondary/30 border-secondary">
           <Info className="h-4 w-4 text-secondary-foreground" />
           <AlertDescription className="text-secondary-foreground">
-          Nessun altro ha ancora inviato un voto per questo gioco.
+            Nessun altro ha ancora inviato un voto per questo gioco.
           </AlertDescription>
       </Alert>
       ) : (!game.reviews || game.reviews.length === 0) && (
       <Alert variant="default" className="mt-6 bg-secondary/30 border-secondary">
           <Info className="h-4 w-4 text-secondary-foreground" />
           <AlertDescription className="text-secondary-foreground">
-          Nessun voto ancora per questo gioco.
+            Nessun voto ancora per questo gioco.
           </AlertDescription>
       </Alert>
       )}
 
-      {/* AI Recommendations Section */}
       <div className="pt-8">
         <Card className="shadow-md border border-border rounded-lg">
         <CardHeader>
