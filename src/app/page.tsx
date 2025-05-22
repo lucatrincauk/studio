@@ -3,7 +3,7 @@ import { getAllGamesAction, getFeaturedGamesAction, getLastPlayedGameAction } fr
 import { GameCard } from '@/components/boardgame/game-card';
 import { Separator } from '@/components/ui/separator';
 import type { BoardGame, BggPlayDetail } from '@/lib/types';
-import { Star, TrendingUp, Library, Info, Dices, UserCircle2, Sparkles, Trophy, Medal, Clock10, BarChart3, Edit } from 'lucide-react';
+import { Star, TrendingUp, Library, Info, Dices, UserCircle2, Sparkles, Trophy, Medal, Clock10, BarChart3, Edit, CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { formatRatingNumber, formatReviewDate } from '@/lib/utils';
@@ -128,8 +128,8 @@ export default async function HomePage() {
                           {lastPlayedGame.name}
                       </Link>
                       </CardTitle>
-                      <CardDescription className="text-xs text-muted-foreground mt-1">
-                         {formatReviewDate(lastPlayDetail.date)}
+                      <CardDescription className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                         <CalendarDays size={12} className="text-muted-foreground/80"/> {formatReviewDate(lastPlayDetail.date)}
                       </CardDescription>
                   </div>
                   {lastPlayedGame.overallAverageRating !== null && typeof lastPlayedGame.overallAverageRating === 'number' && (
@@ -144,19 +144,19 @@ export default async function HomePage() {
               </CardHeader>
               <CardContent className="p-3 pt-0 text-sm space-y-1.5">
                   {lastPlayDetail.comments && lastPlayDetail.comments.trim() !== '' && (
-                    <div>
+                    <div className="pt-1">
                       <h4 className="text-xs font-semibold text-muted-foreground mb-0.5">Commenti:</h4>
                       <p className="text-xs text-foreground/80 whitespace-pre-wrap">{lastPlayDetail.comments}</p>
                     </div>
                   )}
                   {lastPlayDetail.players && lastPlayDetail.players.length > 0 && (
-                    <div>
-                      <ul className="">
+                    <div className="pt-1">
+                      <ul className="pl-1">
                         {lastPlayDetail.players
                           .slice()
                           .sort((a, b) => parseInt(b.score || "0", 10) - parseInt(a.score || "0", 10))
                           .map((player, pIndex) => (
-                            <li key={pIndex} className={cn(`flex items-center justify-between text-xs border-b border-border last:border-b-0 py-0.5 even:bg-muted/30`, 'px-2')}>
+                            <li key={pIndex} className={cn(`flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5 px-2`, pIndex % 2 === 0 ? 'bg-muted/30' : '')}>
                               <div className="flex items-center gap-1.5 flex-grow min-w-0">
                                 <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                                 <span className={cn("truncate", player.didWin ? 'font-semibold' : '')} title={player.name || player.username || 'Sconosciuto'}>
@@ -187,13 +187,13 @@ export default async function HomePage() {
 
         {topRatedGames.length > 0 && (
           <section className="mb-12">
-            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mb-6 text-left flex items-center gap-2">
+             <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mb-6 text-left flex items-center gap-2">
               <TrendingUp className="h-7 w-7 text-primary" />
               Top 10
             </h2>
             <div className="space-y-4">
               {topRatedGames.map((game, index) => (
-                <div
+                 <div
                   key={`top-rated-${game.id}`}
                   className={cn(
                       "relative bg-card p-3 rounded-lg border border-border flex items-center gap-x-3 sm:gap-x-4 overflow-hidden",
@@ -204,26 +204,24 @@ export default async function HomePage() {
                     aria-hidden="true"
                     className={cn(
                         "absolute z-0 font-bold text-muted-foreground/10 pointer-events-none select-none leading-none",
-                        "top-1/2 -translate-y-1/2", 
-                        "-right-[30px] text-[255px]",
-                        "sm:-right-[30px] sm:text-[300px]", 
-                        "lg:-right-[36px] lg:text-[340px]"
+                        "top-1/2 -translate-y-1/2",
+                        "-right-[30px] text-[255px]", // Default (mobile)
+                        "sm:-right-[30px] sm:text-[300px]", // Small screens
+                        "lg:-right-[36px] lg:text-[340px]" // Large screens
                     )}
                   >
                     {index + 1}
                   </span>
-                  <div
-                    className={cn(
+                  <div className={cn(
                       "relative z-10 flex items-center gap-x-3 sm:gap-x-4 flex-grow",
                       "mr-5 sm:mr-8 lg:mr-10" 
-                    )}
-                  >
+                    )}>
                     <div className="w-24 sm:w-28 md:w-32 flex-shrink-0">
                         <GameCard game={game} variant="featured" priority={index < 5} showOverlayText={false} />
                     </div>
                     <div className="flex-grow min-w-0 flex justify-between items-center">
                       <div className="group flex-1">
-                        <h3 className="text-md sm:text-lg font-semibold text-foreground group-hover:text-primary transition-colors">
+                        <h3 className="text-md sm:text-lg font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-3">
                           <Link href={`/games/${game.id}`} className="hover:underline focus:outline-none focus:ring-2 focus:ring-ring rounded">
                             {game.name}
                           </Link>
@@ -241,7 +239,7 @@ export default async function HomePage() {
                             {formatRatingNumber(game.overallAverageRating * 2)}
                           </p>
                         )}
-                        {game.voteCount !== null && typeof game.voteCount === 'number' && (
+                        {game.voteCount !== null && typeof game.voteCount === 'number' && ( 
                           <p className="text-xs text-muted-foreground">
                             {game.voteCount} {game.voteCount === 1 ? 'voto' : 'voti'} 
                           </p>
