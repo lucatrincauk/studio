@@ -9,7 +9,7 @@ import type { AugmentedReview, UserProfile, BoardGame, EarnedBadge, LucideIconNa
 import { ReviewItem } from '@/components/boardgame/review-item';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { MessageSquareText, AlertCircle, Gamepad2, UserCircle2, Star, Heart, ListChecks, Loader2, ExternalLink, Frown, Award, Edit3, FileText, BookOpenText, Trash2, Medal, MinusCircle, PlusCircle, Sparkles, ClipboardCheck, Moon, type LucideIcon, BookMarked } from 'lucide-react';
+import { MessageSquareText, AlertCircle, Gamepad2, UserCircle2, Star, Heart, ListChecks, Loader2, ExternalLink, Frown, Award, Edit3, FileText, BookOpenText, Trash2, Medal, MinusCircle, PlusCircle, Sparkles, ClipboardCheck, Moon, Compass, HeartPulse, ListMusic, type LucideIcon, BookMarked } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { SafeImage } from '@/components/common/SafeImage';
@@ -35,6 +35,9 @@ const iconMap: Record<LucideIconName, LucideIcon> = {
   Sparkles: Sparkles,
   ClipboardCheck: ClipboardCheck,
   Moon: Moon,
+  Compass: Compass,
+  HeartPulse: HeartPulse,
+  ListMusic: ListMusic,
 };
 
 export default function UserDetailPage() {
@@ -70,7 +73,7 @@ export default function UserDetailPage() {
 
     try {
       const [profileAndContentData, favData, playlistData, morchiaData] = await Promise.allSettled([ 
-        getUserDetailsAndReviewsAction(userId), // This action now returns user, reviews, and badges
+        getUserDetailsAndReviewsAction(userId),
         getFavoritedGamesForUserAction(userId),
         getPlaylistedGamesForUserAction(userId),
         getMorchiaGamesForUserAction(userId) 
@@ -80,7 +83,7 @@ export default function UserDetailPage() {
         if (profileAndContentData.value.user) {
           setViewedUser(profileAndContentData.value.user);
           setUserReviews(profileAndContentData.value.reviews);
-          setEarnedBadges(profileAndContentData.value.badges); 
+          setEarnedBadges(profileAndContentData.value.badges || []); 
         } else {
           setError('Utente non trovato.');
         }

@@ -2,7 +2,7 @@
 import { ALL_BADGE_DEFINITIONS } from '@/data/badge-definitions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
-  Award, Edit3, FileText, BookOpenText, Trash2, Medal, MinusCircle, PlusCircle, type LucideIcon
+  Award, Edit3, FileText, BookOpenText, Trash2, Medal, MinusCircle, PlusCircle, Sparkles, ClipboardCheck, Moon, Compass, HeartPulse, ListMusic, type LucideIcon
 } from 'lucide-react';
 import type { LucideIconName } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
@@ -16,6 +16,12 @@ const iconMap: Record<LucideIconName, LucideIcon> = {
   Medal,
   MinusCircle,
   PlusCircle,
+  Sparkles,
+  ClipboardCheck,
+  Moon,
+  Compass,
+  HeartPulse,
+  ListMusic,
 };
 
 export default function AllBadgesPage() {

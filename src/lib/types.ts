@@ -84,12 +84,12 @@ export interface BoardGame {
   mechanics?: string[];
   categories?: string[];
   designers?: string[];
+  featuredReason?: 'pinned' | 'recent';
   favoritedByUserIds?: string[];
   favoriteCount?: number;
   playlistedByUserIds?: string[];
   morchiaByUserIds?: string[];
   morchiaCount?: number;
-  featuredReason?: 'pinned' | 'recent';
   lctr01Plays?: number | null;
   lctr01PlayDetails?: BggPlayDetail[];
 }
@@ -125,6 +125,9 @@ export interface UserProfile {
   hasGivenFirstFive?: boolean;
   hasEarnedComprehensiveCritic?: boolean;
   hasEarnedNightOwlReviewer?: boolean;
+  hasReceivedWelcomeBadge?: boolean;
+  hasEarnedFavoriteFanaticBadge?: boolean;
+  hasEarnedPlaylistProBadge?: boolean;
 }
 
 export interface BggPlayerInPlay {
@@ -182,7 +185,10 @@ export type LucideIconName =
   | 'PlusCircle'
   | 'Sparkles'
   | 'ClipboardCheck'
-  | 'Moon';
+  | 'Moon'
+  | 'Compass'
+  | 'HeartPulse'
+  | 'ListMusic';
 
 export interface EarnedBadge {
   badgeId: string;
@@ -198,4 +204,3 @@ export interface BadgeDefinition {
   description: string; // How to earn it
   iconName: LucideIconName;
 }
-
