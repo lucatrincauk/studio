@@ -10,14 +10,14 @@ import { RATING_CATEGORIES } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import {
   Loader2, AlertCircle, CheckCircle, Smile, Puzzle, Palette, ClipboardList, ArrowLeft,
-  Award, Edit3, FileText, BookOpenText, MinusCircle, PlusCircle, Sparkles, ClipboardCheck as ClipboardCheckIcon, Moon, Trash2, HeartPulse, ListMusic, Compass, type LucideIcon
+  Award, Edit3, FileText, BookOpenText, MinusCircle, PlusCircle, Sparkles, ClipboardCheck as ClipboardCheckIcon, Moon, Trash2, Compass, HeartPulse, ListMusic, type LucideIcon
 } from 'lucide-react';
 import { reviewFormSchema, type RatingFormValues } from '@/lib/validators';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Slider } from '@/components/ui/slider';
 import {
-  calculateOverallCategoryAverage,
+  calculateOverallCategoryAverage as calculateGlobalOverallAverage,
   calculateGroupedCategoryAverages,
   formatRatingNumber,
   calculateCategoryAverages as calculateCatAvgsFromUtils,
@@ -30,6 +30,8 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { GroupedRatingsDisplay, type GroupedCategoryAverages as GroupedCategoryAveragesType } from './grouped-ratings-display';
 import { Separator } from '../ui/separator';
 import { cn } from '@/lib/utils';
+import { SafeImage } from '../common/SafeImage';
+
 
 const USER_PROFILES_COLLECTION = 'user_profiles';
 
@@ -49,8 +51,9 @@ const SLIDER_LEGENDS: Record<RatingCategory, { minLabel: string; maxLabel: strin
 
 const BadgeIconMap: Record<LucideIconName, LucideIcon> = {
   Award, Edit3, FileText, BookOpenText, MinusCircle, PlusCircle, Sparkles,
-  ClipboardCheck: ClipboardCheckIcon, Moon, Trash2, HeartPulse, ListMusic, Compass
+  ClipboardCheck: ClipboardCheckIcon, Moon, Trash2, Compass, HeartPulse, ListMusic
 };
+
 
 interface RatingSliderInputProps {
   fieldName: RatingCategory;
@@ -103,7 +106,7 @@ const RatingSliderInput: React.FC<RatingSliderInputProps> = ({ fieldName, contro
 interface MultiStepRatingFormProps {
   gameId: string;
   gameName?: string;
-  gameCoverArtUrl?: string;
+  gameCoverArtUrl?: string | null;
   currentUser: FirebaseUser;
   existingReview?: Review | null;
   currentStep: number;
@@ -198,7 +201,7 @@ export function MultiStepRatingForm({
     defaultValues: defaultFormValues,
     mode: 'onChange',
   });
-
+  
   const updateGameOverallRating = async (wasNewReviewAdded: boolean): Promise<{ success: boolean; initialReviewCount: number }> => {
     try {
       const gameDocForCountRef = doc(db, "boardgames_collection", gameId);
@@ -226,7 +229,7 @@ export function MultiStepRatingForm({
       });
 
       const categoryAvgs = calculateCatAvgsFromUtils(allReviewsForGame);
-      const newOverallAverage = categoryAvgs ? calculateOverallCategoryAverage(categoryAvgs) : null;
+      const newOverallAverage = categoryAvgs ? calculateGlobalOverallAverage(categoryAvgs) : null;
       const newVoteCount = allReviewsForGame.length;
 
       const gameDocRef = doc(db, "boardgames_collection", gameId);
@@ -366,7 +369,7 @@ export function MultiStepRatingForm({
         }
         if (!userProfileData.hasEarnedNightOwlReviewer) {
             const currentHour = new Date().getHours();
-            if (currentHour >= 0 && currentHour <= 4) { // Between 00:00 and 04:59
+            if (currentHour >= 0 && currentHour <= 4) { 
                 const badgeRef = doc(userProfileRef, 'earned_badges', 'night_owl_reviewer');
                 const badgeData: EarnedBadge = { badgeId: "night_owl_reviewer", name: "Recensore Notturno", description: "Hai inviato un voto tra mezzanotte e le 5 del mattino!", iconName: "Moon", earnedAt: serverTimestamp() };
                 await setDoc(badgeRef, badgeData, { merge: true });
@@ -466,7 +469,7 @@ export function MultiStepRatingForm({
             userId: currentUser.uid,
             authorPhotoURL: currentUser.photoURL || null,
             rating: currentRatings,
-            comment: '', // Comments are not part of the form anymore
+            comment: '',
             date: existingReview?.date || new Date().toISOString(),
           };
           setGroupedAveragesForSummary(calculateGroupedCategoryAverages([tempReviewForSummary]));
@@ -490,11 +493,10 @@ export function MultiStepRatingForm({
     onReviewSubmitted();
   };
 
-  const yourOverallAverage = calculateOverallCategoryAverage(form.getValues());
+  const yourOverallAverage = calculateGlobalOverallAverage(form.getValues());
   
-  const currentStepTitleText = stepUITitles[currentStep] || `Passo ${currentStep}`;
-  const currentStepDescriptionText = currentStep === totalDisplaySteps
-    ? (stepUIDescriptions[currentStep] || "").replace('{gameName}', gameName || 'questo gioco')
+  const currentStepDescriptionText = (currentStep === totalDisplaySteps && gameName)
+    ? (stepUIDescriptions[currentStep] || "").replace('{gameName}', gameName)
     : stepUIDescriptions[currentStep] || "";
 
 
@@ -503,7 +505,7 @@ export function MultiStepRatingForm({
       <form>
         {currentStep <= totalInputSteps && (
           <div className="mb-4">
-            <div className="flex justify-between items-start">
+             <div className="flex justify-between items-start">
                 <div className="flex-1">
                     <h3 className="text-xl font-semibold flex items-center">
                     <StepIcon step={currentStep} />
@@ -513,7 +515,7 @@ export function MultiStepRatingForm({
                     {stepUIDescriptions[currentStep]}
                     </p>
                 </div>
-                {/* Game image and name removed from steps 1-4 header */}
+                 {/* Game image and name removed from steps 1-4 header, will be added to step 5 */}
             </div>
           </div>
         )}
@@ -522,7 +524,7 @@ export function MultiStepRatingForm({
            <CardHeader className="px-0 pt-6 pb-4">
             <div className="flex justify-between items-baseline mb-2">
                 <CardTitle className="text-2xl md:text-3xl text-left">
-                    {currentStepTitleText}
+                    {stepUITitles[currentStep]}
                 </CardTitle>
                 {yourOverallAverage !== null && (
                     <div className="text-right">
@@ -532,6 +534,26 @@ export function MultiStepRatingForm({
                     </div>
                 )}
             </div>
+            {gameCoverArtUrl && gameName && (
+              <Card className="mb-4 shadow-sm border-border">
+                <CardHeader className="p-3 flex flex-row items-center gap-3 bg-muted/30">
+                  <div className="relative h-16 w-12 flex-shrink-0 rounded-sm overflow-hidden">
+                    <SafeImage
+                      src={gameCoverArtUrl}
+                      fallbackSrc={`https://placehold.co/48x64.png?text=${encodeURIComponent(gameName.substring(0,3))}`}
+                      alt={`${gameName} copertina`}
+                      fill
+                      sizes="48px"
+                      className="object-cover"
+                      data-ai-hint={`${gameName.split(' ')[0]?.toLowerCase() || 'game'} thumbnail`}
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-md text-foreground">{gameName}</h4>
+                  </div>
+                </CardHeader>
+              </Card>
+            )}
             <CardDescription className="text-left text-sm text-muted-foreground mt-1 whitespace-pre-line">
                 {currentStepDescriptionText}
             </CardDescription>
@@ -667,7 +689,7 @@ export function MultiStepRatingForm({
               ) : currentStep === totalInputSteps ? (
                 <Button type="button" onClick={handleStep4Submit} disabled={isSubmitTransitionPending} className="bg-accent hover:bg-accent/90 text-accent-foreground">
                   {isSubmitTransitionPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  {existingReview ? 'Aggiorna Voto' : 'Invia Voto'}
+                  {existingReview ? 'Aggiorna Recensione' : 'Invia Recensione'}
                 </Button>
               ) : currentStep === totalDisplaySteps ? (
                 <Button type="button" onClick={handleFinish} className="bg-primary hover:bg-primary/90 text-primary-foreground">
@@ -680,3 +702,4 @@ export function MultiStepRatingForm({
     </Form>
   );
 }
+
