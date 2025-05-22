@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils';
 
 export default async function HomePage() {
   const featuredGamesPromise = getFeaturedGamesAction();
-  const allGamesPromise = getAllGamesAction();
+  const allGamesPromise = getAllGamesAction({ skipRatingCalculation: false }); // Optimized for Top 10, ratings are on docs
   const lastPlayedPromise = getLastPlayedGameAction("lctr01");
 
   let featuredGames: BoardGame[] = [];
@@ -43,7 +43,7 @@ export default async function HomePage() {
       console.error("Error fetching all games:", results[1].reason);
     }
     
-    if (results[2].status === 'fulfilled' && results[2].value && results[2].value.game && results[2].value.lastPlayDetail) {
+    if (results[2].status === 'fulfilled' && results[2].value) {
       lastPlayedGame = results[2].value.game;
       lastPlayDetail = results[2].value.lastPlayDetail;
     } else if (results[2].status === 'rejected') {
@@ -108,7 +108,7 @@ export default async function HomePage() {
               Ultima Partita Giocata
             </h2>
             <Card className="shadow-md border border-border rounded-lg overflow-hidden">
-              <CardHeader className="bg-muted/30 p-3 flex flex-row items-start gap-3">
+              <CardHeader className="p-3 flex flex-row items-start gap-3"> {/* Removed bg-muted/30 */}
                 <div className="relative h-16 w-12 sm:h-20 sm:w-16 flex-shrink-0 rounded-sm overflow-hidden shadow-sm">
                   <SafeImage
                     src={lastPlayedGame.coverArtUrl}
@@ -198,13 +198,10 @@ export default async function HomePage() {
                   <span
                     aria-hidden="true"
                     className={cn(
-                      "absolute z-0 font-bold text-muted-foreground/10 pointer-events-none select-none leading-none top-1/2 -translate-y-1/2",
-                      // Mobile
-                      "text-[255px] -right-[30px]",
-                      // Small screens
-                      "sm:text-[300px] sm:-right-[30px]",
-                      // Large screens
-                      "lg:text-[340px] lg:-right-[36px]"
+                        "absolute z-0 font-bold text-muted-foreground/10 pointer-events-none select-none leading-none",
+                        "-bottom-[55px] -right-[30px] text-[255px]",
+                        "sm:-bottom-[65px] sm:-right-[30px] sm:text-[300px]",
+                        "lg:-bottom-[75px] lg:-right-[36px] lg:text-[340px]"
                     )}
                   >
                     {index + 1}
@@ -233,7 +230,7 @@ export default async function HomePage() {
                         )}
                         {game.voteCount !== null && typeof game.voteCount === 'number' && (
                           <p className="text-xs text-muted-foreground">
-                            {game.voteCount} {game.voteCount === 1 ? 'voto' : 'voti'}
+                            {game.voteCount} {game.voteCount === 1 ? 'voto' : 'voti'} 
                           </p>
                         )}
                       </div>
