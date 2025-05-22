@@ -5,13 +5,13 @@ import type { BoardGame, UserProfile } from '@/lib/types';
 import { useAuth } from '@/contexts/auth-context';
 import { UpdateProfileForm } from '@/components/profile/update-profile-form';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, AlertCircle, UserCircle2, ListChecks, Heart } from 'lucide-react';
+import { Loader2, AlertCircle, UserCircle2, ListChecks, Heart, Frown } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ThemeSwitcher } from '@/components/profile/theme-switcher'; 
 import { Separator } from '@/components/ui/separator';
 import { useState, useEffect, useCallback } from 'react';
-import { getFavoritedGamesForUserAction, getPlaylistedGamesForUserAction } from '@/lib/actions';
+import { getFavoritedGamesForUserAction, getPlaylistedGamesForUserAction, getMorchiaGamesForUserAction } from '@/lib/actions';
 import { GameCard } from '@/components/boardgame/game-card';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -25,16 +25,18 @@ export default function ProfilePage() {
 
   const [favoritedGames, setFavoritedGames] = useState<BoardGame[]>([]);
   const [playlistedGames, setPlaylistedGames] = useState<BoardGame[]>([]);
+  const [morchiaGames, setMorchiaGames] = useState<BoardGame[]>([]);
   const [isLoadingFavorites, setIsLoadingFavorites] = useState(false);
   const [isLoadingPlaylist, setIsLoadingPlaylist] = useState(false);
+  const [isLoadingMorchia, setIsLoadingMorchia] = useState(false);
 
   const fetchUserProfileAndLists = useCallback(async () => {
     if (firebaseUser) {
       setIsLoadingProfile(true);
       setIsLoadingFavorites(true);
       setIsLoadingPlaylist(true);
+      setIsLoadingMorchia(true);
 
-      // Fetch Firestore profile
       const profileRef = doc(db, USER_PROFILES_COLLECTION, firebaseUser.uid);
       try {
         const docSnap = await getDoc(profileRef);
@@ -51,11 +53,10 @@ export default function ProfilePage() {
         }
       } catch (error) {
         console.error("Error fetching user profile from Firestore:", error);
-        setUserProfileData(null); // Or handle error state
+        setUserProfileData(null);
       }
       setIsLoadingProfile(false);
 
-      // Fetch lists
       try {
         const favResult = await getFavoritedGamesForUserAction(firebaseUser.uid);
         setFavoritedGames(favResult);
@@ -73,13 +74,25 @@ export default function ProfilePage() {
       } finally {
         setIsLoadingPlaylist(false);
       }
+
+      try {
+        const morchiaResult = await getMorchiaGamesForUserAction(firebaseUser.uid);
+        setMorchiaGames(morchiaResult);
+      } catch (e) {
+        setMorchiaGames([]);
+      } finally {
+        setIsLoadingMorchia(false);
+      }
+
     } else {
       setUserProfileData(null);
       setFavoritedGames([]);
       setPlaylistedGames([]);
+      setMorchiaGames([]);
       setIsLoadingProfile(false);
       setIsLoadingFavorites(false);
       setIsLoadingPlaylist(false);
+      setIsLoadingMorchia(false);
     }
   }, [firebaseUser]);
 
@@ -135,7 +148,7 @@ export default function ProfilePage() {
                     displayName: userProfileData.name || firebaseUser.displayName || '',
                     bggUsername: userProfileData.bggUsername || null,
                 }}
-                onProfileUpdate={fetchUserProfileAndLists} // Re-fetch profile data on successful update
+                onProfileUpdate={fetchUserProfileAndLists} 
             />
            )}
         </CardContent>
@@ -180,6 +193,26 @@ export default function ProfilePage() {
           </div>
         ) : (
           <p className="text-muted-foreground">La tua playlist è vuota.</p>
+        )}
+      </section>
+
+      <Separator />
+
+      <section>
+        <h2 className="text-2xl font-semibold mb-6 text-foreground flex items-center gap-2">
+          <Frown className="h-6 w-6 text-orange-600" />
+          La Tua Morchia List
+        </h2>
+        {isLoadingMorchia ? (
+          <div className="flex justify-center py-4"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+        ) : morchiaGames.length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {morchiaGames.map((game, index) => (
+              <GameCard key={game.id} game={game} variant="featured" priority={index < 5} showOverlayText={true} />
+            ))}
+          </div>
+        ) : (
+          <p className="text-muted-foreground">La tua Morchia List è vuota. Ottimo!</p>
         )}
       </section>
     </div>

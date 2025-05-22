@@ -4,12 +4,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter }
 from 'next/navigation';
-import { getUserDetailsAndReviewsAction, getFavoritedGamesForUserAction, getPlaylistedGamesForUserAction } from '@/lib/actions'; 
+import { getUserDetailsAndReviewsAction, getFavoritedGamesForUserAction, getPlaylistedGamesForUserAction, getMorchiaGamesForUserAction } from '@/lib/actions'; 
 import type { AugmentedReview, UserProfile, BoardGame } from '@/lib/types';
 import { ReviewItem } from '@/components/boardgame/review-item';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { MessageSquareText, AlertCircle, Gamepad2, UserCircle2, Star, Heart, ListChecks, Loader2, ExternalLink } from 'lucide-react';
+import { MessageSquareText, AlertCircle, Gamepad2, UserCircle2, Star, Heart, ListChecks, Loader2, ExternalLink, Frown } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { SafeImage } from '@/components/common/SafeImage';
@@ -31,11 +31,13 @@ export default function UserDetailPage() {
   const [userReviews, setUserReviews] = useState<AugmentedReview[]>([]);
   const [favoritedGames, setFavoritedGames] = useState<BoardGame[]>([]);
   const [playlistedGames, setPlaylistedGames] = useState<BoardGame[]>([]); 
+  const [morchiaGames, setMorchiaGames] = useState<BoardGame[]>([]);
   
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [isLoadingReviews, setIsLoadingReviews] = useState(true);
   const [isLoadingFavorites, setIsLoadingFavorites] = useState(true);
   const [isLoadingPlaylist, setIsLoadingPlaylist] = useState(true); 
+  const [isLoadingMorchia, setIsLoadingMorchia] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchUserData = useCallback(async () => {
@@ -45,13 +47,15 @@ export default function UserDetailPage() {
     setIsLoadingReviews(true);
     setIsLoadingFavorites(true);
     setIsLoadingPlaylist(true); 
+    setIsLoadingMorchia(true);
     setError(null);
 
     try {
-      const [profileAndReviewsData, favData, playlistData] = await Promise.all([ 
+      const [profileAndReviewsData, favData, playlistData, morchiaData] = await Promise.all([ 
         getUserDetailsAndReviewsAction(userId),
         getFavoritedGamesForUserAction(userId),
-        getPlaylistedGamesForUserAction(userId) 
+        getPlaylistedGamesForUserAction(userId),
+        getMorchiaGamesForUserAction(userId) 
       ]);
 
       if (profileAndReviewsData.user) {
@@ -69,12 +73,16 @@ export default function UserDetailPage() {
       setPlaylistedGames(playlistData); 
       setIsLoadingPlaylist(false); 
 
+      setMorchiaGames(morchiaData);
+      setIsLoadingMorchia(false);
+
     } catch (e) {
       setError('Impossibile caricare i dati dell\'utente.');
       setIsLoadingProfile(false);
       setIsLoadingReviews(false);
       setIsLoadingFavorites(false);
       setIsLoadingPlaylist(false); 
+      setIsLoadingMorchia(false);
     }
   }, [userId]);
 
@@ -153,7 +161,7 @@ export default function UserDetailPage() {
       <section>
          <h2 className="text-2xl font-semibold mb-4 text-foreground flex items-center gap-3">
             <MessageSquareText className="h-6 w-6 text-primary" />
-            Tutti i Voti di {viewedUser.name} ({userReviews.length})
+            Tutte le Recensioni di {viewedUser.name} ({userReviews.length})
         </h2>
         {isLoadingReviews ? (
            <div className="flex justify-center py-4"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
@@ -230,6 +238,26 @@ export default function UserDetailPage() {
           </div>
         ) : (
           <p className="text-muted-foreground">La playlist di {viewedUser.name} è vuota.</p> 
+        )}
+      </section>
+
+       <Separator />
+
+      <section>
+        <h2 className="text-2xl font-semibold mb-6 text-foreground flex items-center gap-2">
+          <Frown className="h-6 w-6 text-orange-600" />
+          Morchia List di {viewedUser.name} ({morchiaGames.length})
+        </h2>
+        {isLoadingMorchia ? (
+          <div className="flex justify-center py-4"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+        ) : morchiaGames.length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {morchiaGames.map((game, index) => (
+              <GameCard key={game.id} game={game} variant="featured" priority={index < 5} showOverlayText={true} />
+            ))}
+          </div>
+        ) : (
+          <p className="text-muted-foreground">La Morchia List di {viewedUser.name} è vuota.</p>
         )}
       </section>
     </div>
