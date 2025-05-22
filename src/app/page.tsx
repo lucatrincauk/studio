@@ -3,7 +3,7 @@ import { getAllGamesAction, getFeaturedGamesAction, getLastPlayedGameAction } fr
 import { GameCard } from '@/components/boardgame/game-card';
 import { Separator } from '@/components/ui/separator';
 import type { BoardGame, BggPlayDetail } from '@/lib/types';
-import { Star, TrendingUp, Library, Info, Dices, UserCircle2, Sparkles, Trophy, Edit, Medal, Clock10 } from 'lucide-react';
+import { Star, TrendingUp, Library, Info, Dices, UserCircle2, Sparkles, Trophy, Edit, Medal, Clock10, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { formatRatingNumber, formatReviewDate } from '@/lib/utils';
@@ -15,44 +15,44 @@ import { cn } from '@/lib/utils';
 
 
 export default async function HomePage() {
-  const featuredGamesPromise = getFeaturedGamesAction();
-  const allGamesPromise = getAllGamesAction({ skipRatingCalculation: false });
-  const lastPlayedPromise = getLastPlayedGameAction("lctr01");
-
   let featuredGames: BoardGame[] = [];
   let allGames: BoardGame[] = [];
   let lastPlayedGame: BoardGame | null = null;
   let lastPlayDetail: BggPlayDetail | null = null;
 
   try {
-    const results = await Promise.allSettled([
-      featuredGamesPromise,
-      allGamesPromise,
-      lastPlayedPromise
+    // Fetch all data in parallel
+    const [
+      featuredGamesResult,
+      allGamesResult,
+      lastPlayedResult,
+    ] = await Promise.allSettled([
+      getFeaturedGamesAction(),
+      getAllGamesAction(),
+      getLastPlayedGameAction("lctr01"),
     ]);
 
-    if (results[0].status === 'fulfilled' && results[0].value) {
-      featuredGames = results[0].value;
-    } else if (results[0].status === 'rejected') {
-      console.error("Error fetching featured games:", results[0].reason);
+    if (featuredGamesResult.status === 'fulfilled' && featuredGamesResult.value) {
+      featuredGames = featuredGamesResult.value;
+    } else if (featuredGamesResult.status === 'rejected') {
+      console.error("Error fetching featured games:", featuredGamesResult.reason);
     }
 
-    if (results[1].status === 'fulfilled' && Array.isArray(results[1].value)) {
-      allGames = results[1].value;
-    } else if (results[1].status === 'rejected') {
-      console.error("Error fetching all games:", results[1].reason);
+    if (allGamesResult.status === 'fulfilled' && Array.isArray(allGamesResult.value)) {
+      allGames = allGamesResult.value;
+    } else if (allGamesResult.status === 'rejected') {
+      console.error("Error fetching all games:", allGamesResult.reason);
     }
     
-    if (results[2].status === 'fulfilled' && results[2].value) {
-      lastPlayedGame = results[2].value.game;
-      lastPlayDetail = results[2].value.lastPlayDetail;
-    } else if (results[2].status === 'rejected') {
-       console.error("Error fetching last played game:", results[2].reason);
+    if (lastPlayedResult.status === 'fulfilled' && lastPlayedResult.value) {
+      lastPlayedGame = lastPlayedResult.value.game;
+      lastPlayDetail = lastPlayedResult.value.lastPlayDetail;
+    } else if (lastPlayedResult.status === 'rejected') {
+       console.error("Error fetching last played game:", lastPlayedResult.reason);
     }
 
-
   } catch (error) {
-    console.error("Error fetching homepage data:", error);
+    console.error("Error fetching homepage data in Promise.allSettled:", error);
   }
   
   const topRatedGames = allGames
@@ -108,7 +108,7 @@ export default async function HomePage() {
               Ultima Partita Giocata
             </h2>
             <Card className="shadow-md border border-border rounded-lg overflow-hidden">
-              <CardHeader className="p-3 flex flex-row items-start gap-3">
+              <CardHeader className="space-y-1.5 bg-card p-3 flex flex-row items-start gap-3">
                 <div className="relative h-16 w-12 sm:h-20 sm:w-16 flex-shrink-0 rounded-sm overflow-hidden shadow-sm">
                   <SafeImage
                     src={lastPlayedGame.coverArtUrl}
@@ -149,12 +149,12 @@ export default async function HomePage() {
                   )}
                   {lastPlayDetail.players && lastPlayDetail.players.length > 0 && (
                     <div>
-                      <ul className="pl-1 space-y-0.5">
+                      <ul className="">
                         {lastPlayDetail.players
                           .slice()
                           .sort((a, b) => parseInt(b.score || "0", 10) - parseInt(a.score || "0", 10))
                           .map((player, pIndex) => (
-                            <li key={pIndex} className={cn(`flex items-center justify-between text-xs border-b border-border last:border-b-0 py-0.5`, pIndex % 2 === 0 ? 'bg-muted/30' : '', 'px-2')}>
+                            <li key={pIndex} className={cn(`flex items-center justify-between text-xs border-b border-border last:border-b-0 py-0.5 even:bg-muted/30`, 'px-2')}>
                               <div className="flex items-center gap-1.5 flex-grow min-w-0">
                                 <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                                 <span className={cn("truncate", player.didWin ? 'font-semibold' : '')} title={player.name || player.username || 'Sconosciuto'}>
@@ -194,19 +194,17 @@ export default async function HomePage() {
                 <div
                   key={`top-rated-${game.id}`}
                   className={cn(
-                      "relative overflow-hidden bg-card p-3 rounded-lg border border-border",
-                      "flex items-center gap-x-3 sm:gap-x-4"
+                      "relative bg-card p-3 rounded-lg border border-border flex items-center gap-x-3 sm:gap-x-4 overflow-hidden",
+                      "hover:bg-muted/50 transition-colors"
                   )}
                 >
                   <span
                     aria-hidden="true"
                     className={cn(
-                        "absolute z-0 font-bold text-muted-foreground/10 pointer-events-none select-none leading-none",
-                        // Responsive positioning and font size for the large number
-                        "top-1/2 -translate-y-1/2", // Vertical centering
-                        "-right-[30px] text-[255px]", // Mobile
-                        "sm:-right-[30px] sm:text-[300px]", // SM
-                        "lg:-right-[36px] lg:text-[340px]" // LG
+                        "absolute z-0 font-bold text-muted-foreground/10 pointer-events-none select-none leading-none top-1/2 -translate-y-1/2",
+                        "-right-[30px] text-[255px]",
+                        "sm:-right-[30px] sm:text-[300px]", 
+                        "lg:-right-[36px] lg:text-[340px]"
                     )}
                   >
                     {index + 1}
@@ -214,22 +212,25 @@ export default async function HomePage() {
                   <div
                     className={cn(
                       "relative z-10 flex items-center gap-x-3 sm:gap-x-4 flex-grow",
-                      // Responsive right margin to make space for the number
-                       "mr-5 sm:mr-8 lg:mr-10"
+                      "mr-5 sm:mr-8 lg:mr-10" 
                     )}
                   >
                     <div className="w-24 sm:w-28 md:w-32 flex-shrink-0">
                         <GameCard game={game} variant="featured" priority={index < 5} showOverlayText={false} />
                     </div>
                     <div className="flex-grow min-w-0 flex justify-between items-center">
-                      <Link href={`/games/${game.id}`} className="group flex-1">
-                        <h3 className="text-md sm:text-lg font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-3 hover:underline">
-                          {game.name}
-                          {game.yearPublished && (
-                            <span className="ml-1 text-xs text-muted-foreground">({game.yearPublished})</span>
-                          )}
+                      <div className="group flex-1">
+                        <h3 className="text-md sm:text-lg font-semibold text-foreground group-hover:text-primary transition-colors">
+                          <Link href={`/games/${game.id}`} className="hover:underline focus:outline-none focus:ring-2 focus:ring-ring rounded">
+                            {game.name}
+                          </Link>
                         </h3>
-                      </Link>
+                        {game.yearPublished && (
+                          <p className="text-xs text-muted-foreground">
+                            {game.yearPublished}
+                          </p>
+                        )}
+                      </div>
                       <div className="text-right ml-2 flex-shrink-0">
                         {game.overallAverageRating !== null && typeof game.overallAverageRating === 'number' && (
                           <p className="text-xl sm:text-2xl font-bold text-primary">
@@ -267,4 +268,3 @@ export default async function HomePage() {
 
 export const revalidate = 3600;
     
-
