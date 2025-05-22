@@ -15,29 +15,36 @@ import type { User as FirebaseUser } from 'firebase/auth';
 import { CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Slider } from '@/components/ui/slider';
-import { calculateOverallCategoryAverage as calculateGlobalOverallAverage, calculateGroupedCategoryAverages, formatRatingNumber } from '@/lib/utils';
-import { calculateCategoryAverages, calculateOverallCategoryAverage } from '@/lib/utils';
+import {
+  calculateOverallCategoryAverage as calculateGlobalOverallAverage,
+  calculateGroupedCategoryAverages as calculateGroupedAveragesUtil,
+  formatRatingNumber
+} from '@/lib/utils'; // Aliased import
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, doc, updateDoc, query, where, getDocs, limit, writeBatch, getDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { SafeImage } from '@/components/common/SafeImage';
 import { revalidateGameDataAction } from '@/lib/actions';
+import { calculateCategoryAverages, calculateOverallCategoryAverage } from '@/lib/utils'; // Keep for updateGameOverallRating
+
 
 interface RatingSliderInputProps {
   fieldName: RatingCategory;
   control: Control<RatingFormValues>;
   label: string;
   description: string;
+  minLabel: string;
+  maxLabel: string;
 }
 
-const RatingSliderInput: React.FC<RatingSliderInputProps> = ({ fieldName, control, label, description }) => {
+const RatingSliderInput: React.FC<RatingSliderInputProps> = ({ fieldName, control, label, description, minLabel, maxLabel }) => {
   return (
     <FormField
       control={control}
       name={fieldName}
       render={({ field }) => {
-        const currentFieldValue = Number(field.value); 
+        const currentFieldValue = Number(field.value);
         const sliderValue = useMemo(() => [currentFieldValue], [currentFieldValue]);
 
         return (
@@ -58,6 +65,10 @@ const RatingSliderInput: React.FC<RatingSliderInputProps> = ({ fieldName, contro
               />
               <span className="text-lg font-semibold w-8 text-center">{currentFieldValue}</span>
             </div>
+            <div className="flex justify-between text-xs text-muted-foreground mt-1 px-1">
+              <span>{minLabel}</span>
+              <span>{maxLabel}</span>
+            </div>
             <FormMessage />
           </FormItem>
         );
@@ -66,11 +77,25 @@ const RatingSliderInput: React.FC<RatingSliderInputProps> = ({ fieldName, contro
   );
 };
 
+const SLIDER_LEGENDS: Record<RatingCategory, { minLabel: string; maxLabel: string }> = {
+  excitedToReplay: { minLabel: "Per niente", maxLabel: "Moltissimo" },
+  mentallyStimulating: { minLabel: "Minima", maxLabel: "Massima" },
+  fun: { minLabel: "Nullo", maxLabel: "Elevatissimo" },
+  decisionDepth: { minLabel: "Superficiale", maxLabel: "Molto Profonda" },
+  replayability: { minLabel: "Scarsa", maxLabel: "Elevata" },
+  luck: { minLabel: "Molto Aleatorio", maxLabel: "Poco Aleatorio" }, // For "Assenza di Fortuna" where 1=High Luck, 5=Low Luck
+  lengthDowntime: { minLabel: "Pessima", maxLabel: "Perfetta" },
+  graphicDesign: { minLabel: "Scadente", maxLabel: "Eccellente" },
+  componentsThemeLore: { minLabel: "Debole", maxLabel: "Coinvolgente" },
+  effortToLearn: { minLabel: "Molto Difficile", maxLabel: "Molto Facile" },
+  setupTeardown: { minLabel: "Lungo/Complesso", maxLabel: "Veloce/Semplice" },
+};
+
 
 interface MultiStepRatingFormProps {
   gameId: string;
-  gameName: string;
-  gameCoverArtUrl?: string;
+  gameName: string; // Keep for internal step headers
+  gameCoverArtUrl?: string; // For summary step
   currentUser: FirebaseUser;
   existingReview?: Review | null;
   currentStep: number;
@@ -115,7 +140,7 @@ const stepUIDescriptions: Record<number, string> = {
   2: "Come giudichi gli aspetti legati al design del gioco?",
   3: "Valuta l'impatto visivo e l'immersione tematica.",
   4: "Quanto è stato facile apprendere e gestire il gioco?",
-  5: "Il tuo voto è stato salvato.\nEcco un riepilogo:",
+  5: "La tua recensione è stata salvata.\nEcco un riepilogo:",
 };
 
 
@@ -146,6 +171,26 @@ export function MultiStepRatingForm({
   const { toast } = useToast();
   const router = useRouter();
 
+  const defaultFormValues: RatingFormValues = useMemo(() => ({
+    excitedToReplay: existingReview?.rating.excitedToReplay || 3,
+    mentallyStimulating: existingReview?.rating.mentallyStimulating || 3,
+    fun: existingReview?.rating.fun || 3,
+    decisionDepth: existingReview?.rating.decisionDepth || 3,
+    replayability: existingReview?.rating.replayability || 3,
+    luck: existingReview?.rating.luck || 3,
+    lengthDowntime: existingReview?.rating.lengthDowntime || 3,
+    graphicDesign: existingReview?.rating.graphicDesign || 3,
+    componentsThemeLore: existingReview?.rating.componentsThemeLore || 3,
+    effortToLearn: existingReview?.rating.effortToLearn || 3,
+    setupTeardown: existingReview?.rating.setupTeardown || 3,
+  }), [existingReview]);
+
+  const form = useForm<RatingFormValues>({
+    resolver: zodResolver(reviewFormSchema),
+    defaultValues: defaultFormValues,
+    mode: 'onChange',
+  });
+
   const updateGameOverallRating = async () => {
     try {
       const reviewsCollectionRef = collection(db, "boardgames_collection", gameId, 'reviews');
@@ -170,12 +215,12 @@ export function MultiStepRatingForm({
 
       const categoryAvgs = calculateCategoryAverages(allReviewsForGame);
       const newOverallAverage = categoryAvgs ? calculateOverallCategoryAverage(categoryAvgs) : null;
-      const newVoteCount = allReviewsForGame.length; 
-      
+      const newVoteCount = allReviewsForGame.length;
+
       const gameDocRef = doc(db, "boardgames_collection", gameId);
       await updateDoc(gameDocRef, {
         overallAverageRating: newOverallAverage,
-        voteCount: newVoteCount 
+        voteCount: newVoteCount
       });
       await revalidateGameDataAction(gameId);
     } catch (error) {
@@ -184,29 +229,11 @@ export function MultiStepRatingForm({
     }
   };
 
-  const defaultFormValues: RatingFormValues = useMemo(() => ({
-    excitedToReplay: existingReview?.rating.excitedToReplay || 3,
-    mentallyStimulating: existingReview?.rating.mentallyStimulating || 3,
-    fun: existingReview?.rating.fun || 3,
-    decisionDepth: existingReview?.rating.decisionDepth || 3,
-    replayability: existingReview?.rating.replayability || 3,
-    luck: existingReview?.rating.luck || 3,
-    lengthDowntime: existingReview?.rating.lengthDowntime || 3,
-    graphicDesign: existingReview?.rating.graphicDesign || 3,
-    componentsThemeLore: existingReview?.rating.componentsThemeLore || 3,
-    effortToLearn: existingReview?.rating.effortToLearn || 3,
-    setupTeardown: existingReview?.rating.setupTeardown || 3,
-  }), [existingReview]);
-
-  const form = useForm<RatingFormValues>({
-    resolver: zodResolver(reviewFormSchema),
-    defaultValues: defaultFormValues,
-    mode: 'onChange', 
-  });
 
   useEffect(() => {
     form.reset(defaultFormValues);
-  }, [defaultFormValues, form.reset]); 
+  }, [defaultFormValues, form.reset]);
+
 
   const processSubmitAndStay = async (data: RatingFormValues): Promise<boolean> => {
     setFormError(null);
@@ -236,7 +263,7 @@ export function MultiStepRatingForm({
       author: currentUser.displayName || 'Anonimo',
       authorPhotoURL: currentUser.photoURL || null,
       rating: ratingDataToSave,
-      comment: "", 
+      comment: "",
       date: new Date().toISOString(),
     };
 
@@ -277,6 +304,7 @@ export function MultiStepRatingForm({
       }
       submissionSuccess = true;
       await updateGameOverallRating();
+      await revalidateGameDataAction(gameId);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
       toast({ title: "Errore", description: `Impossibile inviare il voto: ${errorMessage}`, variant: "destructive" });
@@ -336,7 +364,7 @@ export function MultiStepRatingForm({
             comment: '',
             date: existingReview?.date || new Date().toISOString(),
           };
-          setGroupedAveragesForSummary(calculateGroupedCategoryAverages([tempReviewForSummary]));
+          setGroupedAveragesForSummary(calculateGroupedAveragesUtil([tempReviewForSummary]));
           onStepChange(totalDisplaySteps);
         }
       });
@@ -360,21 +388,22 @@ export function MultiStepRatingForm({
 
   return (
     <Form {...form}>
-      <form className="space-y-6">
-        {currentStep <= totalInputSteps && (
-           <div className="mb-4">
+      <form className="space-y-6"> {/* Reduced space-y-8 to space-y-6 */}
+        {(currentStep <= totalInputSteps) && (
+           <div className="mb-4"> {/* Reduced mb-6 to mb-4 */}
              <div className="flex justify-between items-start">
                 <div className="flex-1">
                     <h3 className="text-xl font-semibold flex items-center">
                       <StepIcon step={currentStep} />
                       {stepUITitles[currentStep]} ({currentStep} di {totalInputSteps})
                     </h3>
-                    {stepUIDescriptions[currentStep] && currentStep <= totalInputSteps && (
+                    {stepUIDescriptions[currentStep] && (
                       <p className="text-sm text-muted-foreground mt-1">
                         {stepUIDescriptions[currentStep]}
                       </p>
                     )}
                 </div>
+                {/* Removed game image from steps 1-4 */}
              </div>
            </div>
         )}
@@ -413,6 +442,8 @@ export function MultiStepRatingForm({
                   control={form.control}
                   label={RATING_CATEGORIES[fieldName]}
                   description={categoryDescriptions[fieldName]}
+                  minLabel={SLIDER_LEGENDS[fieldName].minLabel}
+                  maxLabel={SLIDER_LEGENDS[fieldName].maxLabel}
                 />
               ))}
             </div>
@@ -427,6 +458,8 @@ export function MultiStepRatingForm({
                   control={form.control}
                   label={RATING_CATEGORIES[fieldName]}
                   description={categoryDescriptions[fieldName]}
+                  minLabel={SLIDER_LEGENDS[fieldName].minLabel}
+                  maxLabel={SLIDER_LEGENDS[fieldName].maxLabel}
                 />
               ))}
             </div>
@@ -441,6 +474,8 @@ export function MultiStepRatingForm({
                   control={form.control}
                   label={RATING_CATEGORIES[fieldName]}
                   description={categoryDescriptions[fieldName]}
+                  minLabel={SLIDER_LEGENDS[fieldName].minLabel}
+                  maxLabel={SLIDER_LEGENDS[fieldName].maxLabel}
                 />
               ))}
             </div>
@@ -455,6 +490,8 @@ export function MultiStepRatingForm({
                   control={form.control}
                   label={RATING_CATEGORIES[fieldName]}
                   description={categoryDescriptions[fieldName]}
+                  minLabel={SLIDER_LEGENDS[fieldName].minLabel}
+                  maxLabel={SLIDER_LEGENDS[fieldName].maxLabel}
                 />
               ))}
             </div>
@@ -479,7 +516,7 @@ export function MultiStepRatingForm({
 
         <div className={`flex ${currentStep === totalDisplaySteps ? 'justify-end' : 'justify-between'} items-center pt-4 border-t mt-6`}>
             <div>
-                 {currentStep === 1 && (
+                {currentStep === 1 && (
                     <Button type="button" variant="outline" onClick={() => router.push(`/games/${gameId}`)} disabled={isSubmitting}>
                         <ArrowLeft className="mr-2 h-4 w-4" />
                         Torna al Gioco
