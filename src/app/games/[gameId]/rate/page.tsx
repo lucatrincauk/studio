@@ -2,15 +2,16 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
-import { getGameDetails } from '@/lib/actions';
+import { getGameDetails, revalidateGameDataAction } from '@/lib/actions';
 import type { BoardGame, Review } from '@/lib/types';
 import { useAuth } from '@/contexts/auth-context';
 import { MultiStepRatingForm } from '@/components/boardgame/multi-step-rating-form';
-import { Loader2, AlertCircle, Gamepad2 } from 'lucide-react';
+import { Loader2, AlertCircle, Gamepad2, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useState, useEffect, useRef } from 'react';
+import { cn } from '@/lib/utils';
 
 interface GameRatePageParams {
   gameId: string;
@@ -30,7 +31,7 @@ export default function GameRatePage() {
   const cardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    async function fetchGameData() {
+    async function fetchGameAndReviewData() {
       if (!gameId) {
         setIsLoadingGame(false);
         setGame(null); 
@@ -39,37 +40,38 @@ export default function GameRatePage() {
       setIsLoadingGame(true);
       const gameData = await getGameDetails(gameId);
       setGame(gameData);
-      setIsLoadingGame(false);
-    }
-    fetchGameData();
-  }, [gameId]);
-
-  useEffect(() => {
-    if (game === undefined) return; 
-
-    if (game) { 
-      if (currentUser && game.reviews) {
-        const foundReview = game.reviews.find(r => r.userId === currentUser.uid);
+      
+      if (gameData && currentUser) {
+        const foundReview = gameData.reviews?.find(r => r.userId === currentUser.uid);
         setUserReview(foundReview);
       } else {
         setUserReview(undefined);
       }
-    } else { 
-      setUserReview(undefined);
+      setIsLoadingGame(false);
     }
-  }, [game, currentUser]);
+    if (currentUser !== undefined) { // Only fetch if auth state is resolved
+        fetchGameAndReviewData();
+    }
+  }, [gameId, currentUser]);
+
 
   useEffect(() => {
-    // Scroll to the top of the page whenever the step changes
     if (typeof window !== "undefined") {
-      setTimeout(() => {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }, 50); 
+      if (currentRatingFormStep === 5) {
+        setTimeout(() => {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }, 50);
+      } else if (cardRef.current && currentRatingFormStep >= 1 && currentRatingFormStep <= 4) {
+        setTimeout(() => {
+          const cardTopOffset = cardRef.current!.getBoundingClientRect().top + window.scrollY;
+          window.scrollTo({ top: cardTopOffset - 30, behavior: 'smooth' });
+        }, 50);
+      }
     }
   }, [currentRatingFormStep]);
 
 
-  if (authLoading || isLoadingGame || game === undefined) {
+  if (authLoading || isLoadingGame || game === undefined || (currentUser === undefined && !authLoading) ) {
     return (
       <div className="flex flex-col justify-center items-center min-h-[calc(100vh-200px)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -112,28 +114,36 @@ export default function GameRatePage() {
     )
   }
 
-  const pageTitle = userReview ? "Modifica la Tua Valutazione per:" : "Valuta:";
-  const descriptionText = "Segui i passaggi sottostanti per inviare la tua valutazione.";
+  const pageTitleText = userReview ? "Modifica la Tua Valutazione" : "Valuta:";
+  const gameNameForTitle = userReview ? "" : game.name; // Only show game name if it's a new review
 
   return (
     <div className="max-w-2xl mx-auto py-8 px-4">
       <Card ref={cardRef} className="shadow-xl border border-border rounded-lg">
-        <CardHeader>
-            <CardTitle className="text-2xl md:text-3xl text-left">
-                {pageTitle} {game.name}
-            </CardTitle>
-            <CardDescription className="text-left text-sm text-muted-foreground mt-1 whitespace-pre-line">
-                {descriptionText}
-            </CardDescription>
-        </CardHeader>
-        <CardContent className={currentRatingFormStep === 5 ? 'pt-0' : 'pt-6'}>
+        {currentRatingFormStep === 1 && (
+            <CardHeader>
+                <CardTitle className="text-2xl md:text-3xl text-left">
+                  {pageTitleText} {gameNameForTitle}
+                </CardTitle>
+                <CardDescription className="text-left text-sm text-muted-foreground mt-1 whitespace-pre-line">
+                  Segui i passaggi sottostanti per inviare la tua valutazione.
+                </CardDescription>
+            </CardHeader>
+        )}
+        <CardContent className={cn(
+            currentRatingFormStep === 1 ? 'pt-0' : 'pt-6',
+            currentRatingFormStep === 5 && 'pt-0'
+        )}>
           <MultiStepRatingForm
             gameId={game.id}
             gameName={game.name} 
             gameCoverArtUrl={game.coverArtUrl}
             currentUser={currentUser}
             existingReview={userReview}
-            onReviewSubmitted={() => router.push(`/games/${gameId}`)}
+            onReviewSubmitted={() => {
+              revalidateGameDataAction(gameId);
+              router.push(`/games/${gameId}`);
+            }}
             currentStep={currentRatingFormStep}
             onStepChange={setCurrentRatingFormStep}
           />
@@ -144,4 +154,3 @@ export default function GameRatePage() {
 }
 
 export const dynamic = 'force-dynamic';
-
