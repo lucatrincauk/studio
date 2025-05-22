@@ -1,54 +1,34 @@
 
 'use client';
 
-import type { BoardGame, UserProfile, EarnedBadge } from '@/lib/types'; // Added EarnedBadge
+import type { UserProfile, EarnedBadge, BoardGame } from '@/lib/types';
 import { useAuth } from '@/contexts/auth-context';
 import { UpdateProfileForm } from '@/components/profile/update-profile-form';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, AlertCircle, UserCircle2, ListChecks, Heart, Frown, Award, CalendarDays } from 'lucide-react'; // Added Award
+import { Loader2, AlertCircle, Settings2 as SettingsIcon } from 'lucide-react'; // Changed UserCircle2 to Settings2
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ThemeSwitcher } from '@/components/profile/theme-switcher'; 
-import { Separator } from '@/components/ui/separator';
+import { ThemeSwitcher } from '@/components/profile/theme-switcher';
 import { useState, useEffect, useCallback } from 'react';
-import { getFavoritedGamesForUserAction, getPlaylistedGamesForUserAction, getMorchiaGamesForUserAction } from '@/lib/actions';
-import { GameCard } from '@/components/boardgame/game-card';
-import { doc, getDoc, collection, getDocs, orderBy, type Timestamp, query } from 'firebase/firestore'; // Added collection, getDocs, orderBy, query
+import { doc, getDoc, collection, getDocs, orderBy, type Timestamp, query } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { formatReviewDate } from '@/lib/utils'; // For formatting badge earned date
 
 const USER_PROFILES_COLLECTION = 'user_profiles';
 
-export default function ProfilePage() {
+export default function ProfileSettingsPage() { // Renamed component for clarity
   const { user: firebaseUser, loading: authLoading } = useAuth();
   const [userProfileData, setUserProfileData] = useState<UserProfile | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
 
-  const [favoritedGames, setFavoritedGames] = useState<BoardGame[]>([]);
-  const [playlistedGames, setPlaylistedGames] = useState<BoardGame[]>([]);
-  const [morchiaGames, setMorchiaGames] = useState<BoardGame[]>([]);
-  const [earnedBadges, setEarnedBadges] = useState<EarnedBadge[]>([]); // New state for badges
-
-  const [isLoadingFavorites, setIsLoadingFavorites] = useState(false);
-  const [isLoadingPlaylist, setIsLoadingPlaylist] = useState(false);
-  const [isLoadingMorchia, setIsLoadingMorchia] = useState(false);
-  const [isLoadingBadges, setIsLoadingBadges] = useState(false); // New loading state for badges
-
-  const fetchUserProfileAndLists = useCallback(async () => {
+  const fetchUserProfileData = useCallback(async () => {
     if (firebaseUser) {
       setIsLoadingProfile(true);
-      setIsLoadingFavorites(true);
-      setIsLoadingPlaylist(true);
-      setIsLoadingMorchia(true);
-      setIsLoadingBadges(true); // Start loading badges
-
       const profileRef = doc(db, USER_PROFILES_COLLECTION, firebaseUser.uid);
       try {
         const docSnap = await getDoc(profileRef);
         if (docSnap.exists()) {
           setUserProfileData({ id: docSnap.id, ...docSnap.data() } as UserProfile);
         } else {
-          // This case should ideally not be hit often if profile is created on sign-up
           setUserProfileData({
             id: firebaseUser.uid,
             name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Utente Anonimo',
@@ -60,91 +40,32 @@ export default function ProfilePage() {
         }
       } catch (error) {
         console.error("Error fetching user profile from Firestore:", error);
-        setUserProfileData(null);
+        setUserProfileData(null); // Handle error case
       }
       setIsLoadingProfile(false);
-
-      try {
-        const favResult = await getFavoritedGamesForUserAction(firebaseUser.uid);
-        setFavoritedGames(favResult);
-      } catch (e) {
-        console.error("Error fetching favorited games:", e);
-        setFavoritedGames([]);
-      } finally {
-        setIsLoadingFavorites(false);
-      }
-
-      try {
-        const playlistResult = await getPlaylistedGamesForUserAction(firebaseUser.uid);
-        setPlaylistedGames(playlistResult);
-      } catch (e) {
-        console.error("Error fetching playlisted games:", e);
-        setPlaylistedGames([]);
-      } finally {
-        setIsLoadingPlaylist(false);
-      }
-
-      try {
-        const morchiaResult = await getMorchiaGamesForUserAction(firebaseUser.uid);
-        setMorchiaGames(morchiaResult);
-      } catch (e) {
-        console.error("Error fetching morchia games:", e);
-        setMorchiaGames([]);
-      } finally {
-        setIsLoadingMorchia(false);
-      }
-      
-      // Fetch earned badges
-      try {
-        const badgesCollectionRef = collection(db, USER_PROFILES_COLLECTION, firebaseUser.uid, 'earned_badges');
-        const badgesQuery = query(badgesCollectionRef, orderBy('earnedAt', 'desc'));
-        const badgesSnapshot = await getDocs(badgesQuery);
-        const badgesData = badgesSnapshot.docs.map(docSnap => {
-          const data = docSnap.data() as Omit<EarnedBadge, 'earnedAt'> & { earnedAt: Timestamp };
-          return {
-            ...data,
-            earnedAt: data.earnedAt.toDate().toISOString(), // Convert Firestore Timestamp to ISO string
-          };
-        }) as EarnedBadge[];
-        setEarnedBadges(badgesData);
-      } catch (e) {
-        console.error("Error fetching earned badges:", e);
-        setEarnedBadges([]);
-      } finally {
-        setIsLoadingBadges(false);
-      }
-
     } else {
       setUserProfileData(null);
-      setFavoritedGames([]);
-      setPlaylistedGames([]);
-      setMorchiaGames([]);
-      setEarnedBadges([]); // Reset badges if no user
       setIsLoadingProfile(false);
-      setIsLoadingFavorites(false);
-      setIsLoadingPlaylist(false);
-      setIsLoadingMorchia(false);
-      setIsLoadingBadges(false); // Stop loading badges
     }
   }, [firebaseUser]);
 
   useEffect(() => {
     if (!authLoading) {
-      fetchUserProfileAndLists();
+      fetchUserProfileData();
     }
-  }, [firebaseUser, authLoading, fetchUserProfileAndLists]);
+  }, [firebaseUser, authLoading, fetchUserProfileData]);
 
 
   if (authLoading || isLoadingProfile) {
     return (
       <div className="flex flex-col justify-center items-center min-h-[calc(100vh-200px)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="mt-4 text-lg text-muted-foreground">Caricamento profilo...</p>
+        <p className="mt-4 text-lg text-muted-foreground">Caricamento impostazioni...</p>
       </div>
     );
   }
 
-  if (!firebaseUser || !userProfileData) {
+  if (!firebaseUser) { // userProfileData might be null if fetch fails, firebaseUser is the primary check
     return (
       <div className="flex flex-col items-center justify-center text-center py-10">
         <AlertCircle className="h-12 w-12 text-destructive mb-4" />
@@ -160,18 +81,31 @@ export default function ProfilePage() {
       </div>
     );
   }
+  
+  if (!userProfileData) {
+     return (
+      <div className="flex flex-col items-center justify-center text-center py-10">
+        <AlertCircle className="h-12 w-12 text-destructive mb-4" />
+        <h2 className="text-2xl font-semibold mb-2">Errore Profilo</h2>
+        <p className="text-muted-foreground mb-6">
+          Impossibile caricare i dati del profilo. Riprova più tardi.
+        </p>
+        <Button asChild variant="outline">
+          <Link href="/">
+             Torna alla Homepage
+          </Link>
+        </Button>
+      </div>
+    );
+  }
 
-  const iconMap: { [key: string]: React.ElementType } = {
-    Award: Award,
-    // Add more icon mappings here if needed for other badges
-  };
 
   return (
-    <div className="max-w-4xl mx-auto py-8 space-y-12">
+    <div className="max-w-2xl mx-auto py-8 space-y-12">
       <Card className="shadow-xl">
         <CardHeader className="text-center">
-          <UserCircle2 className="h-16 w-16 text-primary mx-auto mb-3" />
-          <CardTitle className="text-2xl font-bold">Il Tuo Profilo</CardTitle>
+          <SettingsIcon className="h-16 w-16 text-primary mx-auto mb-3" /> {/* Changed icon */}
+          <CardTitle className="text-2xl font-bold">Impostazioni Account</CardTitle> {/* Changed title */}
           <CardDescription>Gestisci le informazioni del tuo account e le preferenze dell'applicazione.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -180,12 +114,12 @@ export default function ProfilePage() {
             <p className="text-foreground">{firebaseUser.email}</p>
           </div>
            {userProfileData && (
-             <UpdateProfileForm 
+             <UpdateProfileForm
                 initialValues={{
                     displayName: userProfileData.name || firebaseUser.displayName || '',
-                    bggUsername: userProfileData.bggUsername || null,
+                    bggUsername: userProfileData.bggUsername || '', // Ensure empty string if null
                 }}
-                onProfileUpdate={fetchUserProfileAndLists} 
+                onProfileUpdate={fetchUserProfileData}
             />
            )}
         </CardContent>
@@ -193,100 +127,23 @@ export default function ProfilePage() {
       
       <ThemeSwitcher />
 
-      <Separator />
-
-      <section>
-        <h2 className="text-2xl font-semibold mb-6 text-foreground flex items-center gap-2">
-          <Award className="h-6 w-6 text-yellow-500" />
-          I Tuoi Distintivi
-        </h2>
-        {isLoadingBadges ? (
-          <div className="flex justify-center py-4"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
-        ) : earnedBadges.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {earnedBadges.map((badge) => {
-              const IconComponent = badge.iconName ? iconMap[badge.iconName] : Award; // Default to Award icon
-              return (
-                <Card key={badge.badgeId} className="p-4 border rounded-lg bg-card shadow-sm">
-                  <div className="flex items-center gap-3 mb-2">
-                    {IconComponent && <IconComponent className="h-8 w-8 text-primary" />}
-                    <h3 className="text-lg font-semibold text-foreground">{badge.name}</h3>
-                  </div>
-                  <p className="text-sm text-muted-foreground mb-2">{badge.description}</p>
-                  <div className="flex items-center text-xs text-muted-foreground/80 gap-1">
-                    <CalendarDays size={12} /> 
-                    <span>Guadagnato: {formatReviewDate(badge.earnedAt as string)}</span>
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
-        ) : (
-          <p className="text-muted-foreground">Non hai ancora guadagnato distintivi.</p>
-        )}
-      </section>
-
-
-      <Separator />
-
-      <section>
-        <h2 className="text-2xl font-semibold mb-6 text-foreground flex items-center gap-2">
-          <Heart className="h-6 w-6 text-destructive" />
-          I Tuoi Giochi Preferiti
-        </h2>
-        {isLoadingFavorites ? (
-          <div className="flex justify-center py-4"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
-        ) : favoritedGames.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {favoritedGames.map((game, index) => (
-              <GameCard key={game.id} game={game} variant="featured" priority={index < 5} showOverlayText={true} />
-            ))}
-          </div>
-        ) : (
-          <p className="text-muted-foreground">Non hai ancora aggiunto giochi ai preferiti.</p>
-        )}
-      </section>
-
-      <Separator />
-
-      <section>
-        <h2 className="text-2xl font-semibold mb-6 text-foreground flex items-center gap-2">
-          <ListChecks className="h-6 w-6 text-sky-500" />
-          La Tua Playlist
-        </h2>
-        {isLoadingPlaylist ? (
-          <div className="flex justify-center py-4"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
-        ) : playlistedGames.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {playlistedGames.map((game, index) => (
-              <GameCard key={game.id} game={game} variant="featured" priority={index < 5} showOverlayText={true} />
-            ))}
-          </div>
-        ) : (
-          <p className="text-muted-foreground">La tua playlist è vuota.</p>
-        )}
-      </section>
-
-      <Separator />
-
-      <section>
-        <h2 className="text-2xl font-semibold mb-6 text-foreground flex items-center gap-2">
-          <Frown className="h-6 w-6 text-orange-600" />
-          La Tua Morchia
-        </h2>
-        {isLoadingMorchia ? (
-          <div className="flex justify-center py-4"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
-        ) : morchiaGames.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {morchiaGames.map((game, index) => (
-              <GameCard key={game.id} game={game} variant="featured" priority={index < 5} showOverlayText={true} />
-            ))}
-          </div>
-        ) : (
-          <p className="text-muted-foreground">La tua Morchia List è vuota. Ottimo!</p>
-        )}
-      </section>
+      {/* Removed Badges, Favorites, Playlist, and Morchia sections */}
+      {/* Users can view these on their public profile page /users/{theirOwnUserId} */}
+       <Card className="shadow-md">
+        <CardHeader>
+            <CardTitle className="text-xl">Il Tuo Profilo Pubblico</CardTitle>
+            <CardDescription>
+                Visualizza le tue liste pubbliche e i distintivi sul tuo profilo.
+            </CardDescription>
+        </CardHeader>
+        <CardContent>
+            <Button asChild variant="outline">
+                <Link href={`/users/${firebaseUser.uid}`}>
+                    Vai al Mio Profilo Pubblico
+                </Link>
+            </Button>
+        </CardContent>
+       </Card>
     </div>
   );
 }
-
