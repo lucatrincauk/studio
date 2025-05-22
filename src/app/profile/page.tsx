@@ -13,7 +13,7 @@ import { Separator } from '@/components/ui/separator';
 import { useState, useEffect, useCallback } from 'react';
 import { getFavoritedGamesForUserAction, getPlaylistedGamesForUserAction, getMorchiaGamesForUserAction } from '@/lib/actions';
 import { GameCard } from '@/components/boardgame/game-card';
-import { doc, getDoc, collection, getDocs, orderBy, type Timestamp } from 'firebase/firestore'; // Added collection, getDocs, orderBy
+import { doc, getDoc, collection, getDocs, orderBy, type Timestamp, query } from 'firebase/firestore'; // Added collection, getDocs, orderBy, query
 import { db } from '@/lib/firebase';
 import { formatReviewDate } from '@/lib/utils'; // For formatting badge earned date
 
@@ -48,6 +48,7 @@ export default function ProfilePage() {
         if (docSnap.exists()) {
           setUserProfileData({ id: docSnap.id, ...docSnap.data() } as UserProfile);
         } else {
+          // This case should ideally not be hit often if profile is created on sign-up
           setUserProfileData({
             id: firebaseUser.uid,
             name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Utente Anonimo',
@@ -67,6 +68,7 @@ export default function ProfilePage() {
         const favResult = await getFavoritedGamesForUserAction(firebaseUser.uid);
         setFavoritedGames(favResult);
       } catch (e) {
+        console.error("Error fetching favorited games:", e);
         setFavoritedGames([]);
       } finally {
         setIsLoadingFavorites(false);
@@ -76,6 +78,7 @@ export default function ProfilePage() {
         const playlistResult = await getPlaylistedGamesForUserAction(firebaseUser.uid);
         setPlaylistedGames(playlistResult);
       } catch (e) {
+        console.error("Error fetching playlisted games:", e);
         setPlaylistedGames([]);
       } finally {
         setIsLoadingPlaylist(false);
@@ -85,6 +88,7 @@ export default function ProfilePage() {
         const morchiaResult = await getMorchiaGamesForUserAction(firebaseUser.uid);
         setMorchiaGames(morchiaResult);
       } catch (e) {
+        console.error("Error fetching morchia games:", e);
         setMorchiaGames([]);
       } finally {
         setIsLoadingMorchia(false);
@@ -285,3 +289,4 @@ export default function ProfilePage() {
     </div>
   );
 }
+
