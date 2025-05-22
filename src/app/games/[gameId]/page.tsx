@@ -213,7 +213,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       try {
         const reviewDocRef = doc(db, FIRESTORE_COLLECTION_NAME, gameId, 'reviews', userReview.id);
         await deleteDoc(reviewDocRef);
-        // Fetch all reviews for the game to recalculate average rating and review count
+        
+        // Recalculate overall rating and vote count
         const reviewsCollectionRef = collection(db, FIRESTORE_COLLECTION_NAME, gameId, 'reviews');
         const reviewsSnapshot = await getDocs(reviewsCollectionRef);
         const allReviewsForGame: Review[] = reviewsSnapshot.docs.map(docSnap => {
@@ -246,7 +247,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         
         await revalidateGameDataAction(gameId);
         toast({ title: "Voto Eliminato", description: "Il tuo voto è stato eliminato con successo." });
-        fetchGameData(); // Re-fetch data for the page
+        fetchGameData(); 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({ title: "Errore", description: `Impossibile eliminare il voto: ${errorMessage}`, variant: "destructive" });
@@ -433,7 +434,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     const usernameToFetch = "lctr01";
 
     startFetchPlaysTransition(async () => {
-        const bggFetchResult = await fetchUserPlaysForGameFromBggAction(game.bggId, usernameToFetch);
+        const bggFetchResult = await fetchUserPlaysForGameFromBggAction(game.id, game.bggId, usernameToFetch);
 
         if (!bggFetchResult.success || !bggFetchResult.plays) {
             toast({ title: 'Errore Caricamento Partite BGG', description: bggFetchResult.error || bggFetchResult.message || 'Impossibile caricare le partite da BGG.', variant: 'destructive' });
@@ -617,19 +618,12 @@ const handleGenerateRecommendations = async () => {
         <div className="flex flex-col md:flex-row">
           {/* Main Content Column */}
           <div className="flex-1 p-6 space-y-4 md:order-1">
-            {/* Main header: Title, BGG link, and Action Icons/Score */}
              <div className="flex justify-between items-start mb-2">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:gap-1 flex-shrink min-w-0 mr-2">
+                <div className="flex-1 flex flex-col sm:flex-row sm:items-center sm:gap-1 min-w-0 mr-2">
                     <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
                       {game.name}
-                      {game.bggId > 0 && (
-                        <a href={`https://boardgamegeek.com/boardgame/${game.bggId}`} target="_blank" rel="noopener noreferrer" title="Vedi su BGG" className="ml-1 inline-flex items-center align-middle text-primary/60 hover:text-primary">
-                          <ExternalLink className="h-4 w-4" />
-                        </a>
-                      )}
                     </h1>
                 </div>
-                {/* Right part: Score and Action Icons */}
                 <div className="flex-shrink-0 flex flex-col items-end">
                     {globalGameAverage !== null && (
                     <span className="text-3xl md:text-4xl font-bold text-primary whitespace-nowrap">
@@ -639,7 +633,6 @@ const handleGenerateRecommendations = async () => {
                 </div>
             </div>
 
-            {/* Image for mobile, below title/icons */}
             <div className="md:hidden my-4 max-w-[240px] mx-auto">
               <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
                 <SafeImage
@@ -719,41 +712,36 @@ const handleGenerateRecommendations = async () => {
               )}
             </div>
             
-            {/* Button Bar for Favorite, Playlist, BGG Link, Admin Settings */}
             <div className="flex justify-evenly gap-2 py-4 border-t mt-4">
-                {currentUser && (
-                  <div className="flex items-center">
-                      <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={handleToggleFavorite}
-                          disabled={isFavoriting || authLoading}
-                          title={isFavoritedByCurrentUser ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
-                          className={`h-9 w-9 ${isFavoritedByCurrentUser ? 'text-destructive fill-destructive hover:bg-destructive/20' : 'text-destructive/60 hover:text-destructive hover:bg-destructive/10'}`}
-                      >
-                          {isFavoriting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Heart className={`h-5 w-5 ${isFavoritedByCurrentUser ? 'fill-destructive' : ''}`} />}
-                      </Button>
-                      {currentFavoriteCount > 0 && (
-                          <span className="text-sm text-muted-foreground -ml-2 mr-1">
-                              ({currentFavoriteCount})
-                          </span>
-                      )}
-                  </div>
-                )}
-                {currentUser && (
+                <div className="flex items-center"> {/* Group for Favorite + Count */}
                     <Button
                         variant="ghost"
                         size="icon"
-                        onClick={handleTogglePlaylist}
-                        disabled={isPlaylisting || authLoading}
-                        title={isPlaylistedByCurrentUser ? "Rimuovi dalla Playlist" : "Aggiungi alla Playlist"}
-                        className={`h-9 w-9 ${isPlaylistedByCurrentUser ? 'text-sky-500 hover:bg-sky-500/20' : 'text-sky-500/60 hover:text-sky-500 hover:bg-sky-500/10'}`}
+                        onClick={handleToggleFavorite}
+                        disabled={isFavoriting || authLoading}
+                        title={isFavoritedByCurrentUser ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
+                        className={`h-9 w-9 ${isFavoritedByCurrentUser ? 'text-destructive fill-destructive hover:bg-destructive/20' : 'text-destructive/60 hover:text-destructive hover:bg-destructive/10'}`}
                     >
-                        {isPlaylisting ? <Loader2 className="h-5 w-5 animate-spin" /> : (isPlaylistedByCurrentUser ? <BookmarkCheck className="h-5 w-5" /> : <Bookmark className="h-5 w-5" />)}
+                        {isFavoriting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Heart className={`h-5 w-5 ${isFavoritedByCurrentUser ? 'fill-destructive' : ''}`} />}
                     </Button>
-                )}
+                    {currentFavoriteCount > 0 && (
+                        <span className="text-sm text-muted-foreground -ml-2 mr-1">
+                            ({currentFavoriteCount})
+                        </span>
+                    )}
+                </div>
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleTogglePlaylist}
+                    disabled={isPlaylisting || authLoading}
+                    title={isPlaylistedByCurrentUser ? "Rimuovi dalla Playlist" : "Aggiungi alla Playlist"}
+                    className={`h-9 w-9 ${isPlaylistedByCurrentUser ? 'text-sky-500 hover:bg-sky-500/20' : 'text-sky-500/60 hover:text-sky-500 hover:bg-sky-500/10'}`}
+                >
+                    {isPlaylisting ? <Loader2 className="h-5 w-5 animate-spin" /> : (isPlaylistedByCurrentUser ? <BookmarkCheck className="h-5 w-5" /> : <Bookmark className="h-5 w-5" />)}
+                </Button>
                 {game.bggId > 0 && (
-                  <Button variant="outline" size="icon" asChild className="h-9 w-9 hover:bg-accent hover:text-accent-foreground">
+                  <Button variant="outline" size="icon" asChild className="h-9 w-9">
                     <a href={`https://boardgamegeek.com/boardgame/${game.bggId}`} target="_blank" rel="noopener noreferrer" title="Vedi su BGG">
                       <ExternalLink className="h-4 w-4 text-primary/80" />
                     </a>
@@ -796,8 +784,6 @@ const handleGenerateRecommendations = async () => {
                   )}
             </div>
 
-
-            {/* Average Ratings Section */}
              <div className={cn("w-full pt-4 border-t border-border", !(game.reviews && game.reviews.length > 0) && "border-none pt-0")}>
               {(game.reviews && game.reviews.length > 0) && (
                 <>
@@ -880,7 +866,7 @@ const handleGenerateRecommendations = async () => {
                                   )}
                                   {play.players && play.players.length > 0 && (
                                   <div>
-                                      <ul className="pl-1">
+                                      <ul className="space-y-0.5">
                                       {play.players
                                           .slice()
                                           .sort((a, b) => {
@@ -890,8 +876,9 @@ const handleGenerateRecommendations = async () => {
                                           })
                                           .map((player, pIndex) => (
                                           <li key={pIndex} className={cn(
-                                            "flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5 px-2",
-                                            pIndex % 2 === 0 ? 'bg-muted/30' : ''
+                                            "flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5",
+                                            pIndex % 2 === 0 ? 'bg-muted/30' : '',
+                                            "px-2" 
                                           )}>
                                               <div className="flex items-center gap-1.5 flex-grow min-w-0">
                                                   <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 relative top-px" />
@@ -915,7 +902,12 @@ const handleGenerateRecommendations = async () => {
                                       </ul>
                                   </div>
                                   )}
-
+                                  <div className="flex justify-between text-xs text-muted-foreground/80 pt-2 mt-2">
+                                      {play.location && play.location.trim() !== '' && (
+                                          <span>Luogo: {play.location}</span>
+                                      )}
+                                      <span>{formatPlayDate(play.date)}</span>
+                                  </div>
                               </div>
                               </AccordionContent>
                           </AccordionItem>
@@ -926,9 +918,7 @@ const handleGenerateRecommendations = async () => {
           </Card>
       )}
 
-      {/* User Review Management and Other Reviews Section */}
       <div className="space-y-8">
-          {/* "La Tua Recensione" Section */}
           {currentUser && !authLoading && userReview && (
             <div className="space-y-4">
               <div className="flex flex-row items-center justify-between gap-2">
@@ -972,7 +962,6 @@ const handleGenerateRecommendations = async () => {
             </div>
           )}
 
-          {/* "Valuta questo Gioco" Card (if no user review and user is logged in) */}
           {currentUser && !authLoading && !userReview && (
             <Card className="p-6 border border-border rounded-lg shadow-md bg-card">
               <CardTitle className="text-xl font-semibold text-foreground mb-1">Condividi la Tua Opinione</CardTitle>
@@ -988,7 +977,6 @@ const handleGenerateRecommendations = async () => {
             </Card>
           )}
 
-          {/* "Accedi per dare un voto" Alert (if user is logged out) */}
           {!currentUser && !authLoading && (
                   <Alert variant="default" className="bg-secondary/30 border-secondary">
                   <Info className="h-4 w-4 text-secondary-foreground" />
@@ -998,7 +986,6 @@ const handleGenerateRecommendations = async () => {
                   </Alert>
           )}
 
-          {/* "Altri Voti" Section */}
           {remainingReviews.length > 0 && (
           <>
               <Separator className="my-6" />
@@ -1010,7 +997,6 @@ const handleGenerateRecommendations = async () => {
           </>
           )}
 
-          {/* Feedback if no other reviews or no reviews at all */}
           {remainingReviews.length === 0 && userReview && (
           <Alert variant="default" className="mt-6 bg-secondary/30 border-secondary">
               <Info className="h-4 w-4 text-secondary-foreground" />
@@ -1030,7 +1016,6 @@ const handleGenerateRecommendations = async () => {
           )}
       </div>
 
-      {/* AI Recommendations Section */}
       <Separator />
         <Card className="shadow-md border border-border rounded-lg">
             <CardHeader>
@@ -1086,3 +1071,4 @@ const handleGenerateRecommendations = async () => {
     </div>
   );
 }
+
