@@ -193,7 +193,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         voteCount: newVoteCount
       });
 
-      revalidateGameDataAction(game.id);
+      await revalidateGameDataAction(game.id);
       fetchGameData();
     } catch (error) {
       console.error("Errore durante l'aggiornamento del punteggio medio del gioco:", error);
@@ -238,7 +238,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           title: "Stato Vetrina Aggiornato",
           description: `Il gioco è stato ${newPinStatus ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
         });
-        revalidateGameDataAction(game.id);
+        await revalidateGameDataAction(game.id);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({
@@ -301,7 +301,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `${game.name} è stato ${newFavoritedStatus ? 'aggiunto ai' : 'rimosso dai'} tuoi preferiti.`,
         });
 
-        revalidateGameDataAction(game.id);
+        await revalidateGameDataAction(game.id);
 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Impossibile aggiornare i preferiti.";
@@ -353,7 +353,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `${game.name} è stato ${newPlaylistedStatus ? 'aggiunto alla' : 'rimosso dalla'} tua playlist.`,
         });
 
-        revalidateGameDataAction(game.id);
+        await revalidateGameDataAction(game.id);
 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Impossibile aggiornare la playlist.";
@@ -385,7 +385,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
         await updateDoc(gameRef, serverActionResult.updateData);
         toast({ title: 'Dettagli Aggiornati', description: `Dettagli per ${game.name} aggiornati con successo.` });
-        revalidateGameDataAction(game.id);
+        await revalidateGameDataAction(game.id);
         fetchGameData();
       } catch (dbError) {
         const errorMessage = dbError instanceof Error ? dbError.message : "Errore sconosciuto durante l'aggiornamento del DB.";
@@ -402,7 +402,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     const usernameToFetch = "lctr01";
 
     startFetchPlaysTransition(async () => {
-        const bggFetchResult = await fetchUserPlaysForGameFromBggAction(game.id, game.bggId, usernameToFetch);
+        const bggFetchResult = await fetchUserPlaysForGameFromBggAction(game.bggId, usernameToFetch);
 
         if (!bggFetchResult.success || !bggFetchResult.plays) {
             toast({ title: 'Errore Caricamento Partite BGG', description: bggFetchResult.error || bggFetchResult.message || 'Impossibile caricare le partite da BGG.', variant: 'destructive' });
@@ -419,8 +419,9 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             playsToSave.forEach(play => {
                 const playDocRef = doc(playsSubcollectionRef, play.playId);
                 const playDataForFirestore: BggPlayDetail = {
-                    ...play, // gameBggId is already on play from the server action
+                    ...play,
                     userId: usernameToFetch,
+                    gameBggId: game.bggId,
                 };
                 batch.set(playDocRef, playDataForFirestore, { merge: true });
             });
@@ -433,7 +434,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                     title: "Partite Caricate e Salvate",
                     description: bggFetchResult.message || `Caricate e salvate ${playsToSave.length} partite per ${game.name}. Conteggio aggiornato.`,
                 });
-                revalidateGameDataAction(game.id);
+                await revalidateGameDataAction(game.id);
                 fetchGameData();
             } catch (dbError) {
                 const errorMessage = dbError instanceof Error ? dbError.message : "Impossibile salvare le partite nel database.";
@@ -446,7 +447,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                     title: "Nessuna Partita Trovata",
                     description: bggFetchResult.message || `Nessuna partita trovata su BGG per ${usernameToFetch} per questo gioco. Conteggio azzerato.`,
                 });
-                revalidateGameDataAction(game.id);
+                await revalidateGameDataAction(game.id);
                 fetchGameData();
             } catch (dbError) {
                  // Silently ignore if update to 0 fails, or log specific error
@@ -582,26 +583,27 @@ const handleGenerateRecommendations = async () => {
   return (
     <div className="space-y-8">
       <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
-        <div className="flex flex-col"> {/* Main wrapper for all card content */}
-          {/* Top section: Text content on left/center, Image on right (desktop) */}
+        <div className="flex flex-col">
           <div className="flex flex-col md:flex-row">
-            {/* Main text content area */}
             <div className="flex-1 p-6 space-y-4 md:order-1">
               {/* Header: Game Title and Overall Score */}
               <div className="flex justify-between items-start mb-2">
-                <div className="flex-1 min-w-0 mr-2">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:gap-1 flex-shrink min-w-0 mr-2">
                   <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
                     {game.name}
                   </h1>
                 </div>
                 <div className="flex-shrink-0 flex flex-col items-end">
-                  <span className="text-3xl md:text-4xl font-bold text-primary whitespace-nowrap">
+                   <span className="text-3xl md:text-4xl font-bold text-primary whitespace-nowrap">
                     {globalGameAverage !== null ? formatRatingNumber(globalGameAverage * 2) : ''}
                   </span>
+                  <div className="flex items-center gap-1 mt-1">
+                      {/* Icons moved to button bar */}
+                  </div>
                 </div>
               </div>
 
-              {/* Mobile Only Image - Placed before button bar */}
+              {/* Mobile Only Image */}
               <div className="md:hidden my-4 max-w-[240px] mx-auto">
                 <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
                   <SafeImage
@@ -617,7 +619,7 @@ const handleGenerateRecommendations = async () => {
                 </div>
               </div>
               
-              {/* Button Bar - Moved here for mobile and general flow */}
+              {/* Button Bar */}
               <div className="px-0 py-4 border-t border-b border-border">
                 <div className="flex justify-evenly items-center gap-1 sm:gap-2">
                     <Button
@@ -694,8 +696,9 @@ const handleGenerateRecommendations = async () => {
                 </div>
               </div>
               
-              {/* Metadata Grid - Moved below button bar */}
+              {/* Metadata Grid */}
               <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
+                {/* Left Column */}
                 {(game.designers && game.designers.length > 0) && (
                   <div className="flex items-baseline gap-2">
                       <PenTool size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
@@ -703,50 +706,18 @@ const handleGenerateRecommendations = async () => {
                       <span>{game.designers.join(', ')}</span>
                   </div>
                 )}
-                {game.yearPublished != null && (
-                    <div className="flex items-baseline gap-2">
-                      <CalendarDays size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
-                      <span className="font-medium hidden sm:inline">Anno:</span>
-                      <span>{game.yearPublished}</span>
-                    </div>
-                )}
                 {(game.minPlayers != null || game.maxPlayers != null) && (
-                    <div className="flex items-baseline gap-2 justify-end">
+                    <div className="flex items-baseline gap-2">
+                      <Users size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
                       <span className="font-medium hidden sm:inline">Giocatori:</span>
                       <span>{game.minPlayers}{game.maxPlayers && game.minPlayers !== game.maxPlayers ? `-${game.maxPlayers}` : ''}</span>
-                      <Users size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
                     </div>
                 )}
-                { (game.minPlaytime != null && game.maxPlaytime != null) || game.playingTime != null ? (
+                 {game.averageWeight !== null && typeof game.averageWeight === 'number' && (
                     <div className="flex items-baseline gap-2">
-                      <Clock size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
-                      <span className="font-medium hidden sm:inline">Durata:</span>
-                      <span>
-                          {game.minPlaytime != null && game.maxPlaytime != null ?
-                          (game.minPlaytime === game.maxPlaytime ? `${game.minPlaytime} min` : `${game.minPlaytime} - ${game.maxPlaytime} min`)
-                          : (game.playingTime != null ? `${game.playingTime} min` : 'N/D')
-                          }
-                          {game.minPlaytime != null && game.maxPlaytime != null && game.playingTime != null && game.playingTime !== game.minPlaytime && game.playingTime !== game.maxPlaytime && ` (Tipica: ${game.playingTime} min)`}
-                      </span>
-                    </div>
-                ) : null}
-                {game.averageWeight !== null && typeof game.averageWeight === 'number' && (
-                    <div className="flex items-baseline gap-2 justify-end">
+                      <Weight size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
                       <span className="font-medium hidden sm:inline">Complessità:</span>
                       <span>{formatRatingNumber(game.averageWeight)} / 5</span>
-                      <Weight size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
-                    </div>
-                )}
-                <div className="flex items-baseline gap-2">
-                    <Dices size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
-                    <span className="font-medium hidden sm:inline">Partite:</span>
-                    <span>{game.lctr01Plays ?? 0}</span>
-                </div>
-                 {highestScoreAchieved !== null && (
-                    <div className="flex items-baseline gap-2 justify-end">
-                        <span className="font-medium hidden sm:inline">Miglior Punteggio:</span>
-                        <span>{formatRatingNumber(highestScoreAchieved)} pt.</span>
-                        <Medal size={14} className="text-amber-500 flex-shrink-0 relative top-px" />
                     </div>
                 )}
                 {topWinnerStats && (
@@ -756,9 +727,42 @@ const handleGenerateRecommendations = async () => {
                     <span>{topWinnerStats.name} ({topWinnerStats.wins} {topWinnerStats.wins === 1 ? 'vittoria' : 'vittorie'})</span>
                   </div>
                 )}
+
+                {/* Right Column */}
+                {game.yearPublished != null && (
+                    <div className="flex items-baseline gap-2 justify-end">
+                      <span className="font-medium hidden sm:inline">Anno:</span>
+                      <span>{game.yearPublished}</span>
+                      <CalendarDays size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
+                    </div>
+                )}
+                { (game.minPlaytime != null && game.maxPlaytime != null) || game.playingTime != null ? (
+                    <div className="flex items-baseline gap-2 justify-end">
+                      <span className="font-medium hidden sm:inline">Durata:</span>
+                      <span>
+                          {game.minPlaytime != null && game.maxPlaytime != null ?
+                          (game.minPlaytime === game.maxPlaytime ? `${game.minPlaytime} min` : `${game.minPlaytime} - ${game.maxPlaytime} min`)
+                          : (game.playingTime != null ? `${game.playingTime} min` : 'N/D')
+                          }
+                          {game.minPlaytime != null && game.maxPlaytime != null && game.playingTime != null && game.playingTime !== game.minPlaytime && game.playingTime !== game.maxPlaytime && ` (Tipica: ${game.playingTime} min)`}
+                      </span>
+                      <Clock size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
+                    </div>
+                ) : null}
+                <div className="flex items-baseline gap-2 justify-end">
+                    <span className="font-medium hidden sm:inline">Partite:</span>
+                    <span>{game.lctr01Plays ?? 0}</span>
+                    <Dices size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
+                </div>
+                 {highestScoreAchieved !== null && (
+                    <div className="flex items-baseline gap-2 justify-end">
+                        <span className="font-medium hidden sm:inline">Miglior Punteggio:</span>
+                        <span>{formatRatingNumber(highestScoreAchieved)} pt.</span>
+                        <Medal size={14} className="text-amber-500 flex-shrink-0 relative top-px" />
+                    </div>
+                )}
               </div>
               
-              {/* Average Player Ratings Accordion */}
               {(game.reviews && game.reviews.length > 0) && (
                 <div className="w-full pt-4 border-t border-border">
                   <h3 className="text-sm md:text-lg font-semibold text-foreground mb-3">Valutazione Media:</h3>
@@ -772,7 +776,6 @@ const handleGenerateRecommendations = async () => {
               )}
             </div>
 
-            {/* Desktop Image Sidebar */}
             <div className="hidden md:block md:w-1/4 p-6 flex-shrink-0 self-start md:order-2 space-y-4">
               <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
                 <SafeImage
@@ -791,7 +794,6 @@ const handleGenerateRecommendations = async () => {
         </div>
       </Card>
       
-      {/* Play Logs Section */}
       {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
         <Card className="shadow-md border border-border rounded-lg">
           <CardHeader className="flex flex-row justify-between items-center">
@@ -884,7 +886,6 @@ const handleGenerateRecommendations = async () => {
         </Card>
       )}
         
-      {/* User's Review Section / Rate Game Button */}
       <div className="space-y-4">
           {currentUser && !authLoading && userReview && (
             <div className="space-y-4">
@@ -954,8 +955,7 @@ const handleGenerateRecommendations = async () => {
           )}
         </div>
         
-      {/* Other Reviews Section */}
-      {remainingReviews.length > 0 ? (
+      {(remainingReviews.length > 0) ? (
         <>
             <Separator className="my-6" />
             <h2 className="text-2xl font-semibold text-foreground mb-6 flex items-center gap-2">
@@ -980,7 +980,6 @@ const handleGenerateRecommendations = async () => {
         </Alert>
       )}
 
-      {/* AI Game Recommendations Section */}
       <div className="pt-8">
         <Card className="shadow-md border border-border rounded-lg">
         <CardHeader>
@@ -1039,4 +1038,4 @@ const handleGenerateRecommendations = async () => {
   );
 }
 
-
+    
