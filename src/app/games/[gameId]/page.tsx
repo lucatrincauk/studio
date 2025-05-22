@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ChangeEvent } from 'react';
@@ -18,7 +19,7 @@ import { calculateGroupedCategoryAverages, calculateOverallCategoryAverage, form
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { doc, deleteDoc, updateDoc, getDocs, collection, getDoc, arrayUnion, arrayRemove, increment, writeBatch, serverTimestamp, setDoc, query, where, getCountFromServer } from 'firebase/firestore'; // Added query, where, getCountFromServer
+import { doc, deleteDoc, updateDoc, getDocs, collection, getDoc, arrayUnion, arrayRemove, increment, writeBatch, serverTimestamp, setDoc, query, where, getCountFromServer } from 'firebase/firestore';
 import {
   Accordion,
   AccordionContent,
@@ -855,24 +856,26 @@ const handleGenerateRecommendations = async () => {
     <div className="space-y-8">
       <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
         <div className="flex flex-col">
+           {/* Main Game Info: Title, Icons, Score */}
            <div className="flex justify-between items-start p-6 pb-2 mb-2">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:gap-1 flex-shrink min-w-0 mr-2">
-                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
-                    {game.name}
-                </h1>
-            </div>
-            <div className="flex-shrink-0 flex flex-col items-end">
-                {globalGameAverage !== null && (
-                  <span className="text-3xl md:text-4xl font-bold text-primary whitespace-nowrap flex items-center">
-                    <Star className="h-6 w-6 md:h-7 md:w-7 text-accent fill-accent relative top-px mr-1" />
-                    {formatRatingNumber(globalGameAverage * 2)}
-                  </span>
-                )}
-            </div>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:gap-1 flex-shrink min-w-0 mr-2">
+                  <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
+                      {game.name}
+                  </h1>
+              </div>
+              <div className="flex-shrink-0 flex flex-col items-end">
+                  {globalGameAverage !== null && (
+                      <span className="text-3xl md:text-4xl font-bold text-primary whitespace-nowrap">
+                          {formatRatingNumber(globalGameAverage * 2)}
+                      </span>
+                  )}
+              </div>
           </div>
 
           <div className="flex flex-col md:flex-row">
+            {/* Main Content Column (Text details, Button Bar, Metadata, Average Ratings) */}
             <div className="flex-1 p-6 pt-0 space-y-4 md:order-1">
+              {/* Mobile Image */}
               <div className="md:hidden my-4 max-w-[240px] mx-auto">
                 <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
                   <SafeImage
@@ -888,7 +891,21 @@ const handleGenerateRecommendations = async () => {
                 </div>
               </div>
               
-              <div className="flex justify-evenly items-center gap-1 sm:gap-2 py-4 border-t border-b border-border">
+              {/* Button Bar */}
+               <div className="flex justify-evenly items-center gap-1 sm:gap-2 py-4 border-t border-b border-border">
+                {currentUser && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    asChild
+                    title="Valuta questo gioco"
+                    className="h-9 px-2 text-amber-500/70 hover:text-amber-500 hover:bg-amber-500/10"
+                  >
+                    <Link href={`/games/${game.id}/rate`}>
+                      <Star className="h-5 w-5" />
+                    </Link>
+                  </Button>
+                )}
                 <Button
                   variant="ghost"
                   size="sm"
@@ -983,6 +1000,7 @@ const handleGenerateRecommendations = async () => {
                 )}
               </div>
               
+              {/* Metadata Grid */}
               <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
                  {game.designers && game.designers.length > 0 && (
                   <div className="flex items-baseline gap-2">
@@ -992,7 +1010,7 @@ const handleGenerateRecommendations = async () => {
                   </div>
                 )}
                 {game.yearPublished !== null && (
-                  <div className="flex items-baseline gap-2"> {/* Removed justify-end */}
+                  <div className="flex items-baseline gap-2">
                     <CalendarIcon size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
                     <span className="font-medium hidden sm:inline">Anno:</span>
                     <span>{game.yearPublished}</span>
@@ -1006,7 +1024,7 @@ const handleGenerateRecommendations = async () => {
                   </div>
                 )}
                 {(game.minPlaytime != null || game.maxPlaytime != null || game.playingTime != null) && (
-                  <div className="flex items-baseline gap-2"> {/* Removed justify-end */}
+                  <div className="flex items-baseline gap-2">
                      <Clock size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
                     <span className="font-medium hidden sm:inline">Durata:</span>
                     <span>
@@ -1024,7 +1042,7 @@ const handleGenerateRecommendations = async () => {
                     <span>{formatRatingNumber(game.averageWeight)} / 5</span>
                   </div>
                 )}
-                 {game.lctr01Plays !== null && (
+                 {(game.lctr01Plays ?? 0) > 0 || game.lctr01Plays === 0 && ( // Show even if 0
                     <div className="flex items-baseline gap-2"> 
                         <Dices size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
                         <span className="font-medium hidden sm:inline">Partite:</span>
@@ -1047,6 +1065,7 @@ const handleGenerateRecommendations = async () => {
                 )}
               </div>
               
+              {/* Average Ratings Accordion */}
               {game.reviews && game.reviews.length > 0 && (
                   <div className="w-full pt-4 border-t border-border">
                     <h3 className="text-sm md:text-lg font-semibold text-foreground mb-3">Valutazione Media:</h3>
@@ -1060,6 +1079,7 @@ const handleGenerateRecommendations = async () => {
               )}
             </div>
 
+            {/* Desktop Image Sidebar */}
             <div className="hidden md:block md:w-1/4 p-6 flex-shrink-0 self-start md:order-2 space-y-4">
               <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
                 <SafeImage
@@ -1078,6 +1098,7 @@ const handleGenerateRecommendations = async () => {
         </div>
       </Card>
 
+      {/* Logged Plays Section */}
       {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
         <Card className="shadow-md border border-border rounded-lg">
           <CardHeader className="flex flex-row justify-between items-center">
@@ -1121,13 +1142,7 @@ const handleGenerateRecommendations = async () => {
                       </AccordionTrigger>
                       <AccordionContent className="pb-4 text-sm">
                         <div className="space-y-3">
-                           {play.location && play.location.trim() !== '' && (
-                              <div className="grid grid-cols-[auto_1fr] gap-x-2 items-baseline">
-                                <strong className="text-muted-foreground text-xs">Luogo:</strong>
-                                <p className="text-xs whitespace-pre-wrap">{play.location}</p>
-                              </div>
-                            )}
-                          {play.comments && play.comments.trim() !== '' && (
+                           {play.comments && play.comments.trim() !== '' && (
                             <div className="mt-1">
                                 <strong className="text-xs text-muted-foreground">Commenti:</strong>
                                 <p className="text-xs whitespace-pre-wrap">{play.comments}</p>
@@ -1135,7 +1150,7 @@ const handleGenerateRecommendations = async () => {
                           )}
                           {play.players && play.players.length > 0 && (
                             <div>
-                                <ul className="pl-1">
+                                <ul className="pl-1 space-y-0.5">
                                 {play.players
                                     .slice()
                                     .sort((a, b) => {
@@ -1145,9 +1160,8 @@ const handleGenerateRecommendations = async () => {
                                     })
                                     .map((player, pIndex) => (
                                     <li key={pIndex} className={cn(
-                                      "flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5",
-                                      pIndex % 2 === 0 ? 'bg-muted/30' : '', 
-                                      "px-2"
+                                      "flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5 px-2",
+                                      pIndex % 2 === 0 ? 'bg-muted/30' : ''
                                     )}>
                                         <div className="flex items-center gap-1.5 flex-grow min-w-0">
                                             <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 relative top-px" />
@@ -1171,6 +1185,12 @@ const handleGenerateRecommendations = async () => {
                                 </ul>
                             </div>
                           )}
+                           {(play.location && play.location.trim() !== '') && (
+                              <div className="grid grid-cols-[auto_1fr] gap-x-2 items-baseline mt-3 pt-2 border-t border-dashed">
+                                <strong className="text-muted-foreground text-xs">Luogo:</strong>
+                                <p className="text-xs whitespace-pre-wrap">{play.location}</p>
+                              </div>
+                            )}
                         </div>
                       </AccordionContent>
                   </AccordionItem>
@@ -1181,7 +1201,8 @@ const handleGenerateRecommendations = async () => {
         </Card>
       )}
       
-       {userReview && (
+      {/* User's Own Review Section */}
+      {userReview && (
         <div className="space-y-4">
           <div className="flex flex-row items-center justify-between gap-2">
             <h3 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h3>
@@ -1224,6 +1245,7 @@ const handleGenerateRecommendations = async () => {
         </div>
       )}
 
+      {/* Prompt to Rate if not reviewed and logged in */}
       {currentUser && !authLoading && !userReview && (
         <Card className="p-6 border border-border rounded-lg shadow-md bg-card">
           <CardTitle className="text-xl font-semibold text-foreground mb-1">Condividi la Tua Opinione</CardTitle>
@@ -1239,6 +1261,7 @@ const handleGenerateRecommendations = async () => {
         </Card>
       )}
 
+      {/* Prompt to log in if not logged in */}
       {!currentUser && !authLoading && (
         <Alert variant="default" className="bg-secondary/30 border-secondary">
           <Info className="h-4 w-4 text-secondary-foreground" />
@@ -1248,12 +1271,13 @@ const handleGenerateRecommendations = async () => {
         </Alert>
       )}
         
+      {/* Other Player Reviews Section */}
       {remainingReviews.length > 0 ? (
       <>
           <Separator className="my-6" />
           <h2 className="text-2xl font-semibold text-foreground mb-6 flex items-center gap-2">
           <MessageSquare className="h-6 w-6 text-primary"/>
-          {userReview ? `Altri Voti (${remainingReviews.length})` : `Recensioni (${remainingReviews.length})`}
+          {userReview ? `Altri Voti (${remainingReviews.length})` : `Voti (${remainingReviews.length})`}
           </h2>
           <div className="space-y-4">
             {remainingReviews.map(review => <ReviewItem key={review.id} review={review} />)}
@@ -1275,6 +1299,7 @@ const handleGenerateRecommendations = async () => {
       </Alert>
       )}
 
+      {/* AI Recommendations Section */}
       <div className="pt-8">
         <Card className="shadow-md border border-border rounded-lg">
         <CardHeader>
@@ -1375,5 +1400,6 @@ const handleGenerateRecommendations = async () => {
     </div>
   );
 }
+
 
 
