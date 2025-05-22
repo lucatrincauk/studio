@@ -160,7 +160,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     }
   }, [game, currentUser]);
 
-  const updateGameOverallRatingAfterDelete = useCallback(async () => {
+  const updateGameOverallRatingAfterReviewChange = useCallback(async () => {
     if (!game) return;
     try {
       const reviewsCollectionRef = collection(db, FIRESTORE_COLLECTION_NAME, game.id, 'reviews');
@@ -215,7 +215,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         await deleteDoc(reviewDocRef);
         
         toast({ title: "Voto Eliminato", description: "Il tuo voto è stato eliminato con successo." });
-        await updateGameOverallRatingAfterDelete();
+        await updateGameOverallRatingAfterReviewChange();
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({ title: "Errore", description: `Impossibile eliminare il voto: ${errorMessage}`, variant: "destructive" });
@@ -402,7 +402,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     const usernameToFetch = "lctr01";
 
     startFetchPlaysTransition(async () => {
-        const bggFetchResult = await fetchUserPlaysForGameFromBggAction(game.bggId, usernameToFetch);
+        const bggFetchResult = await fetchUserPlaysForGameFromBggAction(game.id, game.bggId, usernameToFetch);
 
         if (!bggFetchResult.success || !bggFetchResult.plays) {
             toast({ title: 'Errore Caricamento Partite BGG', description: bggFetchResult.error || bggFetchResult.message || 'Impossibile caricare le partite da BGG.', variant: 'destructive' });
@@ -419,9 +419,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             playsToSave.forEach(play => {
                 const playDocRef = doc(playsSubcollectionRef, play.playId);
                 const playDataForFirestore: BggPlayDetail = {
-                    ...play,
+                    ...play, // gameBggId is already on play from the server action
                     userId: usernameToFetch,
-                    gameBggId: game.bggId,
                 };
                 batch.set(playDocRef, playDataForFirestore, { merge: true });
             });
@@ -582,16 +581,18 @@ const handleGenerateRecommendations = async () => {
   
   return (
     <div className="space-y-8">
-      <Card className="overflow-hidden shadow-xl border border-border rounded-lg flex flex-col">
-        <div> 
+      <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
+        <div className="flex flex-col"> {/* Main wrapper for all card content */}
+          {/* Top section: Text content on left/center, Image on right (desktop) */}
           <div className="flex flex-col md:flex-row">
+            {/* Main text content area */}
             <div className="flex-1 p-6 space-y-4 md:order-1">
               {/* Header: Game Title and Overall Score */}
               <div className="flex justify-between items-start mb-2">
-                <div className="flex items-center gap-1 flex-shrink min-w-0 mr-2">
-                    <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
-                        {game.name}
-                    </h1>
+                <div className="flex-1 min-w-0 mr-2">
+                  <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
+                    {game.name}
+                  </h1>
                 </div>
                 <div className="flex-shrink-0 flex flex-col items-end">
                   <span className="text-3xl md:text-4xl font-bold text-primary whitespace-nowrap">
@@ -600,7 +601,7 @@ const handleGenerateRecommendations = async () => {
                 </div>
               </div>
 
-              {/* Mobile Only Image */}
+              {/* Mobile Only Image - Placed before button bar */}
               <div className="md:hidden my-4 max-w-[240px] mx-auto">
                 <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
                   <SafeImage
@@ -615,85 +616,85 @@ const handleGenerateRecommendations = async () => {
                   />
                 </div>
               </div>
-
-              {/* Button Bar - Moved here and made responsive */}
+              
+              {/* Button Bar - Moved here for mobile and general flow */}
               <div className="px-0 py-4 border-t border-b border-border">
                 <div className="flex justify-evenly items-center gap-1 sm:gap-2">
                     <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleToggleFavorite}
-                      disabled={isFavoriting || authLoading || !currentUser}
-                      title={isFavoritedByCurrentUser ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
-                      className={`h-9 px-2 ${isFavoritedByCurrentUser ? 'text-destructive fill-destructive hover:bg-destructive/20' : 'text-destructive/60 hover:text-destructive hover:bg-destructive/10'}`}
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleToggleFavorite}
+                        disabled={isFavoriting || authLoading || !currentUser}
+                        title={isFavoritedByCurrentUser ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
+                        className={`h-9 px-2 ${isFavoritedByCurrentUser ? 'text-destructive fill-destructive hover:bg-destructive/20' : 'text-destructive/60 hover:text-destructive hover:bg-destructive/10'}`}
                     >
-                      {isFavoriting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Heart className={`h-5 w-5 ${isFavoritedByCurrentUser ? 'fill-destructive' : ''}`} />}
-                      {currentFavoriteCount > 0 && (
+                        {isFavoriting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Heart className={`h-5 w-5 ${isFavoritedByCurrentUser ? 'fill-destructive' : ''}`} />}
+                        {currentFavoriteCount > 0 && (
                         <span className="ml-1 text-xs">({currentFavoriteCount})</span>
-                      )}
+                        )}
                     </Button>
-                  
+                    
                     <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleTogglePlaylist}
-                      disabled={isPlaylisting || authLoading || !currentUser}
-                      title={isPlaylistedByCurrentUser ? "Rimuovi dalla Playlist" : "Aggiungi alla Playlist"}
-                      className={`h-9 px-2 ${isPlaylistedByCurrentUser ? 'text-sky-500 hover:bg-sky-500/20' : 'text-sky-500/60 hover:text-sky-500 hover:bg-sky-500/10'}`}
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleTogglePlaylist}
+                        disabled={isPlaylisting || authLoading || !currentUser}
+                        title={isPlaylistedByCurrentUser ? "Rimuovi dalla Playlist" : "Aggiungi alla Playlist"}
+                        className={`h-9 px-2 ${isPlaylistedByCurrentUser ? 'text-sky-500 hover:bg-sky-500/20' : 'text-sky-500/60 hover:text-sky-500 hover:bg-sky-500/10'}`}
                     >
-                      {isPlaylisting ? <Loader2 className="h-5 w-5 animate-spin" /> : (isPlaylistedByCurrentUser ? <BookMarked className="h-5 w-5" /> : <Bookmark className="h-5 w-5" />)}
-                      {game?.playlistedByUserIds && game.playlistedByUserIds.length > 0 && (
+                        {isPlaylisting ? <Loader2 className="h-5 w-5 animate-spin" /> : (isPlaylistedByCurrentUser ? <BookMarked className="h-5 w-5" /> : <Bookmark className="h-5 w-5" />)}
+                        {game?.playlistedByUserIds && game.playlistedByUserIds.length > 0 && (
                         <span className="ml-1 text-xs">({game.playlistedByUserIds.length})</span>
-                      )}
+                        )}
                     </Button>
-                 
-                  {game.bggId > 0 && (
+                    
+                    {game.bggId > 0 && (
                     <Button variant="ghost" size="icon" asChild className="h-9 w-9 text-primary/80 hover:text-primary hover:bg-primary/10">
-                      <a href={`https://boardgamegeek.com/boardgame/${game.bggId}`} target="_blank" rel="noopener noreferrer" title="Vedi su BGG">
+                        <a href={`https://boardgamegeek.com/boardgame/${game.bggId}`} target="_blank" rel="noopener noreferrer" title="Vedi su BGG">
                         <ExternalLink className="h-5 w-5" />
-                      </a>
+                        </a>
                     </Button>
-                  )}
+                    )}
 
-                  {isAdmin && (
+                    {isAdmin && (
                     <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
+                        <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-9 w-9 text-primary/80 hover:text-primary hover:bg-primary/10">
-                          <Settings className="h-5 w-5" />
+                            <Settings className="h-5 w-5" />
                         </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
                         <DropdownMenuItem
-                          onSelect={handleTogglePinGame}
-                          disabled={isPinToggling || authLoading}
-                          className="cursor-pointer"
+                            onSelect={handleTogglePinGame}
+                            disabled={isPinToggling || authLoading}
+                            className="cursor-pointer"
                         >
-                          {isPinToggling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (currentIsPinned ? <PinOff className="mr-2 h-4 w-4" /> : <Pin className="mr-2 h-4 w-4" />)}
-                          {currentIsPinned ? "Rimuovi da Vetrina" : "Aggiungi a Vetrina"}
+                            {isPinToggling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (currentIsPinned ? <PinOff className="mr-2 h-4 w-4" /> : <Pin className="mr-2 h-4 w-4" />)}
+                            {currentIsPinned ? "Rimuovi da Vetrina" : "Aggiungi a Vetrina"}
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          onSelect={handleRefreshBggData}
-                          disabled={(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) || !game || !game.bggId}
-                          className="cursor-pointer"
+                            onSelect={handleRefreshBggData}
+                            disabled={(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) || !game || !game.bggId}
+                            className="cursor-pointer"
                         >
-                          {(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DownloadCloud className="mr-2 h-4 w-4" />}
-                          Aggiorna Dati da BGG
+                            {(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DownloadCloud className="mr-2 h-4 w-4" />}
+                            Aggiorna Dati da BGG
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          onSelect={handleFetchBggPlays}
-                          disabled={isFetchingPlays || !game || !game.bggId || !currentUser}
-                          className="cursor-pointer"
+                            onSelect={handleFetchBggPlays}
+                            disabled={isFetchingPlays || !game || !game.bggId || !currentUser}
+                            className="cursor-pointer"
                         >
-                          {isFetchingPlays ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Dices className="mr-2 h-4 w-4" />}
-                          Carica Partite
+                            {isFetchingPlays ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Dices className="mr-2 h-4 w-4" />}
+                            Carica Partite
                         </DropdownMenuItem>
-                      </DropdownMenuContent>
+                        </DropdownMenuContent>
                     </DropdownMenu>
-                  )}
+                    )}
                 </div>
               </div>
               
-              {/* Metadata Grid */}
+              {/* Metadata Grid - Moved below button bar */}
               <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
                 {(game.designers && game.designers.length > 0) && (
                   <div className="flex items-baseline gap-2">
@@ -710,10 +711,10 @@ const handleGenerateRecommendations = async () => {
                     </div>
                 )}
                 {(game.minPlayers != null || game.maxPlayers != null) && (
-                    <div className="flex items-baseline gap-2">
-                      <Users size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
+                    <div className="flex items-baseline gap-2 justify-end">
                       <span className="font-medium hidden sm:inline">Giocatori:</span>
                       <span>{game.minPlayers}{game.maxPlayers && game.minPlayers !== game.maxPlayers ? `-${game.maxPlayers}` : ''}</span>
+                      <Users size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
                     </div>
                 )}
                 { (game.minPlaytime != null && game.maxPlaytime != null) || game.playingTime != null ? (
@@ -730,10 +731,10 @@ const handleGenerateRecommendations = async () => {
                     </div>
                 ) : null}
                 {game.averageWeight !== null && typeof game.averageWeight === 'number' && (
-                    <div className="flex items-baseline gap-2">
-                      <Weight size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
+                    <div className="flex items-baseline gap-2 justify-end">
                       <span className="font-medium hidden sm:inline">Complessità:</span>
                       <span>{formatRatingNumber(game.averageWeight)} / 5</span>
+                      <Weight size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
                     </div>
                 )}
                 <div className="flex items-baseline gap-2">
@@ -741,19 +742,19 @@ const handleGenerateRecommendations = async () => {
                     <span className="font-medium hidden sm:inline">Partite:</span>
                     <span>{game.lctr01Plays ?? 0}</span>
                 </div>
+                 {highestScoreAchieved !== null && (
+                    <div className="flex items-baseline gap-2 justify-end">
+                        <span className="font-medium hidden sm:inline">Miglior Punteggio:</span>
+                        <span>{formatRatingNumber(highestScoreAchieved)} pt.</span>
+                        <Medal size={14} className="text-amber-500 flex-shrink-0 relative top-px" />
+                    </div>
+                )}
                 {topWinnerStats && (
                   <div className="flex items-baseline gap-2">
                     <Trophy size={14} className="text-amber-500 flex-shrink-0 relative top-px" />
                     <span className="font-medium hidden sm:inline">Campione:</span>
                     <span>{topWinnerStats.name} ({topWinnerStats.wins} {topWinnerStats.wins === 1 ? 'vittoria' : 'vittorie'})</span>
                   </div>
-                )}
-                 {highestScoreAchieved !== null && (
-                    <div className="flex items-baseline gap-2">
-                        <Medal size={14} className="text-amber-500 flex-shrink-0 relative top-px" />
-                        <span className="font-medium hidden sm:inline">Miglior Punteggio:</span>
-                        <span>{formatRatingNumber(highestScoreAchieved)} pt.</span>
-                    </div>
                 )}
               </div>
               
@@ -831,7 +832,7 @@ const handleGenerateRecommendations = async () => {
                       <AccordionContent className="pb-4 text-sm">
                       <div className="space-y-3">
                           {play.comments && play.comments.trim() !== '' && (
-                          <div>
+                          <div className="mt-1">
                               <strong className="text-xs text-muted-foreground">Commenti:</strong>
                               <p className="text-xs whitespace-pre-wrap">{play.comments}</p>
                           </div>
@@ -848,9 +849,9 @@ const handleGenerateRecommendations = async () => {
                                   })
                                   .map((player, pIndex) => (
                                   <li key={pIndex} className={cn(
-                                  "flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5 px-2",
+                                  "flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5",
                                   pIndex % 2 === 0 ? 'bg-muted/30' : '', 
-                                  )}>
+                                  "px-2")}>
                                       <div className="flex items-center gap-1.5 flex-grow min-w-0">
                                           <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 relative top-px" />
                                           <span className={cn("truncate", player.didWin ? 'font-semibold' : '')} title={player.name || player.username || 'Sconosciuto'}>
@@ -1037,4 +1038,5 @@ const handleGenerateRecommendations = async () => {
     </div>
   );
 }
+
 
