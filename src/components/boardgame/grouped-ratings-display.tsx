@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { GroupedCategoryAverages } from '@/lib/types';
@@ -53,11 +52,11 @@ export function GroupedRatingsDisplay({
   const getResponsiveSectionTitle = (title: string) => {
     switch (title) {
       case "Design del Gioco":
-        return <><span className="sm:hidden">Design</span><span className="hidden sm:inline">Design del Gioco</span></>;
+        return <><span className="md:hidden">Design</span><span className="hidden md:inline">Design del Gioco</span></>;
       case "Estetica e Immersione":
-        return <><span className="sm:hidden">Estetica</span><span className="hidden sm:inline">Estetica e Immersione</span></>;
+        return <><span className="md:hidden">Estetica</span><span className="hidden md:inline">Estetica e Immersione</span></>;
       case "Apprendimento e Logistica":
-        return <><span className="sm:hidden">Logistica</span><span className="hidden sm:inline">Apprendimento e Logistica</span></>;
+        return <><span className="md:hidden">Logistica</span><span className="hidden md:inline">Apprendimento e Logistica</span></>;
       default:
         return title;
     }
@@ -77,7 +76,7 @@ export function GroupedRatingsDisplay({
               <div className="flex justify-between w-full items-center pr-2 gap-2">
                 <div className="flex items-center flex-grow min-w-0">
                     {IconComponent && <IconComponent className="h-5 w-5 text-primary mr-2 flex-shrink-0" />}
-                    <span className="font-medium text-md text-foreground truncate">
+                    <span className="font-medium text-sm md:text-md text-foreground truncate">
                       {getResponsiveSectionTitle(section.sectionTitle)}
                     </span>
                 </div>
