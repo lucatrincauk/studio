@@ -139,7 +139,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       if (gameData.reviews && gameData.reviews.length > 0) {
         const categoryAvgs = calculateCatAvgsFromUtils(gameData.reviews);
         if (categoryAvgs) {
-          setGlobalGameAverage(calculateGlobalOverallAverage(categoryAvgs));
+          setGlobalGameAverage(calculateOverallCategoryAverage(categoryAvgs));
         } else {
           setGlobalGameAverage(null);
         }
@@ -206,7 +206,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       });
 
       const categoryAvgs = calculateCatAvgsFromUtils(allReviewsForGame);
-      const newOverallAverage = categoryAvgs ? calculateGlobalOverallAverage(categoryAvgs) : null;
+      const newOverallAverage = categoryAvgs ? calculateOverallCategoryAverage(categoryAvgs) : null;
       const newVoteCount = allReviewsForGame.length;
 
       const gameDocRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
@@ -215,8 +215,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         voteCount: newVoteCount
       });
 
-      revalidateGameDataAction(game.id); // Call server action for revalidation
-      fetchGameData(); // Re-fetch data for the current page
+      revalidateGameDataAction(game.id); 
+      fetchGameData(); 
     } catch (error) {
       console.error("Errore durante l'aggiornamento del punteggio medio del gioco:", error);
       toast({ title: "Errore", description: "Impossibile aggiornare il punteggio medio del gioco.", variant: "destructive" });
@@ -237,7 +237,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         await deleteDoc(reviewDocRef);
         
         toast({ title: "Voto Eliminato", description: "Il tuo voto è stato eliminato con successo." });
-        await updateGameOverallRatingAfterDelete(); // This will also call fetchGameData and revalidate
+        await updateGameOverallRatingAfterDelete(); 
+        revalidateGameDataAction(gameId);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({ title: "Errore", description: `Impossibile eliminare il voto: ${errorMessage}`, variant: "destructive" });
@@ -260,7 +261,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           title: "Stato Vetrina Aggiornato",
           description: `Il gioco è stato ${newPinStatus ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
         });
-        revalidateGameDataAction(game.id); // Call server action for revalidation
+        revalidateGameDataAction(game.id); 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({
@@ -354,8 +355,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           );
         }
         
-        // Favorite Fanatic Badge Check
-        if (finalFavoritedStatus) { // Only check if a game was added to favorites
+        
+        if (finalFavoritedStatus) { 
             const userProfileRef = doc(db, USER_PROFILES_COLLECTION, currentUser.uid);
             const userProfileSnap = await getDoc(userProfileRef);
             if (userProfileSnap.exists()) {
@@ -477,8 +478,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           );
         }
         
-        // Playlist Pro Badge Check
-        if (finalPlaylistedStatus) { // Only check if a game was added to playlist
+        
+        if (finalPlaylistedStatus) { 
             const userProfileRef = doc(db, USER_PROFILES_COLLECTION, currentUser.uid);
             const userProfileSnap = await getDoc(userProfileRef);
             if (userProfileSnap.exists()) {
@@ -572,34 +573,37 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             description: `${game.name} è stato aggiunto alla lista morchia.`,
           });
           
-          // Check for Morchia Hunter Badge
-          if (newMorchiaCount >= 5) {
-            const userProfileRef = doc(db, USER_PROFILES_COLLECTION, currentUser.uid);
-            const userProfileSnap = await getDoc(userProfileRef);
-            if (userProfileSnap.exists()){
-                const userProfileData = userProfileSnap.data() as UserProfile;
-                if (!userProfileData.hasEarnedNightOwlReviewer) { // Re-using a flag for now, ideally this would be hasEarnedMorchiaHunter
-                    const badgeRef = doc(userProfileRef, 'earned_badges', 'morchia_hunter_5');
-                    const badgeSnap = await getDoc(badgeRef);
-                    if (!badgeSnap.exists()) {
-                        const badgeData: EarnedBadge = {
-                            badgeId: 'morchia_hunter_5',
-                            name: 'Cacciatore di Morchie',
-                            description: 'Hai contrassegnato 5 giochi come "morchia"!',
-                            iconName: 'Trash2',
-                            earnedAt: serverTimestamp(),
-                        };
-                        await setDoc(badgeRef, badgeData);
-                        // Ideally, we'd have a specific flag like 'hasEarnedMorchiaHunterBadge_5'
-                        // For now, we'll just award the badge. This logic can be improved.
-                        toast({
-                            title: "Distintivo Guadagnato!",
-                            description: "Complimenti! Hai ricevuto il distintivo: Cacciatore di Morchie!",
-                            icon: <Trash2 className="h-5 w-5 text-orange-500" />,
-                        });
-                    }
-                }
-            }
+          
+          const userProfileRef = doc(db, USER_PROFILES_COLLECTION, currentUser.uid);
+          const userProfileSnap = await getDoc(userProfileRef);
+          if (userProfileSnap.exists()){
+              const userProfileData = userProfileSnap.data() as UserProfile;
+              if (!userProfileData.hasEarnedNightOwlReviewer) { // This flag seems to be incorrectly reused, should be specific to morchia or a general badge check.
+                  const morchiaQuery = query(collection(db, FIRESTORE_COLLECTION_NAME), where('morchiaByUserIds', 'array-contains', currentUser.uid));
+                  const morchiaSnapshot = await getCountFromServer(morchiaQuery);
+                  const totalMorchiaMarked = morchiaSnapshot.data().count;
+
+                  if (totalMorchiaMarked >= 5) {
+                      const badgeRef = doc(userProfileRef, 'earned_badges', 'morchia_hunter_5');
+                      const badgeSnap = await getDoc(badgeRef);
+                      if (!badgeSnap.exists()) {
+                          const badgeData: EarnedBadge = {
+                              badgeId: 'morchia_hunter_5',
+                              name: 'Cacciatore di Morchie',
+                              description: 'Hai contrassegnato 5 giochi come "morchia"!',
+                              iconName: 'Trash2',
+                              earnedAt: serverTimestamp(),
+                          };
+                          await setDoc(badgeRef, badgeData);
+                          await updateDoc(userProfileRef, { hasEarnedNightOwlReviewer: true }); // FIXME: This should be a specific morchia badge flag
+                          toast({
+                              title: "Distintivo Guadagnato!",
+                              description: "Complimenti! Hai ricevuto il distintivo: Cacciatore di Morchie!",
+                              icon: <Trash2 className="h-5 w-5 text-orange-500" />,
+                          });
+                      }
+                  }
+              }
           }
         }
 
@@ -700,7 +704,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             try {
                 await batch.commit();
                 toast({
-                    title: "Partite Caricate e Salvate",
+                    title: "Partite Caricate e Salvate!",
                     description: bggFetchResult.message || `Caricate e salvate ${playsToSave.length} partite per ${game.name}. Conteggio aggiornato.`,
                 });
                 revalidateGameDataAction(game.id);
@@ -763,7 +767,6 @@ const handleGenerateRecommendations = async () => {
           });
           setEnrichedAiRecommendations(enriched);
         }
-        // setAiRecommendations(result.recommendations); // This is not needed if enrichedAiRecommendations is used for display
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Errore durante la generazione dei suggerimenti AI.";
         setRecommendationError(errorMessage);
@@ -854,28 +857,109 @@ const handleGenerateRecommendations = async () => {
     <div className="space-y-8">
       <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
         <div className="flex flex-col"> 
+          {/* Main Content and Desktop Image Section */}
           <div className="flex flex-col md:flex-row">
             {/* Main Content Column */}
             <div className="flex-1 p-6 space-y-4 md:order-1">
-                {/* Main Header: Title, Icons, Score */}
+                {/* Game Title, BGG Link (in H1), Score & Action Icons */}
                 <div className="flex justify-between items-start mb-2">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:gap-1 flex-shrink min-w-0 mr-2">
-                        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
+                    {/* Left Side: Title and BGG Link */}
+                    <div className="flex-shrink min-w-0 mr-2">
+                        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground inline-flex items-center gap-1">
                             {game.name}
                             {game.bggId && (
-                              <a href={`https://boardgamegeek.com/boardgame/${game.bggId}`} target="_blank" rel="noopener noreferrer" title="Vedi su BGG" className="inline-flex items-center ml-2 text-muted-foreground hover:text-primary transition-colors">
+                              <a href={`https://boardgamegeek.com/boardgame/${game.bggId}`} target="_blank" rel="noopener noreferrer" title="Vedi su BGG" className="inline-flex items-center text-muted-foreground hover:text-primary transition-colors">
                                 <ExternalLink size={16} className="h-4 w-4" />
                               </a>
                             )}
                         </h1>
                     </div>
-                    {globalGameAverage !== null && (
-                        <div className="flex-shrink-0">
+                     {/* Right Side: Score and Action Icons */}
+                    <div className="flex-shrink-0 flex flex-col items-end">
+                        {globalGameAverage !== null && (
                             <span className="text-3xl md:text-4xl font-bold text-primary whitespace-nowrap">
                                 {formatRatingNumber(globalGameAverage * 2)}
                             </span>
+                        )}
+                        {/* Action Icons - Below Score */}
+                        <div className="flex items-center gap-1 mt-1">
+                            {currentUser && (
+                                <>
+                                    {/* Favorite Button */}
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleToggleFavorite(game.id, game.name)}
+                                        disabled={isFavoriting || authLoading}
+                                        title={isFavoritedByCurrentUser ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
+                                        className={cn(
+                                            `h-9 px-2 hover:bg-destructive/10`,
+                                            isFavoritedByCurrentUser ? 'text-destructive' : 'text-destructive/60 hover:text-destructive'
+                                        )}
+                                    >
+                                        <Heart className={cn(`h-5 w-5`, isFavoritedByCurrentUser ? 'fill-destructive' : '')} />
+                                        {currentFavoriteCount > 0 && (
+                                        <span className="ml-1 text-xs">({currentFavoriteCount})</span>
+                                        )}
+                                    </Button>
+
+                                    {/* Playlist Button */}
+                                     <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleTogglePlaylist(game.id, game.name)}
+                                        disabled={isPlaylisting || authLoading}
+                                        title={isPlaylistedByCurrentUser ? "Rimuovi dalla Playlist" : "Aggiungi alla Playlist"}
+                                        className={cn(
+                                            `h-9 px-2 hover:bg-sky-500/10`,
+                                            isPlaylistedByCurrentUser ? 'text-sky-500 hover:bg-sky-500/20' : 'text-sky-500/60 hover:text-sky-500'
+                                        )}
+                                    >
+                                        {isPlaylistedByCurrentUser ? <BookMarked className="h-5 w-5" /> : <Bookmark className="h-5 w-5" />}
+                                          {game?.playlistedByUserIds && game.playlistedByUserIds.length > 0 && (
+                                            <span className="ml-1 text-xs">({game.playlistedByUserIds.length})</span>
+                                        )}
+                                    </Button>
+                                </>
+                            )}
+                            {/* Admin Settings Dropdown */}
+                            {isAdmin && (
+                                <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-9 w-9 text-primary/80 hover:text-primary hover:bg-primary/10">
+                                    <Settings className="h-5 w-5" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem
+                                    onSelect={handleTogglePinGame}
+                                    disabled={isPinToggling || authLoading}
+                                    className="cursor-pointer"
+                                    >
+                                    {isPinToggling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (currentIsPinned ? <PinOff className="mr-2 h-4 w-4" /> : <Pin className="mr-2 h-4 w-4" />)}
+                                    {currentIsPinned ? "Rimuovi da Vetrina" : "Aggiungi a Vetrina"}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        onSelect={handleRefreshBggData}
+                                        disabled={(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) || !game || !game.bggId}
+                                        className="cursor-pointer"
+                                    >
+                                        {(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DownloadCloud className="mr-2 h-4 w-4" />}
+                                        Aggiorna Dati da BGG
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        onSelect={handleFetchBggPlays}
+                                        disabled={isFetchingPlays || !game || !game.id || !game.bggId || !currentUser}
+                                        className="cursor-pointer"
+                                    >
+                                        {isFetchingPlays ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Dices className="mr-2 h-4 w-4" />}
+                                        Carica Partite
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                                </DropdownMenu>
+                            )}
                         </div>
-                    )}
+                    </div>
                 </div>
                 
                 {/* Mobile Image - Placed after header block */}
@@ -894,8 +978,9 @@ const handleGenerateRecommendations = async () => {
                   </div>
                 </div>
                 
-                {/* Button Bar - Positioned below title/score, above metadata */}
+                {/* Button Bar - This will be positioned after title/score on all screens, and before metadata */}
                 <div className="flex justify-evenly gap-1 sm:gap-2 py-4 border-t border-b border-border">
+                    {/* Favorite Button */}
                       <Button
                           variant="ghost"
                           size="sm"
@@ -913,7 +998,8 @@ const handleGenerateRecommendations = async () => {
                           )}
                       </Button>
 
-                      <Button
+                      {/* Morchia Button */}
+                       <Button
                           variant="ghost"
                           size="sm"
                           onClick={handleToggleMorchia}
@@ -930,6 +1016,7 @@ const handleGenerateRecommendations = async () => {
                           )}
                       </Button>
 
+                      {/* Playlist Button */}
                       <Button
                           variant="ghost"
                           size="sm"
@@ -946,6 +1033,15 @@ const handleGenerateRecommendations = async () => {
                               <span className="ml-1 text-xs">({game.playlistedByUserIds.length})</span>
                           )}
                       </Button>
+
+                      {/* BGG Link Button */}
+                      <Button variant="ghost" size="icon" className="h-9 w-9 text-primary/80 hover:text-primary hover:bg-primary/10" asChild>
+                          <a href={`https://boardgamegeek.com/boardgame/${game.bggId}`} target="_blank" rel="noopener noreferrer" title="Vedi su BGG">
+                              <ExternalLink className="h-5 w-5" />
+                          </a>
+                      </Button>
+
+                      {/* Admin Settings Dropdown */}
                       {isAdmin && (
                       <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -1176,20 +1272,20 @@ const handleGenerateRecommendations = async () => {
         </Card>
       )}
       
-      {/* User Review Section */}
+      {/* User Review Section or Rate Game Button */}
       <div className="space-y-4">
         {currentUser && !authLoading && userReview && (
           <div className="space-y-4">
             <div className="flex flex-row items-center justify-between gap-2">
-              <h3 className="text-xl font-semibold text-foreground mr-2 flex-grow">Il Tuo Voto</h3>
+              <h3 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h3>
               <div className="flex items-center gap-2 flex-shrink-0">
                 <Button asChild size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground">
-                  <Link href={`/games/${gameId}/rate`}>
-                      <span className="flex items-center">
-                         <Edit className="mr-0 sm:mr-2 h-4 w-4" />
-                         <span className="hidden sm:inline">Modifica</span>
-                      </span>
-                  </Link>
+                    <Link href={`/games/${gameId}/rate`}>
+                        <span className="flex items-center">
+                            <Edit className="mr-0 sm:mr-2 h-4 w-4" />
+                            <span className="hidden sm:inline">Modifica</span>
+                        </span>
+                    </Link>
                 </Button>
                 <AlertDialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
                    <AlertDialogTrigger asChild>
@@ -1375,3 +1471,4 @@ const handleGenerateRecommendations = async () => {
     </div>
   );
 }
+
