@@ -6,7 +6,6 @@ import { useState, useEffect, useTransition, useMemo, useCallback } from 'react'
 import {
   fetchBggUserCollectionAction,
   getBoardGamesFromFirestoreAction,
-  syncBoardGamesToFirestoreAction,
   searchBggGamesAction,
   importAndRateBggGameAction,
   fetchAndUpdateBggGameDetailsAction,
@@ -33,7 +32,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { db } from '@/lib/firebase';
-import { doc, updateDoc, getDoc, writeBatch, collection } from 'firebase/firestore'; 
+import { doc, updateDoc, getDoc, writeBatch, collection, type DocumentData } from 'firebase/firestore'; 
 import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -158,14 +157,99 @@ export default function AdminCollectionPage() {
     setShowConfirmationDialog(false);
     setError(null);
     startDbSyncTransition(async () => {
-      const result = await syncBoardGamesToFirestoreAction(gamesToAdd, gamesToRemove);
-      if (result.success) {
-        toast({ title: 'Sincronizzazione Riuscita', description: result.message });
-        await loadDbCollection(); 
-        setBggFetchedCollection(null); 
-      } else {
-        setError(result.error || 'Sincronizzazione database fallita.');
-        toast({ title: 'Errore Sincronizzazione', description: result.error || 'Si è verificato un errore sconosciuto.', variant: 'destructive' });
+      const batch = writeBatch(db);
+      let operationsCount = 0;
+
+      try {
+        // Prepare games to add/update
+        for (const game of gamesToAdd) {
+          if (!game.id) {
+            console.error("Gioco da aggiungere senza ID:", game);
+            continue;
+          }
+          const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
+          let existingData: Partial<BoardGame> = {};
+          try {
+            const docSnap = await getDoc(gameRef);
+            if (docSnap.exists()) {
+              const data = docSnap.data() as DocumentData;
+              existingData = {
+                isPinned: data.isPinned || false,
+                minPlaytime: data.minPlaytime ?? null,
+                maxPlaytime: data.maxPlaytime ?? null,
+                averageWeight: data.averageWeight ?? null,
+                categories: data.categories ?? [],
+                mechanics: data.mechanics ?? [],
+                designers: data.designers ?? [],
+                overallAverageRating: data.overallAverageRating ?? null,
+                voteCount: data.voteCount ?? 0,
+                favoritedByUserIds: data.favoritedByUserIds ?? [],
+                favoriteCount: data.favoriteCount ?? 0,
+                playlistedByUserIds: data.playlistedByUserIds ?? [],
+                morchiaByUserIds: data.morchiaByUserIds ?? [],
+                morchiaCount: data.morchiaCount ?? 0,
+                lctr01Plays: data.lctr01Plays === undefined ? null : data.lctr01Plays,
+              };
+            }
+          } catch (getDocError) {
+            // It's fine if the doc doesn't exist, existingData remains empty
+            console.warn(`Could not fetch existing data for ${game.id} during sync, proceeding with defaults:`, getDocError);
+          }
+
+          const gameDataForFirestore: Partial<BoardGame> = {
+            bggId: game.bggId,
+            name: game.name || "Unknown Name",
+            coverArtUrl: game.coverArtUrl || `https://placehold.co/100x150.png?text=N/A`,
+            yearPublished: game.yearPublished ?? null,
+            minPlayers: game.minPlayers ?? null,
+            maxPlayers: game.maxPlayers ?? null,
+            playingTime: game.playingTime ?? null,
+            minPlaytime: game.minPlaytime ?? existingData?.minPlaytime ?? game.playingTime ?? null,
+            maxPlaytime: game.maxPlaytime ?? existingData?.maxPlaytime ?? game.playingTime ?? null,
+            averageWeight: game.averageWeight ?? existingData?.averageWeight ?? null,
+            categories: game.categories && game.categories.length > 0 ? game.categories : existingData?.categories ?? [],
+            mechanics: game.mechanics && game.mechanics.length > 0 ? game.mechanics : existingData?.mechanics ?? [],
+            designers: game.designers && game.designers.length > 0 ? game.designers : existingData?.designers ?? [],
+            isPinned: existingData?.isPinned || game.isPinned || false,
+            overallAverageRating: existingData?.overallAverageRating === undefined ? null : existingData.overallAverageRating,
+            voteCount: existingData?.voteCount === undefined ? 0 : existingData.voteCount,
+            favoritedByUserIds: existingData?.favoritedByUserIds ?? [],
+            favoriteCount: existingData?.favoriteCount ?? 0,
+            playlistedByUserIds: existingData?.playlistedByUserIds ?? [],
+            morchiaByUserIds: existingData?.morchiaByUserIds ?? [],
+            morchiaCount: existingData?.morchiaCount ?? 0,
+            lctr01Plays: game.lctr01Plays === undefined ? (existingData?.lctr01Plays === undefined ? null : existingData.lctr01Plays) : game.lctr01Plays,
+          };
+          batch.set(gameRef, gameDataForFirestore, { merge: true });
+          operationsCount++;
+        }
+
+        // Prepare games to remove
+        gamesToRemove.forEach(game => {
+          if (!game.id) {
+            console.error("Gioco da rimuovere senza ID:", game);
+            return;
+          }
+          const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
+          batch.delete(gameRef);
+          operationsCount++;
+        });
+
+        if (operationsCount > 0) {
+          await batch.commit();
+        }
+
+        toast({ title: 'Sincronizzazione Riuscita', description: `Sincronizzazione completata. ${gamesToAdd.length} giochi aggiunti/aggiornati, ${gamesToRemove.length} giochi rimossi.` });
+        await loadDbCollection();
+        await revalidateGameDataAction();
+        setBggFetchedCollection(null); // Reset BGG fetched data
+        setGamesToAdd([]);
+        setGamesToRemove([]);
+
+      } catch (batchError) {
+        const errorMessage = batchError instanceof Error ? batchError.message : 'Errore sconosciuto durante il batch write.';
+        setError(`Sincronizzazione database fallita: ${errorMessage}`);
+        toast({ title: 'Errore Sincronizzazione DB', description: errorMessage, variant: 'destructive' });
       }
     });
   };
@@ -782,3 +866,5 @@ export default function AdminCollectionPage() {
     </div>
   );
 }
+
+    
