@@ -309,13 +309,14 @@ export async function getGameDetails(gameId: string): Promise<BoardGame | null> 
         const playsSnapshot = await getDocs(playsQuery);
         lctr01PlayDetails = playsSnapshot.docs.map(playDoc => playDoc.data() as BggPlayDetail);
       } catch (playError) {
-         console.warn(`[GETGAMEDETAILS] Failed to fetch lctr01 plays for game ${gameId}:`, playError);
+         // Silently fail for now, or add more specific logging if needed
+         // console.warn(`[GETGAMEDETAILS] Failed to fetch lctr01 plays for game ${gameId}:`, playError);
       }
 
       const game: BoardGame = {
         id: gameId,
         name: data.name || `Gioco ${gameId} (DB)`,
-        coverArtUrl: data.coverArtUrl || `https://placehold.co/400x600.png?text=${encodeURIComponent(data.name || gameId || 'N/A')}`,
+        coverArtUrl: data.coverArtUrl || `https://placehold.co/240x360.png?text=${encodeURIComponent(data.name || gameId || 'N/A')}`,
         bggId: typeof data.bggId === 'number' ? data.bggId : 0,
         yearPublished: data.yearPublished ?? null,
         minPlayers: data.minPlayers ?? null,
@@ -334,7 +335,7 @@ export async function getGameDetails(gameId: string): Promise<BoardGame | null> 
         favoritedByUserIds: data.favoritedByUserIds ?? [],
         favoriteCount: data.favoriteCount ?? 0,
         playlistedByUserIds: data.playlistedByUserIds ?? [],
-        lctr01Plays: lctr01PlayDetails && lctr01PlayDetails.length > 0 ? lctr01PlayDetails.length : (data.lctr01Plays === undefined ? 0 : data.lctr01Plays),
+        lctr01Plays: lctr01PlayDetails.length > 0 ? lctr01PlayDetails.length : (data.lctr01Plays ?? 0),
         lctr01PlayDetails: lctr01PlayDetails,
       };
       return game;
@@ -363,7 +364,8 @@ export async function getBoardGamesFromFirestoreAction(
 ): Promise<BoardGame[] | { error: string }> {
   const { skipRatingCalculation = false } = options;
   try {
-    const querySnapshot = await getDocs(collection(db, FIRESTORE_COLLECTION_NAME));
+    const gamesCollectionRef = collection(db, FIRESTORE_COLLECTION_NAME);
+    const querySnapshot = await getDocs(gamesCollectionRef);
     const games: BoardGame[] = [];
 
     for (const docSnap of querySnapshot.docs) {
@@ -372,7 +374,6 @@ export async function getBoardGamesFromFirestoreAction(
         let voteCount = data.voteCount === undefined ? 0 : data.voteCount;
 
         if (!skipRatingCalculation) {
-            // If not skipping, recalculate to ensure consistency or if stored value is missing
             const reviewsCollectionRef = collection(db, FIRESTORE_COLLECTION_NAME, docSnap.id, 'reviews');
             const reviewsSnapshot = await getDocs(reviewsCollectionRef);
             const allReviewsForGame: Review[] = reviewsSnapshot.docs.map(reviewDoc => {
@@ -422,6 +423,7 @@ export async function getBoardGamesFromFirestoreAction(
             favoriteCount: data.favoriteCount ?? 0,
             playlistedByUserIds: data.playlistedByUserIds ?? [],
             lctr01Plays: data.lctr01Plays === undefined ? null : data.lctr01Plays,
+            lctr01PlayDetails: [], // Do not fetch detailed plays for list views
         });
     }
     return games;
@@ -742,76 +744,76 @@ export async function getUserDetailsAndReviewsAction(
 }
 
 export async function getFeaturedGamesAction(): Promise<BoardGame[]> {
-  try {
-    const allGamesResult = await getBoardGamesFromFirestoreAction({ skipRatingCalculation: false });
-    if ('error' in allGamesResult) {
-      console.error("Error fetching games for featured section:", allGamesResult.error);
-      return [];
-    }
+    try {
+        const allGamesResult = await getBoardGamesFromFirestoreAction({ skipRatingCalculation: false });
+        if ('error' in allGamesResult) {
+            console.error("Error fetching games for featured section:", allGamesResult.error);
+            return [];
+        }
 
-    const enrichedGames: Array<BoardGame & { _latestReviewDate?: Date | null }> = [];
-
-    for (const game of allGamesResult) {
-      let latestReviewDate: Date | null = null;
-      if (game.voteCount && game.voteCount > 0 && game.id) {
-        try {
-          const reviewsQuery = query(
-            collection(db, FIRESTORE_COLLECTION_NAME, game.id, 'reviews'),
-            orderBy('date', 'desc'),
-            limit(1)
-          );
-          const reviewSnapshot = await getDocs(reviewsQuery);
-          if (!reviewSnapshot.empty) {
-            const latestReviewData = reviewSnapshot.docs[0].data();
-            if (latestReviewData && latestReviewData.date) {
-              latestReviewDate = new Date(latestReviewData.date);
+        const gamesWithDetails: Array<BoardGame & { _latestReviewDate?: Date | null }> = [];
+        for (const game of allGamesResult) {
+            let latestReviewDate: Date | null = null;
+            if (game.voteCount && game.voteCount > 0 && game.id) {
+                try {
+                    const reviewsQuery = query(
+                        collection(db, FIRESTORE_COLLECTION_NAME, game.id, 'reviews'),
+                        orderBy('date', 'desc'),
+                        limit(1)
+                    );
+                    const reviewSnapshot = await getDocs(reviewsQuery);
+                    if (!reviewSnapshot.empty) {
+                        const latestReviewData = reviewSnapshot.docs[0].data();
+                        if (latestReviewData && latestReviewData.date) {
+                            latestReviewDate = new Date(latestReviewData.date);
+                        }
+                    }
+                } catch (e) {
+                    // console.warn(`Could not fetch latest review date for game ${game.id}`, e);
+                }
             }
-          }
-        } catch (e) {
-          console.warn(`Could not fetch latest review date for game ${game.id}`, e);
+            gamesWithDetails.push({ ...game, _latestReviewDate: latestReviewDate });
         }
-      }
-      enrichedGames.push({ ...game, _latestReviewDate: latestReviewDate });
-    }
 
-    const pinnedGamesRaw = enrichedGames
-      .filter(game => game.isPinned)
-      .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+        const pinnedGames = gamesWithDetails
+            .filter(game => game.isPinned)
+            .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
 
-    const recentlyReviewedGames = enrichedGames
-      .filter(game => !game.isPinned && game._latestReviewDate)
-      .sort((a, b) => b._latestReviewDate!.getTime() - a._latestReviewDate!.getTime());
+        const recentlyReviewedGames = gamesWithDetails
+            .filter(game => !game.isPinned && game._latestReviewDate)
+            .sort((a, b) => b._latestReviewDate!.getTime() - a._latestReviewDate!.getTime());
 
-    let finalFeaturedGames: BoardGame[] = [];
-    const featuredGameIds = new Set<string>();
+        const finalFeaturedGames: BoardGame[] = [];
+        const featuredGameIds = new Set<string>();
 
-    for (const game of pinnedGamesRaw) {
-      if (game.id && !featuredGameIds.has(game.id)) {
-        const { _latestReviewDate, ...gameToAdd } = game;
-        finalFeaturedGames.push({ ...gameToAdd, featuredReason: 'pinned' as const });
-        featuredGameIds.add(game.id);
-        if (finalFeaturedGames.length >= 3) break;
-      }
-    }
-
-    if (finalFeaturedGames.length < 3) {
-      for (const game of recentlyReviewedGames) {
-        if (finalFeaturedGames.length >= 3) break;
-        if (game.id && !featuredGameIds.has(game.id)) {
-          const { _latestReviewDate, ...gameToAdd } = game;
-          finalFeaturedGames.push({ ...gameToAdd, featuredReason: 'recent' as const });
-          featuredGameIds.add(game.id);
+        for (const game of pinnedGames) {
+            if (game.id && !featuredGameIds.has(game.id)) {
+                const { _latestReviewDate, ...gameToAdd } = game;
+                finalFeaturedGames.push({ ...gameToAdd, featuredReason: 'pinned' as const });
+                featuredGameIds.add(game.id);
+            }
         }
-      }
+        
+        const MAX_FEATURED = 3;
+        if (finalFeaturedGames.length < MAX_FEATURED) {
+            for (const game of recentlyReviewedGames) {
+                if (finalFeaturedGames.length >= MAX_FEATURED) break;
+                if (game.id && !featuredGameIds.has(game.id)) {
+                    const { _latestReviewDate, ...gameToAdd } = game;
+                    finalFeaturedGames.push({ ...gameToAdd, featuredReason: 'recent' as const });
+                    featuredGameIds.add(game.id);
+                }
+            }
+        }
+        
+        return finalFeaturedGames.slice(0, MAX_FEATURED);
+
+    } catch (error) {
+        console.error("Error in getFeaturedGamesAction:", error);
+        return [];
     }
-
-    return finalFeaturedGames.slice(0, 3);
-
-  } catch (error) {
-    console.error("Error in getFeaturedGamesAction:", error);
-    return [];
-  }
 }
+
 
 export async function getAllGamesAction(options: { skipRatingCalculation?: boolean } = {}): Promise<BoardGame[]> {
   const result = await getBoardGamesFromFirestoreAction(options);
@@ -977,7 +979,7 @@ export async function batchUpdateMissingBggDetailsAction(): Promise<{ success: b
                 }
 
             } catch (batchFetchError) {
-                console.error("Error fetching batch BGG details:", batchFetchError);
+                // console.error("Error fetching batch BGG details:", batchFetchError);
                 erroredFetchCount += gameChunk.length;
             }
         }
@@ -991,13 +993,13 @@ export async function batchUpdateMissingBggDetailsAction(): Promise<{ success: b
             const processedThisRun = gamesToProcessThisRun.some(p => p.id === game.id);
             if (processedThisRun) {
                 const updateForThisGame = gamesToUpdateClientSide.find(u => u.gameId === game.id);
-                if (updateForThisGame) { // Check if it *will* be updated
+                if (updateForThisGame) { 
                     const tempUpdatedGame = { ...game, ...updateForThisGame.updateData };
                     return tempUpdatedGame.minPlaytime == null || tempUpdatedGame.maxPlaytime == null || tempUpdatedGame.averageWeight == null || tempUpdatedGame.yearPublished == null || tempUpdatedGame.minPlayers == null || tempUpdatedGame.maxPlayers == null || tempUpdatedGame.playingTime == null || (tempUpdatedGame.categories == null || tempUpdatedGame.categories.length === 0) || (tempUpdatedGame.mechanics == null || tempUpdatedGame.mechanics.length === 0) || (tempUpdatedGame.designers == null || tempUpdatedGame.designers.length === 0) || tempUpdatedGame.name?.startsWith("BGG Gioco ID") || tempUpdatedGame.name?.startsWith("BGG ID") || tempUpdatedGame.name === "Name Not Found in Details" || tempUpdatedGame.coverArtUrl?.includes("placehold.co") || (tempUpdatedGame.coverArtUrl?.includes("_thumb") && tempUpdatedGame.coverArtUrl?.includes("cf.geekdo-images.com"));
                 }
-                return false; // Was processed and likely fixed or didn't need fixing initially based on the new payload
+                return false; 
             }
-            return true; // Wasn't processed this run, so still needs update
+            return true; 
         }).length;
 
 
@@ -1009,6 +1011,7 @@ export async function batchUpdateMissingBggDetailsAction(): Promise<{ success: b
              message = `Nessun nuovo dettaglio trovato o necessario per i ${gamesToProcessThisRun.length} giochi controllati.`;
         }
         
+        await revalidateGameDataAction();
         return { success: true, message, gamesToUpdateClientSide };
 
     } catch (error) {
@@ -1018,34 +1021,39 @@ export async function batchUpdateMissingBggDetailsAction(): Promise<{ success: b
 }
 
 export async function searchLocalGamesByNameAction(term: string): Promise<Pick<BoardGame, 'id' | 'name' | 'yearPublished' | 'coverArtUrl' | 'overallAverageRating'>[] | { error: string }> {
-  console.log('[SERVER ACTION] searchLocalGamesByNameAction called with term:', term);
   if (!term || term.length < 2) {
-    console.log('[SERVER ACTION] searchLocalGamesByNameAction: Term too short, returning empty array.');
     return [];
   }
   try {
-    const allGamesResult = await getBoardGamesFromFirestoreAction({ skipRatingCalculation: false }); // Now includes overallAverageRating
-    if ('error' in allGamesResult) {
-      console.error("[SERVER ACTION] searchLocalGamesByNameAction: Error fetching local games:", allGamesResult.error);
-      return { error: "Errore nel recuperare i giochi locali." };
-    }
-    console.log('[SERVER ACTION] searchLocalGamesByNameAction: Total games fetched from DB:', allGamesResult.length);
+    // Fetch all documents but only process essential fields for filtering
+    const gamesCollectionRef = collection(db, FIRESTORE_COLLECTION_NAME);
+    const querySnapshot = await getDocs(gamesCollectionRef);
 
     const searchTermLower = term.toLowerCase();
-    const matchedGames = allGamesResult
+    const minimalGamesList = querySnapshot.docs.map(docSnap => {
+        const data = docSnap.data();
+        return {
+            id: docSnap.id,
+            name: data.name || "Gioco Senza Nome",
+            yearPublished: data.yearPublished ?? null,
+            coverArtUrl: data.coverArtUrl, // Keep for display in selector
+            overallAverageRating: data.overallAverageRating === undefined ? null : data.overallAverageRating, // Keep for display
+            bggId: data.bggId ?? 0 // Keep for navigation
+        };
+    });
+
+    const matchedGames = minimalGamesList
       .filter(game => game.name && game.name.toLowerCase().includes(searchTermLower))
       .map(game => ({
         id: game.id,
         name: game.name,
         yearPublished: game.yearPublished ?? undefined,
         coverArtUrl: game.coverArtUrl,
-        overallAverageRating: game.overallAverageRating === undefined ? null : game.overallAverageRating,
+        overallAverageRating: game.overallAverageRating,
       }))
       .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
 
     const finalResults = matchedGames.slice(0, 10);
-    console.log('[SERVER ACTION] searchLocalGamesByNameAction: Matched games count:', matchedGames.length);
-    console.log('[SERVER ACTION] searchLocalGamesByNameAction: Returning results:', finalResults);
     return finalResults;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Errore sconosciuto durante la ricerca locale.";
@@ -1069,6 +1077,7 @@ export async function revalidateGameDataAction(gameId?: string) {
     if (gameId) {
         revalidatePath(`/games/${gameId}`);
         revalidatePath(`/games/${gameId}/rate`);
+        // No longer revalidating /users/[userId] here to avoid the dynamic layout revalidation issue
     }
     return { success: true, message: `Cache revalidated for relevant paths.` };
   } catch (error) {
@@ -1277,10 +1286,9 @@ export async function fetchUserPlaysForGameFromBggAction(
   gameBggId: number,
   username: string
 ): Promise<{ success: boolean; plays?: BggPlayDetail[]; message?: string; error?: string }> {
-  console.log(`[SERVER ACTION] fetchUserPlaysForGameFromBggAction called with gameBggId: ${gameBggId} (type: ${typeof gameBggId}), username: ${username}`);
+
   if (typeof gameBggId !== 'number' || isNaN(gameBggId) || gameBggId <= 0 || !username || typeof username !== 'string' || username.trim() === '') {
     const errorMsg = `Parametri non validi per l'azione: gameBggId=${gameBggId} (type: ${typeof gameBggId}), username=${username}`;
-    console.error(`[SERVER ACTION] fetchUserPlaysForGameFromBggAction validation failed: ${errorMsg}`);
     return { success: false, message: "ID gioco BGG o nome utente non validi.", error: errorMsg };
   }
 
@@ -1308,7 +1316,6 @@ export async function fetchUserPlaysForGameFromBggAction(
         };
     }
   } catch (error) {
-    console.error(`[SERVER ACTION] Error in fetchUserPlaysForGameFromBggAction for gameBggId ${gameBggId}, user ${username}:`, error);
     const errorMessage = error instanceof Error ? error.message : 'Si è verificato un errore sconosciuto durante il recupero delle partite da BGG.';
     return { success: false, message: 'Operazione fallita.', error: errorMessage };
   }
@@ -1318,7 +1325,6 @@ export async function fetchAllUserPlaysFromBggAction(
   username: string,
   page: number = 1
 ): Promise<{ success: boolean; plays?: BggPlayDetail[]; totalPlaysFromBgg?: number; message?: string; error?: string }> {
-  console.log(`[SERVER ACTION] fetchAllUserPlaysFromBggAction called for username: ${username}, page: ${page}`);
   if (!username || typeof username !== 'string' || username.trim() === '') {
     return { success: false, message: "Nome utente mancante o non valido.", error: "Parametri non validi" };
   }
@@ -1328,11 +1334,9 @@ export async function fetchAllUserPlaysFromBggAction(
 
   try {
     const playsUrl = `${BGG_API_BASE_URL}/plays?username=${encodeURIComponent(username)}&type=thing&page=${page}`;
-    console.log(`[SERVER ACTION] Fetching BGG plays URL: ${playsUrl}`);
     const playsXml = await fetchWithRetry(playsUrl);
 
     if (!playsXml) {
-      console.error(`[SERVER ACTION] fetchAllUserPlaysFromBggAction: Empty response from BGG for user ${username}, page ${page}`);
       return { success: false, message: "Impossibile recuperare i dati delle partite da BGG.", error: "Risposta BGG vuota" };
     }
 
@@ -1341,10 +1345,8 @@ export async function fetchAllUserPlaysFromBggAction(
     if (totalPlaysMatch && totalPlaysMatch[1]) {
       totalPlaysFromBgg = parseInt(totalPlaysMatch[1], 10);
     }
-    console.log(`[SERVER ACTION] fetchAllUserPlaysFromBggAction: BGG reports total plays for ${username}: ${totalPlaysFromBgg}`);
 
     const parsedPlays = parseBggPlaysXml(playsXml, undefined, username);
-    console.log(`[SERVER ACTION] fetchAllUserPlaysFromBggAction: Parsed ${parsedPlays.length} plays for user ${username}, page ${page}`);
 
     if (parsedPlays.length > 0) {
         return {
@@ -1362,7 +1364,6 @@ export async function fetchAllUserPlaysFromBggAction(
         };
     }
   } catch (error) {
-    console.error(`[SERVER ACTION] Error in fetchAllUserPlaysFromBggAction for user ${username}, page ${page}:`, error);
     const errorMessage = error instanceof Error ? error.message : 'Si è verificato un errore sconosciuto durante il recupero di tutte le partite da BGG.';
     return { success: false, message: 'Operazione fallita.', error: errorMessage };
   }
@@ -1435,10 +1436,7 @@ export async function getLastPlayedGameAction(username: string): Promise<{ game:
         userId: username,
         gameBggId: gameDetails.bggId,
       };
-      // Do not overwrite gameDetails.lctr01PlayDetails with just one play here,
-      // as getGameDetails already populates it with all plays.
-      // Instead, return the specific lastPlayDetail separately.
-      return { game: gameDetails, lastPlayDetail: augmentedLastPlay };
+      return { game: { ...gameDetails, lctr01PlayDetails: [augmentedLastPlay]}, lastPlayDetail: augmentedLastPlay };
     } else {
       return { game: null, lastPlayDetail: lastPlayData }; 
     }

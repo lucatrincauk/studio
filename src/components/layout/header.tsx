@@ -29,7 +29,7 @@ import { cn } from '@/lib/utils';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { BoardGame } from '@/lib/types';
-import { searchLocalGamesByNameAction } from '@/lib/actions';
+import { searchLocalGamesByNameAction } from '@/lib/actions'; // This action is now optimized for header search
 import { useRouter } from 'next/navigation';
 
 
@@ -85,27 +85,25 @@ export function Header() {
   ];
 
   const performSearch = useCallback(async (term: string) => {
-    console.log('[HEADER CLIENT] performSearch called with term:', term);
     if (term.length < 2) {
       setSearchResults([]);
       setIsSearching(false);
+      // Only close popover if the input that triggered it is not active
       if (desktopSearchInputRef.current !== document.activeElement) setIsDesktopPopoverOpen(false);
       if (mobileSearchInputRef.current !== document.activeElement) setIsMobilePopoverOpen(false);
       return;
     }
     setIsSearching(true);
     const result = await searchLocalGamesByNameAction(term);
-    console.log('[HEADER CLIENT] performSearch result from action:', result);
     setIsSearching(false);
 
     if ('error' in result) {
       setSearchResults([]);
       console.error("Search error:", result.error);
-      if (desktopSearchInputRef.current === document.activeElement) setIsDesktopPopoverOpen(true); // Keep open to show no results or error
-      if (mobileSearchInputRef.current === document.activeElement) setIsMobilePopoverOpen(true); // Keep open
+      if (desktopSearchInputRef.current === document.activeElement) setIsDesktopPopoverOpen(true); 
+      if (mobileSearchInputRef.current === document.activeElement) setIsMobilePopoverOpen(true); 
     } else {
       setSearchResults(result);
-      console.log('[HEADER CLIENT] setSearchResults with:', result);
       const hasResults = result.length > 0;
       
       if (desktopSearchInputRef.current === document.activeElement && !isMobileSheetOpen) {
@@ -119,7 +117,6 @@ export function Header() {
 
 
   useEffect(() => {
-    console.log('[HEADER CLIENT] Debounced search term:', debouncedSearchTerm);
     performSearch(debouncedSearchTerm);
   }, [debouncedSearchTerm, performSearch]);
 
@@ -267,7 +264,6 @@ export function Header() {
     </PopoverContent>
   );
 
-  console.log('[HEADER CLIENT] Rendering. SearchResults:', searchResults, 'isMobilePopoverOpen:', isMobilePopoverOpen, 'isDesktopPopoverOpen:', isDesktopPopoverOpen);
 
   return (
     <div className="sticky top-0 z-50 w-full">
@@ -278,11 +274,11 @@ export function Header() {
             <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Morchiometro</h1>
           </Link>
           
-          {/* Desktop Search and Auth (Grouped to the right) */}
-          <div className="hidden md:flex items-center gap-3">
-            <div className="relative"> 
+          <div className="flex items-center gap-3">
+             {/* Desktop Search - hidden on mobile */}
+            <div className="relative hidden md:block"> 
               <Popover 
-                open={isDesktopPopoverOpen && searchTerm.length >=2 && (isSearching || searchResults.length > 0 || (debouncedSearchTerm.length >=2 && !isSearching && desktopSearchInputRef.current === document.activeElement))}
+                open={isDesktopPopoverOpen && searchTerm.length >=2 && (isSearching || searchResults.length > 0)}
                 onOpenChange={setIsDesktopPopoverOpen} 
               >
                 <PopoverAnchor>
@@ -299,7 +295,7 @@ export function Header() {
                             setIsDesktopPopoverOpen(true);
                         }
                       }}
-                      className="h-8 w-48 lg:w-64 rounded-md pl-9 pr-3 text-sm bg-primary-foreground/10 text-border placeholder:text-border/60 border-border focus:bg-primary-foreground/20 focus:ring-accent"
+                      className="h-8 w-48 lg:w-64 rounded-md pl-9 pr-3 text-sm bg-card text-card-foreground placeholder:text-muted-foreground border-border focus:bg-card focus:ring-accent"
                     />
                     {isSearching && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-border" />}
                   </div>
@@ -310,9 +306,8 @@ export function Header() {
             {authBlock}
           </div>
           
-          {/* Mobile Menu Trigger and Auth (Auth outside sheet) */}
           <div className="flex items-center gap-1 md:hidden">
-            {authBlock}
+            {/* Auth block already handled by the div above for all sizes now */}
             <Sheet open={isMobileSheetOpen} onOpenChange={setIsMobileSheetOpen}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" className="hover:bg-primary-foreground/10 focus-visible:ring-accent">
@@ -334,7 +329,7 @@ export function Header() {
                 
                 <div className="p-4">
                   <Popover 
-                    open={isMobilePopoverOpen && searchTerm.length >=2 && isMobileSheetOpen && (isSearching || searchResults.length > 0 || (debouncedSearchTerm.length >=2 && !isSearching && mobileSearchInputRef.current === document.activeElement))} 
+                    open={isMobilePopoverOpen && searchTerm.length >=2 && isMobileSheetOpen && (isSearching || searchResults.length > 0)} 
                     onOpenChange={setIsMobilePopoverOpen} 
                   >
                     <PopoverAnchor>
@@ -346,11 +341,9 @@ export function Header() {
                             placeholder="Cerca un gioco..."
                             value={searchTerm}
                             onChange={(e) => {
-                              console.log("[MOBILE INPUT CHANGE]", e.target.value);
                               setSearchTerm(e.target.value);
                             }}
                             onFocus={() => {
-                              console.log("[MOBILE INPUT FOCUS]");
                               if (searchTerm.length >=2 && isMobileSheetOpen) {
                                   setIsMobilePopoverOpen(true);
                               }
@@ -377,7 +370,7 @@ export function Header() {
                       </SheetClose>
                   ))}
                 </nav>
-                {/* Removed authBlockMobile from here */}
+                
               </SheetContent>
             </Sheet>
           </div> 
@@ -404,4 +397,3 @@ export function Header() {
     </div>
   );
 }
-
