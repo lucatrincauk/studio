@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
@@ -131,8 +130,9 @@ export default function GameRatePage() {
           </CardHeader>
         )}
         <CardContent className={cn(
-            currentRatingFormStep === 1 ? 'pt-0' : 'pt-6', // No extra top padding if main header is shown
-            currentRatingFormStep === 5 && 'pt-0' // Summary step handles its own top padding via internal CardHeader
+            currentRatingFormStep === 1 ? 'pt-0' : '',
+            currentRatingFormStep > 1 && currentRatingFormStep < 5 ? 'pt-6' : '',
+            currentRatingFormStep === 5 && 'pt-0'
         )}>
           <MultiStepRatingForm
             gameId={game.id}
