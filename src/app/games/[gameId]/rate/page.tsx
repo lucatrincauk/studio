@@ -114,22 +114,19 @@ export default function GameRatePage() {
     )
   }
 
-  const pageTitleText = userReview ? "Modifica la Tua Valutazione" : "Valuta:";
-  const gameNameForTitle = userReview ? "" : game.name; // Only show game name if it's a new review
+  const pageTitleText = userReview ? "Modifica la Tua Valutazione" : "Invia la Tua Valutazione";
 
   return (
     <div className="max-w-2xl mx-auto py-8 px-4">
       <Card ref={cardRef} className="shadow-xl border border-border rounded-lg">
-        {currentRatingFormStep === 1 && (
-            <CardHeader>
-                <CardTitle className="text-2xl md:text-3xl text-left">
-                  {pageTitleText} {gameNameForTitle}
-                </CardTitle>
-                <CardDescription className="text-left text-sm text-muted-foreground mt-1 whitespace-pre-line">
-                  Segui i passaggi sottostanti per inviare la tua valutazione.
-                </CardDescription>
-            </CardHeader>
-        )}
+        <CardHeader>
+            <CardTitle className="text-2xl md:text-3xl text-left">
+              {pageTitleText}
+            </CardTitle>
+            <CardDescription className="text-left text-sm text-muted-foreground mt-1 whitespace-pre-line">
+              Segui i passaggi sottostanti per inviare la tua valutazione.
+            </CardDescription>
+        </CardHeader>
         <CardContent className={cn(
             currentRatingFormStep === 1 ? 'pt-0' : 'pt-6',
             currentRatingFormStep === 5 && 'pt-0'
@@ -141,7 +138,6 @@ export default function GameRatePage() {
             currentUser={currentUser}
             existingReview={userReview}
             onReviewSubmitted={() => {
-              revalidateGameDataAction(gameId);
               router.push(`/games/${gameId}`);
             }}
             currentStep={currentRatingFormStep}
@@ -154,3 +150,4 @@ export default function GameRatePage() {
 }
 
 export const dynamic = 'force-dynamic';
+
