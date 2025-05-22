@@ -121,7 +121,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       if (gameData.reviews && gameData.reviews.length > 0) {
         const categoryAvgs = calculateCatAvgsFromUtils(gameData.reviews);
         if (categoryAvgs) {
-          setGlobalGameAverage(calculateOverallCategoryAverage(categoryAvgs));
+          setGlobalGameAverage(calculateGlobalOverallAverage(categoryAvgs));
         } else {
           setGlobalGameAverage(null);
         }
@@ -160,7 +160,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     }
   }, [game, currentUser]);
 
-  const updateGameOverallRatingAfterChange = useCallback(async () => {
+  const updateGameOverallRatingAfterDelete = useCallback(async () => {
     if (!game) return;
     try {
       const reviewsCollectionRef = collection(db, FIRESTORE_COLLECTION_NAME, game.id, 'reviews');
@@ -184,7 +184,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       });
 
       const categoryAvgs = calculateCatAvgsFromUtils(allReviewsForGame);
-      const newOverallAverage = categoryAvgs ? calculateOverallCategoryAverage(categoryAvgs) : null;
+      const newOverallAverage = categoryAvgs ? calculateGlobalOverallAverage(categoryAvgs) : null;
       const newVoteCount = allReviewsForGame.length;
 
       const gameDocRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
@@ -193,7 +193,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         voteCount: newVoteCount
       });
 
-      revalidateGameDataAction(game.id);
+      revalidateGameDataAction(game.id); // Call server action for revalidation
       fetchGameData();
     } catch (error) {
       console.error("Errore durante l'aggiornamento del punteggio medio del gioco:", error);
@@ -215,8 +215,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         await deleteDoc(reviewDocRef);
         
         toast({ title: "Voto Eliminato", description: "Il tuo voto è stato eliminato con successo." });
-        await updateGameOverallRatingAfterChange(); 
-        revalidateGameDataAction(gameId);
+        await updateGameOverallRatingAfterDelete(); 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({ title: "Errore", description: `Impossibile eliminare il voto: ${errorMessage}`, variant: "destructive" });
@@ -239,7 +238,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           title: "Stato Vetrina Aggiornato",
           description: `Il gioco è stato ${newPinStatus ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
         });
-        revalidateGameDataAction(game.id); 
+        await revalidateGameDataAction(game.id); 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({
@@ -302,7 +301,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `${game.name} è stato ${newFavoritedStatus ? 'aggiunto ai' : 'rimosso dai'} tuoi preferiti.`,
         });
 
-        revalidateGameDataAction(game.id);
+        await revalidateGameDataAction(game.id);
 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Impossibile aggiornare i preferiti.";
@@ -354,7 +353,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `${game.name} è stato ${newPlaylistedStatus ? 'aggiunto alla' : 'rimosso dalla'} tua playlist.`,
         });
 
-        revalidateGameDataAction(game.id);
+        await revalidateGameDataAction(game.id);
 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Impossibile aggiornare la playlist.";
@@ -386,7 +385,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
         await updateDoc(gameRef, serverActionResult.updateData);
         toast({ title: 'Dettagli Aggiornati', description: `Dettagli per ${game.name} aggiornati con successo.` });
-        revalidateGameDataAction(game.id);
+        await revalidateGameDataAction(game.id);
         fetchGameData();
       } catch (dbError) {
         const errorMessage = dbError instanceof Error ? dbError.message : "Errore sconosciuto durante l'aggiornamento del DB.";
@@ -435,7 +434,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                     title: "Partite Caricate e Salvate",
                     description: bggFetchResult.message || `Caricate e salvate ${playsToSave.length} partite per ${game.name}. Conteggio aggiornato.`,
                 });
-                revalidateGameDataAction(game.id);
+                await revalidateGameDataAction(game.id);
                 fetchGameData();
             } catch (dbError) {
                 const errorMessage = dbError instanceof Error ? dbError.message : "Impossibile salvare le partite nel database.";
@@ -448,7 +447,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                     title: "Nessuna Partita Trovata",
                     description: bggFetchResult.message || `Nessuna partita trovata su BGG per ${usernameToFetch} per questo gioco. Conteggio azzerato.`,
                 });
-                revalidateGameDataAction(game.id);
+                await revalidateGameDataAction(game.id);
                 fetchGameData();
             } catch (dbError) {
                  // Silently ignore if update to 0 fails, or log specific error
@@ -583,13 +582,13 @@ const handleGenerateRecommendations = async () => {
   
   return (
     <div className="space-y-8">
-      <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
+      <Card className="overflow-hidden shadow-xl border border-border rounded-lg flex flex-col">
         <div className="flex flex-col md:flex-row">
           {/* Text Content Area */}
           <div className="flex-1 p-6 space-y-4 md:order-1">
             {/* Header: Title, Icons, Score */}
             <div className="flex justify-between items-start mb-2">
-              <div className="flex-1 flex flex-col sm:flex-row sm:items-center sm:gap-1 min-w-0 mr-2">
+              <div className="flex-1 flex-shrink min-w-0 mr-2">
                  <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
                     {game.name}
                  </h1>
@@ -618,89 +617,6 @@ const handleGenerateRecommendations = async () => {
                 />
               </div>
             </div>
-
-            {/* Button Bar moved here */}
-             <div className="flex justify-evenly gap-1 py-4 border-t border-border">
-                <div className="flex items-center">
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleToggleFavorite}
-                        disabled={isFavoriting || authLoading || !currentUser}
-                        title={isFavoritedByCurrentUser ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
-                        className={`h-9 px-2 ${isFavoritedByCurrentUser ? 'text-destructive fill-destructive hover:bg-destructive/20' : 'text-destructive/60 hover:text-destructive hover:bg-destructive/10'}`}
-                    >
-                        {isFavoriting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Heart className={`h-5 w-5 ${isFavoritedByCurrentUser ? 'fill-destructive' : ''}`} />}
-                        {currentFavoriteCount > 0 && (
-                        <span className="ml-1 text-xs">
-                            ({currentFavoriteCount})
-                        </span>
-                        )}
-                    </Button>
-                </div>
-                <div className="flex items-center">
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleTogglePlaylist}
-                        disabled={isPlaylisting || authLoading || !currentUser}
-                        title={isPlaylistedByCurrentUser ? "Rimuovi dalla Playlist" : "Aggiungi alla Playlist"}
-                        className={`h-9 px-2 ${isPlaylistedByCurrentUser ? 'text-sky-500 hover:bg-sky-500/20' : 'text-sky-500/60 hover:text-sky-500 hover:bg-sky-500/10'}`}
-                    >
-                        {isPlaylisting ? <Loader2 className="h-5 w-5 animate-spin" /> : (isPlaylistedByCurrentUser ? <BookMarked className="h-5 w-5" /> : <Bookmark className="h-5 w-5" />)}
-                        {game?.playlistedByUserIds && game.playlistedByUserIds.length > 0 && (
-                        <span className="ml-1 text-xs">
-                            ({game.playlistedByUserIds.length})
-                        </span>
-                        )}
-                    </Button>
-                </div>
-                
-                {game.bggId > 0 && (
-                    <Button variant="ghost" size="icon" asChild className="h-9 w-9">
-                        <a href={`https://boardgamegeek.com/boardgame/${game.bggId}`} target="_blank" rel="noopener noreferrer" title="Vedi su BGG">
-                            <ExternalLink className="h-4 w-4 text-primary/80" />
-                        </a>
-                    </Button>
-                )}
-
-                {isAdmin && (
-                    <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-9 w-9 text-primary/80 hover:text-primary hover:bg-primary/10">
-                        <Settings className="h-5 w-5" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                        onSelect={handleTogglePinGame}
-                        disabled={isPinToggling || authLoading}
-                        className="cursor-pointer"
-                        >
-                        {isPinToggling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (currentIsPinned ? <PinOff className="mr-2 h-4 w-4" /> : <Pin className="mr-2 h-4 w-4" />)}
-                        {currentIsPinned ? "Rimuovi da Vetrina" : "Aggiungi a Vetrina"}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                        onSelect={handleRefreshBggData}
-                        disabled={(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) || !game || !game.id || !game.bggId}
-                        className="cursor-pointer"
-                        >
-                        {(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DownloadCloud className="mr-2 h-4 w-4" />}
-                        Aggiorna Dati da BGG
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                        onSelect={handleFetchBggPlays}
-                        disabled={isFetchingPlays || !game || !game.bggId || !currentUser}
-                        className="cursor-pointer"
-                        >
-                        {isFetchingPlays ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Dices className="mr-2 h-4 w-4" />}
-                        Carica Partite
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                    </DropdownMenu>
-                )}
-            </div>
-
 
             {/* Game Metadata Grid */}
             <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
@@ -796,7 +712,92 @@ const handleGenerateRecommendations = async () => {
             </div>
           </div>
         </div>
+        
+        {/* Button Bar moved here, below the flex-row containing content and desktop image */}
+         <div className="px-6 py-4 border-t border-b border-border">
+            <div className="flex justify-evenly gap-1">
+                <div className="flex items-center">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleToggleFavorite}
+                        disabled={isFavoriting || authLoading || !currentUser}
+                        title={isFavoritedByCurrentUser ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
+                        className={`h-9 px-2 ${isFavoritedByCurrentUser ? 'text-destructive fill-destructive hover:bg-destructive/20' : 'text-destructive/60 hover:text-destructive hover:bg-destructive/10'}`}
+                    >
+                        {isFavoriting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Heart className={`h-5 w-5 ${isFavoritedByCurrentUser ? 'fill-destructive' : ''}`} />}
+                        {currentFavoriteCount > 0 && (
+                        <span className="ml-1 text-xs">
+                            ({currentFavoriteCount})
+                        </span>
+                        )}
+                    </Button>
+                </div>
+                <div className="flex items-center">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleTogglePlaylist}
+                        disabled={isPlaylisting || authLoading || !currentUser}
+                        title={isPlaylistedByCurrentUser ? "Rimuovi dalla Playlist" : "Aggiungi alla Playlist"}
+                        className={`h-9 px-2 ${isPlaylistedByCurrentUser ? 'text-sky-500 hover:bg-sky-500/20' : 'text-sky-500/60 hover:text-sky-500 hover:bg-sky-500/10'}`}
+                    >
+                        {isPlaylisting ? <Loader2 className="h-5 w-5 animate-spin" /> : (isPlaylistedByCurrentUser ? <BookMarked className="h-5 w-5" /> : <Bookmark className="h-5 w-5" />)}
+                        {game?.playlistedByUserIds && game.playlistedByUserIds.length > 0 && (
+                        <span className="ml-1 text-xs">
+                            ({game.playlistedByUserIds.length})
+                        </span>
+                        )}
+                    </Button>
+                </div>
+                
+                {game.bggId > 0 && (
+                    <Button variant="ghost" size="icon" asChild className="h-9 w-9">
+                        <a href={`https://boardgamegeek.com/boardgame/${game.bggId}`} target="_blank" rel="noopener noreferrer" title="Vedi su BGG">
+                            <ExternalLink className="h-4 w-4 text-primary/80" />
+                        </a>
+                    </Button>
+                )}
+
+                {isAdmin && (
+                    <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-9 w-9 text-primary/80 hover:text-primary hover:bg-primary/10">
+                        <Settings className="h-5 w-5" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                        onSelect={handleTogglePinGame}
+                        disabled={isPinToggling || authLoading}
+                        className="cursor-pointer"
+                        >
+                        {isPinToggling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (currentIsPinned ? <PinOff className="mr-2 h-4 w-4" /> : <Pin className="mr-2 h-4 w-4" />)}
+                        {currentIsPinned ? "Rimuovi da Vetrina" : "Aggiungi a Vetrina"}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                        onSelect={handleRefreshBggData}
+                        disabled={(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) || !game || !game.id || !game.bggId}
+                        className="cursor-pointer"
+                        >
+                        {(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DownloadCloud className="mr-2 h-4 w-4" />}
+                        Aggiorna Dati da BGG
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                        onSelect={handleFetchBggPlays}
+                        disabled={isFetchingPlays || !game || !game.bggId || !currentUser}
+                        className="cursor-pointer"
+                        >
+                        {isFetchingPlays ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Dices className="mr-2 h-4 w-4" />}
+                        Carica Partite
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                    </DropdownMenu>
+                )}
+            </div>
+        </div>
       </Card>
+
 
       {/* Play Logs Section - Placed after the main game info card */}
       {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
@@ -836,13 +837,7 @@ const handleGenerateRecommendations = async () => {
                                 </AccordionTrigger>
                                 <AccordionContent className="pb-4 text-sm">
                                 <div className="space-y-3">
-                                    {play.location && play.location.trim() !== '' && (
-                                    <div className="grid grid-cols-[auto_1fr] gap-x-2 items-baseline">
-                                        <strong className="text-xs text-muted-foreground">Luogo:</strong>
-                                        <p className="text-xs whitespace-pre-wrap">{play.location}</p>
-                                    </div>
-                                    )}
-                                     {play.comments && play.comments.trim() !== '' && (
+                                    {play.comments && play.comments.trim() !== '' && (
                                     <div>
                                         <strong className="text-xs text-muted-foreground">Commenti:</strong>
                                         <p className="text-xs whitespace-pre-wrap">{play.comments}</p>
@@ -860,13 +855,13 @@ const handleGenerateRecommendations = async () => {
                                             })
                                             .map((player, pIndex) => (
                                             <li key={pIndex} className={cn(
-                                            "flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5",
+                                            "flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5 px-2",
                                             pIndex % 2 === 0 ? 'bg-muted/30' : '', 
-                                            "px-2"
+                                            player.didWin ? 'font-semibold' : ''
                                             )}>
                                                 <div className="flex items-center gap-1.5 flex-grow min-w-0">
                                                     <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 relative top-px" />
-                                                    <span className={cn("truncate", player.didWin ? 'font-semibold' : '')} title={player.name || player.username || 'Sconosciuto'}>
+                                                    <span className="truncate" title={player.name || player.username || 'Sconosciuto'}>
                                                         {player.name || player.username || 'Sconosciuto'}
                                                     </span>
                                                     {player.didWin && (
@@ -877,7 +872,7 @@ const handleGenerateRecommendations = async () => {
                                                     )}
                                                 </div>
                                                 {player.score && (
-                                                <span className={cn("font-mono text-xs whitespace-nowrap ml-2 text-foreground", player.didWin ? 'font-semibold' : '')}>
+                                                <span className="font-mono text-xs whitespace-nowrap ml-2 text-foreground">
                                                     {player.score} pt.
                                                 </span>
                                                 )}
