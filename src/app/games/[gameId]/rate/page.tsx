@@ -1,7 +1,8 @@
+
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
-import { getGameDetails, revalidateGameDataAction } from '@/lib/actions';
+import { getGameDetails } from '@/lib/actions';
 import type { BoardGame, Review } from '@/lib/types';
 import { useAuth } from '@/contexts/auth-context';
 import { MultiStepRatingForm } from '@/components/boardgame/multi-step-rating-form';
@@ -27,7 +28,6 @@ export default function GameRatePage() {
   const [isLoadingGame, setIsLoadingGame] = useState(true);
   const [currentRatingFormStep, setCurrentRatingFormStep] = useState(1);
   
-  const cardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     async function fetchGameAndReviewData() {
@@ -56,16 +56,10 @@ export default function GameRatePage() {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      if (currentRatingFormStep === 5) { // Summary step
-        setTimeout(() => {
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }, 50);
-      } else if (cardRef.current && currentRatingFormStep >= 1 && currentRatingFormStep <= 4) { // Input steps
-        setTimeout(() => {
-          const cardTopOffset = cardRef.current!.getBoundingClientRect().top + window.scrollY;
-          window.scrollTo({ top: cardTopOffset - 30, behavior: 'smooth' });
-        }, 50);
-      }
+      // Scroll to the top of the page on every step change
+      setTimeout(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 50); 
     }
   }, [currentRatingFormStep]);
 
@@ -118,7 +112,7 @@ export default function GameRatePage() {
 
   return (
     <div className="max-w-2xl mx-auto py-8 px-4">
-      <Card ref={cardRef} className="shadow-xl border border-border rounded-lg">
+      <Card className="shadow-xl border border-border rounded-lg">
         {currentRatingFormStep === 1 && (
           <CardHeader>
               <CardTitle className="text-2xl md:text-3xl text-left">
