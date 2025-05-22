@@ -26,12 +26,12 @@ export type RecommendGamesInput = z.infer<typeof RecommendGamesInputSchema>;
 const RecommendedGameSchema = z.object({
   id: z.string().describe('The Firestore ID of the recommended game.'),
   name: z.string().describe('The name of the recommended game.'),
-  reason: z.string().describe('The AI\'s reason for recommending this game.'),
+  reason: z.string().describe('The AI\'s reason for recommending this game, in Italian.'),
 });
 export type RecommendedGame = z.infer<typeof RecommendedGameSchema>;
 
 const RecommendGamesOutputSchema = z.object({
-  recommendations: z.array(RecommendedGameSchema).describe('An array of recommended games, each with an ID, name, and reason.'),
+  recommendations: z.array(RecommendedGameSchema).describe('An array of recommended games, each with an ID, name, and reason, in Italian.'),
 });
 export type RecommendGamesOutput = z.infer<typeof RecommendGamesOutputSchema>;
 
@@ -43,7 +43,7 @@ export async function recommendGames(input: RecommendGamesInput): Promise<Recomm
 const LLMRecommendationOutputSchema = z.object({
     llmRecommendations: z.array(z.object({
         name: z.string().describe("The name of the recommended board game from the provided catalog."),
-        reason: z.string().describe("A brief 1-2 sentence explanation for why this game is recommended, based on potential similarities to the reference game (theme, mechanics, complexity, feel).")
+        reason: z.string().describe("A brief 1-2 sentence explanation **in Italian** for why this game is recommended, based on potential similarities to the reference game (theme, mechanics, complexity, feel).")
     })).describe("A list of 3-4 recommended board games. Ensure recommendations are diverse if possible.")
 });
 
@@ -56,21 +56,21 @@ const recommendGamesPrompt = ai.definePrompt({
     })
   },
   output: { schema: LLMRecommendationOutputSchema },
-  prompt: `You are a knowledgeable board game enthusiast acting as a recommendation engine.
-Given a reference board game that a user likes ("{{{referenceGameName}}}") and a list of other available games in our catalog, your task is to recommend 3 to 4 different games from the catalog that the user might also enjoy.
+  prompt: `Sei un esperto appassionato di giochi da tavolo che funge da motore di raccomandazione.
+Dato un gioco da tavolo di riferimento che piace a un utente ("{{{referenceGameName}}}") e un elenco di altri giochi disponibili nel nostro catalogo, il tuo compito è consigliare da 3 a 4 giochi diversi dal catalogo che potrebbero piacere anche all'utente.
 
-Reference Game: {{{referenceGameName}}}
+Gioco di Riferimento: {{{referenceGameName}}}
 
-Available Games in Catalog (only recommend from this list, and do not recommend the reference game itself):
+Giochi Disponibili nel Catalogo (consiglia solo da questo elenco e non consigliare il gioco di riferimento stesso):
 {{#each candidateGameNames}}
 - {{{this}}}
 {{/each}}
 
-For each game you recommend, please provide:
-1. The exact name of the game as it appears in the "Available Games in Catalog" list.
-2. A brief (1-2 sentence) reason for your recommendation, highlighting potential similarities in theme, mechanics, complexity, or overall feel to the reference game.
+Per ogni gioco che consigli, fornisci per favore:
+1. Il nome esatto del gioco come appare nell'elenco "Giochi Disponibili nel Catalogo".
+2. Una breve spiegazione (1-2 frasi) **in italiano** del motivo della tua raccomandazione, evidenziando potenziali somiglianze di tema, meccaniche, complessità o sensazione generale rispetto al gioco di riferimento.
 
-Structure your output as a list of recommendations.
+Struttura il tuo output come un elenco di raccomandazioni.
 `,
 });
 
