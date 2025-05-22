@@ -9,7 +9,7 @@ import type { BoardGame, Review, Rating as RatingType, GroupedCategoryAverages, 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Info, Edit, Trash2, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, MessageSquare, Heart, ListPlus, ListChecks, Settings, Trophy, Medal, UserCircle2, Brain, Star, Palette, ClipboardList, Repeat, Sparkles, Pin, PinOff, DownloadCloud, Wand2 } from 'lucide-react';
+import { AlertCircle, Loader2, Info, Edit, Trash2, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, MessageSquare, Heart, ListPlus, ListChecks, Settings, Trophy, Medal, UserCircle2, Brain, Star, Palette, ClipboardList, Repeat, Sparkles, Pin, PinOff, Wand2, DownloadCloud } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { calculateGroupedCategoryAverages, calculateOverallCategoryAverage as calculateGlobalOverallAverage, formatRatingNumber, formatPlayDate, formatReviewDate, calculateCategoryAverages } from '@/lib/utils';
@@ -240,7 +240,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         });
         setGame(prevGame => prevGame ? { ...prevGame, isPinned: newPinStatus } : null);
         await revalidateGameDataAction(game.id);
-        fetchGameData();
+        // fetchGameData(); // Revalidation should handle this
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({
@@ -312,7 +312,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     });
   };
 
-  const handleTogglePlaylist = async () => {
+  const handleToggleWishlist = async () => {
     if (!currentUser || !game || authLoading) {
       toast({ title: "Azione non permessa", description: "Devi essere loggato per aggiungere alla playlist.", variant: "destructive" });
       return;
@@ -404,60 +404,60 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     const usernameToFetch = "lctr01";
 
     startFetchPlaysTransition(async () => {
-      const bggFetchResult = await fetchUserPlaysForGameFromBggAction(game.bggId, usernameToFetch);
+        const bggFetchResult = await fetchUserPlaysForGameFromBggAction(game.bggId, usernameToFetch);
 
-      if (!bggFetchResult.success || !bggFetchResult.plays) {
-          toast({ title: 'Errore Caricamento Partite BGG', description: bggFetchResult.error || bggFetchResult.message || 'Impossibile caricare le partite da BGG.', variant: 'destructive' });
-          return;
-      }
+        if (!bggFetchResult.success || !bggFetchResult.plays) {
+            toast({ title: 'Errore Caricamento Partite BGG', description: bggFetchResult.error || bggFetchResult.message || 'Impossibile caricare le partite da BGG.', variant: 'destructive' });
+            return;
+        }
 
-      const playsToSave = bggFetchResult.plays;
-      const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
+        const playsToSave = bggFetchResult.plays;
+        const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
 
-      if (playsToSave.length > 0) {
-          const batch = writeBatch(db);
-          const playsSubcollectionRef = collection(db, FIRESTORE_COLLECTION_NAME, game.id, 'plays_' + usernameToFetch.toLowerCase());
+        if (playsToSave.length > 0) {
+            const batch = writeBatch(db);
+            const playsSubcollectionRef = collection(db, FIRESTORE_COLLECTION_NAME, game.id, `plays_${usernameToFetch.toLowerCase()}`);
 
-          playsToSave.forEach(play => {
-              const playDocRef = doc(playsSubcollectionRef, play.playId);
-              const playDataForFirestore: BggPlayDetail = {
-                  ...play,
-                  userId: usernameToFetch,
-                  gameBggId: game.bggId,
-              };
-              batch.set(playDocRef, playDataForFirestore, { merge: true });
-          });
+            playsToSave.forEach(play => {
+                const playDocRef = doc(playsSubcollectionRef, play.playId);
+                const playDataForFirestore: BggPlayDetail = {
+                    ...play,
+                    userId: usernameToFetch,
+                    gameBggId: game.bggId,
+                };
+                batch.set(playDocRef, playDataForFirestore, { merge: true });
+            });
 
-          batch.update(gameRef, { lctr01Plays: playsToSave.length });
+            batch.update(gameRef, { lctr01Plays: playsToSave.length });
 
-
-          try {
-              await batch.commit();
-              toast({
-                  title: "Partite Caricate e Salvate",
-                  description: bggFetchResult.message || `Caricate e salvate ${playsToSave.length} partite per ${game.name} da BGG per ${usernameToFetch}. Conteggio aggiornato.`,
-              });
-              await revalidateGameDataAction(game.id);
-              fetchGameData(); 
-          } catch (dbError) {
-              const errorMessage = dbError instanceof Error ? dbError.message : "Impossibile salvare le partite nel database.";
-              toast({ title: 'Errore Salvataggio Partite DB', description: errorMessage, variant: 'destructive' });
-          }
-      } else {
-          toast({
-              title: "Nessuna Partita Trovata",
-              description: bggFetchResult.message || `Nessuna partita trovata su BGG per ${usernameToFetch} per questo gioco.`,
-          });
-          try {
-              await updateDoc(gameRef, { lctr01Plays: 0 });
-              await revalidateGameDataAction(game.id);
-              fetchGameData(); 
-          } catch (dbError) {
-               // Silently ignore if update to 0 fails
-          }
-      }
+            try {
+                await batch.commit();
+                toast({
+                    title: "Partite Caricate e Salvate",
+                    description: bggFetchResult.message || `Caricate e salvate ${playsToSave.length} partite per ${game.name} da BGG per ${usernameToFetch}. Conteggio aggiornato.`,
+                });
+                await revalidateGameDataAction(game.id); // Revalidate after successful save
+                fetchGameData(); // Refresh data on the page
+            } catch (dbError) {
+                const errorMessage = dbError instanceof Error ? dbError.message : "Impossibile salvare le partite nel database.";
+                toast({ title: 'Errore Salvataggio Partite DB', description: errorMessage, variant: 'destructive' });
+            }
+        } else {
+            toast({
+                title: "Nessuna Partita Trovata",
+                description: bggFetchResult.message || `Nessuna partita trovata su BGG per ${usernameToFetch} per questo gioco. Conteggio azzerato.`,
+            });
+            try { // Attempt to set count to 0 if no plays found
+                await updateDoc(gameRef, { lctr01Plays: 0 });
+                await revalidateGameDataAction(game.id);
+                fetchGameData(); // Refresh data
+            } catch (dbError) {
+                 // Silently ignore if update to 0 fails
+            }
+        }
     });
 };
+
 
 const handleGenerateRecommendations = async () => {
     if (!game) return;
@@ -590,29 +590,24 @@ const handleGenerateRecommendations = async () => {
           <div className="flex-1 p-6 space-y-4 md:order-1">
             {/* Main header: Title, BGG Link, Score */}
             <div className="flex justify-between items-start mb-2">
-                <div className="flex-1 flex flex-col sm:flex-row sm:items-center sm:gap-1 min-w-0 mr-2">
-                    <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground flex items-center">
-                        {game.name}
-                        {game.bggId > 0 && (
-                            <a
-                                href={`https://boardgamegeek.com/boardgame/${game.bggId}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                title="Vedi su BoardGameGeek"
-                                className="inline-flex items-center text-primary hover:text-primary/80 focus:outline-none focus:ring-2 focus:ring-ring rounded-md p-0.5 ml-1.5"
-                            >
-                                <ExternalLink size={16} className="h-4 w-4" />
-                            </a>
-                        )}
-                    </h1>
-                </div>
-                <div className="flex-shrink-0">
-                    {globalGameAverage !== null ? (
-                    <span className="text-3xl md:text-4xl font-bold text-primary whitespace-nowrap">
-                        {formatRatingNumber(globalGameAverage * 2)}
-                    </span>
-                    ) : (<span className="text-primary text-3xl md:text-4xl font-bold whitespace-nowrap"></span>) }
-                </div>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:gap-1 flex-shrink min-w-0 mr-2">
+                  <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground flex items-center gap-1">
+                      {game.name}
+                      {game.bggId > 0 && (
+                          <a href={`https://boardgamegeek.com/boardgame/${game.bggId}`} target="_blank" rel="noopener noreferrer" title="Vedi su BGG" className="inline-flex items-center text-muted-foreground hover:text-primary transition-colors">
+                              <ExternalLink size={16} className="h-4 w-4" />
+                          </a>
+                      )}
+                  </h1>
+              </div>
+              <div className="flex-shrink-0 flex flex-col items-end">
+                  {globalGameAverage !== null ? (
+                  <span className="text-3xl md:text-4xl font-bold text-primary whitespace-nowrap">
+                      {formatRatingNumber(globalGameAverage * 2)}
+                  </span>
+                  ) : (<span className="text-primary text-3xl md:text-4xl font-bold whitespace-nowrap"></span>) }
+                  {/* Buttons now moved below */}
+              </div>
             </div>
 
             {/* Image for mobile, below title/icons */}
@@ -696,35 +691,40 @@ const handleGenerateRecommendations = async () => {
             </div>
 
             {/* NEW BUTTON BAR */}
-            {currentUser && (
-              <div className="flex justify-end gap-2 py-4 border-t mt-4">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleToggleFavorite}
-                  disabled={isFavoriting || authLoading}
-                  title={isFavoritedByCurrentUser ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
-                  className={`h-9 w-9 hover:bg-destructive/20 ${isFavoritedByCurrentUser ? 'text-destructive fill-destructive' : 'text-muted-foreground/60 hover:text-destructive'}`}
-                >
-                  {isFavoriting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Heart className={`h-5 w-5 ${isFavoritedByCurrentUser ? 'fill-destructive' : ''}`} />}
-                </Button>
-                {currentFavoriteCount > 0 && (
-                  <span className="text-sm text-muted-foreground self-center -ml-2 mr-1">
-                      ({currentFavoriteCount})
-                  </span>
+            <div className="flex justify-end items-center gap-2 py-4 border-t mt-4">
+                {currentUser && (
+                  <>
+                    <div className="flex items-center"> {/* Group Favorite Button + Count */}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={handleToggleFavorite}
+                        disabled={isFavoriting || authLoading}
+                        title={isFavoritedByCurrentUser ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
+                        className={`h-9 w-9 hover:bg-destructive/20 ${isFavoritedByCurrentUser ? 'text-destructive fill-destructive' : 'text-muted-foreground/60 hover:text-destructive'}`}
+                      >
+                        {isFavoriting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Heart className={`h-5 w-5 ${isFavoritedByCurrentUser ? 'fill-destructive' : ''}`} />}
+                      </Button>
+                      {currentFavoriteCount > 0 && (
+                        <span className="text-sm text-muted-foreground -ml-2 mr-1"> 
+                            ({currentFavoriteCount})
+                        </span>
+                      )}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleToggleWishlist}
+                      disabled={isPlaylisting || authLoading}
+                      title={isPlaylistedByCurrentUser ? "Rimuovi dalla Playlist" : "Aggiungi alla Playlist"}
+                      className={`h-9 w-9 hover:bg-sky-500/20 ${isPlaylistedByCurrentUser ? 'text-sky-500' : 'text-muted-foreground/60 hover:text-sky-500'}`}
+                    >
+                      {isPlaylisting ? <Loader2 className="h-5 w-5 animate-spin" /> : (isPlaylistedByCurrentUser ? <ListChecks className="h-5 w-5" /> : <ListPlus className="h-5 w-5" />)}
+                    </Button>
+                  </>
                 )}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleTogglePlaylist}
-                  disabled={isPlaylisting || authLoading}
-                  title={isPlaylistedByCurrentUser ? "Rimuovi dalla Playlist" : "Aggiungi alla Playlist"}
-                  className={`h-9 w-9 hover:bg-sky-500/20 ${isPlaylistedByCurrentUser ? 'text-sky-500' : 'text-muted-foreground/60 hover:text-sky-500'}`}
-                >
-                  {isPlaylisting ? <Loader2 className="h-5 w-5 animate-spin" /> : (isPlaylistedByCurrentUser ? <ListChecks className="h-5 w-5" /> : <ListPlus className="h-5 w-5" />)}
-                </Button>
-                 {game.bggId > 0 && (
-                    <Button variant="outline" size="icon" asChild className="h-9 w-9">
+                {game.bggId > 0 && (
+                    <Button variant="outline" size="icon" asChild className="h-9 w-9" disabled={!game.bggId}>
                         <a href={`https://boardgamegeek.com/boardgame/${game.bggId}`} target="_blank" rel="noopener noreferrer" title="Vedi su BGG">
                             <ExternalLink className="h-5 w-5" />
                         </a>
@@ -748,7 +748,7 @@ const handleGenerateRecommendations = async () => {
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onSelect={handleRefreshBggData}
-                        disabled={(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) || !game.id || !game.bggId}
+                        disabled={(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) || !game || !game.id || !game.bggId}
                         className="cursor-pointer"
                       >
                         {(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DownloadCloud className="mr-2 h-4 w-4" />}
@@ -756,7 +756,7 @@ const handleGenerateRecommendations = async () => {
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onSelect={handleFetchBggPlays}
-                        disabled={isFetchingPlays || !game.bggId}
+                        disabled={isFetchingPlays || !game || !game.bggId}
                         className="cursor-pointer"
                       >
                         {isFetchingPlays ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Dices className="mr-2 h-4 w-4" />}
@@ -766,7 +766,6 @@ const handleGenerateRecommendations = async () => {
                   </DropdownMenu>
                 )}
               </div>
-            )}
             
             {/* Average Ratings Section */}
             <div className={cn("w-full pt-4 border-t border-border", !(game.reviews && game.reviews.length > 0) && "border-none pt-0")}>
@@ -803,126 +802,126 @@ const handleGenerateRecommendations = async () => {
         </div>
       </Card>
 
-      {/* Partite Registrate Section */}
-      {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
-          <Card className="shadow-md border border-border rounded-lg">
-              <CardHeader className="flex flex-row justify-between items-center">
-                  <CardTitle className="text-xl flex items-center gap-2">
-                      <Dices className="h-5 w-5 text-primary"/>
-                      Partite Registrate
-                  </CardTitle>
-                  {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
-                      <Badge variant="secondary">{game.lctr01PlayDetails.length}</Badge>
-                  )}
-              </CardHeader>
-              <CardContent>
-                  <Accordion type="single" collapsible className="w-full">
-                      {game.lctr01PlayDetails.map((play) => {
-                          const winners = play.players?.filter(p => p.didWin) || [];
-                          const winnerNames = winners.map(p => p.name || p.username || 'Sconosciuto').join(', ');
-                          return (
-                          <AccordionItem value={`play-${play.playId}`} key={play.playId}>
-                              <AccordionTrigger className="hover:no-underline text-left py-3 text-sm">
-                                <div className="flex justify-between w-full items-center pr-2 gap-2">
-                                  <div className="flex items-center gap-2">
-                                      <Dices size={16} className="text-muted-foreground/80 flex-shrink-0 relative top-px" />
-                                      <span className="font-medium">{formatReviewDate(play.date)}</span>
-                                      {play.quantity > 1 && (
-                                          <>
-                                              <span className="text-muted-foreground">-</span>
-                                              <span>{play.quantity} partite</span>
-                                          </>
-                                      )}
-                                  </div>
-                                      {winners.length > 0 && (
-                                          <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300 whitespace-nowrap">
-                                              <Trophy className="mr-1 h-3.5 w-3.5"/> {winnerNames}
-                                          </Badge>
-                                      )}
-                                  </div>
-                              </AccordionTrigger>
-                              <AccordionContent className="pb-4 text-sm">
-                              <div className="space-y-3">
-                                  {play.comments && play.comments.trim() !== '' && (
-                                  <div className="grid grid-cols-[auto_1fr] gap-x-2 items-baseline pt-1">
-                                      <strong className="text-muted-foreground text-xs">Commenti:</strong>
-                                      <p className="text-xs whitespace-pre-wrap">{play.comments}</p>
-                                  </div>
-                                  )}
-                                  {play.players && play.players.length > 0 && (
-                                  <div>
-                                      <ul className="pl-1">
-                                      {play.players
-                                          .slice()
-                                          .sort((a, b) => {
-                                              const scoreA = parseInt(a.score || "0", 10);
-                                              const scoreB = parseInt(b.score || "0", 10);
-                                              return scoreB - scoreA;
-                                          })
-                                          .map((player, pIndex) => (
-                                          <li key={pIndex} className={cn(
-                                            "flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5 px-2",
-                                            pIndex % 2 === 0 ? 'bg-muted/30' : ''
-                                          )}>
-                                              <div className="flex items-center gap-1.5 flex-grow min-w-0">
-                                                  <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 relative top-px" />
-                                                  <span className={cn("truncate", player.didWin ? 'font-semibold' : '')} title={player.name || player.username || 'Sconosciuto'}>
-                                                      {player.name || player.username || 'Sconosciuto'}
-                                                  </span>
-                                                  {player.didWin && (
-                                                      <Trophy className="h-3.5 w-3.5 text-green-600 ml-1 flex-shrink-0" />
-                                                  )}
-                                                  {player.isNew && (
-                                                       <Sparkles className="h-3.5 w-3.5 text-blue-600 ml-1 flex-shrink-0" />
-                                                  )}
-                                              </div>
-                                              {player.score && (
-                                              <span className={cn("font-mono text-xs whitespace-nowrap ml-2 text-foreground", player.didWin ? 'font-semibold' : '')}>
-                                                  {player.score} pt.
-                                              </span>
-                                              )}
-                                          </li>
-                                      ))}
-                                      </ul>
-                                  </div>
-                                  )}
+    {/* Partite Registrate Section - Moved Below Main Card */}
+    {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
+        <Card className="shadow-md border border-border rounded-lg">
+            <CardHeader className="flex flex-row justify-between items-center">
+                <CardTitle className="text-xl flex items-center gap-2">
+                    <Dices className="h-5 w-5 text-primary"/>
+                    Partite Registrate
+                </CardTitle>
+                {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
+                    <Badge variant="secondary">{game.lctr01PlayDetails.length}</Badge>
+                )}
+            </CardHeader>
+            <CardContent>
+                <Accordion type="single" collapsible className="w-full">
+                    {game.lctr01PlayDetails.map((play) => {
+                        const winners = play.players?.filter(p => p.didWin) || [];
+                        const winnerNames = winners.map(p => p.name || p.username || 'Sconosciuto').join(', ');
+                        return (
+                        <AccordionItem value={`play-${play.playId}`} key={play.playId}>
+                            <AccordionTrigger className="hover:no-underline text-left py-3 text-sm">
+                              <div className="flex justify-between w-full items-center pr-2 gap-2">
+                                <div className="flex items-center gap-2">
+                                    <Dices size={16} className="text-muted-foreground/80 flex-shrink-0" />
+                                    <span className="font-medium">{formatReviewDate(play.date)}</span>
+                                    {play.quantity > 1 && (
+                                        <>
+                                            <span className="text-muted-foreground">-</span>
+                                            <span>{play.quantity} partite</span>
+                                        </>
+                                    )}
+                                </div>
+                                    {winners.length > 0 && (
+                                        <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300 whitespace-nowrap">
+                                            <Trophy className="mr-1 h-3.5 w-3.5"/> {winnerNames}
+                                        </Badge>
+                                    )}
+                                </div>
+                            </AccordionTrigger>
+                            <AccordionContent className="pb-4 text-sm">
+                            <div className="space-y-3">
+                                {play.comments && play.comments.trim() !== '' && (
+                                <div className="grid grid-cols-[auto_1fr] gap-x-2 items-baseline pt-1">
+                                    <strong className="text-muted-foreground text-xs">Commenti:</strong>
+                                    <p className="text-xs whitespace-pre-wrap">{play.comments}</p>
+                                </div>
+                                )}
+                                {play.players && play.players.length > 0 && (
+                                <div>
+                                    <ul className="pl-1">
+                                    {play.players
+                                        .slice()
+                                        .sort((a, b) => {
+                                            const scoreA = parseInt(a.score || "0", 10);
+                                            const scoreB = parseInt(b.score || "0", 10);
+                                            return scoreB - scoreA;
+                                        })
+                                        .map((player, pIndex) => (
+                                        <li key={pIndex} className={cn(
+                                          "flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5 px-2",
+                                          pIndex % 2 === 0 ? 'bg-muted/30' : ''
+                                        )}>
+                                            <div className="flex items-center gap-1.5 flex-grow min-w-0">
+                                                <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 relative top-px" />
+                                                <span className={cn("truncate", player.didWin ? 'font-semibold' : '')} title={player.name || player.username || 'Sconosciuto'}>
+                                                    {player.name || player.username || 'Sconosciuto'}
+                                                </span>
+                                                {player.didWin && (
+                                                    <Trophy className="h-3.5 w-3.5 text-green-600 ml-1 flex-shrink-0" />
+                                                )}
+                                                {player.isNew && (
+                                                     <Sparkles className="h-3.5 w-3.5 text-blue-600 ml-1 flex-shrink-0" />
+                                                )}
+                                            </div>
+                                            {player.score && (
+                                            <span className={cn("font-mono text-xs whitespace-nowrap ml-2 text-foreground", player.didWin ? 'font-semibold' : '')}>
+                                                {player.score} pt.
+                                            </span>
+                                            )}
+                                        </li>
+                                    ))}
+                                    </ul>
+                                </div>
+                                )}
 
-                              </div>
-                              </AccordionContent>
-                          </AccordionItem>
-                      );
-                  })}
-                  </Accordion>
-              </CardContent>
-          </Card>
-      )}
+                            </div>
+                            </AccordionContent>
+                        </AccordionItem>
+                    );
+                })}
+                </Accordion>
+            </CardContent>
+        </Card>
+    )}
 
       {/* User Review Management and Other Reviews Section */}
       <div className="space-y-8">
           {currentUser && !authLoading && (
             userReview ? (
-              <div className="space-y-4"> {/* Removed card styles */}
+              <div className="space-y-4">
                 <div className="flex flex-row items-center justify-between gap-2 mb-4">
                   <h3 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h3>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                      <Button asChild size="sm" variant="default" className="bg-primary hover:bg-primary/90 text-primary-foreground">
-                         <Link href={`/games/${gameId}/rate`}>
-                           <span className="flex items-center">
-                             <Edit className="mr-0 sm:mr-2 h-4 w-4" />
-                             <span className="hidden sm:inline">Modifica</span>
-                           </span>
-                         </Link>
+                      <Button asChild size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                        <Link href={`/games/${gameId}/rate`}>
+                          <span className="flex items-center">
+                            <Edit className="mr-0 sm:mr-2 h-4 w-4" />
+                            <span className="hidden sm:inline">Modifica</span>
+                          </span>
+                        </Link>
                       </Button>
                       <AlertDialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
-                         <AlertDialogTrigger asChild>
+                        <AlertDialogTrigger asChild>
                           <Button variant="destructive" size="sm" disabled={isDeletingReview}>
                               <span className="flex items-center">
                               {isDeletingReview ? <Loader2 className="mr-0 sm:mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-0 sm:mr-2 h-4 w-4" />}
                               <span className="hidden sm:inline">Elimina</span>
                               </span>
                           </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
                           <AlertDialogHeader>
                           <AlertDialogTitle>Sei sicuro?</AlertDialogTitle>
                           <AlertDialogDescription>
@@ -935,7 +934,7 @@ const handleGenerateRecommendations = async () => {
                               {isDeletingReview ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Conferma Eliminazione" }
                           </AlertDialogAction>
                           </AlertDialogFooter>
-                      </AlertDialogContent>
+                        </AlertDialogContent>
                       </AlertDialog>
                   </div>
                 </div>
@@ -971,7 +970,7 @@ const handleGenerateRecommendations = async () => {
               <Separator className="my-6" />
               <h2 className="text-2xl font-semibold text-foreground mb-6 flex items-center gap-2">
               <MessageSquare className="h-6 w-6 text-primary"/>
-              {userReview ? `Altre Recensioni (${remainingReviews.length})` : `Recensioni (${remainingReviews.length})`}
+              {userReview ? `Altri Voti (${remainingReviews.length})` : `Voti (${remainingReviews.length})`}
               </h2>
               <ReviewList reviews={remainingReviews} />
           </>
@@ -1052,4 +1051,3 @@ const handleGenerateRecommendations = async () => {
     </div>
   );
 }
-
