@@ -9,7 +9,7 @@ import type { BoardGame, Review, Rating as RatingType, GroupedCategoryAverages, 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Loader2, Info, Edit, Trash2, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, MessageSquare, Heart, Settings, Trophy, Medal, UserCircle2, Sparkles, Pin, PinOff, Wand2, DownloadCloud, Bookmark, BookMarked, Frown } from 'lucide-react';
+import { AlertCircle, Loader2, Info, Edit, Trash2, Users, Clock, CalendarDays, ExternalLink, Weight, PenTool, Dices, MessageSquare, Heart, Settings, Trophy, Medal, UserCircle2, Sparkles, Pin, PinOff, Wand2, DownloadCloud, Bookmark, BookMarked, Frown } from 'lucide-react'; // Added Bookmark, BookMarked, Frown
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { calculateGroupedCategoryAverages, calculateOverallCategoryAverage, formatRatingNumber, formatPlayDate, formatReviewDate, calculateCategoryAverages as calculateCatAvgsFromUtils } from '@/lib/utils';
@@ -128,7 +128,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       if (gameData.reviews && gameData.reviews.length > 0) {
         const categoryAvgs = calculateCatAvgsFromUtils(gameData.reviews);
         if (categoryAvgs) {
-          setGlobalGameAverage(calculateOverallCategoryAverage(categoryAvgs));
+          setGlobalGameAverage(calculateGlobalOverallAverage(categoryAvgs));
         } else {
           setGlobalGameAverage(null);
         }
@@ -171,7 +171,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     }
   }, [game, currentUser]);
 
-  const updateGameOverallRatingAfterReviewOrDelete = useCallback(async () => {
+  const updateGameOverallRatingAfterDelete = useCallback(async () => {
     if (!game) return;
     try {
       const reviewsCollectionRef = collection(db, FIRESTORE_COLLECTION_NAME, game.id, 'reviews');
@@ -195,7 +195,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       });
 
       const categoryAvgs = calculateCatAvgsFromUtils(allReviewsForGame);
-      const newOverallAverage = categoryAvgs ? calculateOverallCategoryAverage(categoryAvgs) : null;
+      const newOverallAverage = categoryAvgs ? calculateGlobalOverallAverage(categoryAvgs) : null;
       const newVoteCount = allReviewsForGame.length;
 
       const gameDocRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
@@ -226,8 +226,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         await deleteDoc(reviewDocRef);
         
         toast({ title: "Voto Eliminato", description: "Il tuo voto è stato eliminato con successo." });
-        await updateGameOverallRatingAfterReviewOrDelete();
-        fetchGameData();
+        await updateGameOverallRatingAfterDelete(); 
+        // fetchGameData(); // Already called by updateGameOverallRatingAfterDelete
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({ title: "Errore", description: `Impossibile eliminare il voto: ${errorMessage}`, variant: "destructive" });
@@ -376,7 +376,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
   const handleToggleMorchia = async () => {
     if (!currentUser || !game || authLoading) {
-      toast({ title: "Azione non permessa", description: "Devi essere loggato per aggiungere alla Morchia List.", variant: "destructive" });
+      toast({ title: "Azione non permessa", description: "Devi essere loggato per aggiungere alle Morchie.", variant: "destructive" });
       return;
     }
     startMorchiaTransition(async () => {
@@ -420,8 +420,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         } : null);
 
         toast({
-          title: newMorchiaStatus ? "Marcato come morchia!" : "Rimosso dalla lista morchia.",
-          description: `${game.name} è stato ${newMorchiaStatus ? 'marcato come morchia' : 'rimosso dalla lista morchia'}.`,
+          title: newMorchiaStatus ? "Aggiunto alle Morchie!" : "Rimosso dalle Morchie",
+          description: `${game.name} è stato ${newMorchiaStatus ? 'aggiunto alla lista morchia' : 'rimosso dalle morchie'}.`,
         });
         await revalidateGameDataAction(game.id);
       } catch (error) {
@@ -472,7 +472,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     const usernameToFetch = "lctr01";
 
     startFetchPlaysTransition(async () => {
-        const bggFetchResult = await fetchUserPlaysForGameFromBggAction(game.id, game.bggId, usernameToFetch);
+        const bggFetchResult = await fetchUserPlaysForGameFromBggAction(game.bggId, usernameToFetch);
 
 
         if (!bggFetchResult.success || !bggFetchResult.plays) {
@@ -643,23 +643,21 @@ const handleGenerateRecommendations = async () => {
           <div className="flex flex-col md:flex-row">
             {/* Main Content Column */}
             <div className="flex-1 p-6 space-y-4 md:order-1">
-                {/* Game Title, BGG Link, Score, and Action Icons Header */}
+                {/* Game Title, Icons, Score Header */}
                 <div className="flex justify-between items-start mb-2">
-                    {/* Left side: Title and BGG Link */}
-                     <div className="flex flex-col sm:flex-row sm:items-center sm:gap-1 flex-shrink min-w-0 mr-2">
+                    <div className="flex-1 min-w-0">
                         <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
                             {game.name}
                         </h1>
                     </div>
-                    {/* Right side: Score and Action Icons */}
-                    <div className="flex-shrink-0 flex flex-col items-end">
+                    <div className="flex-shrink-0 flex flex-col items-end ml-4">
                         <span className="text-3xl md:text-4xl font-bold text-primary whitespace-nowrap">
                             {globalGameAverage !== null ? formatRatingNumber(globalGameAverage * 2) : ''}
                         </span>
                     </div>
                 </div>
                 
-                {/* Mobile Image (Below Title/Score block) */}
+                {/* Mobile Image */}
                 <div className="md:hidden my-4 max-w-[240px] mx-auto">
                   <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
                     <SafeImage
@@ -676,7 +674,7 @@ const handleGenerateRecommendations = async () => {
                 </div>
 
                 {/* Button Bar */}
-                 <div className="flex justify-evenly items-center gap-1 sm:gap-2 py-4 border-t border-b border-border">
+                 <div className="flex justify-evenly items-center gap-1 sm:gap-2 py-4 border-y border-border">
                     <Button
                         variant="ghost"
                         size="sm"
@@ -695,7 +693,7 @@ const handleGenerateRecommendations = async () => {
                         size="sm"
                         onClick={handleToggleMorchia}
                         disabled={isTogglingMorchia || authLoading || !currentUser}
-                        title={isMorchiaByCurrentUser ? "Rimuovi da morchia" : "Marca come morchia"}
+                        title={isMorchiaByCurrentUser ? "Rimuovi dalle Morchie" : "Aggiungi alle Morchie"}
                         className={`h-9 px-2 ${isMorchiaByCurrentUser ? 'text-orange-600 hover:bg-orange-600/20' : 'text-orange-600/60 hover:text-orange-600 hover:bg-orange-600/10'}`}
                     >
                         <Frown className={`h-5 w-5 ${isMorchiaByCurrentUser ? 'fill-orange-600/30' : ''}`} />
@@ -815,9 +813,9 @@ const handleGenerateRecommendations = async () => {
                   )}
                    {highestScoreAchieved !== null && (
                       <div className="flex items-baseline gap-2 justify-start md:justify-end">
+                           <Medal size={14} className="text-amber-500 flex-shrink-0 relative top-px" />
                           <span className="font-medium hidden sm:inline">Miglior Punteggio:</span>
                           <span>{formatRatingNumber(highestScoreAchieved)} pt.</span>
-                          <Medal size={14} className="text-amber-500 flex-shrink-0 relative top-px" />
                       </div>
                   )}
               </div>
@@ -1105,4 +1103,3 @@ const handleGenerateRecommendations = async () => {
     </div>
   );
 }
-
