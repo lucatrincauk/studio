@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { GroupedCategoryAverages } from '@/lib/types';
@@ -81,7 +82,7 @@ export function GroupedRatingsDisplay({
                     </span>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0 w-24">
-                  <Progress value={(section.sectionAverage / 5) * 100} className="w-full h-2.5" />
+                  <Progress value={(section.sectionAverage / 10) * 100} className="w-full h-2.5" />
                 </div>
               </div>
             </AccordionTrigger>
@@ -92,11 +93,11 @@ export function GroupedRatingsDisplay({
                     key={sub.name}
                     className={cn(
                       "flex justify-between items-center text-sm py-1.5",
-                      subIndex < section.subRatings.length - 1 ? "border-b border-border" : ""
+                      subIndex < section.subRatings.length - 1 ? "border-b border-border last:border-b-0" : ""
                     )}
                   >
                     <span className="text-muted-foreground">{sub.name}:</span>
-                    <span className="font-medium text-foreground">{formatRatingNumber(sub.average)} / 5</span>
+                    <span className="font-medium text-foreground">{formatRatingNumber(sub.average)} / 10</span>
                   </li>
                 ))}
               </ul>
