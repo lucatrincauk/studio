@@ -584,7 +584,7 @@ export function MultiStepRatingForm({
                           <div className="text-right">
                               <span className="text-primary text-md font-semibold whitespace-nowrap flex items-center">
                                 <Star className="h-4 w-4 text-accent fill-accent relative top-px mr-1" />
-                                {formatRatingNumber(yourOverallAverage * 2)}
+                                {formatRatingNumber(yourOverallAverage)}
                               </span>
                           </div>
                       )}

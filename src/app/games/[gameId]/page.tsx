@@ -997,10 +997,10 @@ const handleGenerateRecommendations = async () => {
         <CardHeader>
             <CardTitle className="text-xl flex items-center gap-2">
                 <Wand2 className="h-5 w-5 text-primary" />
-                Potrebbe Piacerti Anche
+                Altri Giochi che Potrebbero Piacerti
             </CardTitle>
             <CardDescription>
-                Suggerimenti AI basati su questo gioco dal nostro catalogo.
+                Suggerimenti AI basati su questo gioco e le tue interazioni.
             </CardDescription>
         </CardHeader>
         <CardContent>
@@ -1077,14 +1077,6 @@ const handleGenerateRecommendations = async () => {
                   );
                 })}
               </div>
-            )}
-            {!isFetchingRecommendations && enrichedAiRecommendations.length === 0 && !recommendationError && (
-                <Alert variant="default" className="mt-4 bg-secondary/30 border-secondary text-left">
-                    <Info className="h-4 w-4 text-secondary-foreground" />
-                    <AlertDescription className="text-secondary-foreground">
-                        Clicca il pulsante per vedere cosa suggerisce l&apos;AI!
-                    </AlertDescription>
-                </Alert>
             )}
         </CardContent>
         </Card>
