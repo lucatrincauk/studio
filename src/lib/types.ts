@@ -1,4 +1,3 @@
-
 import type { LucideIcon } from 'lucide-react';
 
 export type RatingCategory =
@@ -14,20 +13,38 @@ export type RatingCategory =
   | 'effortToLearn'
   | 'setupTeardown';
 
+// Labels for UI display
 export const RATING_CATEGORIES: Record<RatingCategory, string> = {
   excitedToReplay: "Entusiasmo nel Rigiocare",
   mentallyStimulating: "Stimolazione Mentale",
   fun: "Fattore Divertimento",
   decisionDepth: "Profondità Decisionale",
-  replayability: "Varietà e Rigiocabilità",
-  luck: "Assenza di Fortuna",
-  lengthDowntime: "Durata",
-  graphicDesign: "Grafica e Componenti",
-  componentsThemeLore: "Tema e Ambientazione",
+  replayability: "Varietà e Rigiocabilità", // Changed
+  luck: "Assenza di Fortuna", // Changed
+  lengthDowntime: "Durata", // Changed
+  graphicDesign: "Grafica e Componenti", // Changed
+  componentsThemeLore: "Tema e Ambientazione", // Changed
   effortToLearn: "Facilità di Apprendimento",
-  setupTeardown: "Preparazione e Ripristino",
+  setupTeardown: "Preparazione e Ripristino", // Changed
 };
 
+// New weights for 1-10 scale
+export const RATING_WEIGHTS: Record<RatingCategory, number> = {
+  excitedToReplay: 2,    // Was 4 on 1-5 scale
+  mentallyStimulating: 1,// Was 2 on 1-5 scale
+  fun: 1,                // Was 2 on 1-5 scale
+  decisionDepth: 1,      // Was 2 on 1-5 scale
+  replayability: 1,      // Was 2 on 1-5 scale
+  luck: 1,               // Was 2 on 1-5 scale
+  lengthDowntime: 1,     // Was 2 on 1-5 scale
+  graphicDesign: 0.5,    // Was 1 on 1-5 scale
+  componentsThemeLore: 0.5,// Was 1 on 1-5 scale
+  effortToLearn: 0.5,    // Was 1 on 1-5 scale
+  setupTeardown: 0.5,    // Was 1 on 1-5 scale
+};
+
+
+// Values will now be 1-10
 export interface Rating {
   excitedToReplay: number;
   mentallyStimulating: number;
@@ -70,20 +87,21 @@ export interface BoardGame {
   name: string;
   coverArtUrl: string;
   bggId: number;
-  reviews: Review[];
+  reviews: Review[]; // Typically not populated for list views, only for detail page
   yearPublished?: number | null;
   minPlayers?: number | null;
   maxPlayers?: number | null;
-  playingTime?: number | null;
-  minPlaytime?: number | null;
-  maxPlaytime?: number | null;
-  averageWeight?: number | null;
-  overallAverageRating?: number | null;
+  playingTime?: number | null; // BGG's general playing time
+  minPlaytime?: number | null; // BGG's min playtime
+  maxPlaytime?: number | null; // BGG's max playtime
+  averageWeight?: number | null; // BGG's complexity rating
+  overallAverageRating?: number | null; // Now calculated as 1-10
   voteCount?: number;
   isPinned?: boolean;
   mechanics?: string[];
   categories?: string[];
   designers?: string[];
+  // publishers removed
   featuredReason?: 'pinned' | 'recent';
   favoritedByUserIds?: string[];
   favoriteCount?: number;
@@ -97,14 +115,14 @@ export interface BoardGame {
 export interface SectionAverage {
   sectionTitle: string;
   iconName?: LucideIconName;
-  sectionAverage: number;
+  sectionAverage: number; // Will now be 1-10
   subRatings: SubRatingAverage[];
 }
 export type GroupedCategoryAverages = SectionAverage[];
 
 export interface SubRatingAverage {
   name: string;
-  average: number;
+  average: number; // Will now be 1-10
 }
 
 export interface BggSearchResult {
@@ -122,7 +140,7 @@ export interface UserProfile {
   bggUsername?: string | null;
   hasSubmittedReview?: boolean;
   hasGivenFirstOne?: boolean;
-  hasGivenFirstFive?: boolean;
+  hasGivenFirstFive?: boolean; // This flag will now represent if user has given a "10"
   hasEarnedComprehensiveCritic?: boolean;
   hasEarnedNightOwlReviewer?: boolean;
   hasReceivedWelcomeBadge?: boolean;
@@ -143,17 +161,17 @@ export interface BggPlayerInPlay {
 
 export interface BggPlayDetail {
   playId: string;
-  date: string;
+  date: string; // ISO date string
   quantity: number;
   comments: string | null;
   location?: string | null;
   players?: BggPlayerInPlay[];
-  userId?: string;
-  gameBggId: number;
+  userId?: string; // User who logged this play (e.g., 'lctr01')
+  gameBggId: number; // BGG ID of the game played
 }
 
 export interface AugmentedBggPlayDetail extends BggPlayDetail {
-  gameId: string;
+  gameId: string; // Firestore ID of the game
   gameName: string;
   gameCoverArtUrl?: string | null;
 }

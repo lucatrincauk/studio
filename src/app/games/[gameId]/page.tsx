@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
-import { calculateGroupedCategoryAverages, calculateOverallCategoryAverage, formatRatingNumber, formatPlayDate, formatReviewDate, calculateCategoryAverages as calculateCatAvgsFromUtils } from '@/lib/utils';
+import { calculateGroupedCategoryAverages, calculateOverallCategoryAverage, formatRatingNumber, formatPlayDate, formatReviewDate, calculateCategoryAverages } from '@/lib/utils';
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 import { ReviewList } from '@/components/boardgame/review-list';
 import { useToast } from '@/hooks/use-toast';
@@ -48,6 +48,7 @@ import { SafeImage } from '@/components/common/SafeImage';
 import { ReviewItem } from '@/components/boardgame/review-item';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { useRouter } from 'next/navigation';
 
 
 const FIRESTORE_COLLECTION_NAME = 'boardgames_collection';
@@ -73,6 +74,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
   const { user: currentUser, loading: authLoading, isAdmin } = useAuth();
   const { toast } = useToast();
+  const router = useRouter();
 
   const [game, setGame] = useState<BoardGame | null>(null);
   const [isLoadingGame, setIsLoadingGame] = useState(true);
@@ -80,7 +82,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
   const [userReview, setUserReview] = useState<Review | undefined>(undefined);
   const [remainingReviews, setRemainingReviews] = useState<Review[]>([]);
   const [groupedCategoryAverages, setGroupedCategoryAveragesState] = useState<GroupedCategoryAverages | null>(null);
-  const [globalGameAverage, setGlobalGameAverage] = useState<number | null>(null);
+  const [globalGameAverage, setGlobalGameAverage] = useState<number | null>(null); // Now 1-10
 
   const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false);
   const [isDeletingReview, startDeleteReviewTransition] = useTransition();
@@ -140,9 +142,9 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
 
       if (gameData.reviews && gameData.reviews.length > 0) {
-        const categoryAvgs = calculateCatAvgsFromUtils(gameData.reviews);
+        const categoryAvgs = calculateCategoryAverages(gameData.reviews); // Returns 1-10 averages
         if (categoryAvgs) {
-          setGlobalGameAverage(calculateOverallCategoryAverage(categoryAvgs));
+          setGlobalGameAverage(calculateOverallCategoryAverage(categoryAvgs)); // Returns 1-10 overall
         } else {
           setGlobalGameAverage(null);
         }
@@ -192,24 +194,24 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       const reviewsSnapshot = await getDocs(reviewsCollectionRef);
       const allReviewsForGame: Review[] = reviewsSnapshot.docs.map(docSnap => {
         const reviewDocData = docSnap.data();
-        const rating: RatingType = {
-            excitedToReplay: reviewDocData.rating?.excitedToReplay || 0,
-            mentallyStimulating: reviewDocData.rating?.mentallyStimulating || 0,
-            fun: reviewDocData.rating?.fun || 0,
-            decisionDepth: reviewDocData.rating?.decisionDepth || 0,
-            replayability: reviewDocData.rating?.replayability || 0,
-            luck: reviewDocData.rating?.luck || 0,
-            lengthDowntime: reviewDocData.rating?.lengthDowntime || 0,
-            graphicDesign: reviewDocData.rating?.graphicDesign || 0,
-            componentsThemeLore: reviewDocData.rating?.componentsThemeLore || 0,
-            effortToLearn: reviewDocData.rating?.effortToLearn || 0,
-            setupTeardown: reviewDocData.rating?.setupTeardown || 0,
+        const rating: RatingType = { // Assuming defaultFormValues from form is correct type
+            excitedToReplay: reviewDocData.rating?.excitedToReplay || 5,
+            mentallyStimulating: reviewDocData.rating?.mentallyStimulating || 5,
+            fun: reviewDocData.rating?.fun || 5,
+            decisionDepth: reviewDocData.rating?.decisionDepth || 5,
+            replayability: reviewDocData.rating?.replayability || 5,
+            luck: reviewDocData.rating?.luck || 5,
+            lengthDowntime: reviewDocData.rating?.lengthDowntime || 5,
+            graphicDesign: reviewDocData.rating?.graphicDesign || 5,
+            componentsThemeLore: reviewDocData.rating?.componentsThemeLore || 5,
+            effortToLearn: reviewDocData.rating?.effortToLearn || 5,
+            setupTeardown: reviewDocData.rating?.setupTeardown || 5,
         };
         return { id: docSnap.id, ...reviewDocData, rating } as Review;
       });
 
-      const categoryAvgs = calculateCatAvgsFromUtils(allReviewsForGame);
-      const newOverallAverage = categoryAvgs ? calculateOverallCategoryAverage(categoryAvgs) : null;
+      const categoryAvgs = calculateCategoryAverages(allReviewsForGame);
+      const newOverallAverage = categoryAvgs ? calculateOverallCategoryAverage(categoryAvgs) : null; // 1-10 scale
       const newVoteCount = allReviewsForGame.length;
 
       const gameDocRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
@@ -240,7 +242,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         await deleteDoc(reviewDocRef);
         
         toast({ title: "Voto Eliminato", description: "Il tuo voto è stato eliminato con successo." });
-        await updateGameOverallRatingAfterDelete();
+        await updateGameOverallRatingAfterDelete(); // This will also call fetchGameData
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({ title: "Errore", description: `Impossibile eliminare il voto: ${errorMessage}`, variant: "destructive" });
@@ -724,6 +726,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 await revalidateGameDataAction(game.id);
                 fetchGameData();
             } catch (dbError) {
+                 console.error("Error updating lctr01Plays to 0:", dbError);
             }
         }
     });
@@ -829,7 +832,7 @@ const handleGenerateRecommendations = async () => {
     return scoreFound ? maxScore : null;
   }, [game]);
 
-  const userOverallScore = userReview ? calculateOverallCategoryAverage(userReview.rating) : null;
+  const userOverallScore = userReview ? calculateOverallCategoryAverage(userReview.rating) : null; // Now 1-10
 
 
   if (isLoadingGame || authLoading) {
@@ -855,124 +858,12 @@ const handleGenerateRecommendations = async () => {
 
   const fallbackSrc = `https://placehold.co/240x360.png?text=${encodeURIComponent(game.name?.substring(0,10) || 'N/A')}`;
   
-  const actionBarJSX = currentUser && (
-    <div className="flex justify-evenly items-center gap-1 sm:gap-2">
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => router.push(`/games/${game.id}/rate`)}
-        title={userReview ? "Modifica il Tuo Voto" : "Valuta questo Gioco"}
-        className="h-9 px-2 text-amber-500/70 hover:text-amber-500 hover:bg-amber-500/10"
-      >
-        <Star className="h-5 w-5" />
-         {userOverallScore !== null && (
-          <span className="ml-1 text-xs font-semibold">
-            {formatRatingNumber(userOverallScore * 2)}
-          </span>
-        )}
-        {!userReview && <span className="ml-1 text-xs hidden sm:inline">Valuta</span>}
-      </Button>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => handleToggleFavorite(game.id, game.name)}
-        disabled={isFavoriting || authLoading}
-        title={isFavoritedByCurrentUser ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
-        className={cn(
-            `h-9 px-2`,
-            isFavoritedByCurrentUser ? 'text-destructive fill-destructive hover:bg-destructive/20' : 'text-destructive/60 hover:text-destructive hover:bg-destructive/10'
-        )}
-      >
-        <Heart className={cn(`h-5 w-5`, isFavoritedByCurrentUser ? 'fill-destructive' : '')} />
-        {currentFavoriteCount > 0 && (
-        <span className="ml-1 text-xs">({currentFavoriteCount})</span>
-        )}
-      </Button>
-      
-      <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleToggleMorchia}
-          disabled={isTogglingMorchia || authLoading}
-          title={isMorchiaByCurrentUser ? "Rimuovi da Morchie" : "Aggiungi alle Morchie"}
-          className={cn(
-              `h-9 px-2`,
-              isMorchiaByCurrentUser ? 'text-orange-600 hover:bg-orange-600/20' : 'text-orange-600/60 hover:text-orange-600 hover:bg-orange-600/10'
-          )}
-      >
-          <Frown className={cn(`h-5 w-5`, isMorchiaByCurrentUser ? 'fill-orange-600/30' : '')} />
-          {currentMorchiaCount > 0 && (
-              <span className="ml-1 text-xs">({currentMorchiaCount})</span>
-          )}
-      </Button>
-
-      <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => handleTogglePlaylist(game.id, game.name)}
-          disabled={isPlaylisting || authLoading}
-          title={isPlaylistedByCurrentUser ? "Rimuovi dalla Playlist" : "Aggiungi alla Playlist"}
-          className={cn(
-              `h-9 px-2`,
-              isPlaylistedByCurrentUser ? 'text-sky-500 hover:bg-sky-500/20' : 'text-sky-500/60 hover:text-sky-500 hover:bg-sky-500/10'
-          )}
-      >
-          {isPlaylistedByCurrentUser ? <BookMarked className="h-5 w-5" /> : <Bookmark className="h-5 w-5" />}
-          {game?.playlistedByUserIds && game.playlistedByUserIds.length > 0 && (
-              <span className="ml-1 text-xs">({game.playlistedByUserIds.length})</span>
-          )}
-      </Button>
-
-      <Button variant="ghost" size="icon" asChild className="h-9 w-9 text-primary/80 hover:text-primary hover:bg-primary/10" disabled={!game.bggId}>
-          <a href={`https://boardgamegeek.com/boardgame/${game.bggId}`} target="_blank" rel="noopener noreferrer" title="Vedi su BGG">
-              <ExternalLink className="h-5 w-5" />
-          </a>
-      </Button>
-      
-      {isAdmin && (
-      <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-9 w-9 text-primary/80 hover:text-primary hover:bg-primary/10">
-              <Settings className="h-5 w-5" />
-          </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-          <DropdownMenuItem
-              onSelect={handleTogglePinGame}
-              disabled={isPinToggling || authLoading}
-              className="cursor-pointer"
-          >
-              {isPinToggling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (currentIsPinned ? <PinOff className="mr-2 h-4 w-4" /> : <Pin className="mr-2 h-4 w-4" />)}
-              {currentIsPinned ? "Rimuovi da Vetrina" : "Aggiungi a Vetrina"}
-          </DropdownMenuItem>
-          <DropdownMenuItem
-              onSelect={handleRefreshBggData}
-              disabled={(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) || !game || !game.bggId}
-              className="cursor-pointer"
-          >
-              {(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DownloadCloud className="mr-2 h-4 w-4" />}
-              Aggiorna Dati da BGG
-          </DropdownMenuItem>
-          <DropdownMenuItem
-              onSelect={handleFetchBggPlays}
-              disabled={isFetchingPlays || !game || !game.id || !game.bggId || !currentUser}
-              className="cursor-pointer"
-          >
-              {isFetchingPlays ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Dices className="mr-2 h-4 w-4" />}
-              Carica Partite
-          </DropdownMenuItem>
-          </DropdownMenuContent>
-      </DropdownMenu>
-      )}
-    </div>
-  );
-
   return (
     <div className="space-y-8">
       <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
         <div className="flex flex-col">
-           <div className="flex justify-between items-start p-6 pb-2 mb-2">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:gap-1 flex-shrink min-w-0 mr-2">
+          <div className="flex justify-between items-start p-6 pb-2 mb-2">
+              <div className="flex-1 min-w-0 mr-2">
                   <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
                       {game.name}
                   </h1>
@@ -981,8 +872,121 @@ const handleGenerateRecommendations = async () => {
                 {globalGameAverage !== null && (
                     <span className="text-3xl md:text-4xl font-bold text-primary whitespace-nowrap flex items-center">
                         <Star className="h-6 w-6 md:h-7 md:w-7 text-accent fill-accent mr-1" />
-                        {formatRatingNumber(globalGameAverage * 2)}
+                        {formatRatingNumber(globalGameAverage)}
                     </span>
+                )}
+                {currentUser && (
+                  <div className="flex items-center gap-1 mt-1">
+                       <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => router.push(`/games/${game.id}/rate`)}
+                        title={userReview ? "Modifica il Tuo Voto" : "Valuta questo Gioco"}
+                        className="h-9 px-2 text-amber-500/70 hover:text-amber-500 hover:bg-amber-500/10"
+                      >
+                        <Star className="h-5 w-5" />
+                         {userOverallScore !== null && (
+                          <span className="ml-1 text-xs font-semibold">
+                            {formatRatingNumber(userOverallScore)}
+                          </span>
+                        )}
+                        {!userReview && <span className="ml-1 text-xs hidden sm:inline">Valuta</span>}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleToggleFavorite(game.id, game.name)}
+                        disabled={isFavoriting || authLoading}
+                        title={isFavoritedByCurrentUser ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
+                        className={cn(
+                            `h-9 w-9`,
+                            isFavoritedByCurrentUser ? 'text-destructive fill-destructive hover:bg-destructive/20' : 'text-destructive/60 hover:text-destructive hover:bg-destructive/10'
+                        )}
+                      >
+                        <Heart className={cn(`h-5 w-5`, isFavoritedByCurrentUser ? 'fill-destructive' : '')} />
+                         {currentFavoriteCount > 0 && (
+                           <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-[10px] font-bold px-1 rounded-full leading-tight">
+                             {currentFavoriteCount}
+                           </span>
+                         )}
+                      </Button>
+                       <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={handleToggleMorchia}
+                          disabled={isTogglingMorchia || authLoading}
+                          title={isMorchiaByCurrentUser ? "Rimuovi da Morchie" : "Aggiungi alle Morchie"}
+                          className={cn(
+                              `h-9 w-9 relative`,
+                              isMorchiaByCurrentUser ? 'text-orange-600 hover:bg-orange-600/20' : 'text-orange-600/60 hover:text-orange-600 hover:bg-orange-600/10'
+                          )}
+                      >
+                          <Frown className={cn(`h-5 w-5`, isMorchiaByCurrentUser ? 'fill-orange-600/30' : '')} />
+                           {currentMorchiaCount > 0 && (
+                              <span className="absolute -top-1 -right-1 bg-orange-600 text-white text-[10px] font-bold px-1 rounded-full leading-tight">
+                                {currentMorchiaCount}
+                              </span>
+                           )}
+                      </Button>
+                      <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleTogglePlaylist(game.id, game.name)}
+                          disabled={isPlaylisting || authLoading}
+                          title={isPlaylistedByCurrentUser ? "Rimuovi dalla Playlist" : "Aggiungi alla Playlist"}
+                          className={cn(
+                              `h-9 w-9 relative`,
+                              isPlaylistedByCurrentUser ? 'text-sky-500 hover:bg-sky-500/20' : 'text-sky-500/60 hover:text-sky-500 hover:bg-sky-500/10'
+                          )}
+                      >
+                          {isPlaylistedByCurrentUser ? <BookMarked className="h-5 w-5" /> : <Bookmark className="h-5 w-5" />}
+                           {game?.playlistedByUserIds && game.playlistedByUserIds.length > 0 && (
+                              <span className="absolute -top-1 -right-1 bg-sky-500 text-white text-[10px] font-bold px-1 rounded-full leading-tight">
+                                {game.playlistedByUserIds.length}
+                              </span>
+                           )}
+                      </Button>
+                      <Button variant="ghost" size="icon" asChild className="h-9 w-9 text-primary/80 hover:text-primary hover:bg-primary/10" disabled={!game.bggId}>
+                          <a href={`https://boardgamegeek.com/boardgame/${game.bggId}`} target="_blank" rel="noopener noreferrer" title="Vedi su BGG">
+                              <ExternalLink className="h-5 w-5" />
+                          </a>
+                      </Button>
+                      {isAdmin && (
+                      <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-9 w-9 text-primary/80 hover:text-primary hover:bg-primary/10">
+                              <Settings className="h-5 w-5" />
+                          </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                              onSelect={handleTogglePinGame}
+                              disabled={isPinToggling || authLoading}
+                              className="cursor-pointer"
+                          >
+                              {isPinToggling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (currentIsPinned ? <PinOff className="mr-2 h-4 w-4" /> : <Pin className="mr-2 h-4 w-4" />)}
+                              {currentIsPinned ? "Rimuovi da Vetrina" : "Aggiungi a Vetrina"}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                              onSelect={handleRefreshBggData}
+                              disabled={(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) || !game || !game.bggId}
+                              className="cursor-pointer"
+                          >
+                              {(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DownloadCloud className="mr-2 h-4 w-4" />}
+                              Aggiorna Dati da BGG
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                              onSelect={handleFetchBggPlays}
+                              disabled={isFetchingPlays || !game || !game.id || !game.bggId || !currentUser}
+                              className="cursor-pointer"
+                          >
+                              {isFetchingPlays ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Dices className="mr-2 h-4 w-4" />}
+                              Carica Partite
+                          </DropdownMenuItem>
+                          </DropdownMenuContent>
+                      </DropdownMenu>
+                      )}
+                  </div>
                 )}
               </div>
           </div>
@@ -1003,14 +1007,6 @@ const handleGenerateRecommendations = async () => {
                   />
                 </div>
               </div>
-              
-              {currentUser && (
-                 <div className="py-4 border-t border-b border-border">
-                    <div className="flex justify-evenly items-center gap-1 sm:gap-2">
-                        {actionBarJSX}
-                    </div>
-                </div>
-              )}
               
               <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
                  {game.designers && game.designers.length > 0 && (
@@ -1104,7 +1100,8 @@ const handleGenerateRecommendations = async () => {
           </div>
         </div>
       </Card>
-
+      
+      {/* Play Logs Section */}
       {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
         <Card className="shadow-md border border-border rounded-lg">
           <CardHeader className="flex flex-row justify-between items-center">
@@ -1207,17 +1204,18 @@ const handleGenerateRecommendations = async () => {
         </Card>
       )}
       
-      {userReview && (
+      {/* User's Own Review / Rate Button */}
+      {currentUser && (userReview ? (
         <div className="space-y-4">
           <div className="flex flex-row items-center justify-between gap-2">
             <h3 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Recensione</h3>
             <div className="flex items-center gap-2 flex-shrink-0">
               <Button asChild size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground">
-                <Link href={`/games/${gameId}/rate`}>
-                  <span className="flex items-center">
-                    <Edit className="mr-0 sm:mr-2 h-4 w-4" />
-                    <span className="hidden sm:inline">Modifica</span>
-                  </span>
+                 <Link href={`/games/${gameId}/rate`}>
+                    <span className="flex items-center">
+                        <Edit className="mr-0 sm:mr-2 h-4 w-4" />
+                        <span className="hidden sm:inline">Modifica</span>
+                    </span>
                 </Link>
               </Button>
               <AlertDialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
@@ -1248,22 +1246,22 @@ const handleGenerateRecommendations = async () => {
           </div>
           <ReviewItem review={userReview} />
         </div>
-      )}
-
-      {currentUser && !authLoading && !userReview && (
-        <Card className="p-6 border border-border rounded-lg shadow-md bg-card">
-          <CardTitle className="text-xl font-semibold text-foreground mb-1">Condividi la Tua Opinione</CardTitle>
-          <CardDescription className="mb-4">
-            Aiuta gli altri condividendo la tua esperienza con questo gioco.
-          </CardDescription>
-          <Button asChild className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90">
-          <Link href={`/games/${gameId}/rate`}>
-              <Edit className="mr-2 h-4 w-4" />
-              Valuta questo Gioco
-          </Link>
-          </Button>
-        </Card>
-      )}
+      ) : (
+        !authLoading && (
+          <Card className="p-6 border border-border rounded-lg shadow-md bg-card">
+            <CardTitle className="text-xl font-semibold text-foreground mb-1">Condividi la Tua Opinione</CardTitle>
+            <CardDescription className="mb-4">
+              Aiuta gli altri condividendo la tua esperienza con questo gioco.
+            </CardDescription>
+            <Button asChild className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90">
+            <Link href={`/games/${gameId}/rate`}>
+                <Edit className="mr-2 h-4 w-4" />
+                Valuta questo Gioco
+            </Link>
+            </Button>
+          </Card>
+        )
+      ))}
 
       {!currentUser && !authLoading && (
         <Alert variant="default" className="bg-secondary/30 border-secondary">
@@ -1274,7 +1272,7 @@ const handleGenerateRecommendations = async () => {
         </Alert>
       )}
         
-      {remainingReviews.length > 0 ? (
+      {remainingReviews.length > 0 && (
       <>
           <Separator className="my-6" />
           <h2 className="text-2xl font-semibold text-foreground mb-6 flex items-center gap-2">
@@ -1285,22 +1283,9 @@ const handleGenerateRecommendations = async () => {
             {remainingReviews.map(review => <ReviewItem key={review.id} review={review} />)}
           </div>
       </>
-      ) : userReview ? (
-      <Alert variant="default" className="mt-6 bg-secondary/30 border-secondary">
-          <Info className="h-4 w-4 text-secondary-foreground" />
-          <AlertDescription className="text-secondary-foreground">
-            Nessun altro ha ancora inviato un voto per questo gioco.
-          </AlertDescription>
-      </Alert>
-      ) : (!game.reviews || game.reviews.length === 0) && (
-      <Alert variant="default" className="mt-6 bg-secondary/30 border-secondary">
-          <Info className="h-4 w-4 text-secondary-foreground" />
-          <AlertDescription className="text-secondary-foreground">
-            Nessun voto ancora per questo gioco.
-          </AlertDescription>
-      </Alert>
       )}
-
+      
+      {/* AI Recommendations Section */}
       <div className="pt-8">
         <Card className="shadow-md border border-border rounded-lg">
         <CardHeader>
@@ -1401,5 +1386,3 @@ const handleGenerateRecommendations = async () => {
     </div>
   );
 }
-
-
