@@ -689,7 +689,7 @@ export function MultiStepRatingForm({
 
       <div className={cn(
             "flex items-center pt-4 border-t mt-6",
-            currentStep === 1 || (currentStep > 1 && currentStep < totalInputSteps) ? 'justify-between' : 'justify-end'
+            currentStep === 5 ? 'justify-end' : 'justify-between'
         )}>
           <div> {/* Left button container */}
             {currentStep === 1 && (
