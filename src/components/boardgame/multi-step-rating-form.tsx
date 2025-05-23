@@ -10,7 +10,8 @@ import { RATING_CATEGORIES } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import {
   Loader2, AlertCircle, Smile, Puzzle, Palette, ClipboardList, ArrowLeft, Star,
-  Award, Edit3, FileText, BookOpenText, MinusCircle, PlusCircle, Sparkles, ClipboardCheck as ClipboardCheckIcon, Moon, Trash2, Compass, HeartPulse, ListMusic
+  Award, Edit3, FileText, BookOpenText, MinusCircle, PlusCircle, Sparkles, ClipboardCheck as ClipboardCheckIcon, Moon, Trash2, Compass, HeartPulse, ListMusic,
+  Medal
 } from 'lucide-react';
 import { reviewFormSchema, type RatingFormValues } from '@/lib/validators';
 import type { User as FirebaseUser } from 'firebase/auth';
@@ -199,7 +200,8 @@ async function updateGameOverallRating(gameId: string, defaultRatingVals: Rating
 
 const BadgeIconMap: Record<LucideIconName, React.ElementType> = {
   Award, Edit3, FileText, BookOpenText, MinusCircle, PlusCircle, Sparkles,
-  ClipboardCheck: ClipboardCheckIcon, Moon, Trash2, Compass, HeartPulse, ListMusic
+  ClipboardCheck: ClipboardCheckIcon, Moon, Trash2, Compass, HeartPulse, ListMusic,
+  Medal: Medal,
 };
 
 
