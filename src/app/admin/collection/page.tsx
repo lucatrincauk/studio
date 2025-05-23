@@ -811,7 +811,7 @@ export default function AdminCollectionPage() {
                         <TableCell className="hidden md:table-cell text-center">{game.playingTime ? `${game.playingTime} min` : '-'}</TableCell>
                         <TableCell className="text-center">
                             {game.overallAverageRating !== null && typeof game.overallAverageRating === 'number' ? (
-                            <span className="font-semibold text-primary">{formatRatingNumber(game.overallAverageRating * 2)}</span>
+                            <span className="font-semibold text-primary">{formatRatingNumber(game.overallAverageRating)}</span>
                             ) : (
                             '-'
                             )}

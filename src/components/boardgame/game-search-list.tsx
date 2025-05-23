@@ -134,7 +134,7 @@ const LocalGamesTable = ({
                   <TableCell className="text-center">
                     <Link href={`/games/${game.id}`} className="hover:text-primary hover:underline">
                     {game.overallAverageRating !== null && typeof game.overallAverageRating === 'number' ? (
-                        <span className="font-semibold text-primary">{formatRatingNumber(game.overallAverageRating * 2)}</span>
+                        <span className="font-semibold text-primary">{formatRatingNumber(game.overallAverageRating)}</span>
                     ) : (
                         <span className="text-muted-foreground">-</span>
                     )}

@@ -68,7 +68,7 @@ export function GameCard({
                 {game.overallAverageRating !== null && typeof game.overallAverageRating === 'number' && (
                   <p className="text-sm sm:text-base font-bold text-accent drop-shadow-sm whitespace-nowrap flex items-center">
                     <Star className="h-4 w-4 text-accent fill-accent relative top-px mr-0.5" />
-                    {formatRatingNumber(game.overallAverageRating * 2)}
+                    {formatRatingNumber(game.overallAverageRating)}
                   </p>
                 )}
               </div>
@@ -108,7 +108,7 @@ export function GameCard({
             {game.overallAverageRating !== null && typeof game.overallAverageRating === 'number' && (
               <div className="text-lg sm:text-xl font-bold text-primary flex items-center gap-1 flex-shrink-0">
                 <Star className="h-4 w-4 text-accent fill-accent relative top-px" />
-                {formatRatingNumber((game.overallAverageRating ?? 0) * 2)}
+                {formatRatingNumber(game.overallAverageRating ?? 0)}
               </div>
             )}
           </div>

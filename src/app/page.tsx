@@ -136,7 +136,7 @@ export default async function HomePage() {
                       <div className="text-right flex-shrink-0 flex items-center">
                         <Star className="h-4 w-4 text-accent fill-accent relative top-px mr-1" />
                         <span className="text-lg font-semibold text-primary">
-                            {formatRatingNumber(lastPlayedGame.overallAverageRating * 2)}
+                            {formatRatingNumber(lastPlayedGame.overallAverageRating)}
                         </span>
                       </div>
                   )}
@@ -236,7 +236,7 @@ export default async function HomePage() {
                         {game.overallAverageRating !== null && typeof game.overallAverageRating === 'number' && (
                           <p className="text-xl sm:text-2xl font-bold text-primary flex items-center">
                              <Star className="h-4 w-4 text-accent fill-accent relative top-px mr-1" />
-                            {formatRatingNumber(game.overallAverageRating * 2)}
+                            {formatRatingNumber(game.overallAverageRating)}
                           </p>
                         )}
                         {game.voteCount !== null && typeof game.voteCount === 'number' && ( 

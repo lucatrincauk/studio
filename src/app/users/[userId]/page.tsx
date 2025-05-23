@@ -137,7 +137,7 @@ export default function UserDetailPage() {
     if (!userReviews || userReviews.length === 0) return null;
     const totalScoreSum = userReviews.reduce((sum, review) => {
       const overallReviewAvg = calculateOverallCategoryAverage(review.rating);
-      return sum + (overallReviewAvg * 2); 
+      return sum + (overallReviewAvg); 
     }, 0);
     return totalScoreSum / userReviews.length;
   }, [userReviews]);
