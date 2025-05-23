@@ -10,11 +10,13 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function formatRatingNumber(num: number): string {
+// This function will now be used primarily for overall weighted averages
+// that are likely to have decimals.
+export function formatRatingNumber(num: number | null | undefined): string {
+  if (num === null || num === undefined) return '-';
   return num.toFixed(1);
 }
 
-// Calculates the overall average on a 1-10 scale using the new weights
 export function calculateOverallCategoryAverage(rating: Rating | null): number {
   if (!rating) return 0;
 
@@ -28,9 +30,8 @@ export function calculateOverallCategoryAverage(rating: Rating | null): number {
     sumOfAllWeights += weight;
   });
 
-  if (sumOfAllWeights === 0) return 0; // Avoid division by zero
+  if (sumOfAllWeights === 0) return 0;
 
-  // The average is now a direct weighted average
   const average = weightedSum / sumOfAllWeights;
   return Math.round(average * 10) / 10; // Round to one decimal place, result is 1-10
 }
@@ -59,7 +60,7 @@ export function calculateCategoryAverages(reviewsOrRatings: Review[] | Rating[])
   reviewsOrRatings.forEach(item => {
     const rating = 'rating' in item ? item.rating : item;
     (Object.keys(sumOfRatings) as Array<keyof Rating>).forEach(key => {
-      const ratingValue = typeof rating[key] === 'number' ? rating[key] : 0; // Default to 0 if not a number
+      const ratingValue = typeof rating[key] === 'number' ? rating[key] : 0;
       sumOfRatings[key] += ratingValue;
     });
   });
@@ -67,7 +68,8 @@ export function calculateCategoryAverages(reviewsOrRatings: Review[] | Rating[])
   const averageRatings: Rating = {} as Rating;
   (Object.keys(sumOfRatings) as Array<keyof Rating>).forEach(key => {
     const avg = sumOfRatings[key] / numItems;
-    averageRatings[key] = Math.max(1, Math.min(10, Math.round(avg * 10) / 10));
+    // Store raw average, formatting happens at display time
+    averageRatings[key] = Math.round(avg * 10) / 10;
   });
 
   return averageRatings;
@@ -102,7 +104,7 @@ export function calculateGroupedCategoryAverages(reviews: Review[]): GroupedCate
       sectionWeightedSum += (subCategoryAverage * weight);
       sumOfSectionWeights += weight;
 
-      return { name: RATING_CATEGORIES[key], average: subCategoryAverage };
+      return { name: RATING_CATEGORIES[key], average: subCategoryAverage }; // Store raw average
     });
 
     const sectionAverageValue = sumOfSectionWeights > 0
@@ -112,7 +114,7 @@ export function calculateGroupedCategoryAverages(reviews: Review[]): GroupedCate
     return {
       sectionTitle: section.title,
       iconName: section.iconName,
-      sectionAverage: Math.round(sectionAverageValue * 10) / 10,
+      sectionAverage: Math.round(sectionAverageValue * 10) / 10, // Store raw average
       subRatings,
     };
   });
@@ -153,4 +155,3 @@ export function formatPlayDate(dateString: string): string {
     return "Data non valida";
   }
 }
-

@@ -49,7 +49,7 @@ export function ReviewItem({ review }: ReviewItemProps) {
           <div className="flex flex-col items-end">
             <div className="text-2xl font-bold text-primary flex items-center">
               <Star className="h-5 w-5 text-accent fill-accent relative top-px mr-1" />
-              {formatRatingNumber(overallReviewRating * 2)}
+              {formatRatingNumber(overallReviewRating)}
             </div>
           </div>
         </div>
@@ -67,4 +67,3 @@ export function ReviewItem({ review }: ReviewItemProps) {
     </Card>
   );
 }
-

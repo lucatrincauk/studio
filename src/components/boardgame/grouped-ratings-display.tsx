@@ -9,7 +9,6 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Progress } from '@/components/ui/progress';
-import { formatRatingNumber } from '@/lib/utils';
 import { Info, Smile, Puzzle, Palette, ClipboardList, type LucideIcon } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import React from 'react';
@@ -93,11 +92,14 @@ export function GroupedRatingsDisplay({
                     key={sub.name}
                     className={cn(
                       "flex justify-between items-center text-sm py-1.5",
-                      subIndex < section.subRatings.length - 1 ? "border-b border-border last:border-b-0" : ""
+                      subIndex < section.subRatings.length - 1 ? "border-b border-border" : "" // Removed last:border-b-0
                     )}
                   >
                     <span className="text-muted-foreground">{sub.name}:</span>
-                    <span className="font-medium text-foreground">{formatRatingNumber(sub.average)} / 10</span>
+                    {/* Display whole number if it's a whole number, otherwise one decimal */}
+                    <span className="font-medium text-foreground">
+                      {Number.isInteger(sub.average * 10) ? sub.average.toFixed(0) : sub.average.toFixed(1)} / 10
+                    </span>
                   </li>
                 ))}
               </ul>
