@@ -1,7 +1,7 @@
 
 import Link from 'next/link';
 import type { BoardGame } from '@/lib/types';
-import { Card } from '@/components/ui/card';
+import { Card, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Users, Clock, Star, CalendarDays, Pin, Clock10 } from 'lucide-react';
 import { SafeImage } from '@/components/common/SafeImage';
