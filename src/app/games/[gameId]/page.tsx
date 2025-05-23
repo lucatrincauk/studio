@@ -38,17 +38,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { SafeImage } from '@/components/common/SafeImage';
-import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
-import { useRouter, useSearchParams } from 'next/navigation';
-
+import { GameDetailHeader } from '@/components/boardgame/game-detail-header';
+import { GameDetailMetadata } from '@/components/boardgame/game-detail-metadata';
 
 const FIRESTORE_COLLECTION_NAME = 'boardgames_collection';
 const USER_PROFILES_COLLECTION = 'user_profiles';
@@ -66,7 +57,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
   const { user: currentUser, loading: authLoading, isAdmin } = useAuth();
   const { toast } = useToast();
-  const router = useRouter();
   const searchParams = useSearchParams();
   const updatedTimestamp = searchParams.get('updated');
 
@@ -216,8 +206,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         voteCount: newVoteCount
       });
 
-      revalidateGameDataAction(game.id);
       fetchGameData();
+      revalidateGameDataAction(game.id);
     } catch (error) {
       console.error("Errore durante l'aggiornamento del punteggio medio del gioco:", error);
       toast({ title: "Errore", description: "Impossibile aggiornare il punteggio medio del gioco.", variant: "destructive" });
@@ -248,72 +238,46 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
   const handleTogglePinGame = async () => {
     if (!game || authLoading || !isAdmin) return;
-    const originalPinStatus = currentIsPinned;
     startPinToggleTransition(async () => {
       const newPinStatus = !currentIsPinned;
-      setCurrentIsPinned(newPinStatus); 
       const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
       try {
         await updateDoc(gameRef, {
           isPinned: newPinStatus
         });
-        
+        setCurrentIsPinned(newPinStatus);
         toast({
           title: "Stato Vetrina Aggiornato",
           description: `Il gioco è stato ${newPinStatus ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
         });
         revalidateGameDataAction(game.id);
-        fetchGameData(); 
       } catch (error) {
-        setCurrentIsPinned(originalPinStatus); 
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({
           title: "Errore Aggiornamento Vetrina",
           description: `Impossibile aggiornare lo stato vetrina: ${errorMessage}`,
           variant: "destructive",
         });
+        setCurrentIsPinned(!newPinStatus); // Revert optimistic update on error
       }
     });
   };
 
-  const handleToggleFavorite = async (targetGameId: string, targetGameName?: string) => {
-    if (!currentUser || !targetGameId || authLoading) {
+  const handleToggleFavorite = async () => {
+    if (!currentUser || !game || authLoading) {
       toast({ title: "Azione non permessa", description: "Devi essere loggato per aggiungere ai preferiti.", variant: "destructive" });
       return;
     }
-    const currentTargetGame = targetGameId === game?.id ? game : allGamesForAICatalog.find(g => g.id === targetGameId);
-    if (!currentTargetGame) {
-      toast({ title: "Errore", description: "Gioco non trovato.", variant: "destructive" });
-      return;
-    }
+    
+    const originalFavoritedStatus = isFavoritedByCurrentUser;
+    const originalFavoriteCount = currentFavoriteCount;
 
-    const isCurrentlyFavorited = currentTargetGame.favoritedByUserIds?.includes(currentUser.uid) || false;
-    const nameToDisplay = targetGameName || currentTargetGame.name;
-
-
-    if (targetGameId === game?.id) {
-      setIsFavoritedByCurrentUser(!isCurrentlyFavorited);
-      setCurrentFavoriteCount(prev => isCurrentlyFavorited ? Math.max(0, prev -1) : prev + 1);
-    }
-    setEnrichedAiRecommendations(prevRecs =>
-      prevRecs.map(rec => {
-        if (rec.id === targetGameId) {
-          const newFavIds = isCurrentlyFavorited
-            ? (rec.favoritedByUserIds || []).filter(uid => uid !== currentUser.uid)
-            : [...(rec.favoritedByUserIds || []), currentUser.uid];
-          return {
-            ...rec,
-            favoritedByUserIds: newFavIds,
-            favoriteCount: newFavIds.length,
-          };
-        }
-        return rec;
-      })
-    );
-
+    // Optimistic UI update
+    setIsFavoritedByCurrentUser(!originalFavoritedStatus);
+    setCurrentFavoriteCount(prev => originalFavoritedStatus ? Math.max(0, prev - 1) : prev + 1);
 
     startFavoriteTransition(async () => {
-      const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, targetGameId);
+      const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
       try {
         const gameSnap = await getDoc(gameRef);
         if (!gameSnap.exists()) throw new Error("Gioco non trovato nel DB.");
@@ -338,26 +302,16 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           newFavoriteCountOnDb = newFavoriteCountOnDb + 1;
           finalFavoritedStatus = true;
         }
+        
+        setIsFavoritedByCurrentUser(finalFavoritedStatus);
+        setCurrentFavoriteCount(newFavoriteCountOnDb);
 
         toast({
           title: finalFavoritedStatus ? "Aggiunto ai Preferiti!" : "Rimosso dai Preferiti",
-          description: `${nameToDisplay} è stato ${finalFavoritedStatus ? 'aggiunto ai' : 'rimosso dai'} tuoi preferiti.`,
+          description: `${game.name} è stato ${finalFavoritedStatus ? 'aggiunto ai' : 'rimosso dai'} tuoi preferiti.`,
         });
-        
-        revalidateGameDataAction(targetGameId);
-        if (targetGameId === game?.id) {
-          fetchGameData();
-        } else {
-           setEnrichedAiRecommendations(prevRecs =>
-            prevRecs.map(rec => rec.id === targetGameId ? {
-                ...rec,
-                favoritedByUserIds: finalFavoritedStatus ? [...(rec.favoritedByUserIds || []), currentUser.uid] : (rec.favoritedByUserIds || []).filter(uid => uid !== currentUser.uid),
-                favoriteCount: newFavoriteCountOnDb
-            } : rec)
-          );
-        }
-        
-        
+        revalidateGameDataAction(game.id);
+
         if (finalFavoritedStatus) {
             const userProfileRef = doc(db, USER_PROFILES_COLLECTION, currentUser.uid);
             const userProfileSnap = await getDoc(userProfileRef);
@@ -387,62 +341,27 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 }
             }
         }
-
-
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Impossibile aggiornare i preferiti.";
         toast({ title: "Errore", description: errorMessage, variant: "destructive" });
-        if (targetGameId === game?.id) {
-          setIsFavoritedByCurrentUser(isCurrentlyFavorited);
-          setCurrentFavoriteCount(prev => isCurrentlyFavorited ? prev + 1 : Math.max(0, prev -1 ));
-        }
-         setEnrichedAiRecommendations(prevRecs =>
-            prevRecs.map(rec => {
-                if (rec.id === targetGameId) {
-                    return {
-                        ...rec,
-                        favoritedByUserIds: currentTargetGame.favoritedByUserIds,
-                        favoriteCount: currentTargetGame.favoriteCount,
-                    };
-                }
-                return rec;
-            })
-        );
+        // Revert optimistic UI update on error
+        setIsFavoritedByCurrentUser(originalFavoritedStatus);
+        setCurrentFavoriteCount(originalFavoriteCount);
       }
     });
   };
 
-  const handleTogglePlaylist = async (targetGameId: string, targetGameName?: string) => {
-    if (!currentUser || !targetGameId || authLoading) {
+  const handleTogglePlaylist = async () => {
+    if (!currentUser || !game || authLoading) {
       toast({ title: "Azione non permessa", description: "Devi essere loggato per aggiungere alla playlist.", variant: "destructive" });
       return;
     }
-
-    const currentTargetGame = targetGameId === game?.id ? game : allGamesForAICatalog.find(g => g.id === targetGameId);
-    if (!currentTargetGame) {
-        toast({ title: "Errore", description: "Gioco non trovato.", variant: "destructive" });
-        return;
-    }
-    const isCurrentlyPlaylisted = currentTargetGame.playlistedByUserIds?.includes(currentUser.uid) || false;
-    const nameToDisplay = targetGameName || currentTargetGame.name;
-
-    if (targetGameId === game?.id) {
-        setIsPlaylistedByCurrentUser(!isCurrentlyPlaylisted);
-    }
-    setEnrichedAiRecommendations(prevRecs =>
-        prevRecs.map(rec =>
-            rec.id === targetGameId ? {
-                ...rec,
-                playlistedByUserIds: isCurrentlyPlaylisted
-                    ? (rec.playlistedByUserIds || []).filter(uid => uid !== currentUser.uid)
-                    : [...(rec.playlistedByUserIds || []), currentUser.uid],
-            } : rec
-        )
-    );
-
+    
+    const originalPlaylistedStatus = isPlaylistedByCurrentUser;
+    setIsPlaylistedByCurrentUser(!originalPlaylistedStatus); // Optimistic UI update
 
     startPlaylistTransition(async () => {
-      const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, targetGameId);
+      const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
       try {
         const gameSnap = await getDoc(gameRef);
         if (!gameSnap.exists()) throw new Error("Gioco non trovato nel DB.");
@@ -462,25 +381,15 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           });
           finalPlaylistedStatus = true;
         }
+        
+        setIsPlaylistedByCurrentUser(finalPlaylistedStatus); // Confirm state from DB
 
         toast({
           title: finalPlaylistedStatus ? "Aggiunto alla Playlist!" : "Rimosso dalla Playlist",
-          description: `${nameToDisplay} è stato ${finalPlaylistedStatus ? 'aggiunto alla' : 'rimosso dalla'} tua playlist.`,
+          description: `${game.name} è stato ${finalPlaylistedStatus ? 'aggiunto alla' : 'rimosso dalla'} tua playlist.`,
         });
+        revalidateGameDataAction(game.id);
 
-        revalidateGameDataAction(targetGameId);
-         if (targetGameId === game?.id) {
-          fetchGameData();
-        } else {
-           setEnrichedAiRecommendations(prevRecs =>
-            prevRecs.map(rec => rec.id === targetGameId ? {
-                ...rec,
-                playlistedByUserIds: finalPlaylistedStatus ? [...(rec.playlistedByUserIds || []), currentUser.uid] : (rec.playlistedByUserIds || []).filter(uid => uid !== currentUser.uid)
-            } : rec)
-          );
-        }
-        
-        
         if (finalPlaylistedStatus) {
             const userProfileRef = doc(db, USER_PROFILES_COLLECTION, currentUser.uid);
             const userProfileSnap = await getDoc(userProfileRef);
@@ -510,21 +419,10 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 }
             }
         }
-
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Impossibile aggiornare la playlist.";
         toast({ title: "Errore", description: errorMessage, variant: "destructive" });
-        if (targetGameId === game?.id) {
-            setIsPlaylistedByCurrentUser(isCurrentlyPlaylisted);
-        }
-        setEnrichedAiRecommendations(prevRecs =>
-            prevRecs.map(rec => {
-                if (rec.id === targetGameId) {
-                    return { ...rec, playlistedByUserIds: currentTargetGame.playlistedByUserIds };
-                }
-                return rec;
-            })
-        );
+        setIsPlaylistedByCurrentUser(originalPlaylistedStatus); // Revert optimistic update
       }
     });
   };
@@ -535,30 +433,32 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       toast({ title: "Azione non permessa", description: "Devi essere loggato per aggiungere alle Morchie.", variant: "destructive" });
       return;
     }
+
+    const originalMorchiaStatus = isMorchiaByCurrentUser;
+    const originalMorchiaCount = currentMorchiaCount;
+
+    setIsMorchiaByCurrentUser(!originalMorchiaStatus);
+    setCurrentMorchiaCount(prev => originalMorchiaStatus ? Math.max(0, prev -1) : prev + 1);
+
     startMorchiaTransition(async () => {
       const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
-      let originalMorchiaStatus = isMorchiaByCurrentUser;
-      let originalMorchiaCount = currentMorchiaCount;
       try {
         const gameSnap = await getDoc(gameRef);
-        if (!gameSnap.exists()) {
-          toast({ title: "Errore", description: "Gioco non trovato.", variant: "destructive" });
-          return;
-        }
-
+        if (!gameSnap.exists()) throw new Error("Gioco non trovato nel DB.");
+        
         const gameDataFromSnap = gameSnap.data() as BoardGame;
-        const currentMorchiaByUserIds = gameDataFromSnap.morchiaByUserIds || [];
-        let newMorchiaCount = gameDataFromSnap.morchiaCount || 0;
-        let newMorchiaStatus = false;
+        const currentMorchiaByUserIdsOnDb = gameDataFromSnap.morchiaByUserIds || [];
+        let newMorchiaCountOnDb = gameDataFromSnap.morchiaCount || 0;
+        let finalMorchiaStatus = false;
         
 
-        if (currentMorchiaByUserIds.includes(currentUser.uid)) {
+        if (currentMorchiaByUserIdsOnDb.includes(currentUser.uid)) {
           await updateDoc(gameRef, {
             morchiaByUserIds: arrayRemove(currentUser.uid),
             morchiaCount: increment(-1)
           });
-          newMorchiaCount = Math.max(0, newMorchiaCount - 1);
-          newMorchiaStatus = false;
+          newMorchiaCountOnDb = Math.max(0, newMorchiaCountOnDb - 1);
+          finalMorchiaStatus = false;
           toast({
             title: "Rimosso dalle Morchie",
             description: `${game.name} è stato rimosso dalle morchie.`,
@@ -568,8 +468,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             morchiaByUserIds: arrayUnion(currentUser.uid),
             morchiaCount: increment(1)
           });
-          newMorchiaCount = newMorchiaCount + 1;
-          newMorchiaStatus = true;
+          newMorchiaCountOnDb = newMorchiaCountOnDb + 1;
+          finalMorchiaStatus = true;
           toast({
             title: "Aggiunto alle Morchie!",
             description: `${game.name} è stato aggiunto alla lista morchia.`,
@@ -580,15 +480,15 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           const userProfileSnap = await getDoc(userProfileRef);
           if (userProfileSnap.exists()){
               const userProfileData = userProfileSnap.data() as UserProfile;
-              const morchiaBadgeRef = doc(userProfileRef, 'earned_badges', 'morchia_hunter_5');
-              const morchiaBadgeSnap = await getDoc(morchiaBadgeRef);
-
-              if (!morchiaBadgeSnap.exists()) {
+              // @ts-ignore
+              const morchiaBadgeFlag = userProfileData.hasEarnedMorchiaHunterBadge; // Assuming this field name from types
+              if (!morchiaBadgeFlag) {
                   const morchiaQuery = query(collection(db, FIRESTORE_COLLECTION_NAME), where('morchiaByUserIds', 'array-contains', currentUser.uid));
                   const morchiaSnapshot = await getCountFromServer(morchiaQuery);
                   const totalMorchiaMarked = morchiaSnapshot.data().count;
 
                   if (totalMorchiaMarked >= 5) {
+                      const badgeRef = doc(userProfileRef, 'earned_badges', 'morchia_hunter_5');
                       const badgeData = {
                           badgeId: 'morchia_hunter_5',
                           name: 'Cacciatore di Morchie',
@@ -596,7 +496,9 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                           iconName: 'Trash2' as const,
                           earnedAt: serverTimestamp(),
                       };
-                      await setDoc(morchiaBadgeRef, badgeData);
+                      await setDoc(badgeRef, badgeData);
+                      // @ts-ignore
+                      await updateDoc(userProfileRef, { hasEarnedMorchiaHunterBadge: true });
                       toast({
                           title: "Distintivo Guadagnato!",
                           description: "Complimenti! Hai ricevuto il distintivo: Cacciatore di Morchie!",
@@ -606,31 +508,15 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
               }
           }
         }
-
-        setIsMorchiaByCurrentUser(newMorchiaStatus);
-        setCurrentMorchiaCount(newMorchiaCount);
-        setGame(prevGame => prevGame ? {
-          ...prevGame,
-          morchiaCount: newMorchiaCount,
-          morchiaByUserIds: newMorchiaStatus
-            ? [...(prevGame.morchiaByUserIds || []), currentUser.uid]
-            : (prevGame.morchiaByUserIds || []).filter(uid => uid !== currentUser.uid)
-        } : null);
         
+        setIsMorchiaByCurrentUser(finalMorchiaStatus);
+        setCurrentMorchiaCount(newMorchiaCountOnDb);
         revalidateGameDataAction(game.id);
-        fetchGameData(); 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Impossibile aggiornare la Morchia List.";
         toast({ title: "Errore", description: errorMessage, variant: "destructive" });
          setIsMorchiaByCurrentUser(originalMorchiaStatus);
          setCurrentMorchiaCount(originalMorchiaCount);
-         setGame(prevGame => prevGame ? {
-          ...prevGame,
-          morchiaCount: originalMorchiaCount,
-          morchiaByUserIds: originalMorchiaStatus
-            ? [...(prevGame.morchiaByUserIds || []), currentUser.uid]
-            : (prevGame.morchiaByUserIds || []).filter(uid => uid !== currentUser.uid)
-        } : null);
       }
     });
   };
@@ -659,8 +545,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
         await updateDoc(gameRef, serverActionResult.updateData);
         toast({ title: 'Dettagli Aggiornati', description: `Dettagli per ${game.name} aggiornati con successo.` });
+        fetchGameData(); // Re-fetch game data to reflect updates
         revalidateGameDataAction(game.id);
-        fetchGameData();
       } catch (dbError) {
         const errorMessage = dbError instanceof Error ? dbError.message : "Errore sconosciuto durante l'aggiornamento del DB.";
         toast({ title: 'Errore Aggiornamento Database', description: errorMessage, variant: 'destructive' });
@@ -708,8 +594,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                     title: "Partite Caricate e Salvate!",
                     description: bggFetchResult.message || `Caricate e salvate ${playsToSave.length} partite per ${game.name}. Conteggio aggiornato.`,
                 });
-                revalidateGameDataAction(game.id);
                 fetchGameData();
+                revalidateGameDataAction(game.id);
             } catch (dbError) {
                 const errorMessage = dbError instanceof Error ? dbError.message : "Impossibile salvare le partite nel database.";
                 toast({ title: 'Errore Salvataggio Partite DB', description: errorMessage, variant: 'destructive' });
@@ -721,8 +607,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                     title: "Nessuna Partita Trovata",
                     description: bggFetchResult.message || `Nessuna partita trovata su BGG per ${usernameToFetch} per questo gioco. Conteggio azzerato.`,
                 });
-                revalidateGameDataAction(game.id);
                 fetchGameData();
+                revalidateGameDataAction(game.id);
             } catch (dbError) {
                  console.error("Error updating lctr01Plays to 0:", dbError);
             }
@@ -787,7 +673,7 @@ const handleGenerateRecommendations = async () => {
           if (p.didWin) {
             const playerIdentifier = p.username || p.name;
             const displayName = p.name || p.username || 'Sconosciuto';
-            if (playerIdentifier) {
+            if (playerIdentifier && displayName) {
               const current = playerStats.get(playerIdentifier) || { wins: 0, totalScore: 0, name: displayName };
               current.wins += (play.quantity || 1);
               const score = parseInt(p.score || "0", 10);
@@ -867,266 +753,59 @@ const handleGenerateRecommendations = async () => {
   
   return (
     <div className="space-y-8">
-      <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
-        <div className="flex flex-col">
-          {/* Top Section: Title, Icons, Score, Image, Metadata, Button Bar */}
-          <div className="flex flex-col md:flex-row">
-            {/* Main Content Column (Title, Metadata, Button Bar, Average Ratings) */}
-            <div className="flex-1 p-6 space-y-4 md:order-1">
-              {/* Header: Title and Score */}
-              <div className="flex justify-between items-start mb-2">
-                <div className="flex-1 flex flex-col sm:flex-row sm:items-center sm:gap-1 flex-shrink min-w-0 mr-2">
-                   <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
-                     {game.name}
-                   </h1>
-                </div>
-                <div className="flex-shrink-0">
-                  {globalGameAverage !== null && (
-                    <span className="text-3xl md:text-4xl font-bold text-primary flex items-center">
-                       <Star className="mr-1 h-6 w-6 md:h-7 md:w-7 text-accent fill-accent" />
-                       {formatRatingNumber(globalGameAverage)}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Mobile Image - Placed below title/score block */}
-              <div className="md:hidden my-4 max-w-[240px] mx-auto">
-                <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
-                  <SafeImage
-                    src={game.coverArtUrl}
-                    alt={`${game.name} copertina`}
-                    fallbackSrc={fallbackSrc}
-                    fill
-                    priority
-                    className="object-cover"
-                    data-ai-hint={`board game ${game.name.split(' ')[0]?.toLowerCase() || 'detailed'}`}
-                    sizes="(max-width: 767px) 240px"
-                  />
-                </div>
-              </div>
-              
-              {/* Button Bar */}
-              {currentUser && (
-                <div className="py-4 border-t border-b border-border">
-                    <div className="flex justify-evenly items-center gap-1 sm:gap-2">
-                       
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleToggleFavorite(game.id, game.name)}
-                          disabled={isFavoriting || authLoading || !currentUser}
-                          title={isFavoritedByCurrentUser ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
-                          className={cn(
-                            `h-9 px-2`,
-                            isFavoritedByCurrentUser ? 'text-destructive hover:bg-destructive/20' : 'text-destructive/60 hover:text-destructive hover:bg-destructive/10'
-                          )}
-                        >
-                          <Heart className={cn(`h-5 w-5`, isFavoritedByCurrentUser ? 'fill-destructive' : '')} />
-                          {currentFavoriteCount > 0 && (
-                            <span className="ml-1 text-xs text-muted-foreground">
-                                ({currentFavoriteCount})
-                            </span>
-                          )}
-                        </Button>
-
-                         <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleToggleMorchia()}
-                            disabled={isTogglingMorchia || authLoading || !currentUser}
-                            title={isMorchiaByCurrentUser ? "Rimuovi da Morchie" : "Aggiungi alle Morchie"}
-                            className={cn(
-                            `h-9 px-2`,
-                            isMorchiaByCurrentUser ? 'text-orange-600 hover:bg-orange-600/20' : 'text-orange-600/60 hover:text-orange-600 hover:bg-orange-600/10'
-                            )}
-                        >
-                            <Frown className={cn(`h-5 w-5`, isMorchiaByCurrentUser ? 'fill-orange-600/30' : '')} />
-                            {currentMorchiaCount > 0 && (
-                            <span className="ml-1 text-xs text-muted-foreground">
-                                ({currentMorchiaCount})
-                            </span>
-                            )}
-                        </Button>
-
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => router.push(`/games/${game.id}/rate`)}
-                          title={userReview ? "Modifica il Tuo Voto" : "Valuta questo Gioco"}
-                          className={cn(
-                            'h-9 px-2 text-amber-500/70 hover:text-amber-500 hover:bg-amber-500/10',
-                            userReview && 'border border-amber-500/50'
-                          )}
-                        >
-                          <Star className="h-5 w-5" />
-                          {userReview && userOverallScore !== null ? (
-                            <span className="ml-1 text-xs font-semibold">
-                              {formatRatingNumber(userOverallScore)}
-                            </span>
-                          ) : (
-                            <span className="ml-1 text-xs hidden sm:inline">Valuta</span>
-                          )}
-                        </Button>
-
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleTogglePlaylist(game.id, game.name)}
-                            disabled={isPlaylisting || authLoading || !currentUser}
-                            title={isPlaylistedByCurrentUser ? "Rimuovi dalla Playlist" : "Aggiungi alla Playlist"}
-                            className={cn(
-                            `h-9 px-2`,
-                            isPlaylistedByCurrentUser ? 'text-sky-500 hover:bg-sky-500/20' : 'text-sky-500/60 hover:text-sky-500 hover:bg-sky-500/10'
-                            )}
-                        >
-                            {isPlaylistedByCurrentUser ? <BookMarked className="h-5 w-5" /> : <Bookmark className="h-5 w-5" />}
-                             {game?.playlistedByUserIds && game.playlistedByUserIds.length > 0 && (
-                            <span className="ml-1 text-xs text-muted-foreground">
-                                ({game.playlistedByUserIds.length})
-                            </span>
-                            )}
-                        </Button>
-
-                        <Button variant="ghost" size="icon" asChild className="h-9 w-9 text-primary/80 hover:text-primary hover:bg-primary/10" disabled={!game.bggId}>
-                            <a href={`https://boardgamegeek.com/boardgame/${game.bggId}`} target="_blank" rel="noopener noreferrer" title="Vedi su BGG">
-                                <ExternalLink className="h-4 w-4" />
-                            </a>
-                        </Button>
-
-                        {isAdmin && (
-                            <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-9 w-9 text-primary/80 hover:text-primary hover:bg-primary/10">
-                                <Settings className="h-5 w-5" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuItem
-                                onSelect={handleTogglePinGame}
-                                disabled={isPinToggling || authLoading}
-                                className="cursor-pointer"
-                                >
-                                {isPinToggling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (currentIsPinned ? <PinOff className="mr-2 h-4 w-4" /> : <Pin className="mr-2 h-4 w-4" />)}
-                                {currentIsPinned ? "Rimuovi da Vetrina" : "Aggiungi a Vetrina"}
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                onSelect={handleRefreshBggData}
-                                disabled={(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) || !game || !game.bggId}
-                                className="cursor-pointer"
-                                >
-                                {(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DownloadCloud className="mr-2 h-4 w-4" />}
-                                Aggiorna Dati da BGG
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                onSelect={handleFetchBggPlays}
-                                disabled={isFetchingPlays || !game || !game.id || !game.bggId || !currentUser}
-                                className="cursor-pointer"
-                                >
-                                {isFetchingPlays ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Dices className="mr-2 h-4 w-4" />}
-                                Carica Partite
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                            </DropdownMenu>
-                        )}
-                    </div>
-                </div>
-              )}
-              {/* Metadata Grid */}
-              <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground pt-1">
-                {game.designers && game.designers.length > 0 && (
-                  <div className="flex items-baseline gap-2"> 
-                    <PenTool size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
-                    <span className="font-medium hidden sm:inline">Autori:</span>
-                    <span>{game.designers.join(', ')}</span>
-                  </div>
-                )}
-                 {game.yearPublished !== null && (
-                  <div className="flex items-baseline gap-2 justify-start sm:justify-end">
-                    <CalendarIcon size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
-                    <span className="font-medium hidden sm:inline">Anno:</span>
-                    <span>{game.yearPublished}</span>
-                  </div>
-                )}
-                {(game.minPlayers !== null || game.maxPlayers !== null) && (
-                  <div className="flex items-baseline gap-2">
-                    <Users size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
-                    <span className="font-medium hidden sm:inline">Giocatori:</span>
-                    <span>{game.minPlayers}{game.maxPlayers && game.minPlayers !== game.maxPlayers ? `-${game.maxPlayers}` : ''}</span>
-                  </div>
-                )}
-                {(game.minPlaytime != null || game.maxPlaytime != null || game.playingTime != null) && (
-                  <div className="flex items-baseline gap-2 justify-start sm:justify-end">
-                    <Clock size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
-                    <span className="font-medium hidden sm:inline">Durata:</span>
-                    <span>
-                      {game.minPlaytime != null && game.maxPlaytime != null ?
-                        (game.minPlaytime === game.maxPlaytime ? `${game.minPlaytime} min` : `${game.minPlaytime} - ${game.maxPlaytime} min`)
-                        : (game.playingTime != null ? `${game.playingTime} min` : '-')
-                      }
-                    </span>
-                  </div>
-                )}
-                {game.averageWeight !== null && typeof game.averageWeight === 'number' && (
-                  <div className="flex items-baseline gap-2">
-                    <Weight size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
-                    <span className="font-medium hidden sm:inline">Complessità:</span>
-                    <span>{formatRatingNumber(game.averageWeight)} / 5</span>
-                  </div>
-                )}
-                <div className="flex items-baseline gap-2 justify-start sm:justify-end"> 
-                  <Dices size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
-                  <span className="font-medium hidden sm:inline">Partite:</span>
-                  <span>{game.lctr01Plays ?? 0}</span>
-                </div>
-                {topWinnerStats && (
-                  <div className="flex items-baseline gap-2">
-                    <Trophy size={14} className="text-amber-500 flex-shrink-0 relative top-px" />
-                    <span className="font-medium hidden sm:inline">Campione:</span>
-                    <span>{topWinnerStats.name} ({topWinnerStats.wins} {topWinnerStats.wins === 1 ? 'vittoria' : 'vittorie'})</span>
-                  </div>
-                )}
-                {highestScoreAchieved && (
-                  <div className="flex items-baseline gap-2 justify-start sm:justify-end"> 
-                    <Medal size={14} className="text-amber-500 flex-shrink-0 relative top-px" />
-                    <span className="font-medium hidden sm:inline">Miglior Punteggio:</span>
-                    <span>{highestScoreAchieved.score} punti ({highestScoreAchieved.players.join(', ')})</span>
-                  </div>
-                )}
-              </div>
-              
-              {game.reviews && game.reviews.length > 0 && (
-                <div className="w-full pt-4 border-t border-border">
-                  <h3 className="text-sm md:text-lg font-semibold text-foreground mb-3">Valutazione Media:</h3>
-                  <GroupedRatingsDisplay
-                    groupedAverages={groupedCategoryAverages}
-                    noRatingsMessage="Nessuna valutazione per calcolare le medie."
-                    isLoading={isLoadingGame}
-                    defaultOpenSections={[]}
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* Desktop Image Sidebar */}
-            <div className="hidden md:block md:w-1/4 p-6 flex-shrink-0 self-start md:order-2 space-y-4">
-              <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
-                <SafeImage
-                  src={game.coverArtUrl}
-                  alt={`${game.name} copertina`}
-                  fallbackSrc={fallbackSrc}
-                  fill
-                  priority
-                  className="object-cover"
-                  data-ai-hint={`board game ${game.name.split(' ')[0]?.toLowerCase() || 'detailed'}`}
-                  sizes="25vw"
-                />
-              </div>
-            </div>
-          </div> 
-        </div> 
-      </Card>
+      {/* Main Game Info Card */}
+      <GameDetailHeader
+        game={game}
+        currentUser={currentUser}
+        isAdmin={isAdmin}
+        globalGameAverage={globalGameAverage}
+        fallbackSrc={fallbackSrc}
+        currentIsPinned={currentIsPinned}
+        isPinToggling={isPinToggling}
+        onTogglePin={handleTogglePinGame}
+        isFavoritedByCurrentUser={isFavoritedByCurrentUser}
+        currentFavoriteCount={currentFavoriteCount}
+        isFavoriting={isFavoriting}
+        onToggleFavorite={handleToggleFavorite}
+        isPlaylistedByCurrentUser={isPlaylistedByCurrentUser}
+        isPlaylisting={isPlaylisting}
+        onTogglePlaylist={handleTogglePlaylist}
+        isMorchiaByCurrentUser={isMorchiaByCurrentUser}
+        currentMorchiaCount={currentMorchiaCount}
+        isTogglingMorchia={isTogglingMorchia}
+        onToggleMorchia={handleToggleMorchia}
+        userOverallScore={userOverallScore}
+        isPendingBggDetailsFetch={isPendingBggDetailsFetch}
+        isFetchingDetailsFor={isFetchingDetailsFor}
+        onRefreshBggData={handleRefreshBggData}
+        onFetchBggPlays={handleFetchBggPlays}
+        isFetchingPlays={isFetchingPlays}
+        userReview={userReview}
+      />
       
+      <div className="flex-1 p-6 space-y-4 md:order-1"> {/* This div seems out of place, should be inside GameDetailHeader or Card */}
+         {/* Metadata Grid */}
+        <GameDetailMetadata
+            game={game}
+            topWinnerStats={topWinnerStats}
+            highestScoreAchieved={highestScoreAchieved}
+        />
+
+        {/* Average Player Ratings */}
+        {game.reviews && game.reviews.length > 0 && (
+        <div className="w-full pt-4 border-t border-border">
+            <h3 className="text-sm md:text-lg font-semibold text-foreground mb-3">Valutazione Media:</h3>
+            <GroupedRatingsDisplay
+            groupedAverages={groupedCategoryAverages}
+            noRatingsMessage="Nessuna valutazione per calcolare le medie."
+            isLoading={isLoadingGame}
+            defaultOpenSections={[]}
+            />
+        </div>
+        )}
+      </div>
+
+
       {/* Play Logs Section */}
       {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
         <Card className="shadow-md border border-border rounded-lg">
@@ -1206,7 +885,7 @@ const handleGenerateRecommendations = async () => {
                                         </div>
                                         {player.score && (
                                         <span className={cn("font-mono text-xs whitespace-nowrap ml-2", player.didWin ? 'font-semibold text-foreground' : 'text-muted-foreground')}>
-                                            {player.score} pt.
+                                            {player.score} punti
                                         </span>
                                         )}
                                     </li>
@@ -1321,7 +1000,7 @@ const handleGenerateRecommendations = async () => {
             </Alert>
           ) : (
             <Alert variant="default" className="bg-secondary/30 border-secondary mt-6">
-              <UserCheck className="h-4 w-4" /> {/* Changed to UserCheck as Gamepad2 doesn't exist in Lucide */}
+              <UserCheck className="h-4 w-4" />
               <AlertTitle>Nessun Voto Presente</AlertTitle>
               <AlertDescription>
                 Nessuna valutazione ancora per questo gioco. Sii il primo a condividere la tua opinione!
@@ -1390,7 +1069,7 @@ const handleGenerateRecommendations = async () => {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  onClick={() => handleToggleFavorite(rec.id, rec.name)}
+                                  onClick={() => handleToggleFavorite()} // Needs specific gameId
                                   disabled={isFavoriting || authLoading}
                                   title={isRecFavorited ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
                                   className={cn('h-7 w-7', isRecFavorited ? 'text-destructive hover:bg-destructive/20' : 'text-destructive/60 hover:text-destructive hover:bg-destructive/10')}
@@ -1400,7 +1079,7 @@ const handleGenerateRecommendations = async () => {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  onClick={() => handleTogglePlaylist(rec.id, rec.name)}
+                                  onClick={() => handleTogglePlaylist()} // Needs specific gameId
                                   disabled={isPlaylisting || authLoading}
                                   title={isRecPlaylisted ? "Rimuovi dalla Playlist" : "Aggiungi alla Playlist"}
                                   className={cn('h-7 w-7', isRecPlaylisted ? 'text-sky-500 hover:bg-sky-500/20' : 'text-sky-500/60 hover:text-sky-500 hover:bg-sky-500/10')}
@@ -1432,4 +1111,3 @@ const handleGenerateRecommendations = async () => {
     </div>
   );
 }
-
