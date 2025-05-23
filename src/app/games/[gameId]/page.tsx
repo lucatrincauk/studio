@@ -4,7 +4,7 @@
 import { useEffect, useState, useTransition, useCallback, use, useMemo } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { getGameDetails, revalidateGameDataAction, getAllGamesAction } from '@/lib/actions';
+import { getGameDetails, revalidateGameDataAction, fetchUserPlaysForGameFromBggAction, getAllGamesAction, fetchAndUpdateBggGameDetailsAction } from '@/lib/actions';
 import { recommendGames } from '@/ai/flows/recommend-games';
 import type { BoardGame, Review, Rating as RatingType, BggPlayDetail, BggPlayerInPlay, AIRecommendedGame, UserProfile, EnrichedAIRecommendedGame } from '@/lib/types'; // Removed GroupedCategoryAverages
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import { calculateOverallCategoryAverage, formatRatingNumber, formatPlayDate, formatReviewDate, calculateCategoryAverages as calculateCatAvgsFromUtils } from '@/lib/utils';
 import { ReviewList } from '@/components/boardgame/review-list';
+import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { doc, deleteDoc, updateDoc, getDocs, collection, getDoc, arrayUnion, arrayRemove, increment, writeBatch, serverTimestamp, setDoc, query, where, getCountFromServer, type Timestamp } from 'firebase/firestore';
@@ -69,11 +70,11 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
   const [userReview, setUserReview] = useState<Review | undefined>(undefined);
   const [remainingReviews, setRemainingReviews] = useState<Review[]>([]);
-  // const [groupedCategoryAverages, setGroupedCategoryAveragesState] = useState<GroupedCategoryAverages | null>(null); // Removed
   const [globalGameAverage, setGlobalGameAverage] = useState<number | null>(null);
 
   const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false);
   const [isDeletingReview, startDeleteReviewTransition] = useTransition();
+
 
   const [currentIsPinned, setCurrentIsPinned] = useState(false);
   const [isPinToggling, startPinToggleTransition] = useTransition();
@@ -135,10 +136,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         } else {
           setGlobalGameAverage(null);
         }
-        // setGroupedCategoryAveragesState(calculateGroupedCategoryAverages(gameData.reviews)); // Removed
       } else {
         setGlobalGameAverage(null);
-        // setGroupedCategoryAveragesState(null); // Removed
       }
 
     } else {
@@ -150,11 +149,10 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       setCurrentMorchiaCount(0);
       setUserReview(undefined);
       setRemainingReviews([]);
-      // setGroupedCategoryAveragesState(null); // Removed
       setGlobalGameAverage(null);
     }
     setIsLoadingGame(false);
-  }, [gameId, currentUser, authLoading]); // Removed fetchGameData from dependency array
+  }, [gameId, currentUser, authLoading]); 
 
   useEffect(() => {
     if (gameId) {
@@ -183,19 +181,12 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       const reviewsSnapshot = await getDocs(reviewsCollectionRef);
       const allReviewsForGame: Review[] = reviewsSnapshot.docs.map(docSnap => {
         const reviewDocData = docSnap.data();
-        const rating: RatingType = {
-            excitedToReplay: reviewDocData.rating?.excitedToReplay || 0,
-            mentallyStimulating: reviewDocData.rating?.mentallyStimulating || 0,
-            fun: reviewDocData.rating?.fun || 0,
-            decisionDepth: reviewDocData.rating?.decisionDepth || 0,
-            replayability: reviewDocData.rating?.replayability || 0,
-            luck: reviewDocData.rating?.luck || 0,
-            lengthDowntime: reviewDocData.rating?.lengthDowntime || 0,
-            graphicDesign: reviewDocData.rating?.graphicDesign || 0,
-            componentsThemeLore: reviewDocData.rating?.componentsThemeLore || 0,
-            effortToLearn: reviewDocData.rating?.effortToLearn || 0,
-            setupTeardown: reviewDocData.rating?.setupTeardown || 0,
+        const defaultRatingValues: RatingType = {
+            excitedToReplay: 5, mentallyStimulating: 5, fun: 5,
+            decisionDepth: 5, replayability: 5, luck: 5, lengthDowntime: 5,
+            graphicDesign: 5, componentsThemeLore: 5, effortToLearn: 5, setupTeardown: 5,
         };
+        const rating: RatingType = { ...defaultRatingValues, ...reviewDocData.rating };
         return { id: docSnap.id, ...reviewDocData, rating } as Review;
       });
 
@@ -244,7 +235,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     const originalPinStatus = currentIsPinned;
     
     setCurrentIsPinned(!originalPinStatus);
-    // No direct game state update here to avoid issues if server fails
 
     startPinToggleTransition(async () => {
       const newPinStatus = !originalPinStatus;
@@ -257,8 +247,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           title: "Stato Vetrina Aggiornato",
           description: `Il gioco è stato ${newPinStatus ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
         });
-        revalidateGameDataAction(game.id);
-        fetchGameData(); // Re-fetch to update local game state including isPinned
+        await revalidateGameDataAction(game.id);
+        fetchGameData(); 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({
@@ -266,7 +256,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `Impossibile aggiornare lo stato vetrina: ${errorMessage}`,
           variant: "destructive",
         });
-        setCurrentIsPinned(originalPinStatus); // Revert optimistic update on error
+        setCurrentIsPinned(originalPinStatus); 
       }
     });
   };
@@ -310,13 +300,11 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           finalFavoritedStatus = true;
         }
         
-        // Update local game state carefully
         setGame(prevGame => prevGame ? ({ 
           ...prevGame, 
           favoritedByUserIds: finalFavoritedStatus ? [...(prevGame.favoritedByUserIds || []), currentUser.uid] : (prevGame.favoritedByUserIds || []).filter(id => id !== currentUser.uid),
           favoriteCount: newFavoriteCountOnDb
         }) : null);
-        // Ensure local states are also updated
         setIsFavoritedByCurrentUser(finalFavoritedStatus);
         setCurrentFavoriteCount(newFavoriteCountOnDb);
 
@@ -325,7 +313,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           title: finalFavoritedStatus ? "Aggiunto ai Preferiti!" : "Rimosso dai Preferiti",
           description: `${game.name} è stato ${finalFavoritedStatus ? 'aggiunto ai' : 'rimosso dai'} tuoi preferiti.`,
         });
-        revalidateGameDataAction(game.id);
+        await revalidateGameDataAction(game.id);
 
         if (finalFavoritedStatus) {
             const userProfileRef = doc(db, USER_PROFILES_COLLECTION, currentUser.uid);
@@ -408,7 +396,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           title: finalPlaylistedStatus ? "Aggiunto alla Playlist!" : "Rimosso dalla Playlist",
           description: `${game.name} è stato ${finalPlaylistedStatus ? 'aggiunto alla' : 'rimosso dalla'} tua playlist.`,
         });
-        revalidateGameDataAction(game.id);
+        await revalidateGameDataAction(game.id);
 
         if (finalPlaylistedStatus) {
             const userProfileRef = doc(db, USER_PROFILES_COLLECTION, currentUser.uid);
@@ -531,7 +519,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         setIsMorchiaByCurrentUser(finalMorchiaStatus);
         setCurrentMorchiaCount(newMorchiaCountOnDb);
 
-        revalidateGameDataAction(game.id);
+        await revalidateGameDataAction(game.id);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Impossibile aggiornare la Morchia List.";
         toast({ title: "Errore", description: errorMessage, variant: "destructive" });
@@ -564,8 +552,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
         await updateDoc(gameRef, serverActionResult.updateData);
         toast({ title: 'Dettagli Aggiornati', description: `Dettagli per ${game.name} aggiornati con successo.` });
-        revalidateGameDataAction(game.id); 
-        fetchGameData(); 
+        await revalidateGameDataAction(game.id); 
+        await fetchGameData(); 
       } catch (dbError) {
         const errorMessage = dbError instanceof Error ? dbError.message : "Errore sconosciuto durante l'aggiornamento del DB.";
         toast({ title: 'Errore Aggiornamento Database', description: errorMessage, variant: 'destructive' });
@@ -613,8 +601,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                     title: "Partite Caricate e Salvate!",
                     description: bggFetchResult.message || `Caricate e salvate ${playsToSave.length} partite per ${game.name}. Conteggio aggiornato.`,
                 });
-                revalidateGameDataAction(game.id); 
-                fetchGameData(); 
+                await revalidateGameDataAction(game.id); 
+                await fetchGameData(); 
             } catch (dbError) {
                 const errorMessage = dbError instanceof Error ? dbError.message : "Impossibile salvare le partite nel database.";
                 toast({ title: 'Errore Salvataggio Partite DB', description: errorMessage, variant: 'destructive' });
@@ -626,8 +614,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                     title: "Nessuna Partita Trovata",
                     description: bggFetchResult.message || `Nessuna partita trovata su BGG per ${usernameToFetch} per questo gioco. Conteggio azzerato.`,
                 });
-                revalidateGameDataAction(game.id);
-                fetchGameData();
+                await revalidateGameDataAction(game.id);
+                await fetchGameData();
             } catch (dbError) {
                  console.error("Error updating lctr01Plays to 0:", dbError);
             }
@@ -769,37 +757,201 @@ const handleGenerateRecommendations = async () => {
   
   return (
     <div className="space-y-8">
-      <GameDetailHeader
-        game={game}
-        currentUser={currentUser}
-        isAdmin={isAdmin}
-        globalGameAverage={globalGameAverage}
-        fallbackSrc={fallbackSrc}
-        currentIsPinned={currentIsPinned}
-        isPinToggling={isPinToggling}
-        onTogglePin={handleTogglePinGame}
-        isFavoritedByCurrentUser={isFavoritedByCurrentUser}
-        currentFavoriteCount={currentFavoriteCount}
-        isFavoriting={isFavoriting}
-        onToggleFavorite={handleToggleFavorite}
-        isPlaylistedByCurrentUser={isPlaylistedByCurrentUser}
-        isPlaylisting={isPlaylisting}
-        onTogglePlaylist={handleTogglePlaylist}
-        isMorchiaByCurrentUser={isMorchiaByCurrentUser}
-        currentMorchiaCount={currentMorchiaCount}
-        isTogglingMorchia={isTogglingMorchia}
-        onToggleMorchia={handleToggleMorchia}
-        userOverallScore={userOverallScore}
-        isPendingBggDetailsFetch={isPendingBggDetailsFetch}
-        isFetchingDetailsFor={isFetchingDetailsFor}
-        onRefreshBggData={handleRefreshBggData}
-        onFetchBggPlays={handleFetchBggPlays}
-        isFetchingPlays={isFetchingPlays}
-        userReview={userReview}
-        topWinnerStats={topWinnerStats}
-        highestScoreAchieved={highestScoreAchieved}
-        // groupedCategoryAverages={groupedCategoryAveragesState} // This prop is no longer needed by GameDetailHeader if it uses game.reviews
-      />
+      <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
+        <div className="flex flex-col md:flex-row">
+          {/* Main Content Column (Title, Metadata, Button Bar, Average Ratings) */}
+          <div className="flex-1 p-6 space-y-4 md:order-1">
+            {/* Header: Title and Score */}
+            <div className="flex justify-between items-start mb-2">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:gap-1 flex-shrink min-w-0 mr-2">
+                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
+                  {game.name}
+                </h1>
+              </div>
+              <div className="flex-shrink-0 flex flex-col items-end">
+                 {globalGameAverage !== null && (
+                  <span className="text-3xl md:text-4xl font-bold text-primary flex items-center">
+                    <Star className="mr-1 h-6 w-6 md:h-7 md:w-7 text-accent fill-accent" />
+                    {formatRatingNumber(globalGameAverage)}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Mobile Image */}
+            <div className="md:hidden my-4 max-w-[240px] mx-auto">
+              <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
+                <SafeImage
+                  src={game.coverArtUrl}
+                  alt={`${game.name} copertina`}
+                  fallbackSrc={fallbackSrc}
+                  fill
+                  priority
+                  className="object-cover"
+                  data-ai-hint={`board game ${game.name.split(' ')[0]?.toLowerCase() || 'detailed'}`}
+                  sizes="(max-width: 767px) 240px"
+                />
+              </div>
+            </div>
+
+            {/* Button Bar */}
+            {currentUser && (
+              <div className="flex justify-evenly items-center gap-1 sm:gap-2 py-4 border-t border-b border-border">
+                 <Button
+                    asChild
+                    variant="ghost"
+                    size="sm"
+                    title={userReview ? "Modifica il Tuo Voto" : "Valuta questo Gioco"}
+                    className={cn(
+                        'h-9 px-2 text-primary hover:text-primary/80 hover:bg-primary/10',
+                        userReview && 'border border-primary/50'
+                    )}
+                    >
+                    <Link href={`/games/${game.id}/rate`}>
+                        <Star className="h-5 w-5" />
+                        {userReview && userOverallScore !== null ? (
+                            <span className="ml-1 text-xs font-semibold">
+                            {formatRatingNumber(userOverallScore * 2)}
+                            </span>
+                        ) : (
+                            <span className="ml-1 text-xs hidden sm:inline">Valuta</span>
+                        )}
+                    </Link>
+                 </Button>
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleToggleFavorite}
+                    disabled={isFavoriting || !currentUser}
+                    title={isFavoritedByCurrentUser ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
+                    className={cn(
+                    `h-9 px-2 flex items-center`,
+                    isFavoritedByCurrentUser ? 'text-destructive fill-destructive hover:bg-destructive/20' : 'text-destructive/60 hover:text-destructive hover:bg-destructive/10'
+                    )}
+                >
+                    <Heart className={cn(`h-5 w-5`, isFavoritedByCurrentUser ? 'fill-destructive' : '')} />
+                    {currentFavoriteCount > 0 && (
+                    <span className="ml-1 text-xs text-muted-foreground">
+                        ({currentFavoriteCount})
+                    </span>
+                    )}
+                </Button>
+
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleToggleMorchia}
+                    disabled={isTogglingMorchia || !currentUser}
+                    title={isMorchiaByCurrentUser ? "Rimuovi da Morchie" : "Aggiungi alle Morchie"}
+                    className={cn(
+                    `h-9 px-2 flex items-center`,
+                    isMorchiaByCurrentUser ? 'text-orange-600 hover:bg-orange-600/20' : 'text-orange-600/60 hover:text-orange-600 hover:bg-orange-600/10'
+                    )}
+                >
+                    <Frown className={cn(`h-5 w-5`, isMorchiaByCurrentUser ? 'fill-orange-600/30' : '')} />
+                    {currentMorchiaCount > 0 && (
+                    <span className="ml-1 text-xs text-muted-foreground">
+                        ({currentMorchiaCount})
+                    </span>
+                    )}
+                </Button>
+
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleTogglePlaylist}
+                    disabled={isPlaylisting || !currentUser}
+                    title={isPlaylistedByCurrentUser ? "Rimuovi dalla Playlist" : "Aggiungi alla Playlist"}
+                    className={cn(
+                    `h-9 px-2 flex items-center`,
+                    isPlaylistedByCurrentUser ? 'text-sky-500 hover:bg-sky-500/20' : 'text-sky-500/60 hover:text-sky-500 hover:bg-sky-500/10'
+                    )}
+                >
+                    {isPlaylistedByCurrentUser ? <BookMarked className="h-5 w-5" /> : <Bookmark className="h-5 w-5" />}
+                    {game?.playlistedByUserIds && game.playlistedByUserIds.length > 0 && (
+                    <span className="ml-1 text-xs text-muted-foreground">
+                        ({game.playlistedByUserIds.length})
+                    </span>
+                    )}
+                </Button>
+                
+                <Button variant="ghost" size="icon" asChild className="h-9 w-9 text-primary/80 hover:text-primary hover:bg-primary/10" disabled={!game.bggId}>
+                    <a href={`https://boardgamegeek.com/boardgame/${game.bggId}`} target="_blank" rel="noopener noreferrer" title="Vedi su BGG">
+                        <ExternalLink className="h-4 w-4 text-primary/80" />
+                    </a>
+                </Button>
+
+                {isAdmin && (
+                    <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-9 w-9 text-primary/80 hover:text-primary hover:bg-primary/10">
+                        <Settings className="h-5 w-5" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                        onSelect={handleTogglePinGame}
+                        disabled={isPinToggling || !currentUser}
+                        className="cursor-pointer"
+                        >
+                        {isPinToggling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (currentIsPinned ? <PinOff className="mr-2 h-4 w-4" /> : <Pin className="mr-2 h-4 w-4" />)}
+                        {currentIsPinned ? "Rimuovi da Vetrina" : "Aggiungi a Vetrina"}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                        onSelect={handleRefreshBggData}
+                        disabled={(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) || !game || !game.bggId}
+                        className="cursor-pointer"
+                        >
+                        {(isPendingBggDetailsFetch && isFetchingDetailsFor === game.id) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DownloadCloud className="mr-2 h-4 w-4" />}
+                        Aggiorna Dati da BGG
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                        onSelect={handleFetchBggPlays}
+                        disabled={isFetchingPlays || !game || !game.id || !game.bggId || !currentUser}
+                        className="cursor-pointer"
+                        >
+                        {isFetchingPlays ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Dices className="mr-2 h-4 w-4" />}
+                        Carica Partite (lctr01)
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                    </DropdownMenu>
+                )}
+              </div>
+            )}
+            
+            <GameDetailMetadata game={game} topWinnerStats={topWinnerStats} highestScoreAchieved={highestScoreAchieved} />
+            
+            {game.reviews && game.reviews.length > 0 && (
+              <div className="w-full pt-4 border-t border-border">
+                <h3 className="text-sm md:text-lg font-semibold text-foreground mb-3">
+                  Valutazione Media:
+                </h3>
+                <GroupedRatingsDisplay
+                  reviews={game.reviews}
+                  noRatingsMessage="Nessuna valutazione per calcolare le medie."
+                  defaultOpenSections={[]}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Desktop Image Sidebar */}
+          <div className="hidden md:block md:w-1/4 p-6 flex-shrink-0 self-start md:order-2 space-y-4">
+            <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
+              <SafeImage
+                src={game.coverArtUrl}
+                alt={`${game.name} copertina`}
+                fallbackSrc={fallbackSrc}
+                fill
+                priority
+                className="object-cover"
+                data-ai-hint={`board game ${game.name.split(' ')[0]?.toLowerCase() || 'detailed'}`}
+                sizes="25vw"
+              />
+            </div>
+          </div>
+        </div>
+      </Card>
       
       {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
         <Card className="shadow-md border border-border rounded-lg">
@@ -1050,7 +1202,7 @@ const handleGenerateRecommendations = async () => {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  onClick={() => handleToggleFavorite()} // This needs to be adapted for recommended games
+                                  onClick={() => handleToggleFavorite(rec.id, rec.name)} 
                                   disabled={isFavoriting || authLoading}
                                   title={isRecFavorited ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
                                   className={`h-7 w-7 ${isRecFavorited ? 'text-destructive hover:bg-destructive/20' : 'text-destructive/60 hover:text-destructive hover:bg-destructive/10'}`}
@@ -1060,7 +1212,7 @@ const handleGenerateRecommendations = async () => {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  onClick={() => handleTogglePlaylist()} // This needs to be adapted for recommended games
+                                  onClick={() => handleTogglePlaylist(rec.id, rec.name)} 
                                   disabled={isPlaylisting || authLoading}
                                   title={isRecPlaylisted ? "Rimuovi dalla Playlist" : "Aggiungi alla Playlist"}
                                   className={`h-7 w-7 ${isRecPlaylisted ? 'text-sky-500 hover:bg-sky-500/20' : 'text-sky-500/60 hover:text-sky-500 hover:bg-sky-500/10'}`}
@@ -1084,3 +1236,5 @@ const handleGenerateRecommendations = async () => {
     </div>
   );
 }
+
+    
