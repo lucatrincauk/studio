@@ -26,7 +26,7 @@ export function GameDetailMetadata({
         </div>
       )}
       {game.yearPublished !== null && (
-        <div className="flex items-baseline gap-2 justify-start sm:justify-end">
+        <div className="flex items-baseline gap-2 justify-start">
           <CalendarDays size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
           <span className="font-medium hidden sm:inline">Anno:</span>
           <span>{game.yearPublished}</span>
@@ -40,7 +40,7 @@ export function GameDetailMetadata({
         </div>
       )}
       {(game.minPlaytime != null || game.maxPlaytime != null || game.playingTime != null) && (
-        <div className="flex items-baseline gap-2 justify-start sm:justify-end">
+        <div className="flex items-baseline gap-2 justify-start">
           <Clock size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
           <span className="font-medium hidden sm:inline">Durata:</span>
           <span>
@@ -58,7 +58,7 @@ export function GameDetailMetadata({
           <span>{formatRatingNumber(game.averageWeight)} / 5</span>
         </div>
       )}
-      <div className="flex items-baseline gap-2 justify-start sm:justify-end">
+      <div className="flex items-baseline gap-2 justify-start">
         <Dices size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
         <span className="font-medium hidden sm:inline">Partite:</span>
         <span>{game.lctr01Plays ?? 0}</span>
@@ -71,7 +71,7 @@ export function GameDetailMetadata({
         </div>
       )}
       {highestScoreAchieved && (
-        <div className="flex items-baseline gap-2 justify-start sm:justify-end">
+        <div className="flex items-baseline gap-2 justify-start">
           <Medal size={14} className="text-amber-500 flex-shrink-0 relative top-px" />
           <span className="font-medium hidden sm:inline">Miglior Punteggio:</span>
           <span>{highestScoreAchieved.score} punti ({highestScoreAchieved.players.join(', ')})</span>
