@@ -11,7 +11,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import {
-  AlertCircle, Loader2, Info, Edit, Trash2, Users, Clock, CalendarDays as CalendarIcon, ExternalLink, Weight, PenTool, Dices, MessageSquare, Heart, Settings, Trophy, Medal, UserCircle2, Star, Palette, ClipboardList, Repeat, Sparkles, Pin, PinOff, Wand2, DownloadCloud, Bookmark, BookMarked, Frown, UserCheck, ListPlus, ListChecks
+  AlertCircle, Loader2, Info, Edit, Trash2, Users, Clock, CalendarDays as CalendarIcon, ExternalLink, Weight, PenTool, Dices, MessageSquare, Heart, Settings, Trophy, Medal, UserCircle2, Star, Palette, ClipboardList, Repeat, Sparkles, Pin, PinOff, Wand2, DownloadCloud, Bookmark, BookMarked, Frown, UserCheck, ListPlus, ListChecks,
+  ListMusic,
+  HeartPulse
 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
@@ -1202,7 +1204,7 @@ const handleGenerateRecommendations = async () => {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  onClick={() => handleToggleFavorite(rec.id, rec.name)} 
+                                  onClick={() => handleToggleFavorite()} 
                                   disabled={isFavoriting || authLoading}
                                   title={isRecFavorited ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
                                   className={`h-7 w-7 ${isRecFavorited ? 'text-destructive hover:bg-destructive/20' : 'text-destructive/60 hover:text-destructive hover:bg-destructive/10'}`}
@@ -1212,7 +1214,7 @@ const handleGenerateRecommendations = async () => {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  onClick={() => handleTogglePlaylist(rec.id, rec.name)} 
+                                  onClick={() => handleTogglePlaylist()} 
                                   disabled={isPlaylisting || authLoading}
                                   title={isRecPlaylisted ? "Rimuovi dalla Playlist" : "Aggiungi alla Playlist"}
                                   className={`h-7 w-7 ${isRecPlaylisted ? 'text-sky-500 hover:bg-sky-500/20' : 'text-sky-500/60 hover:text-sky-500 hover:bg-sky-500/10'}`}
