@@ -1,0 +1,63 @@
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper function to check if the requesting user is an admin
+    function isAdmin() {
+      return request.auth != null &&
+             get(/databases/$(database)/documents/user_profiles/$(request.auth.uid)).data.email == "lucatrinca.uk@gmail.com";
+    }
+
+    // Rules for the main board game collection
+    match /boardgames_collection/{gameId} {
+      // Anyone can read game documents
+      allow read: if true;
+
+      // Only admin can create or delete game documents
+      allow create, delete: if isAdmin();
+
+      // Admin can update any field.
+      // Authenticated users can update specific fields for interactions.
+      allow update: if isAdmin() ||
+                       (request.auth != null &&
+                         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                           'favoritedByUserIds', 'favoriteCount',
+                           'playlistedByUserIds',
+                           'morchiaByUserIds', 'morchiaCount', // Added these two fields
+                           'overallAverageRating', 'reviewCount', // reviewCount is now voteCount
+                           'voteCount', // Ensure voteCount is here
+                           'lctr01Plays'
+                         ])
+                       );
+
+      match /reviews/{reviewId} {
+        allow read: if true;
+        allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+        allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+      }
+
+      match /plays_lctr01/{playId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+    }
+
+    match /user_profiles/{userId} {
+      allow read: if true;
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update: if request.auth != null && request.auth.uid == userId;
+      allow delete: if false; 
+
+      match /earned_badges/{badgeId} {
+        allow read: if true;
+        allow write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    match /{path=**}/plays_lctr01/{playId} {
+      allow read: if true;
+    }
+  }
+}
