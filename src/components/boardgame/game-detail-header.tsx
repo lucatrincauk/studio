@@ -11,9 +11,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Star, ExternalLink, Heart, Bookmark, BookMarked, Frown, Settings, Pin, PinOff, Loader2, DownloadCloud, Dices, UserCircle2, Edit, Trash2, CalendarDays, Weight, PenTool, Clock, Medal, Sparkles, Trophy, Users, ListPlus, ListChecks, Wand2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatRatingNumber } from '@/lib/utils';
-import { GameDetailMetadata } from './game-detail-metadata'; // Import GameDetailMetadata
-import { GroupedRatingsDisplay } from './grouped-ratings-display'; // Import GroupedRatingsDisplay
-import { Separator } from '@/components/ui/separator'; // Import Separator
+import { GameDetailMetadata } from './game-detail-metadata';
+import { GroupedRatingsDisplay } from './grouped-ratings-display';
+import { Separator } from '@/components/ui/separator';
 
 interface GameDetailHeaderProps {
   game: BoardGame;
@@ -44,7 +44,7 @@ interface GameDetailHeaderProps {
   userReview: Review | undefined;
   topWinnerStats: { name: string; wins: number } | null;
   highestScoreAchieved: { score: number; players: string[] } | null;
-  groupedCategoryAverages: GroupedCategoryAverages | null;
+  // groupedCategoryAverages: GroupedCategoryAverages | null; // Removed prop
 }
 
 export function GameDetailHeader({
@@ -76,7 +76,7 @@ export function GameDetailHeader({
   userReview,
   topWinnerStats,
   highestScoreAchieved,
-  groupedCategoryAverages
+  // groupedCategoryAverages // Removed from destructuring
 }: GameDetailHeaderProps) {
   return (
     <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
@@ -85,7 +85,7 @@ export function GameDetailHeader({
         <div className="flex-1 p-6 space-y-4 md:order-1">
           {/* Header: Title and Score */}
           <div className="flex justify-between items-start mb-2">
-            <div className="flex-shrink min-w-0 mr-2">
+            <div className="flex-1 min-w-0 mr-2"> {/* Allows title to wrap */}
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
                 {game.name}
               </h1>
@@ -115,7 +115,7 @@ export function GameDetailHeader({
               />
             </div>
           </div>
-          
+
           {/* Button Bar */}
           {currentUser && (
             <div className="py-4 border-t border-b border-border">
@@ -149,7 +149,7 @@ export function GameDetailHeader({
                         disabled={isFavoriting || !currentUser}
                         title={isFavoritedByCurrentUser ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
                         className={cn(
-                        `h-9 px-2`,
+                        `h-9 px-2 flex items-center`,
                         isFavoritedByCurrentUser ? 'text-destructive hover:bg-destructive/20' : 'text-destructive/60 hover:text-destructive hover:bg-destructive/10'
                         )}
                     >
@@ -161,14 +161,14 @@ export function GameDetailHeader({
                         )}
                     </Button>
 
-                     <Button
+                    <Button
                         variant="ghost"
                         size="sm"
                         onClick={onToggleMorchia}
                         disabled={isTogglingMorchia || !currentUser}
                         title={isMorchiaByCurrentUser ? "Rimuovi da Morchie" : "Aggiungi alle Morchie"}
                         className={cn(
-                        `h-9 px-2`,
+                        `h-9 px-2 flex items-center`,
                         isMorchiaByCurrentUser ? 'text-orange-600 hover:bg-orange-600/20' : 'text-orange-600/60 hover:text-orange-600 hover:bg-orange-600/10'
                         )}
                     >
@@ -187,7 +187,7 @@ export function GameDetailHeader({
                         disabled={isPlaylisting || !currentUser}
                         title={isPlaylistedByCurrentUser ? "Rimuovi dalla Playlist" : "Aggiungi alla Playlist"}
                         className={cn(
-                        `h-9 px-2`,
+                        `h-9 px-2 flex items-center`,
                         isPlaylistedByCurrentUser ? 'text-sky-500 hover:bg-sky-500/20' : 'text-sky-500/60 hover:text-sky-500 hover:bg-sky-500/10'
                         )}
                     >
@@ -199,9 +199,9 @@ export function GameDetailHeader({
                         )}
                     </Button>
 
-                    <Button variant="ghost" size="icon" asChild className="h-9 w-9 text-primary/80 hover:text-primary hover:bg-primary/10" disabled={!game.bggId}>
+                     <Button variant="ghost" size="icon" asChild className="h-9 w-9 text-primary/80 hover:text-primary hover:bg-primary/10" disabled={!game.bggId}>
                         <a href={`https://boardgamegeek.com/boardgame/${game.bggId}`} target="_blank" rel="noopener noreferrer" title="Vedi su BGG">
-                            <ExternalLink className="h-4 w-4" />
+                            <ExternalLink className="h-4 w-4 text-primary/80" />
                         </a>
                     </Button>
 
@@ -252,8 +252,9 @@ export function GameDetailHeader({
                 Valutazione Media:
               </h3>
               <GroupedRatingsDisplay
-                groupedAverages={groupedCategoryAverages}
+                reviews={game.reviews} // Pass raw reviews
                 noRatingsMessage="Nessuna valutazione per calcolare le medie."
+                defaultOpenSections={[]}
               />
             </div>
           )}

@@ -1,7 +1,8 @@
 
 'use client';
 
-import type { GroupedCategoryAverages } from '@/lib/types';
+import type { Review, GroupedCategoryAverages, SectionAverage, SubRatingAverage } from '@/lib/types';
+import { calculateGroupedCategoryAverages } from '@/lib/utils'; // Import the calculation utility
 import {
   Accordion,
   AccordionContent,
@@ -15,7 +16,7 @@ import React from 'react';
 import { cn } from '@/lib/utils';
 
 interface GroupedRatingsDisplayProps {
-  groupedAverages: GroupedCategoryAverages | null;
+  reviews: Review[] | null; // Changed from groupedAverages
   isLoading?: boolean;
   noRatingsMessage?: string;
   defaultOpenSections?: string[];
@@ -29,7 +30,7 @@ const iconMap: Record<string, LucideIcon> = {
 };
 
 export function GroupedRatingsDisplay({
-  groupedAverages,
+  reviews, // Changed prop
   isLoading = false,
   noRatingsMessage = "Nessun dato di valutazione disponibile.",
   defaultOpenSections = [],
@@ -38,7 +39,10 @@ export function GroupedRatingsDisplay({
     return <p className="text-muted-foreground">Caricamento valutazioni...</p>;
   }
 
-  if (!groupedAverages || groupedAverages.length === 0) {
+  // Calculate groupedAverages internally
+  const actualGroupedAverages = reviews ? calculateGroupedCategoryAverages(reviews) : null;
+
+  if (!actualGroupedAverages || actualGroupedAverages.length === 0) {
     return (
         <Alert variant="default" className="bg-secondary/30 border-secondary">
             <Info className="h-4 w-4" />
@@ -64,13 +68,13 @@ export function GroupedRatingsDisplay({
 
   return (
     <Accordion type="multiple" defaultValue={defaultOpenSections} className="w-full">
-      {groupedAverages.map((section, index) => {
+      {actualGroupedAverages.map((section, index) => {
         const IconComponent = section.iconName ? iconMap[section.iconName] : null;
         return (
           <AccordionItem
             value={`section-${index}`}
             key={section.sectionTitle}
-            className={cn(index === groupedAverages.length - 1 ? "border-b-0" : "border-b")}
+            className={cn(index === actualGroupedAverages.length - 1 ? "border-b-0" : "border-b")}
           >
             <AccordionTrigger className="hover:no-underline text-left py-3">
               <div className="flex justify-between w-full items-center pr-2 gap-2">
@@ -92,11 +96,10 @@ export function GroupedRatingsDisplay({
                     key={sub.name}
                     className={cn(
                       "flex justify-between items-center text-sm py-1.5",
-                      subIndex < section.subRatings.length - 1 ? "border-b border-border" : "" // Removed last:border-b-0
+                      subIndex < section.subRatings.length - 1 ? "border-b border-border" : ""
                     )}
                   >
                     <span className="text-muted-foreground">{sub.name}:</span>
-                    {/* Display whole number if it's a whole number, otherwise one decimal */}
                     <span className="font-medium text-foreground">
                       {Number.isInteger(sub.average * 10) ? sub.average.toFixed(0) : sub.average.toFixed(1)} / 10
                     </span>
