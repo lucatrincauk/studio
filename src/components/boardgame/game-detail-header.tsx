@@ -1,16 +1,19 @@
 
 'use client';
 
-import type { BoardGame, Review } from '@/lib/types';
+import type { BoardGame, Review, GroupedCategoryAverages } from '@/lib/types';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { SafeImage } from '@/components/common/SafeImage';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card'; // Added import
+import { Card } from '@/components/ui/card';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Star, ExternalLink, Heart, Bookmark, BookMarked, Frown, Settings, Pin, PinOff, Loader2, DownloadCloud, Dices } from 'lucide-react';
+import { Star, ExternalLink, Heart, Bookmark, BookMarked, Frown, Settings, Pin, PinOff, Loader2, DownloadCloud, Dices, UserCircle2, Edit, Trash2, CalendarDays, Weight, PenTool, Clock, Medal, Sparkles, Trophy, Users, ListPlus, ListChecks, Wand2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatRatingNumber } from '@/lib/utils';
+import { GameDetailMetadata } from './game-detail-metadata'; // Import GameDetailMetadata
+import { GroupedRatingsDisplay } from './grouped-ratings-display'; // Import GroupedRatingsDisplay
+import { Separator } from '@/components/ui/separator'; // Import Separator
 
 interface GameDetailHeaderProps {
   game: BoardGame;
@@ -39,6 +42,9 @@ interface GameDetailHeaderProps {
   onFetchBggPlays: () => void;
   isFetchingPlays: boolean;
   userReview: Review | undefined;
+  topWinnerStats: { name: string; wins: number } | null;
+  highestScoreAchieved: { score: number; players: string[] } | null;
+  groupedCategoryAverages: GroupedCategoryAverages | null;
 }
 
 export function GameDetailHeader({
@@ -68,6 +74,9 @@ export function GameDetailHeader({
   onFetchBggPlays,
   isFetchingPlays,
   userReview,
+  topWinnerStats,
+  highestScoreAchieved,
+  groupedCategoryAverages
 }: GameDetailHeaderProps) {
   return (
     <Card className="overflow-hidden shadow-xl border border-border rounded-lg">
@@ -76,7 +85,7 @@ export function GameDetailHeader({
         <div className="flex-1 p-6 space-y-4 md:order-1">
           {/* Header: Title and Score */}
           <div className="flex justify-between items-start mb-2">
-            <div className="flex-1 min-w-0 mr-2">
+            <div className="flex-shrink min-w-0 mr-2">
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
                 {game.name}
               </h1>
@@ -84,8 +93,8 @@ export function GameDetailHeader({
             <div className="flex-shrink-0">
               {globalGameAverage !== null && (
                 <span className="text-3xl md:text-4xl font-bold text-primary flex items-center">
-                    <Star className="mr-1 h-6 w-6 md:h-7 md:w-7 text-accent fill-accent" />
-                    {formatRatingNumber(globalGameAverage)}
+                  <Star className="mr-1 h-6 w-6 md:h-7 md:w-7 text-accent fill-accent" />
+                  {formatRatingNumber(globalGameAverage)}
                 </span>
               )}
             </div>
@@ -107,7 +116,7 @@ export function GameDetailHeader({
             </div>
           </div>
           
-          {/* Button Bar - Moved from below metadata */}
+          {/* Button Bar */}
           {currentUser && (
             <div className="py-4 border-t border-b border-border">
                 <div className="flex justify-evenly items-center gap-1 sm:gap-2">
@@ -152,7 +161,7 @@ export function GameDetailHeader({
                         )}
                     </Button>
 
-                    <Button
+                     <Button
                         variant="ghost"
                         size="sm"
                         onClick={onToggleMorchia}
@@ -226,7 +235,7 @@ export function GameDetailHeader({
                             className="cursor-pointer"
                             >
                             {isFetchingPlays ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Dices className="mr-2 h-4 w-4" />}
-                            Carica Partite
+                            Carica Partite (lctr01)
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                         </DropdownMenu>
@@ -235,9 +244,19 @@ export function GameDetailHeader({
             </div>
           )}
           
-          {/* Placeholder for Metadata Grid - To be replaced by GameDetailMetadata component */}
-          {/* Placeholder for Average Ratings - To be kept or extracted later */}
+          <GameDetailMetadata game={game} topWinnerStats={topWinnerStats} highestScoreAchieved={highestScoreAchieved} />
           
+          {game.reviews && game.reviews.length > 0 && (
+            <div className="pt-4 border-t border-border">
+              <h3 className="text-sm md:text-lg font-semibold text-foreground mb-3">
+                Valutazione Media:
+              </h3>
+              <GroupedRatingsDisplay
+                groupedAverages={groupedCategoryAverages}
+                noRatingsMessage="Nessuna valutazione per calcolare le medie."
+              />
+            </div>
+          )}
         </div>
 
         {/* Desktop Image Sidebar */}
