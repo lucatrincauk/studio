@@ -1,11 +1,12 @@
 
 'use client';
 
-import type { BoardGame } from '@/lib/types';
+import type { BoardGame, Review } from '@/lib/types';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { SafeImage } from '@/components/common/SafeImage';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card'; // Added import
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Star, ExternalLink, Heart, Bookmark, BookMarked, Frown, Settings, Pin, PinOff, Loader2, DownloadCloud, Dices } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -37,7 +38,7 @@ interface GameDetailHeaderProps {
   onRefreshBggData: () => void;
   onFetchBggPlays: () => void;
   isFetchingPlays: boolean;
-  userReview: any; // Simplified for prop drilling, consider more specific type if needed
+  userReview: Review | undefined;
 }
 
 export function GameDetailHeader({
@@ -75,10 +76,10 @@ export function GameDetailHeader({
         <div className="flex-1 p-6 space-y-4 md:order-1">
           {/* Header: Title and Score */}
           <div className="flex justify-between items-start mb-2">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:gap-1 flex-shrink min-w-0 mr-2">
-                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
+            <div className="flex-1 min-w-0 mr-2">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground">
                 {game.name}
-                </h1>
+              </h1>
             </div>
             <div className="flex-shrink-0">
               {globalGameAverage !== null && (
@@ -110,16 +111,17 @@ export function GameDetailHeader({
           {currentUser && (
             <div className="py-4 border-t border-b border-border">
                 <div className="flex justify-evenly items-center gap-1 sm:gap-2">
-                    <Link href={`/games/${game.id}/rate`} passHref legacyBehavior>
-                        <Button
-                        variant="ghost"
-                        size="sm"
-                        title={userReview ? "Modifica il Tuo Voto" : "Valuta questo Gioco"}
-                        className={cn(
-                            'h-9 px-2 text-amber-500/70 hover:text-amber-500 hover:bg-amber-500/10',
-                            userReview && 'border border-amber-500/50'
-                        )}
-                        >
+                    <Button
+                      asChild
+                      variant="ghost"
+                      size="sm"
+                      title={userReview ? "Modifica il Tuo Voto" : "Valuta questo Gioco"}
+                      className={cn(
+                          'h-9 px-2 text-primary hover:text-primary/80 hover:bg-primary/10',
+                           userReview && 'border border-primary/50'
+                      )}
+                    >
+                      <Link href={`/games/${game.id}/rate`}>
                         <Star className="h-5 w-5" />
                         {userReview && userOverallScore !== null ? (
                             <span className="ml-1 text-xs font-semibold">
@@ -128,8 +130,8 @@ export function GameDetailHeader({
                         ) : (
                             <span className="ml-1 text-xs hidden sm:inline">Valuta</span>
                         )}
-                        </Button>
-                    </Link>
+                      </Link>
+                    </Button>
 
                     <Button
                         variant="ghost"
