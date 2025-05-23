@@ -1,3 +1,4 @@
+
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import type { Review, Rating, RatingCategory, GroupedCategoryAverages, SectionAverage, SubRatingAverage, LucideIconName } from "./types";
@@ -21,21 +22,21 @@ export function calculateOverallCategoryAverage(rating: Rating | null): number {
   if (!rating) return 0;
 
   let weightedSum = 0;
-  let totalMaxPossibleScore = 0;
+  let sumOfAllWeights = 0;
 
   (Object.keys(rating) as Array<keyof Rating>).forEach(key => {
     const weight = RATING_WEIGHTS[key];
-    const score = rating[key] || 0; 
+    const score = rating[key] || 0; // Score is 1-10
     weightedSum += (score * weight);
-    totalMaxPossibleScore += (10 * weight); // Max raw score for a category is now 10
+    sumOfAllWeights += weight;
   });
 
-  if (totalMaxPossibleScore === 0) return 0;
+  if (sumOfAllWeights === 0) return 0; // Avoid division by zero
 
-  const normalizedScore = weightedSum / totalMaxPossibleScore; // Score between 0 and 1
-  const average = 1 + (normalizedScore * 9); // Scale to 1-10 range
-  return Math.round(average * 10) / 10; 
+  const average = weightedSum / sumOfAllWeights;
+  return Math.round(average * 10) / 10; // Round to one decimal place
 }
+
 
 export function calculateCategoryAverages(reviewsOrRatings: Review[] | Rating[]): Rating | null {
   if (!reviewsOrRatings || reviewsOrRatings.length === 0) {
@@ -60,14 +61,16 @@ export function calculateCategoryAverages(reviewsOrRatings: Review[] | Rating[])
   reviewsOrRatings.forEach(item => {
     const rating = 'rating' in item ? item.rating : item;
     (Object.keys(sumOfRatings) as Array<keyof Rating>).forEach(key => {
-      const ratingValue = typeof rating[key] === 'number' ? rating[key] : 0;
+      const ratingValue = typeof rating[key] === 'number' ? rating[key] : 0; // Default to 0 if not a number
       sumOfRatings[key] += ratingValue;
     });
   });
 
   const averageRatings: Rating = {} as Rating;
   (Object.keys(sumOfRatings) as Array<keyof Rating>).forEach(key => {
-    averageRatings[key] = Math.round((sumOfRatings[key] / numItems) * 10) / 10;
+    // Ensure values are within 1-10 range after averaging
+    const avg = sumOfRatings[key] / numItems;
+    averageRatings[key] = Math.max(1, Math.min(10, Math.round(avg * 10) / 10));
   });
 
   return averageRatings;
@@ -93,34 +96,33 @@ export function calculateGroupedCategoryAverages(reviews: Review[]): GroupedCate
 
   const groupedAverages: SectionAverage[] = sectionsMeta.map(section => {
     let sectionWeightedSum = 0;
-    let sectionTotalMaxPossibleScore = 0;
+    let sumOfSectionWeights = 0;
 
     const subRatings: SubRatingAverage[] = section.keys.map(key => {
-      const subCategoryAverage = individualSubCategoryAverages[key]; 
+      const subCategoryAverage = individualSubCategoryAverages[key];
       const weight = RATING_WEIGHTS[key];
 
       sectionWeightedSum += (subCategoryAverage * weight);
-      sectionTotalMaxPossibleScore += (10 * weight); 
+      sumOfSectionWeights += weight;
 
-      return { name: RATING_CATEGORIES[key], average: subCategoryAverage };
+      return { name: RATING_CATEGORIES[key], average: subCategoryAverage }; // Keep this as 1-10 for display
     });
 
-    const normalizedSectionScore = sectionTotalMaxPossibleScore > 0
-      ? sectionWeightedSum / sectionTotalMaxPossibleScore
+    const sectionAverageValue = sumOfSectionWeights > 0
+      ? sectionWeightedSum / sumOfSectionWeights
       : 0;
-
-    const sectionAverageValue = 1 + (normalizedSectionScore * 9); 
 
     return {
       sectionTitle: section.title,
       iconName: section.iconName,
-      sectionAverage: Math.round(sectionAverageValue * 10) / 10,
+      sectionAverage: Math.round(sectionAverageValue * 10) / 10, // This is now a direct weighted avg, 1-10
       subRatings,
     };
   });
 
   return groupedAverages;
 }
+
 
 export function formatReviewDate(dateString: string): string {
   try {
