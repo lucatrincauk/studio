@@ -19,28 +19,28 @@ export const RATING_CATEGORIES: Record<RatingCategory, string> = {
   mentallyStimulating: "Stimolazione Mentale",
   fun: "Fattore Divertimento",
   decisionDepth: "Profondità Decisionale",
-  replayability: "Varietà e Rigiocabilità", // Changed
-  luck: "Assenza di Fortuna", // Changed
-  lengthDowntime: "Durata", // Changed
-  graphicDesign: "Grafica e Componenti", // Changed
-  componentsThemeLore: "Tema e Ambientazione", // Changed
+  replayability: "Varietà e Rigiocabilità",
+  luck: "Assenza di Fortuna",
+  lengthDowntime: "Durata",
+  graphicDesign: "Grafica e Componenti",
+  componentsThemeLore: "Tema e Ambientazione",
   effortToLearn: "Facilità di Apprendimento",
-  setupTeardown: "Preparazione e Ripristino", // Changed
+  setupTeardown: "Preparazione e Ripristino",
 };
 
 // New weights for 1-10 scale
 export const RATING_WEIGHTS: Record<RatingCategory, number> = {
-  excitedToReplay: 2,    // Was 4 on 1-5 scale
-  mentallyStimulating: 1,// Was 2 on 1-5 scale
-  fun: 1,                // Was 2 on 1-5 scale
-  decisionDepth: 1,      // Was 2 on 1-5 scale
-  replayability: 1,      // Was 2 on 1-5 scale
-  luck: 1,               // Was 2 on 1-5 scale
-  lengthDowntime: 1,     // Was 2 on 1-5 scale
-  graphicDesign: 0.5,    // Was 1 on 1-5 scale
-  componentsThemeLore: 0.5,// Was 1 on 1-5 scale
-  effortToLearn: 0.5,    // Was 1 on 1-5 scale
-  setupTeardown: 0.5,    // Was 1 on 1-5 scale
+  excitedToReplay: 2,    // Was 4 on 1-5, halved for 1-10
+  mentallyStimulating: 1,// Was 2 on 1-5, halved for 1-10
+  fun: 1,                // Was 2 on 1-5, halved for 1-10
+  decisionDepth: 1,      // Was 2 on 1-5, halved for 1-10
+  replayability: 1,      // Was 2 on 1-5, halved for 1-10
+  luck: 1,               // Was 2 on 1-5, halved for 1-10
+  lengthDowntime: 1,     // Was 2 on 1-5, halved for 1-10
+  graphicDesign: 0.5,    // Was 1 on 1-5, halved for 1-10
+  componentsThemeLore: 0.5,// Was 1 on 1-5, halved for 1-10
+  effortToLearn: 0.5,    // Was 1 on 1-5, halved for 1-10
+  setupTeardown: 0.5,    // Was 1 on 1-5, halved for 1-10
 };
 
 
@@ -87,21 +87,20 @@ export interface BoardGame {
   name: string;
   coverArtUrl: string;
   bggId: number;
-  reviews: Review[]; // Typically not populated for list views, only for detail page
+  reviews: Review[];
   yearPublished?: number | null;
   minPlayers?: number | null;
   maxPlayers?: number | null;
-  playingTime?: number | null; // BGG's general playing time
-  minPlaytime?: number | null; // BGG's min playtime
-  maxPlaytime?: number | null; // BGG's max playtime
-  averageWeight?: number | null; // BGG's complexity rating
-  overallAverageRating?: number | null; // Now calculated as 1-10
+  playingTime?: number | null; 
+  minPlaytime?: number | null; 
+  maxPlaytime?: number | null; 
+  averageWeight?: number | null; 
+  overallAverageRating?: number | null; // Calculated as 1-10
   voteCount?: number;
   isPinned?: boolean;
   mechanics?: string[];
   categories?: string[];
   designers?: string[];
-  // publishers removed
   featuredReason?: 'pinned' | 'recent';
   favoritedByUserIds?: string[];
   favoriteCount?: number;
@@ -138,15 +137,22 @@ export interface UserProfile {
   photoURL?: string | null;
   email?: string | null;
   bggUsername?: string | null;
-  hasSubmittedReview?: boolean;
-  hasGivenFirstOne?: boolean;
-  hasGivenFirstFive?: boolean; // This flag will now represent if user has given a "10"
+  hasSubmittedReview?: boolean; // For "First Reviewer" badge
+  hasGivenFirstOne?: boolean; // For "Rating Connoisseur (Min)" badge (gave a 1)
+  hasGivenFirstFive?: boolean; // For "Rating Enthusiast (Max)" badge (gave a 10)
   hasEarnedComprehensiveCritic?: boolean;
   hasEarnedNightOwlReviewer?: boolean;
   hasReceivedWelcomeBadge?: boolean;
   hasEarnedFavoriteFanaticBadge?: boolean;
   hasEarnedPlaylistProBadge?: boolean;
+  // Flags for Prolific Reviewer badges
+  hasEarnedProlificBronze?: boolean;
+  hasEarnedProlificSilver?: boolean;
+  hasEarnedProlificGold?: boolean;
+  // Flag for Morchia Hunter
+  hasEarnedMorchiaHunter?: boolean;
 }
+
 
 export interface BggPlayerInPlay {
   username?: string | null;
@@ -166,12 +172,12 @@ export interface BggPlayDetail {
   comments: string | null;
   location?: string | null;
   players?: BggPlayerInPlay[];
-  userId?: string; // User who logged this play (e.g., 'lctr01')
-  gameBggId: number; // BGG ID of the game played
+  userId?: string; 
+  gameBggId: number; 
 }
 
 export interface AugmentedBggPlayDetail extends BggPlayDetail {
-  gameId: string; // Firestore ID of the game
+  gameId: string; 
   gameName: string;
   gameCoverArtUrl?: string | null;
 }

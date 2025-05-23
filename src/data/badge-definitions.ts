@@ -29,7 +29,7 @@ export const ALL_BADGE_DEFINITIONS: BadgeDefinition[] = [
   {
     badgeId: "rating_enthusiast_max",
     name: "Fan Incondizionato",
-    description: "Hai assegnato il tuo primo '10'. Adorazione pura!", // Updated for 1-10 scale
+    description: "Hai assegnato il tuo primo '10'. Adorazione pura!",
     iconName: "PlusCircle",
   },
   {
@@ -77,4 +77,7 @@ export const ALL_BADGE_DEFINITIONS: BadgeDefinition[] = [
   {
     badgeId: "morchia_hunter_5",
     name: "Cacciatore di Morchie",
-    description: "Hai
+    description: "Hai contrassegnato 5 giochi come \"morchia\"!",
+    iconName: "Trash2",
+  }
+];
