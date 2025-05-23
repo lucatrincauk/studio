@@ -4,10 +4,10 @@
 import type { Review } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { formatReviewDate, calculateOverallCategoryAverage, formatRatingNumber, calculateGroupedCategoryAverages } from '@/lib/utils';
+import { formatReviewDate, calculateOverallCategoryAverage, formatRatingNumber } from '@/lib/utils';
 import { UserCircle2, Star } from 'lucide-react';
 import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
-import { useMemo } from 'react';
+// Removed useMemo as groupedAveragesForReview is no longer calculated here
 import Link from 'next/link';
 
 interface ReviewItemProps {
@@ -17,9 +17,10 @@ interface ReviewItemProps {
 export function ReviewItem({ review }: ReviewItemProps) {
   const overallReviewRating = calculateOverallCategoryAverage(review.rating);
 
-  const groupedAveragesForReview = useMemo(() => {
-    return calculateGroupedCategoryAverages([review]);
-  }, [review]);
+  // The calculation for groupedAveragesForReview is now done inside GroupedRatingsDisplay
+  // const groupedAveragesForReview = useMemo(() => {
+  //   return calculateGroupedCategoryAverages([review]);
+  // }, [review]);
 
   const getAuthorInitial = () => {
     if (review.author && review.author.trim().length > 0) {
@@ -59,7 +60,7 @@ export function ReviewItem({ review }: ReviewItemProps) {
          <p className="text-sm text-foreground/90 mb-4 leading-relaxed">{review.comment}</p>
         )}
         <GroupedRatingsDisplay
-            groupedAverages={groupedAveragesForReview}
+            reviews={[review]} // Pass the single review as an array
             noRatingsMessage="Nessuna valutazione dettagliata per questa recensione."
             defaultOpenSections={[]}
         />
@@ -67,3 +68,4 @@ export function ReviewItem({ review }: ReviewItemProps) {
     </Card>
   );
 }
+
