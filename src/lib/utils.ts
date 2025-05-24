@@ -12,11 +12,10 @@ export function cn(...inputs: ClassValue[]) {
 
 export function formatRatingNumber(num: number | null | undefined): string {
   if (num === null || num === undefined) return '-';
-  // Ensure one decimal place is always shown, e.g., 8.0, 7.5
+  // Display scores on a 1-10 scale, always show one decimal place.
   return num.toFixed(1);
 }
 
-// Calculates the weighted average of all categories for a single Rating object (1-10 scale)
 export function calculateOverallCategoryAverage(rating: Rating | null): number {
   if (!rating) return 0;
 
@@ -25,7 +24,7 @@ export function calculateOverallCategoryAverage(rating: Rating | null): number {
 
   (Object.keys(rating) as Array<keyof Rating>).forEach(key => {
     const weight = RATING_WEIGHTS[key];
-    const score = rating[key] || 0; // Default to 0 if a category is somehow missing
+    const score = rating[key] || 0;
     weightedSum += (score * weight);
     sumOfAllWeights += weight;
   });
@@ -33,11 +32,9 @@ export function calculateOverallCategoryAverage(rating: Rating | null): number {
   if (sumOfAllWeights === 0) return 0;
 
   const average = weightedSum / sumOfAllWeights;
-  return parseFloat(average.toFixed(1)); // Round to one decimal place
+  return parseFloat(average.toFixed(1)); // Round to one decimal place, result is 1-10
 }
 
-
-// Calculates the average for each individual rating sub-category across multiple reviews (1-10 scale)
 export function calculateCategoryAverages(reviewsOrRatings: Review[] | Rating[]): Rating | null {
   if (!reviewsOrRatings || reviewsOrRatings.length === 0) {
     return null;
@@ -69,17 +66,13 @@ export function calculateCategoryAverages(reviewsOrRatings: Review[] | Rating[])
   const averageRatings: Rating = {} as Rating;
   (Object.keys(sumOfRatings) as Array<keyof Rating>).forEach(key => {
     const avg = sumOfRatings[key] / numItems;
-    // Individual category averages are kept as they are (1-10)
-    averageRatings[key] = parseFloat(avg.toFixed(1)); // Round to one decimal place
+    averageRatings[key] = parseFloat(avg.toFixed(1)); // Individual categories are 1-10
   });
 
   return averageRatings;
 }
 
 export function calculateGroupedCategoryAverages(reviews: Review[]): GroupedCategoryAverages | null {
-  if (!reviews || reviews.length === 0) {
-    return null;
-  }
   const allRatings = reviews.map(r => r.rating);
   const individualSubCategoryAverages = calculateCategoryAverages(allRatings);
 
@@ -103,7 +96,7 @@ export function calculateGroupedCategoryAverages(reviews: Review[]): GroupedCate
       const weight = RATING_WEIGHTS[key];
       sectionWeightedSum += (subCategoryAverage * weight);
       sumOfSectionWeights += weight;
-      return { name: RATING_CATEGORIES[key], average: subCategoryAverage };
+      return { name: RATING_CATEGORIES[key], average: subCategoryAverage }; // average is 1-10
     });
 
     const sectionAverageValue = sumOfSectionWeights > 0
@@ -113,13 +106,12 @@ export function calculateGroupedCategoryAverages(reviews: Review[]): GroupedCate
     return {
       sectionTitle: section.title,
       iconName: section.iconName,
-      sectionAverage: parseFloat(sectionAverageValue.toFixed(1)), // Round to one decimal
+      sectionAverage: parseFloat(sectionAverageValue.toFixed(1)), // Section average is 1-10
       subRatings,
     };
   });
   return groupedAverages;
 }
-
 
 export function formatReviewDate(dateString: string): string {
   try {
@@ -132,7 +124,7 @@ export function formatReviewDate(dateString: string): string {
 
     if (yearsDifference >= 1) {
       const formatted = formatDateFns(date, 'MMMM yyyy', { locale: it });
-      return formatted.charAt(0).toUpperCase() + formatted.slice(1); // Capitalize first letter
+      return formatted.charAt(0).toUpperCase() + formatted.slice(1);
     } else {
       return formatDistanceToNow(date, { addSuffix: true, locale: it });
     }
@@ -154,4 +146,3 @@ export function formatPlayDate(dateString: string): string {
     return "Data non valida";
   }
 }
-

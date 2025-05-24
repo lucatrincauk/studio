@@ -26,7 +26,7 @@ export function GameDetailMetadata({
           <span>{game.designers.join(', ')}</span>
         </div>
       )}
-      {(game.minPlayers !== null || game.maxPlayers !== null) && (
+       {(game.minPlayers !== null || game.maxPlayers !== null) && (
         <div className="flex items-baseline gap-2">
           <Users size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
           <span className="font-medium hidden sm:inline">Giocatori:</span>
@@ -37,7 +37,7 @@ export function GameDetailMetadata({
         <div className="flex items-baseline gap-2">
           <Weight size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
           <span className="font-medium hidden sm:inline">Complessità:</span>
-          <span>{formatRatingNumber(game.averageWeight)} / 10</span>
+          <span>{game.averageWeight?.toFixed(1)} / 5</span>
         </div>
       )}
       {topWinnerStats && (
@@ -80,8 +80,8 @@ export function GameDetailMetadata({
         <span className="flex items-baseline gap-1">
           <span>{game.lctr01Plays ?? 0}</span>
           {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && game.lctr01PlayDetails[0]?.date && (
-            <span className="flex items-center gap-1 text-xs ml-1">
-                <CalendarDays size={11} className="text-muted-foreground/80 flex-shrink-0 relative top-px" />
+            <span className="flex items-center gap-1 text-xs ml-2">
+                <CalendarDays size={11} className="text-muted-foreground flex-shrink-0 relative top-px" />
                 <span>{formatReviewDate(game.lctr01PlayDetails[0].date)}</span>
             </span>
           )}
@@ -98,6 +98,13 @@ export function GameDetailMetadata({
               {highestScoreAchieved.players.join(', ')})
             </span>
           </span>
+        </div>
+      )}
+      {game.bggAverageRating !== null && typeof game.bggAverageRating === 'number' && (
+        <div className="flex items-baseline gap-2">
+          <Star size={14} className="text-amber-500 flex-shrink-0 relative top-px" />
+          <span className="font-medium hidden sm:inline">Voto BGG:</span>
+          <span>{formatRatingNumber(game.bggAverageRating)} / 10</span>
         </div>
       )}
     </div>
