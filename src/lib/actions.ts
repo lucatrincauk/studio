@@ -157,7 +157,6 @@ function parseBggCollectionXml(xmlText: string): BoardGame[] {
 function parseBggThingXmlToBoardGame(xmlText: string, bggIdInput: number): Partial<BoardGame> {
     const gameData: Partial<BoardGame> = { bggId: bggIdInput };
 
-    // Helper function to parse numeric values robustly
     const parseNumericValueHelper = (regex: RegExp, textToSearch: string, isFloat = false): number | null => {
         const match = regex.exec(textToSearch);
         if (match && match[1]) {
@@ -202,17 +201,13 @@ function parseBggThingXmlToBoardGame(xmlText: string, bggIdInput: number): Parti
     } else {
         gameData.averageWeight = null;
     }
-    // console.log(`[BGG PARSE - Game ${bggIdInput}] Raw averageweight match:`, averageWeightMatch ? averageWeightMatch[1] : 'No match', 'Parsed:', gameData.averageWeight);
 
-
-    const bggAverageRatingRegex = /<ratings>[\s\S]*?<average\s+value="([\d\.]+)"[^>]*\/?>[\s\S]*?<\/ratings>/i;
+    const bggAverageRatingRegex = /<ratings\s*>[\s\S]*?<average\s+value="([\d\.]+)"[^>]*\/?>[\s\S]*?<\/ratings>/i;
     const bggAverageRatingRawMatch = bggAverageRatingRegex.exec(xmlText);
     if (bggAverageRatingRawMatch && bggAverageRatingRawMatch[1]) {
         const parsedValue = parseFloat(bggAverageRatingRawMatch[1]);
         gameData.bggAverageRating = isNaN(parsedValue) ? null : parsedValue;
-        // console.log(`[BGG PARSE - Game ${bggIdInput}] Matched <average value="${bggAverageRatingRawMatch[1]}" />. Parsed bggAverageRating: ${gameData.bggAverageRating}`);
     } else {
-        // console.log(`[BGG PARSE - Game ${bggIdInput}] No match found for <average value="X.X"> within <ratings>. bggAverageRating set to null.`);
         gameData.bggAverageRating = null;
     }
     
@@ -231,16 +226,13 @@ function parseBggThingXmlToBoardGame(xmlText: string, bggIdInput: number): Parti
     gameData.mechanics = parseLinks("boardgamemechanic");
     gameData.designers = parseLinks("boardgamedesigner");
 
-    // console.log(`[BGG PARSE - Game ${bggIdInput}] Parsed Game Data:`, gameData);
     return gameData;
 }
 
 async function fetchWithRetry(url: string, retries = 3, delay = 1500, attempt = 1): Promise<string> {
-  // console.log(`[FetchWithRetry Attempt ${attempt}] Fetching URL: ${url}`);
   try {
       const response = await fetch(url, { cache: 'no-store' });
       const responseText = await response.text();
-      // console.log(`[FetchWithRetry Attempt ${attempt}] Status: ${response.status} for URL: ${url}`);
 
       if (response.status === 200) {
           const isLikelyValidResponse = responseText.includes('<items') || responseText.includes("<item ") || responseText.includes("<plays") || responseText.includes("<play ");
@@ -248,29 +240,23 @@ async function fetchWithRetry(url: string, retries = 3, delay = 1500, attempt = 
           const isAcceptedMessage = responseText.includes("<message>Your request for task processing has been accepted</message>");
 
           if (isAcceptedMessage && attempt < retries) {
-              // console.log(`[FetchWithRetry Attempt ${attempt}] BGG accepted request, retrying in ${Math.min(delay * attempt, 6000)}ms...`);
               await new Promise(resolve => setTimeout(resolve, Math.min(delay * attempt, 6000)));
               return fetchWithRetry(url, retries, delay, attempt + 1);
           }
           if(!isThingResponse && !isLikelyValidResponse && !responseText.includes("<error>") && attempt < retries && !isAcceptedMessage) {
-              // console.warn(`[FetchWithRetry Attempt ${attempt}] Response for non-thing URL doesn't look valid, retrying...`);
               await new Promise(resolve => setTimeout(resolve, Math.min(delay * attempt, 6000)));
               return fetchWithRetry(url, retries, delay, attempt + 1);
           }
           if(responseText.includes("<error>")){
-              // console.error(`[FetchWithRetry Attempt ${attempt}] BGG API returned an error: ${responseText.substring(0, 200)}`);
               throw new Error(`BGG API returned an error: ${responseText.substring(0, 200)}`);
           }
           return responseText;
       } else if (response.status === 202 && attempt < retries) {
-          // console.log(`[FetchWithRetry Attempt ${attempt}] BGG status 202, retrying in ${Math.min(delay * attempt, 6000)}ms...`);
           await new Promise(resolve => setTimeout(resolve, Math.min(delay * attempt, 6000)));
           return fetchWithRetry(url, retries, delay, attempt + 1);
       } else if (response.status !== 200 && response.status !== 202) {
-          // console.error(`[FetchWithRetry Attempt ${attempt}] BGG API Error: Status ${response.status} for URL ${url}. Response: ${responseText.substring(0,500)}`);
           throw new Error(`BGG API Error: Status ${response.status} for URL ${url}. Response: ${responseText.substring(0,500)}`);
       } else {
-          // console.error(`[FetchWithRetry Attempt ${attempt}] BGG API did not return success status after ${retries} retries for URL ${url}. Final status: ${response.status}`);
           throw new Error(`BGG API did not return success status after ${retries} retries for URL ${url}. Final status: ${response.status}`);
       }
   } catch (error) {
@@ -282,16 +268,12 @@ async function fetchWithRetry(url: string, retries = 3, delay = 1500, attempt = 
             isBggApiError = true;
         }
     }
-    // console.error(`[FetchWithRetry Attempt ${attempt}] Error fetching BGG data for ${url}:`, errorMessage);
-
     if (isBggApiError) {
-        throw error; // Re-throw BGG specific errors directly
+        throw error;
     } else if (attempt < retries) {
-        // console.log(`[FetchWithRetry Attempt ${attempt}] Network/unexpected error, retrying in ${delay}ms...`);
-        await new Promise(resolve => setTimeout(resolve, delay)); // General retry for network issues
+        await new Promise(resolve => setTimeout(resolve, delay));
         return fetchWithRetry(url, retries, delay, attempt + 1);
     } else {
-        // console.error(`[FetchWithRetry Attempt ${attempt}] Final attempt failed for ${url}. Error:`, errorMessage);
         throw new Error(`Network or unexpected error fetching BGG data for ${url} after ${retries} attempts: ${errorMessage}`);
     }
   }
@@ -412,27 +394,31 @@ export async function getBoardGamesFromFirestoreAction(
 
     for (const docSnap of querySnapshot.docs) {
         const data = docSnap.data();
-        let overallAverageRating = data.overallAverageRating === undefined ? null : data.overallAverageRating;
-        let currentVoteCount = data.voteCount === undefined ? 0 : data.voteCount;
+        let overallAverageRatingFromDb = data.overallAverageRating === undefined ? null : data.overallAverageRating;
+        let voteCountFromDb = data.voteCount === undefined ? 0 : data.voteCount;
         let currentLctr01Plays = data.lctr01Plays === undefined ? null : data.lctr01Plays;
         let currentBggAverageRating = data.bggAverageRating === undefined ? null : data.bggAverageRating;
 
 
         if (!skipRatingCalculation) {
-            let reviewsForCalc: Review[] = [];
-            try {
-                const reviewsCollRef = collection(db, FIRESTORE_COLLECTION_NAME, docSnap.id, 'reviews');
-                const reviewsSnap = await getDocs(reviewsCollRef);
-                reviewsForCalc = reviewsSnap.docs.map(revDoc => revDoc.data() as Review);
-                currentVoteCount = reviewsForCalc.length;
-            } catch (e) { /* ignore */ }
+            // If overallAverageRating or voteCount are missing from the doc,
+            // we should recalculate them for display consistency.
+            // This is a fallback and ideally these fields are always kept up-to-date.
+            if (overallAverageRatingFromDb === null || data.voteCount === undefined) {
+                let reviewsForCalc: Review[] = [];
+                try {
+                    const reviewsCollRef = collection(db, FIRESTORE_COLLECTION_NAME, docSnap.id, 'reviews');
+                    const reviewsSnap = await getDocs(reviewsCollRef);
+                    reviewsForCalc = reviewsSnap.docs.map(revDoc => revDoc.data() as Review);
+                    voteCountFromDb = reviewsForCalc.length; // Update vote count based on actual reviews
+                } catch (e) { /* ignore */ }
 
-            if (reviewsForCalc.length > 0) {
-                const categoryAvgs = calculateCatAvgsFromUtils(reviewsForCalc);
-                overallAverageRating = categoryAvgs ? calculateGlobalOverallAverage(categoryAvgs) : null;
-            } else {
-                overallAverageRating = null;
-                if(data.voteCount === undefined) currentVoteCount = 0;
+                if (reviewsForCalc.length > 0) {
+                    const categoryAvgs = calculateCatAvgsFromUtils(reviewsForCalc);
+                    overallAverageRatingFromDb = categoryAvgs ? calculateGlobalOverallAverage(categoryAvgs) : null;
+                } else {
+                    overallAverageRatingFromDb = null;
+                }
             }
         }
 
@@ -452,9 +438,9 @@ export async function getBoardGamesFromFirestoreAction(
             categories: data.categories ?? [],
             mechanics: data.mechanics ?? [],
             designers: data.designers ?? [],
-            reviews: [], // Reviews are not typically returned in list views
-            overallAverageRating: overallAverageRating,
-            voteCount: currentVoteCount,
+            reviews: [],
+            overallAverageRating: overallAverageRatingFromDb,
+            voteCount: voteCountFromDb,
             isPinned: data.isPinned || false,
             favoritedByUserIds: data.favoritedByUserIds ?? [],
             favoriteCount: data.favoriteCount ?? 0,
@@ -544,7 +530,7 @@ export async function importAndRateBggGameAction(bggId: string): Promise<{ gameI
   }
 
   try {
-      const thingUrl = `${BGG_API_BASE_URL}/thing?id=${numericBggId}&stats=1`; // Ensure stats=1
+      const thingUrl = `${BGG_API_BASE_URL}/thing?id=${numericBggId}&stats=1`;
       const thingXml = await fetchWithRetry(thingUrl);
       const parsedBggData = parseBggThingXmlToBoardGame(thingXml, numericBggId);
 
@@ -764,39 +750,38 @@ export async function getFeaturedGamesAction(): Promise<BoardGame[]> {
   try {
     const allGamesResult = await getBoardGamesFromFirestoreAction({ skipRatingCalculation: false });
     if ('error' in allGamesResult) {
-        console.error("Error fetching all games for featured section:", allGamesResult.error);
         return [];
     }
 
-    const gamesWithDetails: Array<BoardGame & { _latestReviewDate?: Date | null }> = [];
-
+    const enrichedGames: Array<BoardGame & { _latestReviewDate?: Date | null }> = [];
     for (const game of allGamesResult) {
         let latestReviewDate: Date | null = null;
         if (game.voteCount && game.voteCount > 0) {
-            // To get the latest review date, we'd ideally have this denormalized
-            // or fetch reviews just for this game. For now, this might be slow.
-            // A simplified approach is to assume 'voteCount' indicates recent activity.
-            // For a true "latest review date", a subcollection query is needed here.
-            // For this iteration, we'll just rely on existing voteCount
-            // This part is a placeholder for a more efficient latest review date retrieval if needed.
-            // For now, we just use game.voteCount to filter.
-            if (game.voteCount > 0) {
-                latestReviewDate = new Date(); // Placeholder - assumes any review makes it recent
+            // This is a simplified way to determine recent activity for featured purposes.
+            // For a true "latest review date", a subcollection query per game would be needed here,
+            // or denormalization of the latest review date onto the game document.
+            // For now, having voteCount > 0 makes it a candidate.
+            const reviewsCollRef = collection(db, FIRESTORE_COLLECTION_NAME, game.id, 'reviews');
+            const q = query(reviewsCollRef, orderBy("date", "desc"), limit(1));
+            const latestReviewSnap = await getDocs(q);
+            if (!latestReviewSnap.empty && latestReviewSnap.docs[0].data().date) {
+                latestReviewDate = new Date(latestReviewSnap.docs[0].data().date);
             }
         }
-        gamesWithDetails.push({ ...game, _latestReviewDate: latestReviewDate });
+        enrichedGames.push({ ...game, _latestReviewDate: latestReviewDate });
     }
 
-    const pinnedGames = gamesWithDetails
+
+    const pinnedGames = enrichedGames
         .filter(game => game.isPinned)
         .sort((a, b) => (a.name || "").localeCompare(b.name || ""))
         .map(game => ({ ...game, featuredReason: 'pinned' as const }));
 
-    const recentlyReviewedGames = gamesWithDetails
-        .filter(game => !game.isPinned && game.voteCount && game.voteCount > 0) // Using voteCount as proxy for reviewed
-        .sort((a, b) => (b.voteCount || 0) - (a.voteCount || 0)) // Sort by vote count as proxy
-        .slice(0, 5); // Take more than 3 initially to allow for deduplication
-
+    const recentlyReviewedGames = enrichedGames
+        .filter(game => !game.isPinned && game._latestReviewDate)
+        .sort((a, b) => (b._latestReviewDate?.getTime() || 0) - (a._latestReviewDate?.getTime() || 0))
+        .map(game => ({ ...game, featuredReason: 'recent' as const }));
+    
     const finalFeaturedGames: BoardGame[] = [];
     const featuredGameIds = new Set<string>();
 
@@ -814,14 +799,13 @@ export async function getFeaturedGamesAction(): Promise<BoardGame[]> {
             if (finalFeaturedGames.length >= 3) break;
             if (game.id && !featuredGameIds.has(game.id)) {
                  const { _latestReviewDate, ...gameToAdd } = game;
-                finalFeaturedGames.push({ ...gameToAdd, featuredReason: 'recent' } as BoardGame);
+                finalFeaturedGames.push(gameToAdd as BoardGame);
                 featuredGameIds.add(game.id);
             }
         }
     }
     return finalFeaturedGames.slice(0, 3);
   } catch (error) {
-      console.error("Error in getFeaturedGamesAction:", error);
       return [];
   }
 }
@@ -836,20 +820,16 @@ export async function getAllGamesAction(options: { skipRatingCalculation?: boole
 }
 
 export async function fetchAndUpdateBggGameDetailsAction(bggId: number): Promise<{ success: boolean; message: string; error?: string; updateData?: Partial<BoardGame> }> {
-    // console.log(`[SERVER ACTION fetchAndUpdateBggGameDetailsAction] Received bggId: ${bggId} (type: ${typeof bggId})`);
     if (!bggId || typeof bggId !== 'number' || isNaN(bggId) || bggId <= 0) {
         const errorMsg = `ID BGG non valido fornito: ${bggId} (tipo: ${typeof bggId})`;
-        // console.error(`[SERVER ACTION fetchAndUpdateBggGameDetailsAction] Validation Error: ${errorMsg}`);
         return { success: false, message: "ID BGG non valido fornito.", error: errorMsg };
     }
 
     try {
-        const thingUrl = `${BGG_API_BASE_URL}/thing?id=${bggId}&stats=1`; // Ensure stats=1
-        // console.log(`[SERVER ACTION fetchAndUpdateBggGameDetailsAction] Fetching from BGG URL: ${thingUrl}`);
+        const thingUrl = `${BGG_API_BASE_URL}/thing?id=${bggId}&stats=1`;
         const thingXml = await fetchWithRetry(thingUrl);
 
         if (!thingXml) {
-            // console.error(`[SERVER ACTION fetchAndUpdateBggGameDetailsAction] Empty response from BGG for ID ${bggId}.`);
             return { success: false, message: "Impossibile recuperare i dettagli del gioco da BGG.", error: "Risposta BGG vuota" };
         }
 
@@ -874,9 +854,6 @@ export async function fetchAndUpdateBggGameDetailsAction(bggId: number): Promise
         if (parsedBggData.mechanics && parsedBggData.mechanics.length > 0) updateData.mechanics = parsedBggData.mechanics;
         if (parsedBggData.designers && parsedBggData.designers.length > 0) updateData.designers = parsedBggData.designers;
 
-        // console.log("[SERVER ACTION fetchAndUpdateBggGameDetailsAction] Update data prepared:", JSON.stringify(updateData, null, 2));
-
-
         if (Object.keys(updateData).length === 0) {
              return { success: true, message: `Nessun nuovo dettaglio da aggiornare per ${parsedBggData.name || `BGG ID ${bggId}`} da BGG.`, updateData: {} };
         }
@@ -889,7 +866,6 @@ export async function fetchAndUpdateBggGameDetailsAction(bggId: number): Promise
 
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Si è verificato un errore sconosciuto durante l\'aggiornamento dei dettagli del gioco.';
-        // console.error(`[SERVER ACTION fetchAndUpdateBggGameDetailsAction] Error for BGG ID ${bggId}:`, errorMessage);
         return { success: false, message: 'Recupero dettagli BGG fallito.', error: errorMessage };
     }
 }
@@ -931,8 +907,8 @@ async function parseBggMultiThingXml(xmlText: string): Promise<Map<number, Parti
 
 export async function batchUpdateMissingBggDetailsAction(): Promise<{ success: boolean; message: string; error?: string; gamesToUpdateClientSide?: Array<{ gameId: string; updateData: Partial<BoardGame>}> }> {
     const MAX_GAMES_TO_PROCESS_IN_BATCH = 20;
-    const BGG_API_BATCH_SIZE = 10; // BGG recommends not hitting too hard, this batches /thing calls
-    const BGG_API_DELAY_MS = 2000; // Delay between batched /thing API calls
+    const BGG_API_BATCH_SIZE = 10; 
+    const BGG_API_DELAY_MS = 2000; 
 
     try {
         const allGamesResult = await getBoardGamesFromFirestoreAction({ skipRatingCalculation: true });
@@ -941,7 +917,7 @@ export async function batchUpdateMissingBggDetailsAction(): Promise<{ success: b
         }
 
         const gamesNeedingUpdate = allGamesResult.filter(game => {
-            if (!game.bggId || game.bggId <= 0) return false; // Skip if no valid BGG ID
+            if (!game.bggId || game.bggId <= 0) return false;
             const isNamePlaceholder = game.name?.startsWith("BGG Gioco ID") || game.name?.startsWith("BGG ID") || game.name === "Name Not Found in Details";
             const isCoverPlaceholder = game.coverArtUrl?.includes("placehold.co");
             const isCoverThumbnail = game.coverArtUrl?.includes("_thumb") && game.coverArtUrl?.includes("cf.geekdo-images.com");
@@ -949,7 +925,7 @@ export async function batchUpdateMissingBggDetailsAction(): Promise<{ success: b
             return game.minPlaytime == null ||
                    game.maxPlaytime == null ||
                    game.averageWeight == null ||
-                   game.bggAverageRating == null ||
+                   // game.bggAverageRating == null || // bggAverageRating can legitimately be null if not enough BGG ratings exist
                    game.yearPublished == null ||
                    game.minPlayers == null ||
                    game.maxPlayers == null ||
@@ -979,7 +955,7 @@ export async function batchUpdateMissingBggDetailsAction(): Promise<{ success: b
             if (bggIdsInChunk.length === 0) continue;
 
             try {
-                const thingUrl = `${BGG_API_BASE_URL}/thing?id=${bggIdsInChunk.join(',')}&stats=1`; // Ensure stats=1
+                const thingUrl = `${BGG_API_BASE_URL}/thing?id=${bggIdsInChunk.join(',')}&stats=1`;
                 const multiItemXml = await fetchWithRetry(thingUrl);
                 const parsedItemsMap = await parseBggMultiThingXml(multiItemXml);
 
@@ -1016,7 +992,6 @@ export async function batchUpdateMissingBggDetailsAction(): Promise<{ success: b
                     await new Promise(resolve => setTimeout(resolve, BGG_API_DELAY_MS));
                 }
             } catch (batchFetchError) {
-                // console.error(`[SERVER ACTION batchUpdateMissingBggDetailsAction] Error fetching BGG batch for IDs ${bggIdsInChunk.join(',')}:`, batchFetchError);
                 erroredFetchCount += gameChunk.length;
             }
         }
@@ -1043,17 +1018,15 @@ export async function batchUpdateMissingBggDetailsAction(): Promise<{ success: b
 
     } catch (error) {
         const errorMessage = String(error instanceof Error ? error.message : error);
-        // console.error(`[SERVER ACTION batchUpdateMissingBggDetailsAction] General Error:`, errorMessage);
         return { success: false, message: 'Arricchimento batch dei dettagli BGG fallito.', error: errorMessage };
     }
 }
 
-export async function searchLocalGamesByNameAction(term: string): Promise<Pick<BoardGame, 'id' | 'name' | 'yearPublished' | 'coverArtUrl' | 'overallAverageRating' | 'bggId' | 'voteCount'>[] | { error: string }> {
+export async function searchLocalGamesByNameAction(term: string): Promise<Pick<BoardGame, 'id' | 'name' | 'yearPublished'>[] | { error: string }> {
   if (!term || term.length < 2) {
     return [];
   }
   try {
-    // Fetch only essential data for the search list, skip rating calculation here
     const allGamesResult = await getBoardGamesFromFirestoreAction({ skipRatingCalculation: true });
     if ('error' in allGamesResult) {
       return { error: allGamesResult.error };
@@ -1062,15 +1035,10 @@ export async function searchLocalGamesByNameAction(term: string): Promise<Pick<B
     const searchTermLower = term.toLowerCase();
     const matchedGames = allGamesResult
       .filter(game => game.name && game.name.toLowerCase().includes(searchTermLower))
-      .map(game => ({ // Map to a lighter object for the header search
+      .map(game => ({ 
         id: game.id,
         name: game.name,
         yearPublished: game.yearPublished ?? undefined,
-        // These fields are not strictly needed for header search results display but are good for consistency
-        coverArtUrl: game.coverArtUrl,
-        overallAverageRating: game.overallAverageRating === undefined ? null : game.overallAverageRating,
-        voteCount: game.voteCount === undefined ? 0 : game.voteCount,
-        bggId: game.bggId
       }))
       .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
 
@@ -1234,7 +1202,6 @@ export async function getMorchiaGamesForUserAction(userId: string): Promise<Boar
   }
 }
 
-
 export async function getSingleReviewDetailsAction(gameId: string, reviewId: string): Promise<AugmentedReviewWithGame | { error: string }> {
   try {
     const gameDocRef = doc(db, FIRESTORE_COLLECTION_NAME, gameId);
@@ -1348,7 +1315,6 @@ function parseBggPlaysXml(xmlText: string, specificGameBggId?: number, usernameF
   return plays;
 }
 
-// Fetches plays for a specific game by a specific user
 export async function fetchUserPlaysForGameFromBggAction(
   gameBggId: number,
   username: string
@@ -1379,7 +1345,6 @@ export async function fetchUserPlaysForGameFromBggAction(
   }
 }
 
-// Fetches all plays (paginated) for a specific user
 export async function fetchAllUserPlaysFromBggAction(
   username: string,
   page: number = 1
@@ -1494,3 +1459,4 @@ export async function getLastPlayedGameAction(username: string): Promise<{ game:
     return { game: null, lastPlayDetail: null };
   }
 }
+
