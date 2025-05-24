@@ -17,7 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import {
-  AlertCircle, Loader2, Info, Edit, Trash2, Users, Clock, CalendarDays as CalendarIcon, ExternalLink, Weight, PenTool, Dices, MessageSquare, Heart, Settings, Trophy, Medal, UserCircle2, Star, Palette, ClipboardList, Repeat, Sparkles, Pin, PinOff, Wand2, DownloadCloud, Bookmark, BookMarked, Frown, UserCheck
+  AlertCircle, Loader2, Info, Edit, Trash2, Users, Clock, CalendarDays as CalendarIcon, ExternalLink, Weight, PenTool, Dices, MessageSquare, Heart, ListPlus, ListChecks, Settings, Trophy, Medal, UserCircle2, Star, Palette, ClipboardList, Repeat, Sparkles, Pin, PinOff, Wand2, DownloadCloud, Bookmark, BookMarked, Frown, UserCheck
 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
@@ -50,10 +50,6 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Badge } from '@/components/ui/badge';
-import { GameDetailMetadata } from '@/components/boardgame/game-detail-metadata';
-import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
-import { SafeImage } from '@/components/common/SafeImage';
-import { cn } from '@/lib/utils';
 
 
 const FIRESTORE_COLLECTION_NAME = 'boardgames_collection';
@@ -205,9 +201,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         voteCount: newVoteCount
       });
       
-      // Update local game state immediately
       setGame(prevGame => prevGame ? { ...prevGame, overallAverageRating: newOverallAverage, voteCount: newVoteCount } : null);
-      setGlobalGameAverage(newOverallAverage); // Update global average for the header
+      setGlobalGameAverage(newOverallAverage);
       
       revalidateGameDataAction(game.id);
     } catch (error) {
@@ -246,7 +241,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
     const originalPinnedStatus = currentIsPinned;
     const newPinnedStatus = !currentIsPinned;
-    setCurrentIsPinned(newPinnedStatus); // Optimistic UI update
+    setCurrentIsPinned(newPinnedStatus); 
 
     startPinToggleTransition(async () => {
       try {
@@ -261,7 +256,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Errore sconosciuto durante l'aggiornamento del pin.";
         toast({ title: "Errore Pin", description: errorMessage, variant: "destructive" });
-        setCurrentIsPinned(originalPinnedStatus); // Revert on error
+        setCurrentIsPinned(originalPinnedStatus); 
       }
     });
   };
@@ -423,11 +418,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
     const originalMorchiaStatus = isMorchiaByCurrentUser;
     const newMorchiaStatus = !originalMorchiaStatus;
-    const newMorchiaCount = newMorchiaStatus ? (currentMorchiaCount || 0) + 1 : Math.max(0, (currentMorchiaCount || 0) - 1);
     
-    setIsMorchiaByCurrentUser(newMorchiaStatus);
-    setCurrentMorchiaCount(newMorchiaCount);
-
     startMorchiaTransition(async () => {
       const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
       try {
@@ -436,13 +427,20 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           morchiaCount: increment(newMorchiaStatus ? 1 : -1)
         });
         
-        setGame(prevGame => prevGame ? ({
-            ...prevGame,
-            morchiaByUserIds: newMorchiaStatus
-              ? [...(prevGame.morchiaByUserIds || []), currentUser.uid]
-              : (prevGame.morchiaByUserIds || []).filter(id => id !== currentUser.uid),
-            morchiaCount: newMorchiaCount,
-          }) : null);
+        // Update local game state after Firestore success
+        const updatedGameData = { ...game };
+        if (newMorchiaStatus) {
+          updatedGameData.morchiaByUserIds = [...(updatedGameData.morchiaByUserIds || []), currentUser.uid];
+          updatedGameData.morchiaCount = (updatedGameData.morchiaCount || 0) + 1;
+        } else {
+          updatedGameData.morchiaByUserIds = (updatedGameData.morchiaByUserIds || []).filter(id => id !== currentUser.uid);
+          updatedGameData.morchiaCount = Math.max(0, (updatedGameData.morchiaCount || 0) - 1);
+        }
+        setGame(updatedGameData);
+
+        // Also update dedicated states for immediate UI feedback
+        setIsMorchiaByCurrentUser(newMorchiaStatus);
+        setCurrentMorchiaCount(updatedGameData.morchiaCount);
 
         revalidateGameDataAction(game.id);
         toast({
@@ -486,8 +484,9 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Impossibile aggiornare la Morchia List.";
         toast({ title: "Errore", description: errorMessage, variant: "destructive" });
-         setIsMorchiaByCurrentUser(originalMorchiaStatus);
-         setCurrentMorchiaCount(currentMorchiaCount === 0 && !newMorchiaStatus ? 0 : (currentMorchiaCount + (originalMorchiaStatus ? 1: -1)));
+        // Revert optimistic UI updates on error
+        setIsMorchiaByCurrentUser(originalMorchiaStatus);
+        setCurrentMorchiaCount(game.morchiaCount || 0); // Revert to original count from game state
       }
     });
   };
@@ -499,6 +498,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     }
     setIsFetchingDetailsFor(game.id);
     startBggDetailsFetchTransition(async () => {
+      // Fetch details from BGG via Server Action
       const serverActionResult = await fetchAndUpdateBggGameDetailsAction(game.bggId);
 
       if (!serverActionResult.success || !serverActionResult.updateData) {
@@ -512,7 +512,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         try {
           await updateDoc(gameRef, serverActionResult.updateData);
           toast({ title: 'Dettagli Aggiornati', description: `Dettagli per ${game.name} aggiornati con successo.` });
-          revalidateGameDataAction(game.id);
+          await revalidateGameDataAction(game.id);
           fetchGameData(); // Re-fetch game data to update UI
         } catch (dbError) {
           const errorMessage = dbError instanceof Error ? dbError.message : "Errore sconosciuto durante l'aggiornamento del DB.";
@@ -535,6 +535,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
     startFetchPlaysTransition(async () => {
       try {
+        // 1. Fetch plays from BGG via server action
         const bggFetchResult = await fetchUserPlaysForGameFromBggAction(game.bggId, usernameToFetch);
 
         if (!bggFetchResult.success || !bggFetchResult.plays) {
@@ -550,12 +551,14 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             const batch = writeBatch(db);
             const playsSubcollectionRef = collection(db, FIRESTORE_COLLECTION_NAME, game.id, 'plays_' + usernameToFetch.toLowerCase());
 
+            // 2. Save fetched plays to Firestore (client-side)
             playsToSave.forEach(play => {
                 const playDocRef = doc(playsSubcollectionRef, play.playId);
+                // Augment play data with userId and gameBggId if not already present from server action
                 const playDataForFirestore: BggPlayDetail = {
                     ...play,
-                    userId: usernameToFetch,
-                    gameBggId: game.bggId,
+                    userId: usernameToFetch, // Ensure userId is set
+                    gameBggId: game.bggId,   // Ensure gameBggId is set
                 };
                 batch.set(playDocRef, playDataForFirestore, { merge: true });
                 playsSavedCount++;
@@ -563,6 +566,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             
             await batch.commit(); 
 
+            // 3. Update lctr01Plays count on the main game document
             await updateDoc(gameRef, { lctr01Plays: playsSavedCount });
             
             toast({
@@ -570,14 +574,15 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 description: bggFetchResult.message || `Caricate e salvate ${playsSavedCount} partite per ${game.name}. Conteggio aggiornato.`,
             });
         } else {
+            // If no plays found, ensure lctr01Plays count is 0 on the game doc
             await updateDoc(gameRef, { lctr01Plays: 0 });
             toast({
                 title: "Nessuna Partita Trovata",
                 description: bggFetchResult.message || `Nessuna partita trovata su BGG per ${usernameToFetch} per questo gioco. Conteggio azzerato.`,
             });
         }
-        revalidateGameDataAction(game.id);
-        fetchGameData(); 
+        await revalidateGameDataAction(game.id);
+        fetchGameData(); // Re-fetch game data to update UI including plays
       } catch (error) {
          const errorMessage = error instanceof Error ? error.message : "Impossibile salvare le partite nel database.";
          toast({ title: 'Errore Elaborazione Partite DB', description: errorMessage, variant: 'destructive' });
@@ -643,7 +648,7 @@ const handleGenerateRecommendations = async () => {
         play.players.forEach(p => {
           if (p.didWin) {
             const playerIdentifier = p.username || p.name; 
-            const displayName = p.name || p.username; 
+            const displayName = p.name || p.username || 'Sconosciuto'; 
             if (playerIdentifier && displayName) {
               const current = playerStats.get(playerIdentifier) || { wins: 0, totalScore: 0, name: displayName };
               current.wins += (play.quantity || 1);
@@ -747,7 +752,6 @@ const handleGenerateRecommendations = async () => {
         highestScoreAchieved={highestScoreAchieved}
       />
       
-      {/* Sections below the main card */}
       {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
         <Card className="shadow-md border border-border rounded-lg">
           <CardHeader className="flex flex-row justify-between items-center">
@@ -810,7 +814,7 @@ const handleGenerateRecommendations = async () => {
                                     .map((player, pIndex) => (
                                     <li key={pIndex} className={cn(
                                         `flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5 px-2`,
-                                        pIndex % 2 === 0 ? 'bg-muted/30' : '' // Even rows for 0-indexed
+                                        pIndex % 2 === 0 ? 'bg-muted/30' : '' 
                                     )}>
                                         <div className="flex items-center gap-1.5 flex-grow min-w-0">
                                             <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 relative top-px" />
@@ -835,7 +839,7 @@ const handleGenerateRecommendations = async () => {
                             </div>
                           )}
                            {(play.location && play.location.trim() !== '') && (
-                              <div className="grid grid-cols-[auto_1fr] gap-x-2 items-baseline pt-2 border-t border-dashed">
+                              <div className="grid grid-cols-[auto_1fr] gap-x-2 items-baseline pt-2 border-t border-dashed mt-3">
                                 <strong className="text-muted-foreground text-xs">Luogo:</strong>
                                 <p className="text-xs whitespace-pre-wrap">{play.location}</p>
                               </div>
@@ -850,6 +854,7 @@ const handleGenerateRecommendations = async () => {
         </Card>
       )}
 
+      {/* User's Review Section */}
         {currentUser && userReview && (
           <div className="space-y-4">
               <div className="flex flex-row items-center justify-between gap-2">
@@ -893,6 +898,7 @@ const handleGenerateRecommendations = async () => {
           </div>
         )}
         
+      {/* Other Reviews Section */}
       {remainingReviews.length > 0 && (
         <>
           <Separator className="my-6" />
@@ -903,10 +909,14 @@ const handleGenerateRecommendations = async () => {
           <ReviewList reviews={remainingReviews} />
         </>
       )}
+      {/* Empty States for Other Reviews */}
       {remainingReviews.length === 0 && !isLoadingGame && game.reviews && game.reviews.length > 0 && userReview && (
           <Alert variant="default" className="bg-secondary/30 border-secondary mt-6">
             <UserCheck className="h-4 w-4" />
-            <AlertTitle>Nessun altro ha ancora recensito questo gioco.</AlertTitle>
+            <AlertTitle>Sei l'Unico!</AlertTitle>
+             <AlertDescription>
+              Per ora, la tua è l'unica valutazione per questo gioco.
+            </AlertDescription>
           </Alert>
         )}
       {remainingReviews.length === 0 && !isLoadingGame && (!game.reviews || game.reviews.length === 0) && !userReview && (
@@ -919,130 +929,132 @@ const handleGenerateRecommendations = async () => {
           </Alert>
         )}
 
-      <div className="pt-8">
-        <Card className="shadow-md border border-border rounded-lg">
-        <CardHeader>
-            <CardTitle className="text-xl flex items-center gap-2">
-                <Wand2 className="h-5 w-5 text-primary" />
-                Potrebbe Piacerti Anche
-            </CardTitle>
-            <CardDescription>
-                Suggerimenti AI basati su questo gioco dal nostro catalogo.
-            </CardDescription>
-        </CardHeader>
-        <CardContent>
-            <Button onClick={handleGenerateRecommendations} disabled={isFetchingRecommendations} className="w-full sm:w-auto mb-4">
-                {isFetchingRecommendations ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                <Wand2 className="mr-2 h-4 w-4" />
-                )}
-                {enrichedAiRecommendations.length > 0 ? "Ottieni Nuovi Suggerimenti" : "Ottieni Suggerimenti AI"}
-            </Button>
+      {/* AI Recommendations Section */}
+      {currentUser && (
+        <div className="pt-8">
+          <Card className="shadow-md border border-border rounded-lg">
+          <CardHeader>
+              <CardTitle className="text-xl flex items-center gap-2">
+                  <Wand2 className="h-5 w-5 text-primary" />
+                  Potrebbe Piacerti Anche
+              </CardTitle>
+              <CardDescription>
+                  Suggerimenti AI basati su questo gioco dal nostro catalogo.
+              </CardDescription>
+          </CardHeader>
+          <CardContent>
+              <Button onClick={handleGenerateRecommendations} disabled={isFetchingRecommendations} className="w-full sm:w-auto mb-4">
+                  {isFetchingRecommendations ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                  <Wand2 className="mr-2 h-4 w-4" />
+                  )}
+                  {enrichedAiRecommendations.length > 0 ? "Ottieni Nuovi Suggerimenti" : "Ottieni Suggerimenti AI"}
+              </Button>
 
-            {recommendationError && (
-                <Alert variant="destructive" className="mt-4">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Errore Suggerimenti AI</AlertTitle>
-                <AlertDescription>{recommendationError}</AlertDescription>
-                </Alert>
-            )}
-            {enrichedAiRecommendations.length > 0 && (
-              <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {enrichedAiRecommendations.map((rec) => {
-                  const isRecFavorited = currentUser ? rec.favoritedByUserIds?.includes(currentUser.uid) : false;
-                  const isRecPlaylisted = currentUser ? rec.playlistedByUserIds?.includes(currentUser.uid) : false;
-                  const recFallbackSrc = `https://placehold.co/64x96.png?text=${encodeURIComponent(rec.name?.substring(0,3) || 'N/A')}`;
-                  return (
-                    <Card key={rec.id} className="p-3 border rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors flex flex-col justify-between">
-                      <div className="flex flex-row items-start gap-3">
-                        <div className="relative w-16 h-24 flex-shrink-0 rounded-md overflow-hidden shadow-sm">
-                          <SafeImage
-                            src={rec.coverArtUrl}
-                            fallbackSrc={recFallbackSrc}
-                            alt={`${rec.name} copertina`}
-                            fill
-                            className="object-cover"
-                            data-ai-hint={`board game ${rec.name.split(' ')[0]?.toLowerCase() || 'mini'}`}
-                            sizes="64px"
-                          />
-                        </div>
-                        <div className="flex-1 flex flex-col">
-                          <div className="flex justify-between items-center mb-1">
-                            <Link href={`/games/${rec.id}`} className="group">
-                              <h5 className="font-semibold text-primary group-hover:underline line-clamp-2">{rec.name}</h5>
-                            </Link>
-                            {currentUser && (
-                              <div className="flex items-center gap-0.5">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={async () => {
-                                    const targetGame = allGamesForAICatalog.find(g => g.id === rec.id);
-                                    if (targetGame && currentUser) {
+              {recommendationError && (
+                  <Alert variant="destructive" className="mt-4">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Errore Suggerimenti AI</AlertTitle>
+                  <AlertDescription>{recommendationError}</AlertDescription>
+                  </Alert>
+              )}
+              {enrichedAiRecommendations.length > 0 && (
+                <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {enrichedAiRecommendations.map((rec) => {
+                    const isRecFavorited = currentUser ? rec.favoritedByUserIds?.includes(currentUser.uid) : false;
+                    const isRecPlaylisted = currentUser ? rec.playlistedByUserIds?.includes(currentUser.uid) : false;
+                    const recFallbackSrc = `https://placehold.co/64x96.png?text=${encodeURIComponent(rec.name?.substring(0,3) || 'N/A')}`;
+                    return (
+                      <Card key={rec.id} className="p-3 border rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors flex flex-col justify-between">
+                        <div className="flex flex-row items-start gap-3">
+                          <div className="relative w-16 h-24 flex-shrink-0 rounded-md overflow-hidden shadow-sm">
+                            <SafeImage
+                              src={rec.coverArtUrl}
+                              fallbackSrc={recFallbackSrc}
+                              alt={`${rec.name} copertina`}
+                              fill
+                              className="object-cover"
+                              data-ai-hint={`board game ${rec.name.split(' ')[0]?.toLowerCase() || 'mini'}`}
+                              sizes="64px"
+                            />
+                          </div>
+                          <div className="flex-1 flex flex-col">
+                            <div className="flex justify-between items-center mb-1">
+                              <Link href={`/games/${rec.id}`} className="group">
+                                <h5 className="font-semibold text-primary group-hover:underline line-clamp-2">{rec.name}</h5>
+                              </Link>
+                              {currentUser && (
+                                <div className="flex items-center gap-0.5">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={async () => {
+                                      const targetGame = allGamesForAICatalog.find(g => g.id === rec.id);
+                                      if (targetGame && currentUser) {
+                                          const originalGameContext = game;
+                                          setGame(targetGame); 
+                                          await handleToggleFavorite(); 
+                                          setGame(originalGameContext); 
+                                          
+                                          const updatedRecs = enrichedAiRecommendations.map(r => 
+                                              r.id === rec.id ? { ...r, 
+                                                  favoritedByUserIds: isRecFavorited 
+                                                      ? (r.favoritedByUserIds || []).filter(id => id !== currentUser.uid) 
+                                                      : [...(r.favoritedByUserIds || []), currentUser.uid],
+                                                  favoriteCount: (r.favoriteCount || 0) + (isRecFavorited ? -1 : 1) 
+                                              } : r
+                                          );
+                                          setEnrichedAiRecommendations(updatedRecs);
+                                      }
+                                    }}
+                                    disabled={isFavoriting || authLoading}
+                                    title={isRecFavorited ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
+                                    className={`h-7 w-7 p-1 ${isRecFavorited ? 'text-destructive hover:bg-destructive/20' : 'text-destructive/60 hover:text-destructive hover:bg-destructive/10'}`}
+                                  >
+                                    <Heart className={`h-4 w-4 ${isRecFavorited ? 'fill-destructive' : ''}`} />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                     onClick={async () => {
+                                      const targetGame = allGamesForAICatalog.find(g => g.id === rec.id);
+                                      if(targetGame && currentUser) {
                                         const originalGameContext = game;
-                                        setGame(targetGame); 
-                                        await handleToggleFavorite(); 
-                                        setGame(originalGameContext); 
-                                        
-                                        const updatedRecs = enrichedAiRecommendations.map(r => 
-                                            r.id === rec.id ? { ...r, 
-                                                favoritedByUserIds: isRecFavorited 
-                                                    ? (r.favoritedByUserIds || []).filter(id => id !== currentUser.uid) 
-                                                    : [...(r.favoritedByUserIds || []), currentUser.uid],
-                                                favoriteCount: (r.favoriteCount || 0) + (isRecFavorited ? -1 : 1) 
-                                            } : r
+                                        setGame(targetGame);
+                                        await handleTogglePlaylist();
+                                        setGame(originalGameContext);
+                                        const updatedRecs = enrichedAiRecommendations.map(r =>
+                                          r.id === rec.id ? { ...r, 
+                                              playlistedByUserIds: isRecPlaylisted
+                                                  ? (r.playlistedByUserIds || []).filter(id => id !== currentUser.uid)
+                                                  : [...(r.playlistedByUserIds || []), currentUser.uid]
+                                          } : r
                                         );
                                         setEnrichedAiRecommendations(updatedRecs);
-                                    }
-                                  }}
-                                  disabled={isFavoriting || authLoading}
-                                  title={isRecFavorited ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
-                                  className={`h-7 w-7 p-1 ${isRecFavorited ? 'text-destructive hover:bg-destructive/20' : 'text-destructive/60 hover:text-destructive hover:bg-destructive/10'}`}
-                                >
-                                  <Heart className={`h-4 w-4 ${isRecFavorited ? 'fill-destructive' : ''}`} />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                   onClick={async () => {
-                                    const targetGame = allGamesForAICatalog.find(g => g.id === rec.id);
-                                    if(targetGame && currentUser) {
-                                      const originalGameContext = game;
-                                      setGame(targetGame);
-                                      await handleTogglePlaylist();
-                                      setGame(originalGameContext);
-                                      const updatedRecs = enrichedAiRecommendations.map(r =>
-                                        r.id === rec.id ? { ...r, 
-                                            playlistedByUserIds: isRecPlaylisted
-                                                ? (r.playlistedByUserIds || []).filter(id => id !== currentUser.uid)
-                                                : [...(r.playlistedByUserIds || []), currentUser.uid]
-                                        } : r
-                                      );
-                                      setEnrichedAiRecommendations(updatedRecs);
-                                    }
-                                  }}
-                                  disabled={isPlaylisting || authLoading}
-                                  title={isRecPlaylisted ? "Rimuovi dalla Playlist" : "Aggiungi alla Playlist"}
-                                  className={`h-7 w-7 p-1 ${isRecPlaylisted ? 'text-sky-500 hover:bg-sky-500/20' : 'text-sky-500/60 hover:text-sky-500 hover:bg-sky-500/10'}`}
-                                >
-                                  {isRecPlaylisted ? <BookMarked className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
-                                </Button>
-                              </div>
-                            )}
+                                      }
+                                    }}
+                                    disabled={isPlaylisting || authLoading}
+                                    title={isRecPlaylisted ? "Rimuovi dalla Playlist" : "Aggiungi alla Playlist"}
+                                    className={`h-7 w-7 p-1 ${isRecPlaylisted ? 'text-sky-500 hover:bg-sky-500/20' : 'text-sky-500/60 hover:text-sky-500 hover:bg-sky-500/10'}`}
+                                  >
+                                    {isRecPlaylisted ? <BookMarked className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-0.5 mb-1">{rec.reason}</p>
                           </div>
-                          <p className="text-xs text-muted-foreground mt-0.5 mb-1">{rec.reason}</p>
                         </div>
-                      </div>
-                    </Card>
-                  );
-                })}
-              </div>
-            )}
-        </CardContent>
-        </Card>
-      </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+          </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
-
