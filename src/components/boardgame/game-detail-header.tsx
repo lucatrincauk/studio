@@ -10,7 +10,8 @@ import { Card } from '@/components/ui/card';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   Star, ExternalLink, Heart, Settings, Pin, PinOff, Loader2, DownloadCloud, Dices, UserCircle2, Edit, Trash2, CalendarDays, Weight, PenTool, Clock, Medal, Sparkles, Trophy, Users, ListPlus, ListChecks, Wand2,
-  MessageSquare, Bookmark, BookMarked
+  MessageSquare, Bookmark, BookMarked,
+  Frown
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatRatingNumber } from '@/lib/utils';
