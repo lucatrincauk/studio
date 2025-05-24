@@ -1,3 +1,4 @@
+
 import type { LucideIcon } from 'lucide-react';
 
 export type RatingCategory =
@@ -28,19 +29,18 @@ export const RATING_CATEGORIES: Record<RatingCategory, string> = {
   setupTeardown: "Preparazione e Ripristino",
 };
 
-// New weights for 1-10 scale
 export const RATING_WEIGHTS: Record<RatingCategory, number> = {
-  excitedToReplay: 2,    // Was 4 on 1-5, halved for 1-10
-  mentallyStimulating: 1,// Was 2 on 1-5, halved for 1-10
-  fun: 1,                // Was 2 on 1-5, halved for 1-10
-  decisionDepth: 1,      // Was 2 on 1-5, halved for 1-10
-  replayability: 1,      // Was 2 on 1-5, halved for 1-10
-  luck: 1,               // Was 2 on 1-5, halved for 1-10
-  lengthDowntime: 1,     // Was 2 on 1-5, halved for 1-10
-  graphicDesign: 0.5,    // Was 1 on 1-5, halved for 1-10
-  componentsThemeLore: 0.5,// Was 1 on 1-5, halved for 1-10
-  effortToLearn: 0.5,    // Was 1 on 1-5, halved for 1-10
-  setupTeardown: 0.5,    // Was 1 on 1-5, halved for 1-10
+  excitedToReplay: 2,
+  mentallyStimulating: 1,
+  fun: 1,
+  decisionDepth: 1,
+  replayability: 1,
+  luck: 1,
+  lengthDowntime: 1,
+  graphicDesign: 0.5,
+  componentsThemeLore: 0.5,
+  effortToLearn: 0.5,
+  setupTeardown: 0.5,
 };
 
 
@@ -91,10 +91,11 @@ export interface BoardGame {
   yearPublished?: number | null;
   minPlayers?: number | null;
   maxPlayers?: number | null;
-  playingTime?: number | null; 
-  minPlaytime?: number | null; 
-  maxPlaytime?: number | null; 
-  averageWeight?: number | null; 
+  playingTime?: number | null;
+  minPlaytime?: number | null;
+  maxPlaytime?: number | null;
+  averageWeight?: number | null;
+  bggAverageRating?: number | null; // BGG's Bayesian average rating
   overallAverageRating?: number | null; // Calculated as 1-10
   voteCount?: number;
   isPinned?: boolean;
@@ -137,19 +138,17 @@ export interface UserProfile {
   photoURL?: string | null;
   email?: string | null;
   bggUsername?: string | null;
-  hasSubmittedReview?: boolean; // For "First Reviewer" badge
-  hasGivenFirstOne?: boolean; // For "Rating Connoisseur (Min)" badge (gave a 1)
-  hasGivenFirstFive?: boolean; // For "Rating Enthusiast (Max)" badge (gave a 10)
+  hasSubmittedReview?: boolean;
+  hasGivenFirstOne?: boolean;
+  hasGivenFirstFive?: boolean;
   hasEarnedComprehensiveCritic?: boolean;
   hasEarnedNightOwlReviewer?: boolean;
   hasReceivedWelcomeBadge?: boolean;
   hasEarnedFavoriteFanaticBadge?: boolean;
   hasEarnedPlaylistProBadge?: boolean;
-  // Flags for Prolific Reviewer badges
   hasEarnedProlificBronze?: boolean;
   hasEarnedProlificSilver?: boolean;
   hasEarnedProlificGold?: boolean;
-  // Flag for Morchia Hunter
   hasEarnedMorchiaHunter?: boolean;
 }
 
@@ -172,12 +171,12 @@ export interface BggPlayDetail {
   comments: string | null;
   location?: string | null;
   players?: BggPlayerInPlay[];
-  userId?: string; 
-  gameBggId: number; 
+  userId?: string;
+  gameBggId: number;
 }
 
 export interface AugmentedBggPlayDetail extends BggPlayDetail {
-  gameId: string; 
+  gameId: string;
   gameName: string;
   gameCoverArtUrl?: string | null;
 }
@@ -191,8 +190,15 @@ export type RecommendGamesInput = {
 export type RecommendedGame = {
   id: string;
   name: string;
-  reason: string;
+  reason: string; // Will be in Italian
 };
+export type EnrichedAIRecommendedGame = RecommendedGame & {
+  coverArtUrl?: string | null;
+  favoritedByUserIds?: string[];
+  playlistedByUserIds?: string[];
+  favoriteCount?: number;
+}
+
 export type RecommendGamesOutput = {
   recommendations: RecommendedGame[];
 };
