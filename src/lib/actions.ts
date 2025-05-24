@@ -197,7 +197,6 @@ function parseBggThingXmlToBoardGame(xmlText: string, bggIdInput: number): Parti
     gameData.averageWeight = parseNumericValueHelper(/<statistics>[\s\S]*?<ratings>[\s\S]*?<averageweight(?:[^>]*?\s)?value="([\d\.]+)"[^>]*\/?>[\s\S]*?<\/ratings>[\s\S]*?<\/statistics>/i, xmlText, true);
     gameData.bggAverageRating = parseNumericValueHelper(/<statistics>[\s\S]*?<ratings>[\s\S]*?<bayesaverage(?:[^>]*?\s)?value="([\d\.]+)"[^>]*\/?>[\s\S]*?<\/ratings>[\s\S]*?<\/statistics>/i, xmlText, true);
 
-
     const parseLinks = (type: string): string[] => {
       const values: string[] = [];
       const linkRegex = new RegExp(`<link\\s+type="${type}"(?:[^>]*?)value="([^"]+)"(?:[^>]*)?\\/>`, "gi");
@@ -248,7 +247,7 @@ async function fetchWithRetry(url: string, retries = 3, delay = 1500, attempt = 
       }
   } catch (error) {
     let isBggApiError = false;
-    let errorMessage = String(error);
+    let errorMessage = String(error); // Default to string representation
     if (error instanceof Error) {
         errorMessage = error.message;
         if (errorMessage.startsWith("BGG API Error:") || errorMessage.startsWith("BGG API returned an error:")) {
@@ -257,9 +256,10 @@ async function fetchWithRetry(url: string, retries = 3, delay = 1500, attempt = 
     }
 
     if (isBggApiError) {
-        throw error;
+        throw error; // Re-throw BGG specific errors
     } else {
-      throw new Error(`Network or unexpected error fetching BGG data for ${url}: ${errorMessage}`);
+        // Wrap non-BGG errors (like network issues) in a new error
+        throw new Error(`Network or unexpected error fetching BGG data for ${url}: ${errorMessage}`);
     }
   }
 }
@@ -331,7 +331,7 @@ export async function getGameDetails(gameId: string): Promise<BoardGame | null> 
         minPlaytime: data.minPlaytime ?? null,
         maxPlaytime: data.maxPlaytime ?? null,
         averageWeight: data.averageWeight ?? null,
-        bggAverageRating: data.bggAverageRating ?? null,
+        bggAverageRating: data.bggAverageRating === undefined ? null : data.bggAverageRating,
         categories: data.categories ?? [],
         mechanics: data.mechanics ?? [],
         designers: data.designers ?? [],
@@ -395,7 +395,7 @@ export async function getBoardGamesFromFirestoreAction(
             minPlaytime: data.minPlaytime ?? null,
             maxPlaytime: data.maxPlaytime ?? null,
             averageWeight: data.averageWeight ?? null,
-            bggAverageRating: data.bggAverageRating ?? null,
+            bggAverageRating: data.bggAverageRating === undefined ? null : data.bggAverageRating,
             categories: data.categories ?? [],
             mechanics: data.mechanics ?? [],
             designers: data.designers ?? [],
@@ -512,7 +512,7 @@ export async function importAndRateBggGameAction(bggId: string): Promise<{ gameI
           minPlaytime: parsedBggData.minPlaytime ?? null,
           maxPlaytime: parsedBggData.maxPlaytime ?? null,
           averageWeight: parsedBggData.averageWeight ?? null,
-          bggAverageRating: parsedBggData.bggAverageRating ?? null,
+          bggAverageRating: parsedBggData.bggAverageRating === undefined ? null : parsedBggData.bggAverageRating,
           categories: parsedBggData.categories ?? [],
           mechanics: parsedBggData.mechanics ?? [],
           designers: parsedBggData.designers ?? [],
@@ -1009,7 +1009,7 @@ export async function getFavoritedGamesForUserAction(userId: string): Promise<Bo
         minPlaytime: data.minPlaytime ?? null,
         maxPlaytime: data.maxPlaytime ?? null,
         averageWeight: data.averageWeight ?? null,
-        bggAverageRating: data.bggAverageRating ?? null,
+        bggAverageRating: data.bggAverageRating === undefined ? null : data.bggAverageRating,
         categories: data.categories ?? [],
         mechanics: data.mechanics ?? [],
         designers: data.designers ?? [],
@@ -1053,7 +1053,7 @@ export async function getPlaylistedGamesForUserAction(userId: string): Promise<B
         minPlaytime: data.minPlaytime ?? null,
         maxPlaytime: data.maxPlaytime ?? null,
         averageWeight: data.averageWeight ?? null,
-        bggAverageRating: data.bggAverageRating ?? null,
+        bggAverageRating: data.bggAverageRating === undefined ? null : data.bggAverageRating,
         categories: data.categories ?? [],
         mechanics: data.mechanics ?? [],
         designers: data.designers ?? [],
@@ -1098,7 +1098,7 @@ export async function getMorchiaGamesForUserAction(userId: string): Promise<Boar
         minPlaytime: data.minPlaytime ?? null,
         maxPlaytime: data.maxPlaytime ?? null,
         averageWeight: data.averageWeight ?? null,
-        bggAverageRating: data.bggAverageRating ?? null,
+        bggAverageRating: data.bggAverageRating === undefined ? null : data.bggAverageRating,
         categories: data.categories ?? [],
         mechanics: data.mechanics ?? [],
         designers: data.designers ?? [],
@@ -1235,6 +1235,7 @@ function parseBggPlaysXml(xmlText: string, specificGameBggId?: number, usernameF
 }
 
 export async function fetchUserPlaysForGameFromBggAction(
+  gameFirestoreId: string, // Keep firestore ID for potential error messages or future use
   gameBggId: number,
   username: string
 ): Promise<{ success: boolean; plays?: BggPlayDetail[]; message?: string; error?: string }> {
@@ -1386,3 +1387,4 @@ export async function getLastPlayedGameAction(username: string): Promise<{ game:
     return { game: null, lastPlayDetail: null };
   }
 }
+
