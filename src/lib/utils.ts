@@ -12,13 +12,10 @@ export function cn(...inputs: ClassValue[]) {
 
 export function formatRatingNumber(num: number | null | undefined): string {
   if (num === null || num === undefined) return '-';
-  // Always show one decimal place
   return num.toFixed(1);
 }
 
-// Calculates the direct weighted average from a single Rating object (1-10 scale)
 export function calculateOverallCategoryAverage(rating: Rating | null): number {
-  // console.log('[UTILS] calculateOverallCategoryAverage input rating:', rating);
   if (!rating) return 0;
 
   let weightedSum = 0;
@@ -26,7 +23,7 @@ export function calculateOverallCategoryAverage(rating: Rating | null): number {
 
   (Object.keys(rating) as Array<keyof Rating>).forEach(key => {
     const weight = RATING_WEIGHTS[key];
-    const score = rating[key] || 0; // Score is 1-10
+    const score = rating[key] || 0;
     weightedSum += (score * weight);
     sumOfAllWeights += weight;
   });
@@ -34,16 +31,11 @@ export function calculateOverallCategoryAverage(rating: Rating | null): number {
   if (sumOfAllWeights === 0) return 0;
 
   const average = weightedSum / sumOfAllWeights;
-  // console.log('[UTILS] calculateOverallCategoryAverage output average:', average);
-  return Math.round(average * 10) / 10; // Round to one decimal place, result is 1-10
+  return Math.round(average * 10) / 10;
 }
 
-
-// Calculates the average for each sub-category from an array of Review or Rating objects
 export function calculateCategoryAverages(reviewsOrRatings: Review[] | Rating[]): Rating | null {
-  console.log('[UTILS] calculateCategoryAverages input reviewsOrRatings:', JSON.parse(JSON.stringify(reviewsOrRatings)));
   if (!reviewsOrRatings || reviewsOrRatings.length === 0) {
-    console.log('[UTILS] calculateCategoryAverages returning null due to empty input');
     return null;
   }
 
@@ -63,9 +55,9 @@ export function calculateCategoryAverages(reviewsOrRatings: Review[] | Rating[])
   };
 
   reviewsOrRatings.forEach(item => {
-    const rating = 'rating' in item ? item.rating : item; // Check if it's a Review object or a Rating object
+    const ratingToProcess = 'rating' in item ? item.rating : item;
     (Object.keys(sumOfRatings) as Array<keyof Rating>).forEach(key => {
-      const ratingValue = typeof rating[key] === 'number' ? rating[key] : 0;
+      const ratingValue = typeof ratingToProcess[key] === 'number' ? ratingToProcess[key] : 0;
       sumOfRatings[key] += ratingValue;
     });
   });
@@ -73,27 +65,20 @@ export function calculateCategoryAverages(reviewsOrRatings: Review[] | Rating[])
   const averageRatings: Rating = {} as Rating;
   (Object.keys(sumOfRatings) as Array<keyof Rating>).forEach(key => {
     const avg = sumOfRatings[key] / numItems;
-    averageRatings[key] = Math.round(avg * 10) / 10; // Round to one decimal place
+    averageRatings[key] = Math.round(avg * 10) / 10;
   });
 
-  console.log('[UTILS] calculateCategoryAverages output averageRatings:', averageRatings);
   return averageRatings;
 }
 
-// Calculates grouped averages, including section averages, from an array of Review objects
 export function calculateGroupedCategoryAverages(reviews: Review[]): GroupedCategoryAverages | null {
-  console.log('[UTILS] calculateGroupedCategoryAverages input reviews:', JSON.parse(JSON.stringify(reviews)));
   if (!reviews || reviews.length === 0) {
-    console.log('[UTILS] calculateGroupedCategoryAverages returning null due to empty input');
     return null;
   }
   const allRatings = reviews.map(r => r.rating);
   const individualSubCategoryAverages = calculateCategoryAverages(allRatings);
-  console.log('[UTILS] calculateGroupedCategoryAverages - individualSubCategoryAverages:', individualSubCategoryAverages);
-
 
   if (!individualSubCategoryAverages) {
-    console.log('[UTILS] calculateGroupedCategoryAverages returning null because individualSubCategoryAverages is null');
     return null;
   }
 
@@ -109,17 +94,15 @@ export function calculateGroupedCategoryAverages(reviews: Review[]): GroupedCate
     let sumOfSectionWeights = 0;
 
     const subRatings: SubRatingAverage[] = section.keys.map(key => {
-      const subCategoryAverage = individualSubCategoryAverages[key]; // This is already 1-10
+      const subCategoryAverage = individualSubCategoryAverages[key];
       const weight = RATING_WEIGHTS[key];
-
       sectionWeightedSum += (subCategoryAverage * weight);
       sumOfSectionWeights += weight;
-
       return { name: RATING_CATEGORIES[key], average: subCategoryAverage };
     });
 
     const sectionAverageValue = sumOfSectionWeights > 0
-      ? sectionWeightedSum / sumOfSectionWeights // Direct weighted average, result is 1-10
+      ? sectionWeightedSum / sumOfSectionWeights
       : 0;
 
     return {
@@ -129,7 +112,6 @@ export function calculateGroupedCategoryAverages(reviews: Review[]): GroupedCate
       subRatings,
     };
   });
-  console.log('[UTILS] calculateGroupedCategoryAverages output groupedAverages:', groupedAverages);
   return groupedAverages;
 }
 
@@ -144,9 +126,9 @@ export function formatReviewDate(dateString: string): string {
     const yearsDifference = differenceInYears(new Date(), date);
 
     if (yearsDifference >= 1) {
-      return formatDateFns(date, 'dd/MM/yyyy', { locale: it });
+      return formatDateFns(date, 'MMMM yyyy', { locale: it }); // Format for older dates
     } else {
-      return formatDistanceToNow(date, { addSuffix: true, locale: it });
+      return formatDistanceToNow(date, { addSuffix: true, locale: it }); // Relative time for recent dates
     }
   } catch (error) {
     console.error("Error formatting review date:", error);
@@ -166,4 +148,3 @@ export function formatPlayDate(dateString: string): string {
     return "Data non valida";
   }
 }
-
