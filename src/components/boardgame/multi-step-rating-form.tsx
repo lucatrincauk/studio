@@ -18,11 +18,11 @@ import type { User as FirebaseUser } from 'firebase/auth';
 import { Form, FormField, FormItem, FormLabel } from '@/components/ui/form';
 import { Slider } from '@/components/ui/slider';
 import {
-  calculateOverallCategoryAverage, // Use this directly
+  calculateOverallCategoryAverage,
   calculateGroupedCategoryAverages,
   formatRatingNumber,
-  calculateCategoryAverages as calculateCatAvgsFromUtils, // Alias for clarity where used
-} from '@/lib/utils'; // Corrected path assuming utils is in lib
+  calculateCategoryAverages as calculateCatAvgsFromUtils,
+} from '@/lib/utils';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, doc, updateDoc, query, where, getDocs, limit, writeBatch, getDoc, serverTimestamp, setDoc, collectionGroup, getCountFromServer, type Timestamp } from 'firebase/firestore';
 import { revalidateGameDataAction } from '@/lib/actions';
@@ -41,7 +41,7 @@ const SLIDER_LEGENDS: Record<RatingCategory, { minLabel: string; maxLabel: strin
   fun: { minLabel: "💩 Morchia dell'anno", maxLabel: "Troppo togo." },
   decisionDepth: { minLabel: "Pilota automatico", maxLabel: "E se poi te ne penti?" },
   replayability: { minLabel: "Sempre uguale", maxLabel: "Ogni volta diverso!" },
-  luck: { minLabel: "Regno della Dea Bendata", maxLabel: "Tutto in mano mia!" },
+  luck: { minLabel: "Regno della Dea Bendata", maxLabel: "Tutto in mano mia!" }, // 1 = High Luck, 10 = Low Luck
   lengthDowntime: { minLabel: "Pessima", maxLabel: "Perfetta" },
   graphicDesign: { minLabel: "Meglio essere ciechi", maxLabel: "Ganzissimo!" },
   componentsThemeLore: { minLabel: "Tema? Quale tema?", maxLabel: "Immersione totale!" },
@@ -63,7 +63,6 @@ const RATING_CATEGORY_DESCRIPTIONS: Record<RatingCategory, string> = {
   setupTeardown: "Quanto tempo ed energia sono necessari per preparare il gioco e poi rimetterlo via?",
 };
 
-
 interface RatingSliderInputProps {
   fieldName: RatingCategory;
   control: Control<RatingFormValues>;
@@ -80,21 +79,21 @@ const RatingSliderInput: React.FC<RatingSliderInputProps> = React.memo(({ fieldN
       control={control}
       name={fieldName}
       render={({ field }) => {
-        const currentFieldValue = Number(field.value); // Ensure it's a number
+        const currentFieldValue = Number(field.value);
         const sliderValue = useMemo(() => [currentFieldValue], [currentFieldValue]);
 
         return (
           <FormItem className="pb-4 border-b border-border last:border-b-0">
-             <div className="flex justify-between items-baseline mb-1">
-                <FormLabel>{label}</FormLabel>
-                <span className="text-lg font-semibold text-primary">{currentFieldValue}</span>
+            <div className="flex justify-between items-baseline mb-1">
+              <FormLabel>{label}</FormLabel>
+              <span className="text-lg font-semibold text-primary">{currentFieldValue}</span>
             </div>
             {description && <p className="text-xs text-muted-foreground mb-2">{description}</p>}
             <Slider
               value={sliderValue}
               onValueChange={(value: number[]) => {
                 const numericValue = value[0];
-                if (numericValue !== currentFieldValue) { // Compare number with number
+                if (numericValue !== currentFieldValue) {
                   field.onChange(numericValue);
                 }
               }}
@@ -112,6 +111,7 @@ const RatingSliderInput: React.FC<RatingSliderInputProps> = React.memo(({ fieldN
   );
 });
 RatingSliderInput.displayName = 'RatingSliderInput';
+
 
 interface MultiStepRatingFormProps {
   gameId: string;
@@ -147,8 +147,9 @@ const stepUIDescriptions: Record<number, string> = {
   2: "Come giudichi gli aspetti legati al design del gioco?",
   3: "Valuta l'impatto visivo e l'immersione tematica.",
   4: "Quanto è stato facile apprendere e gestire il gioco?",
-  5: "La tua recensione è stata salvata. \nEcco il riepilogo dei tuoi voti:",
+  5: "La tua recensione è stata salvata. Ecco il riepilogo dei tuoi voti:",
 };
+
 
 async function updateGameOverallRating(gameId: string, defaultRatingVals: RatingFormValues): Promise<{ success: boolean; initialVoteCount: number }> {
   let initialReviewCountOnGame = 0;
@@ -167,7 +168,7 @@ async function updateGameOverallRating(gameId: string, defaultRatingVals: Rating
       return { id: docSnap.id, ...data, rating } as Review;
     });
 
-    const categoryAvgs = calculateCatAvgsFromUtils(allReviewsForGame); // Using alias
+    const categoryAvgs = calculateCatAvgsFromUtils(allReviewsForGame);
     const newOverallAverage = categoryAvgs ? calculateOverallCategoryAverage(categoryAvgs) : null;
     const newVoteCount = allReviewsForGame.length;
 
@@ -241,12 +242,10 @@ export function MultiStepRatingForm({
   const form = useForm<RatingFormValues>({
     resolver: zodResolver(reviewFormSchema),
     defaultValues: defaultFormValues,
-    mode: 'onChange', // Or 'onBlur' or 'onSubmit'
+    mode: 'onChange',
   });
 
   useEffect(() => {
-    // Only reset if defaultFormValues themselves change (e.g. loading a different existingReview)
-    // Do NOT include currentStep in dependency array here to preserve data across steps.
     form.reset(defaultFormValues);
   }, [defaultFormValues, form.reset]);
 
@@ -284,7 +283,7 @@ export function MultiStepRatingForm({
       author: currentUser.displayName || 'Anonimo',
       authorPhotoURL: currentUser.photoURL || null,
       rating: ratingDataToSave,
-      comment: "", // Comments are removed from form
+      comment: "",
       date: new Date().toISOString(),
     };
 
@@ -311,17 +310,16 @@ export function MultiStepRatingForm({
       }
 
       const gameUpdateResult = await updateGameOverallRating(gameId, defaultFormValues);
-      initialReviewCountOnGame = gameUpdateResult.initialVoteCount; // Changed variable name for clarity
+      initialReviewCountOnGame = gameUpdateResult.initialVoteCount;
       if (!gameUpdateResult.success) {
           throw new Error("Fallimento nell'aggiornamento del punteggio generale del gioco.");
       }
       submissionSuccess = true;
 
-      userProfileSnap = await getDoc(userProfileRef); // Re-fetch profile after potential updates
+      userProfileSnap = await getDoc(userProfileRef);
       userProfileData = userProfileSnap.exists() ? userProfileSnap.data() as UserProfile : null;
 
 
-      // Badge awarding logic
       if (userProfileData) {
         if (wasNewReviewAdded && !userProfileData.hasSubmittedReview) {
             const badgeRef = doc(userProfileRef, 'earned_badges', 'first_reviewer');
@@ -410,9 +408,17 @@ export function MultiStepRatingForm({
       setNewlyEarnedBadges(awardedBadgesInThisSession);
       revalidateGameDataAction(gameId);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
-      toast({ title: "Errore", description: `Impossibile inviare il voto: ${errorMessage}`, variant: "destructive" });
-      setFormError(`Impossibile inviare il voto: ${errorMessage}`);
+      let toastErrorMessage = "Impossibile inviare il voto.";
+      // @ts-ignore
+      if (error?.code && error.code.includes('permission-denied')) {
+          toastErrorMessage = "Impossibile inviare il voto: permessi insufficienti per aggiornare il gioco. Contatta un admin.";
+      } else if (error instanceof Error) {
+          toastErrorMessage += ` Dettagli: ${error.message}`;
+      }
+      toast({ title: "Errore", description: toastErrorMessage, variant: "destructive" });
+      setFormError(`Impossibile inviare il voto: ${error instanceof Error ? error.message : String(error)}`);
+      // @ts-ignore
+      console.error("[CLIENT RATING FORM] Submission Error:", error, error?.code, error?.message);
       submissionSuccess = false;
     }
     return submissionSuccess;
@@ -489,7 +495,6 @@ export function MultiStepRatingForm({
     }
   };
 
-
   const yourOverallAverage = calculateOverallCategoryAverage(form.getValues());
 
   const StepIcon = ({ step }: { step: number }) => {
@@ -535,7 +540,6 @@ export function MultiStepRatingForm({
         )}
         {currentStep === 1 && <Separator className="mb-6" />}
 
-
         {(currentStep > 0 && currentStep <= totalInputSteps) && (
           <div className="mb-4">
              <div className="flex justify-between items-start">
@@ -556,7 +560,7 @@ export function MultiStepRatingForm({
             <>
                <CardHeader className="px-0 pt-6 pb-4">
                     <CardTitle className="text-xl font-semibold">
-                      {stepUITitles[currentStep]}
+                      Riepilogo Valutazione
                     </CardTitle>
                     <CardDescription className="text-sm text-muted-foreground mt-1 whitespace-pre-line">
                       {stepUIDescriptions[currentStep]}
@@ -582,8 +586,7 @@ export function MultiStepRatingForm({
                       </div>
                       {yourOverallAverage !== null && (
                           <div className="text-right">
-                              <span className="text-primary text-md font-semibold whitespace-nowrap flex items-center">
-                                <Star className="h-4 w-4 text-accent fill-accent relative top-px mr-1" />
+                              <span className="text-primary text-3xl md:text-4xl font-bold whitespace-nowrap">
                                 {formatRatingNumber(yourOverallAverage)}
                               </span>
                           </div>
@@ -689,23 +692,26 @@ export function MultiStepRatingForm({
 
       <div className={cn(
             "flex items-center pt-4 border-t mt-6",
-            currentStep === 5 ? 'justify-end' : 'justify-between'
+            currentStep === 1 || currentStep === totalDisplaySteps ? 'justify-end' : 'justify-between'
         )}>
-          <div> {/* Left button container */}
-            {currentStep === 1 && (
-                <Button type="button" variant="outline" onClick={() => router.push(`/games/${gameId}`)} disabled={isSubmitting}>
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Torna al Gioco
-                </Button>
-            )}
-            {(currentStep > 1 && currentStep <= totalInputSteps) && (
-              <Button type="button" variant="outline" onClick={handlePrevious} disabled={isSubmitting}>
-                Indietro
+          {/* Left Button (Only for Step 1) */}
+          {currentStep === 1 && (
+            <div className="mr-auto"> {/* Pushes this button to the far left */}
+              <Button type="button" variant="outline" onClick={() => router.push(`/games/${gameId}`)} disabled={isSubmitting}>
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Torna al Gioco
               </Button>
-            )}
-          </div>
+            </div>
+          )}
+          {/* Middle-Left Button (Previous for steps 2,3,4) */}
+          {(currentStep > 1 && currentStep <= totalInputSteps) && (
+            <Button type="button" variant="outline" onClick={handlePrevious} disabled={isSubmitting}>
+              Indietro
+            </Button>
+          )}
 
-          <div> {/* Right button container */}
+          {/* Right Button */}
+          <div>
             {currentStep < totalInputSteps && (
               <Button type="button" onClick={handleNext} disabled={isSubmitting} className="bg-primary hover:bg-primary/90 text-primary-foreground">
                 Avanti
@@ -728,3 +734,5 @@ export function MultiStepRatingForm({
     </Form>
   );
 }
+
+```
