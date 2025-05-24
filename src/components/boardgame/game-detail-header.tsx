@@ -100,14 +100,14 @@ export function GameDetailHeader({
 
           {/* Mobile Image - Placed below title/score block */}
           <div className="md:hidden my-4 max-w-[240px] mx-auto">
-            <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
+            <div className="relative aspect-square w-full rounded-md overflow-hidden shadow-md">
               <SafeImage
                 src={game.coverArtUrl}
                 alt={`${game.name} copertina`}
                 fallbackSrc={fallbackSrc}
                 fill
                 priority
-                className="object-cover"
+                className="object-cover object-top"
                 data-ai-hint={`board game ${game.name.split(' ')[0]?.toLowerCase() || 'detailed'}`}
                 sizes="(max-width: 767px) 240px"
               />

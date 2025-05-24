@@ -35,7 +35,7 @@ export default function AllPlaysPage() {
         playsData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         setAllUserPlays(playsData);
       } catch (e) {
-        setError('Impossibile caricare le partite registrate.');
+        setError('Impossibile caricare le partite giocate.');
         console.error(e);
       } finally {
         setIsLoading(false);
@@ -89,10 +89,10 @@ export default function AllPlaysPage() {
         <CardHeader>
           <CardTitle className="text-2xl sm:text-3xl flex items-center gap-3">
             <Dices className="h-7 w-7 text-primary" />
-            Tutte le Partite Registrate
+            Tutte le Partite Giocate
           </CardTitle>
           <CardDescription>
-            Esplora tutte le partite registrate, ordinate per data (più recenti prima).
+            Esplora tutte le partite giocate, ordinate per data (più recenti prima).
           </CardDescription>
         </CardHeader>
         <CardContent>
