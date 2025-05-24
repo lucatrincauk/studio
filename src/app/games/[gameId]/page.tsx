@@ -12,7 +12,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Separator } from '@/components/ui/separator';
 import {
   AlertCircle, Loader2, Info, Edit, Trash2, Users, Clock, CalendarDays as CalendarIcon, ExternalLink, Weight, PenTool, Dices, MessageSquare, Heart, Settings, Trophy, Medal, UserCircle2, Star, Palette, ClipboardList, Repeat, Sparkles, Pin, PinOff, Wand2, DownloadCloud, Bookmark, BookMarked, Frown, UserCheck, ListPlus, ListChecks,
-  HeartPulse
+  HeartPulse,
+  ListMusic
 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
@@ -933,9 +934,9 @@ const handleGenerateRecommendations = async () => {
                         <AlertDialogContent>
                         <AlertDialogHeader>
                         <AlertDialogTitle>Sei sicuro?</AlertDialogTitle>
-                        <AlertDialogDescription>
+                        <AlertDescription>
                             Questa azione non può essere annullata. Eliminerà permanentemente il tuo voto per {game.name}.
-                        </AlertDialogDescription>
+                        </AlertDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                         <AlertDialogCancel>Annulla</AlertDialogCancel>
