@@ -2,7 +2,7 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
-import { getGameDetails } from '@/lib/actions';
+import { getGameDetails, revalidateGameDataAction } from '@/lib/actions';
 import type { BoardGame, Review } from '@/lib/types';
 import { useAuth } from '@/contexts/auth-context';
 import { MultiStepRatingForm } from '@/components/boardgame/multi-step-rating-form';
@@ -54,9 +54,7 @@ export default function GameRatePage() {
       setIsLoadingGame(false);
     }
 
-    // Fetch data only if auth state is resolved or if we allow anonymous reviews
-    // and gameId is present. For now, currentUser check is fine.
-    if (currentUser !== undefined) { // if authLoading is also false, this implies auth state is resolved
+    if (currentUser !== undefined) {
         fetchGameAndReviewData();
     }
 
@@ -65,9 +63,16 @@ export default function GameRatePage() {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      setTimeout(() => {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }, 0);
+      // Scroll to top only if not on the summary step, or if explicitly navigating to step 1
+      if (currentRatingFormStep <= 4 || (currentRatingFormStep === 1 && typeof window !== 'undefined')) {
+        setTimeout(() => {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }, 50); // Small delay to allow DOM updates
+      } else if (currentRatingFormStep === 5) { // Summary step
+         setTimeout(() => {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }, 50);
+      }
     }
   }, [currentRatingFormStep]);
 
@@ -110,6 +115,7 @@ export default function GameRatePage() {
       }
       setGuestNameError(null);
       setGuestNameInput(name.trim());
+      // No explicit navigation here, the form will render once guestNameInput is set
       return true;
   }
 
@@ -150,7 +156,7 @@ export default function GameRatePage() {
                     <p className="text-xs text-muted-foreground">
                         Inserisci un nome da visualizzare con il tuo voto. Non è richiesta la registrazione.
                     </p>
-                     {guestNameInput.trim() === '' && guestNameError === null && (
+                     {guestNameInput.trim() === '' && guestNameError === null && ( // Only show if name not yet confirmed and no error
                         <Button type="submit" size="sm">Conferma Nome Ospite</Button>
                      )}
                      {guestNameInput.trim() !== '' && (
@@ -166,7 +172,7 @@ export default function GameRatePage() {
             (currentRatingFormStep > 1 && currentRatingFormStep < 5) && 'pt-6',
             currentRatingFormStep === 5 && 'pt-0'
         )}>
-          { (currentUser || guestNameInput.trim() !== '' || currentRatingFormStep > 1 ) ? (
+          { (currentUser || guestNameInput.trim() !== '' ) ? ( // Form enabled if user logged in OR guest name is confirmed
             <MultiStepRatingForm
               gameId={game.id}
               gameName={game.name}
@@ -174,7 +180,8 @@ export default function GameRatePage() {
               currentUser={currentUser}
               guestDisplayName={guestNameInput.trim()} // Pass trimmed name
               existingReview={userReview}
-              onReviewSubmitted={() => {
+              onReviewSubmitted={async () => {
+                await revalidateGameDataAction(gameId);
                 router.push(`/games/${gameId}?updated=${Date.now()}`);
               }}
               currentStep={currentRatingFormStep}
