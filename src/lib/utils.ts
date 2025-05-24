@@ -12,9 +12,11 @@ export function cn(...inputs: ClassValue[]) {
 
 export function formatRatingNumber(num: number | null | undefined): string {
   if (num === null || num === undefined) return '-';
+  // Ensure one decimal place is always shown, e.g., 8.0, 7.5
   return num.toFixed(1);
 }
 
+// Calculates the weighted average of all categories for a single Rating object (1-10 scale)
 export function calculateOverallCategoryAverage(rating: Rating | null): number {
   if (!rating) return 0;
 
@@ -23,7 +25,7 @@ export function calculateOverallCategoryAverage(rating: Rating | null): number {
 
   (Object.keys(rating) as Array<keyof Rating>).forEach(key => {
     const weight = RATING_WEIGHTS[key];
-    const score = rating[key] || 0;
+    const score = rating[key] || 0; // Default to 0 if a category is somehow missing
     weightedSum += (score * weight);
     sumOfAllWeights += weight;
   });
@@ -31,9 +33,11 @@ export function calculateOverallCategoryAverage(rating: Rating | null): number {
   if (sumOfAllWeights === 0) return 0;
 
   const average = weightedSum / sumOfAllWeights;
-  return Math.round(average * 10) / 10;
+  return parseFloat(average.toFixed(1)); // Round to one decimal place
 }
 
+
+// Calculates the average for each individual rating sub-category across multiple reviews (1-10 scale)
 export function calculateCategoryAverages(reviewsOrRatings: Review[] | Rating[]): Rating | null {
   if (!reviewsOrRatings || reviewsOrRatings.length === 0) {
     return null;
@@ -65,7 +69,8 @@ export function calculateCategoryAverages(reviewsOrRatings: Review[] | Rating[])
   const averageRatings: Rating = {} as Rating;
   (Object.keys(sumOfRatings) as Array<keyof Rating>).forEach(key => {
     const avg = sumOfRatings[key] / numItems;
-    averageRatings[key] = Math.round(avg * 10) / 10;
+    // Individual category averages are kept as they are (1-10)
+    averageRatings[key] = parseFloat(avg.toFixed(1)); // Round to one decimal place
   });
 
   return averageRatings;
@@ -108,7 +113,7 @@ export function calculateGroupedCategoryAverages(reviews: Review[]): GroupedCate
     return {
       sectionTitle: section.title,
       iconName: section.iconName,
-      sectionAverage: Math.round(sectionAverageValue * 10) / 10,
+      sectionAverage: parseFloat(sectionAverageValue.toFixed(1)), // Round to one decimal
       subRatings,
     };
   });
@@ -126,9 +131,10 @@ export function formatReviewDate(dateString: string): string {
     const yearsDifference = differenceInYears(new Date(), date);
 
     if (yearsDifference >= 1) {
-      return formatDateFns(date, 'MMMM yyyy', { locale: it }); // Format for older dates
+      const formatted = formatDateFns(date, 'MMMM yyyy', { locale: it });
+      return formatted.charAt(0).toUpperCase() + formatted.slice(1); // Capitalize first letter
     } else {
-      return formatDistanceToNow(date, { addSuffix: true, locale: it }); // Relative time for recent dates
+      return formatDistanceToNow(date, { addSuffix: true, locale: it });
     }
   } catch (error) {
     console.error("Error formatting review date:", error);
@@ -148,3 +154,4 @@ export function formatPlayDate(dateString: string): string {
     return "Data non valida";
   }
 }
+
