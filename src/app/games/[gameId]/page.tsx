@@ -823,7 +823,7 @@ const handleGenerateRecommendations = async () => {
           <CardHeader className="flex flex-row justify-between items-center">
             <CardTitle className="text-xl flex items-center gap-2">
               <Dices className="h-5 w-5 text-primary"/>
-              Partite Registrate
+              Partite Giocate
             </CardTitle>
               {game.lctr01PlayDetails.length > 0 && <Badge variant="secondary">{game.lctr01PlayDetails.length}</Badge>}
           </CardHeader>
@@ -989,8 +989,10 @@ const handleGenerateRecommendations = async () => {
           <Separator className="my-6" />
           <h2 className="text-2xl font-semibold text-foreground mb-6 flex items-center gap-2">
             <MessageSquare className="h-6 w-6 text-primary"/>
-            {userReview ? `Altri Voti (${remainingReviews.length})` : `Voti (${remainingReviews.length})`}
+            {userReview ? `Altri Voti` : `Voti`}
+            <Badge variant="secondary">{remainingReviews.length}</Badge>
           </h2>
+          
           <ReviewList reviews={remainingReviews} />
         </>
       )}

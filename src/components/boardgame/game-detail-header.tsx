@@ -88,26 +88,26 @@ export function GameDetailHeader({
                     {game.name}
                 </h1>
             </div>
-            <div className="flex-shrink-0 flex flex-col items-end">
+            <div className="flex-shrink-0 flex flex-col items-end border-solid border border-accent rounded-md text-center">
                 {globalGameAverage !== null && (
-                    <span className="text-3xl md:text-4xl font-bold text-primary flex items-center">
-                        <Star className="mr-1 h-6 w-6 md:h-7 md:w-7 text-accent fill-accent" />
-                        {formatRatingNumber(globalGameAverage)}
-                    </span>
+                    <span className="text-3xl md:text-4xl font-bold text-primary flex items-center rounded-t-md px-1.5">
+                      <Star className="mr-1 h-6 w-6 md:h-7 md:w-7 text-accent fill-accent" />
+                      {formatRatingNumber(globalGameAverage)}
+                    </span>  
                 )}
             </div>
           </div>
 
           {/* Mobile Image - Placed below title/score block */}
           <div className="md:hidden my-4 max-w-[240px] mx-auto">
-            <div className="relative aspect-[2/3] w-full rounded-md overflow-hidden shadow-md">
+            <div className="relative aspect-square w-full rounded-md overflow-hidden shadow-md">
               <SafeImage
                 src={game.coverArtUrl}
                 alt={`${game.name} copertina`}
                 fallbackSrc={fallbackSrc}
                 fill
                 priority
-                className="object-cover"
+                className="object-cover object-top"
                 data-ai-hint={`board game ${game.name.split(' ')[0]?.toLowerCase() || 'detailed'}`}
                 sizes="(max-width: 767px) 240px"
               />
