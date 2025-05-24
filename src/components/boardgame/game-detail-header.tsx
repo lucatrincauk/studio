@@ -90,15 +90,10 @@ export function GameDetailHeader({
             </div>
             <div className="flex-shrink-0 flex flex-col items-end border-solid border border-accent rounded-md text-center">
                 {globalGameAverage !== null && (
-                    <div>
-                      <span className="text-3xl md:text-4xl font-bold text-primary flex items-center bg-card rounded-t-md px-1.5">
-                        <Star className="mr-1 h-6 w-6 md:h-7 md:w-7 text-accent fill-accent" />
-                        {formatRatingNumber(globalGameAverage)}
-                      </span>
-                      <p className="text-xs text-primary-foreground border-t bg-accent py-0.5 font-bold">
-                        globale
-                      </p>
-                    </div>
+                    <span className="text-3xl md:text-4xl font-bold text-primary flex items-center rounded-t-md px-1.5">
+                      <Star className="mr-1 h-6 w-6 md:h-7 md:w-7 text-accent fill-accent" />
+                      {formatRatingNumber(globalGameAverage)}
+                    </span>  
                 )}
             </div>
           </div>
