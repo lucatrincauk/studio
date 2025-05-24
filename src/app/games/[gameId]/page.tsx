@@ -813,7 +813,7 @@ const handleGenerateRecommendations = async () => {
                         <Star className="h-5 w-5" />
                         {userReview && userOverallScore !== null ? (
                             <span className="ml-1 text-xs font-semibold">
-                            {formatRatingNumber(userOverallScore * 2)}
+                            {formatRatingNumber(userOverallScore)}
                             </span>
                         ) : (
                             <span className="ml-1 text-xs hidden sm:inline">Valuta</span>
