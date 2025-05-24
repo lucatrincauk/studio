@@ -1,4 +1,3 @@
-
 import type { LucideIcon } from 'lucide-react';
 
 export type RatingCategory =
@@ -14,7 +13,6 @@ export type RatingCategory =
   | 'effortToLearn'
   | 'setupTeardown';
 
-// Labels for UI display
 export const RATING_CATEGORIES: Record<RatingCategory, string> = {
   excitedToReplay: "Entusiasmo nel Rigiocare",
   mentallyStimulating: "Stimolazione Mentale",
@@ -43,8 +41,6 @@ export const RATING_WEIGHTS: Record<RatingCategory, number> = {
   setupTeardown: 0.5,
 };
 
-
-// Values will now be 1-10
 export interface Rating {
   excitedToReplay: number;
   mentallyStimulating: number;
@@ -61,8 +57,8 @@ export interface Rating {
 
 export interface Review {
   id: string;
-  author: string;
-  userId: string;
+  author: string; // Display name, mandatory for all reviews
+  userId?: string | null; // Firebase Auth UID for registered users, special string for guests
   authorPhotoURL?: string | null;
   rating: Rating;
   comment: string;
@@ -81,7 +77,6 @@ export interface AugmentedReviewWithGame extends Review {
   gameCoverArtUrl?: string | null;
 }
 
-
 export interface BoardGame {
   id: string;
   name: string;
@@ -95,8 +90,8 @@ export interface BoardGame {
   minPlaytime?: number | null;
   maxPlaytime?: number | null;
   averageWeight?: number | null;
-  bggAverageRating?: number | null; // BGG's Bayesian average rating
-  overallAverageRating?: number | null; // Calculated as 1-10
+  bggAverageRating?: number | null;
+  overallAverageRating?: number | null;
   voteCount?: number;
   isPinned?: boolean;
   mechanics?: string[];
@@ -115,14 +110,14 @@ export interface BoardGame {
 export interface SectionAverage {
   sectionTitle: string;
   iconName?: LucideIconName;
-  sectionAverage: number; // Will now be 1-10
+  sectionAverage: number;
   subRatings: SubRatingAverage[];
 }
 export type GroupedCategoryAverages = SectionAverage[];
 
 export interface SubRatingAverage {
   name: string;
-  average: number; // Will now be 1-10
+  average: number;
 }
 
 export interface BggSearchResult {
@@ -140,7 +135,7 @@ export interface UserProfile {
   bggUsername?: string | null;
   hasSubmittedReview?: boolean;
   hasGivenFirstOne?: boolean;
-  hasGivenFirstFive?: boolean;
+  hasGivenFirstFive?: boolean; // Renamed from hasGivenFirst5 for consistency
   hasEarnedComprehensiveCritic?: boolean;
   hasEarnedNightOwlReviewer?: boolean;
   hasReceivedWelcomeBadge?: boolean;
@@ -151,7 +146,6 @@ export interface UserProfile {
   hasEarnedProlificGold?: boolean;
   hasEarnedMorchiaHunter?: boolean;
 }
-
 
 export interface BggPlayerInPlay {
   username?: string | null;
@@ -166,12 +160,12 @@ export interface BggPlayerInPlay {
 
 export interface BggPlayDetail {
   playId: string;
-  date: string; // ISO date string
+  date: string;
   quantity: number;
   comments: string | null;
   location?: string | null;
   players?: BggPlayerInPlay[];
-  userId?: string;
+  userId?: string; // The user who logged this play (e.g., 'lctr01')
   gameBggId: number;
 }
 
@@ -181,7 +175,6 @@ export interface AugmentedBggPlayDetail extends BggPlayDetail {
   gameCoverArtUrl?: string | null;
 }
 
-// For AI Flow: recommend-games.ts
 export type CatalogGame = { id: string, name: string };
 export type RecommendGamesInput = {
   referenceGameName: string;
@@ -190,7 +183,7 @@ export type RecommendGamesInput = {
 export type RecommendedGame = {
   id: string;
   name: string;
-  reason: string; // Will be in Italian
+  reason: string;
 };
 export type EnrichedAIRecommendedGame = RecommendedGame & {
   coverArtUrl?: string | null;
@@ -198,12 +191,10 @@ export type EnrichedAIRecommendedGame = RecommendedGame & {
   playlistedByUserIds?: string[];
   favoriteCount?: number;
 }
-
 export type RecommendGamesOutput = {
   recommendations: RecommendedGame[];
 };
 
-// Valid Lucide icon names used for badges
 export type LucideIconName =
   | 'Award'
   | 'Edit3'
@@ -225,12 +216,12 @@ export interface EarnedBadge {
   name: string;
   description: string;
   iconName?: LucideIconName;
-  earnedAt: any; // Firestore Timestamp or string
+  earnedAt: any;
 }
 
 export interface BadgeDefinition {
   badgeId: string;
   name: string;
-  description: string; // How to earn it
+  description: string;
   iconName: LucideIconName;
 }

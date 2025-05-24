@@ -21,13 +21,20 @@ service cloud.firestore {
                            'favoritedByUserIds', 'favoriteCount',
                            'playlistedByUserIds',
                            'morchiaByUserIds', 'morchiaCount',
-                           'overallAverageRating', 'voteCount'
+                           'overallAverageRating', 'voteCount',
+                           'lctr01Plays'
                          ])
                        );
 
       match /reviews/{reviewId} {
         allow read: if true;
-        allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+        allow create: if (request.auth != null && request.resource.data.userId == request.auth.uid) ||
+                         (request.auth == null &&
+                           request.resource.data.userId == "ANONYMOUS_REVIEWER" &&
+                           request.resource.data.author is string &&
+                           request.resource.data.author.size() > 0 &&
+                           request.resource.data.author.size() < 100 // Optional: max length for guest name
+                         );
         allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
       }
 
@@ -37,7 +44,6 @@ service cloud.firestore {
       }
     }
 
-    // Rules for user profiles
     match /user_profiles/{userId} {
       allow read: if true;
       allow create: if request.auth != null && request.auth.uid == userId;
@@ -50,16 +56,12 @@ service cloud.firestore {
       }
     }
 
-    // Rule for collection group 'reviews' to allow count queries by authenticated users
-    match /{path=**}/reviews/{reviewId} {
-      // Grant read access needed for individual review reads and listing.
-      // Grant list access needed for collection group queries like count().
-      allow get, list: if request.auth != null;
+    match /{path=**}/plays_lctr01/{playId} {
+      allow read: if true;
     }
 
-    // Rules for the collection group 'plays_lctr01'
-    match /{path=**}/plays_lctr01/{playId} {
-      allow read: if true; // Allows getLastPlayedGameAction to work for anyone
+    match /{path=**}/reviews/{reviewId} {
+       allow get, list: if request.auth != null; // For counting user reviews for badges
     }
   }
 }
