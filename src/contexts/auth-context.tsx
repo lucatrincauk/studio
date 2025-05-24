@@ -17,7 +17,7 @@ import { auth, db } from '@/lib/firebase';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
-import { Compass } from 'lucide-react'; // For Welcome Badge toast
+import { Compass } from 'lucide-react'; 
 
 const ADMIN_EMAIL = "lucatrinca.uk@gmail.com";
 const USER_PROFILES_COLLECTION = 'user_profiles';
@@ -63,6 +63,11 @@ const updateUserProfileInFirestore = async (user: FirebaseUser, isNewUser: boole
       profileDataToSave.hasReceivedWelcomeBadge = existingData.hasReceivedWelcomeBadge ?? false;
       profileDataToSave.hasEarnedFavoriteFanaticBadge = existingData.hasEarnedFavoriteFanaticBadge ?? false;
       profileDataToSave.hasEarnedPlaylistProBadge = existingData.hasEarnedPlaylistProBadge ?? false;
+      profileDataToSave.hasEarnedProlificBronze = existingData.hasEarnedProlificBronze ?? false;
+      profileDataToSave.hasEarnedProlificSilver = existingData.hasEarnedProlificSilver ?? false;
+      profileDataToSave.hasEarnedProlificGold = existingData.hasEarnedProlificGold ?? false;
+      profileDataToSave.hasEarnedMorchiaHunter = existingData.hasEarnedMorchiaHunter ?? false;
+
     } else { 
       profileDataToSave.name = user.displayName || user.email?.split('@')[0] || 'Utente Anonimo';
       profileDataToSave.bggUsername = null; 
@@ -71,15 +76,18 @@ const updateUserProfileInFirestore = async (user: FirebaseUser, isNewUser: boole
       profileDataToSave.hasGivenFirstFive = false;
       profileDataToSave.hasEarnedComprehensiveCritic = false;
       profileDataToSave.hasEarnedNightOwlReviewer = false;
-      profileDataToSave.hasReceivedWelcomeBadge = false; // New users haven't received it yet
+      profileDataToSave.hasReceivedWelcomeBadge = false; 
       profileDataToSave.hasEarnedFavoriteFanaticBadge = false;
       profileDataToSave.hasEarnedPlaylistProBadge = false;
-      if (isNewUser) { // Only mark to award if it's truly a new user account creation/first Google sign-in
+      profileDataToSave.hasEarnedProlificBronze = false;
+      profileDataToSave.hasEarnedProlificSilver = false;
+      profileDataToSave.hasEarnedProlificGold = false;
+      profileDataToSave.hasEarnedMorchiaHunter = false;
+      if (isNewUser) { 
         awardWelcomeBadge = true;
       }
     }
     
-    // Ensure boolean fields always have a default if somehow missed
     profileDataToSave.hasSubmittedReview = profileDataToSave.hasSubmittedReview ?? false;
     profileDataToSave.hasGivenFirstOne = profileDataToSave.hasGivenFirstOne ?? false;
     profileDataToSave.hasGivenFirstFive = profileDataToSave.hasGivenFirstFive ?? false;
@@ -88,6 +96,10 @@ const updateUserProfileInFirestore = async (user: FirebaseUser, isNewUser: boole
     profileDataToSave.hasReceivedWelcomeBadge = profileDataToSave.hasReceivedWelcomeBadge ?? false;
     profileDataToSave.hasEarnedFavoriteFanaticBadge = profileDataToSave.hasEarnedFavoriteFanaticBadge ?? false;
     profileDataToSave.hasEarnedPlaylistProBadge = profileDataToSave.hasEarnedPlaylistProBadge ?? false;
+    profileDataToSave.hasEarnedProlificBronze = profileDataToSave.hasEarnedProlificBronze ?? false;
+    profileDataToSave.hasEarnedProlificSilver = profileDataToSave.hasEarnedProlificSilver ?? false;
+    profileDataToSave.hasEarnedProlificGold = profileDataToSave.hasEarnedProlificGold ?? false;
+    profileDataToSave.hasEarnedMorchiaHunter = profileDataToSave.hasEarnedMorchiaHunter ?? false;
 
 
     await setDoc(userProfileRef, profileDataToSave, { merge: true });
@@ -104,15 +116,17 @@ const updateUserProfileInFirestore = async (user: FirebaseUser, isNewUser: boole
       await setDoc(badgeRef, badgeData);
       await updateDoc(userProfileRef, { hasReceivedWelcomeBadge: true });
       toast({
-        title: "Distintivo Guadagnato!",
+        title: (
+          <div className="flex items-center gap-2">
+            <Compass className="h-5 w-5 text-green-500" /> Distintivo Guadagnato!
+          </div>
+        ),
         description: "Benvenuto! Hai ricevuto: Esploratore di Punteggi!",
-        icon: <Compass className="h-5 w-5 text-green-500" />,
       });
     }
 
   } catch (firestoreError) {
     console.error("Error updating user profile in Firestore:", firestoreError);
-    // Basic fallback assignment if everything else fails
     if (!profileDataToSave.name) {
        profileDataToSave.name = user.displayName || user.email?.split('@')[0] || 'Utente Anonimo';
     }
@@ -127,6 +141,10 @@ const updateUserProfileInFirestore = async (user: FirebaseUser, isNewUser: boole
     profileDataToSave.hasReceivedWelcomeBadge = profileDataToSave.hasReceivedWelcomeBadge ?? false;
     profileDataToSave.hasEarnedFavoriteFanaticBadge = profileDataToSave.hasEarnedFavoriteFanaticBadge ?? false;
     profileDataToSave.hasEarnedPlaylistProBadge = profileDataToSave.hasEarnedPlaylistProBadge ?? false;
+    profileDataToSave.hasEarnedProlificBronze = profileDataToSave.hasEarnedProlificBronze ?? false;
+    profileDataToSave.hasEarnedProlificSilver = profileDataToSave.hasEarnedProlificSilver ?? false;
+    profileDataToSave.hasEarnedProlificGold = profileDataToSave.hasEarnedProlificGold ?? false;
+    profileDataToSave.hasEarnedMorchiaHunter = profileDataToSave.hasEarnedMorchiaHunter ?? false;
     try {
       await setDoc(userProfileRef, profileDataToSave, { merge: true });
     } catch (nestedError) {
@@ -148,7 +166,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(firebaseUser);
       if (firebaseUser) {
         setIsAdmin(firebaseUser.email === ADMIN_EMAIL);
-        // Check if profile exists; if not, it's effectively a "first time setup" for this session
         const profileRef = doc(db, USER_PROFILES_COLLECTION, firebaseUser.uid);
         const profileSnap = await getDoc(profileRef);
         await updateUserProfileInFirestore(firebaseUser, !profileSnap.exists()); 
@@ -176,7 +193,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(auth.currentUser); 
       setIsAdmin(auth.currentUser?.email === ADMIN_EMAIL);
       if (auth.currentUser) {
-        await updateUserProfileInFirestore(auth.currentUser, true); // True for isNewUser
+        await updateUserProfileInFirestore(auth.currentUser, true); 
         router.push(redirectPath || '/'); 
       }
       return auth.currentUser;
@@ -289,7 +306,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (profileSnap.exists()) {
         const existingData = profileSnap.data() as UserProfile;
-        // Preserve existing badge flags not part of this specific update
         finalPayload.hasSubmittedReview = existingData.hasSubmittedReview ?? false;
         finalPayload.hasGivenFirstOne = existingData.hasGivenFirstOne ?? false;
         finalPayload.hasGivenFirstFive = existingData.hasGivenFirstFive ?? false;
@@ -298,8 +314,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         finalPayload.hasReceivedWelcomeBadge = existingData.hasReceivedWelcomeBadge ?? false;
         finalPayload.hasEarnedFavoriteFanaticBadge = existingData.hasEarnedFavoriteFanaticBadge ?? false;
         finalPayload.hasEarnedPlaylistProBadge = existingData.hasEarnedPlaylistProBadge ?? false;
+        finalPayload.hasEarnedProlificBronze = existingData.hasEarnedProlificBronze ?? false;
+        finalPayload.hasEarnedProlificSilver = existingData.hasEarnedProlificSilver ?? false;
+        finalPayload.hasEarnedProlificGold = existingData.hasEarnedProlificGold ?? false;
+        finalPayload.hasEarnedMorchiaHunter = existingData.hasEarnedMorchiaHunter ?? false;
       } else { 
-        // Set defaults if profile somehow didn't exist (shouldn't happen if signup/login creates it)
         finalPayload.hasSubmittedReview = finalPayload.hasSubmittedReview ?? false;
         finalPayload.hasGivenFirstOne = finalPayload.hasGivenFirstOne ?? false;
         finalPayload.hasGivenFirstFive = finalPayload.hasGivenFirstFive ?? false;
@@ -308,6 +327,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         finalPayload.hasReceivedWelcomeBadge = finalPayload.hasReceivedWelcomeBadge ?? false;
         finalPayload.hasEarnedFavoriteFanaticBadge = finalPayload.hasEarnedFavoriteFanaticBadge ?? false;
         finalPayload.hasEarnedPlaylistProBadge = finalPayload.hasEarnedPlaylistProBadge ?? false;
+        finalPayload.hasEarnedProlificBronze = finalPayload.hasEarnedProlificBronze ?? false;
+        finalPayload.hasEarnedProlificSilver = finalPayload.hasEarnedProlificSilver ?? false;
+        finalPayload.hasEarnedProlificGold = finalPayload.hasEarnedProlificGold ?? false;
+        finalPayload.hasEarnedMorchiaHunter = finalPayload.hasEarnedMorchiaHunter ?? false;
       }
       
       await setDoc(userProfileRef, finalPayload, { merge: true });
@@ -350,3 +373,4 @@ export function useAuth() {
   }
   return context;
 }
+

@@ -4,13 +4,7 @@
 import { useEffect, useState, useTransition, useCallback, use, useMemo } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import {
-  getGameDetails,
-  revalidateGameDataAction,
-  fetchUserPlaysForGameFromBggAction,
-  fetchAndUpdateBggGameDetailsAction,
-  getAllGamesAction
-} from '@/lib/actions';
+import { getGameDetails, revalidateGameDataAction, fetchUserPlaysForGameFromBggAction, getAllGamesAction, fetchAndUpdateBggGameDetailsAction } from '@/lib/actions';
 import { recommendGames } from '@/ai/flows/recommend-games';
 import type { BoardGame, Review, Rating as RatingType, BggPlayDetail, BggPlayerInPlay, UserProfile, EnrichedAIRecommendedGame } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -26,7 +20,8 @@ import {
   formatRatingNumber,
   formatPlayDate,
   formatReviewDate,
-  calculateCategoryAverages as calculateCatAvgsFromUtils
+  calculateCategoryAverages as calculateCatAvgsFromUtils,
+  calculateOverallCategoryAverage as calculateGlobalOverallAverage
 } from '@/lib/utils';
 import { GameDetailHeader } from '@/components/boardgame/game-detail-header';
 import { GameDetailMetadata } from '@/components/boardgame/game-detail-metadata';
@@ -46,7 +41,6 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
@@ -79,6 +73,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
   const [game, setGame] = useState<BoardGame | null>(null);
   const [isLoadingGame, setIsLoadingGame] = useState(true);
+  const [globalGameAverage, setGlobalGameAverage] = useState<number | null>(null);
 
   const [userReview, setUserReview] = useState<Review | undefined>(undefined);
   const [remainingReviews, setRemainingReviews] = useState<Review[]>([]);
@@ -123,6 +118,17 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       setCurrentFavoriteCount(gameData.favoriteCount || 0);
       setCurrentMorchiaCount(gameData.morchiaCount || 0);
 
+      if (gameData.reviews && gameData.reviews.length > 0) {
+        const categoryAvgs = calculateCatAvgsFromUtils(gameData.reviews);
+        if (categoryAvgs) {
+          setGlobalGameAverage(calculateGlobalOverallAverage(categoryAvgs));
+        } else {
+          setGlobalGameAverage(null);
+        }
+      } else {
+        setGlobalGameAverage(null);
+      }
+
       let foundUserReview: Review | undefined = undefined;
       if (currentUser && !authLoading && gameData.reviews) {
         foundUserReview = gameData.reviews.find(r => r.userId === currentUser.uid);
@@ -146,6 +152,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       setIsPlaylistedByCurrentUser(false);
       setIsMorchiaByCurrentUser(false);
       setCurrentMorchiaCount(0);
+      setGlobalGameAverage(null);
       setUserReview(undefined);
       setRemainingReviews([]);
     }
@@ -189,7 +196,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       });
 
       const categoryAvgs = calculateCatAvgsFromUtils(allReviewsForGame);
-      const newOverallAverage = categoryAvgs ? calculateOverallCategoryAverage(categoryAvgs) : null;
+      const newOverallAverage = categoryAvgs ? calculateGlobalOverallAverage(categoryAvgs) : null;
       const newVoteCount = allReviewsForGame.length;
 
       const gameDocRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
@@ -232,7 +239,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     if (!game || authLoading || !isAdmin) return;
     const originalPinStatus = currentIsPinned;
 
-    setCurrentIsPinned(!originalPinStatus); // Optimistic UI update
+    setCurrentIsPinned(!originalPinStatus); 
 
     startPinToggleTransition(async () => {
       const newPinStatus = !originalPinStatus;
@@ -245,9 +252,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           title: "Stato Vetrina Aggiornato",
           description: `Il gioco è stato ${newPinStatus ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
         });
-        // Update local game state to reflect backend changes
         setGame(prevGame => prevGame ? { ...prevGame, isPinned: newPinStatus } : null);
-        revalidateGameDataAction(game.id); // Server-side revalidation
+        await revalidateGameDataAction(game.id); 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({
@@ -255,7 +261,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `Impossibile aggiornare lo stato vetrina: ${errorMessage}`,
           variant: "destructive",
         });
-        setCurrentIsPinned(originalPinStatus); // Revert optimistic UI update
+        setCurrentIsPinned(originalPinStatus); 
       }
     });
   };
@@ -269,7 +275,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     const originalFavoritedStatus = isFavoritedByCurrentUser;
     const originalFavoriteCount = currentFavoriteCount;
 
-    // Optimistic UI updates
     setIsFavoritedByCurrentUser(!originalFavoritedStatus);
     setCurrentFavoriteCount(prev => originalFavoritedStatus ? Math.max(0, prev - 1) : prev + 1);
 
@@ -300,13 +305,11 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           finalFavoritedStatus = true;
         }
 
-        // Update local game state to reflect backend changes
         setGame(prevGame => prevGame ? ({
           ...prevGame,
           favoritedByUserIds: finalFavoritedStatus ? [...(prevGame.favoritedByUserIds || []), currentUser.uid] : (prevGame.favoritedByUserIds || []).filter(id => id !== currentUser.uid),
           favoriteCount: newFavoriteCountOnDb
         }) : null);
-        // Ensure specific states are also consistent if game state isn't immediately picked up everywhere
         setIsFavoritedByCurrentUser(finalFavoritedStatus);
         setCurrentFavoriteCount(newFavoriteCountOnDb);
 
@@ -338,9 +341,12 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                         await setDoc(badgeRef, badgeData);
                         await updateDoc(userProfileRef, { hasEarnedFavoriteFanaticBadge: true });
                         toast({
-                            title: "Distintivo Guadagnato!",
-                            description: "Complimenti! Hai ricevuto: Collezionista di Cuori!",
-                            icon: <HeartPulse className="h-5 w-5 text-pink-500" />,
+                          title: (
+                            <div className="flex items-center gap-2">
+                              <HeartPulse className="h-5 w-5 text-pink-500" /> Distintivo Guadagnato!
+                            </div>
+                          ),
+                          description: "Complimenti! Hai ricevuto: Collezionista di Cuori!",
                         });
                     }
                 }
@@ -349,7 +355,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Impossibile aggiornare i preferiti.";
         toast({ title: "Errore", description: errorMessage, variant: "destructive" });
-        // Revert optimistic UI updates on error
         setIsFavoritedByCurrentUser(originalFavoritedStatus);
         setCurrentFavoriteCount(originalFavoriteCount);
       }
@@ -422,9 +427,12 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                         await setDoc(badgeRef, badgeData);
                         await updateDoc(userProfileRef, { hasEarnedPlaylistProBadge: true });
                         toast({
-                            title: "Distintivo Guadagnato!",
-                            description: "Complimenti! Hai ricevuto: Maestro di Playlist!",
-                            icon: <ListMusic className="h-5 w-5 text-purple-500" />,
+                          title: (
+                            <div className="flex items-center gap-2">
+                              <ListMusic className="h-5 w-5 text-purple-500" /> Distintivo Guadagnato!
+                            </div>
+                          ),
+                          description: "Complimenti! Hai ricevuto: Maestro di Playlist!",
                         });
                     }
                 }
@@ -447,7 +455,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     const originalMorchiaStatus = isMorchiaByCurrentUser;
     const originalMorchiaCount = currentMorchiaCount;
 
-    // Optimistic UI updates
     setIsMorchiaByCurrentUser(!originalMorchiaStatus);
     setCurrentMorchiaCount(prev => originalMorchiaStatus ? Math.max(0, prev -1) : prev + 1);
 
@@ -506,22 +513,30 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                       await setDoc(badgeRef, badgeData);
                       await updateDoc(userProfileRef, { hasEarnedMorchiaHunter: true });
                       toast({
-                          title: "Distintivo Guadagnato!",
-                          description: "Complimenti! Hai ricevuto il distintivo: Cacciatore di Morchie!",
-                          icon: <Trash2 className="h-5 w-5 text-orange-500" />,
+                        title: (
+                          <div className="flex items-center gap-2">
+                            <Trash2 className="h-5 w-5 text-orange-500" /> Distintivo Guadagnato!
+                          </div>
+                        ),
+                        description: "Complimenti! Hai ricevuto il distintivo: Cacciatore di Morchie!",
                       });
                   }
               }
           }
         }
 
-        // Update local game state to reflect backend changes
-        setGame(prevGame => prevGame ? ({
+        setGame(prevGame => {
+          if (!prevGame) return null;
+          const updatedGame = {
             ...prevGame,
-            morchiaByUserIds: finalMorchiaStatus ? [...(prevGame.morchiaByUserIds || []), currentUser.uid] : (prevGame.morchiaByUserIds || []).filter(id => id !== currentUser.uid),
-            morchiaCount: newMorchiaCountOnDb
-        }) : null);
-        // Ensure specific states are also consistent
+            morchiaByUserIds: finalMorchiaStatus
+              ? [...(prevGame.morchiaByUserIds || []), currentUser.uid]
+              : (prevGame.morchiaByUserIds || []).filter(id => id !== currentUser.uid),
+            morchiaCount: newMorchiaCountOnDb,
+          };
+          return updatedGame;
+        });
+        
         setIsMorchiaByCurrentUser(finalMorchiaStatus);
         setCurrentMorchiaCount(newMorchiaCountOnDb);
 
@@ -529,7 +544,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Impossibile aggiornare la Morchia List.";
         toast({ title: "Errore", description: errorMessage, variant: "destructive" });
-         // Revert optimistic UI updates on error
          setIsMorchiaByCurrentUser(originalMorchiaStatus);
          setCurrentMorchiaCount(originalMorchiaCount);
       }
@@ -537,16 +551,12 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
   };
 
   const handleRefreshBggData = async () => {
-    console.log("[CLIENT GameDetailPage] handleRefreshBggData triggered for game.bggId:", game?.bggId);
     if (!game || !game.id || !game.bggId) {
-      console.error("[CLIENT GameDetailPage] handleRefreshBggData: Game or BGG ID missing.");
       return;
     }
     setIsFetchingDetailsFor(game.id);
     startBggDetailsFetchTransition(async () => {
       const serverActionResult = await fetchAndUpdateBggGameDetailsAction(game.bggId);
-      console.log("[CLIENT GameDetailPage] serverActionResult from fetchAndUpdateBggGameDetailsAction:", serverActionResult);
-
 
       if (!serverActionResult.success || !serverActionResult.updateData) {
         toast({ title: 'Errore Recupero Dati BGG', description: serverActionResult.error || 'Impossibile recuperare dati da BGG.', variant: 'destructive' });
@@ -557,14 +567,12 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       if (Object.keys(serverActionResult.updateData).length > 0) {
         try {
           const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
-          console.log("[CLIENT GameDetailPage] Attempting to update Firestore with data:", JSON.stringify(serverActionResult.updateData, null, 2));
           await updateDoc(gameRef, serverActionResult.updateData);
           toast({ title: 'Dettagli Aggiornati', description: `Dettagli per ${game.name} aggiornati con successo.` });
-          revalidateGameDataAction(game.id);
-          fetchGameData(); // Re-fetch all game data for consistency on the page
+          await revalidateGameDataAction(game.id);
+          await fetchGameData(); 
         } catch (dbError) {
           const errorMessage = dbError instanceof Error ? dbError.message : "Errore sconosciuto durante l'aggiornamento del DB.";
-          console.error("[CLIENT GameDetailPage] Firestore update error:", dbError);
           toast({ title: 'Errore Aggiornamento Database', description: errorMessage, variant: 'destructive' });
         }
       } else {
@@ -576,16 +584,13 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
  const handleFetchBggPlays = async () => {
     if (!game || !game.id || !game.bggId || authLoading || !currentUser ) {
-        console.error("[CLIENT GameDetailPage] handleFetchBggPlays: Pre-conditions not met.", { gameExists: !!game, gameId: game?.id, gameBggId: game?.bggId, authLoading, currentUserExists: !!currentUser });
         return;
     }
 
     const usernameToFetch = "lctr01";
-    console.log(`[CLIENT GameDetailPage] handleFetchBggPlays triggered for game BGG ID: ${game.bggId}, Firestore ID: ${game.id}, User: ${usernameToFetch}`);
 
     startFetchPlaysTransition(async () => {
         const bggFetchResult = await fetchUserPlaysForGameFromBggAction(game.bggId, usernameToFetch);
-        console.log("[CLIENT GameDetailPage] bggFetchResult from fetchUserPlaysForGameFromBggAction:", bggFetchResult);
 
         if (!bggFetchResult.success || !bggFetchResult.plays) {
             toast({ title: 'Errore Caricamento Partite BGG', description: bggFetchResult.error || bggFetchResult.message || 'Impossibile caricare le partite da BGG.', variant: 'destructive' });
@@ -599,52 +604,45 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         if (playsToSave.length > 0) {
             const batch = writeBatch(db);
             const playsSubcollectionRef = collection(db, FIRESTORE_COLLECTION_NAME, game.id, 'plays_' + usernameToFetch.toLowerCase());
-            console.log(`[CLIENT GameDetailPage] Preparing to save ${playsToSave.length} plays to subcollection: ${playsSubcollectionRef.path}`);
-
 
             playsToSave.forEach(play => {
                 const playDocRef = doc(playsSubcollectionRef, play.playId);
                 const playDataForFirestore: BggPlayDetail = {
                     ...play,
-                    userId: usernameToFetch, // Ensure userId is set for the specific user's plays
-                    gameBggId: game.bggId,  // Ensure gameBggId is correctly associated
+                    userId: usernameToFetch, 
+                    gameBggId: game.bggId,  
                 };
                 batch.set(playDocRef, playDataForFirestore, { merge: true });
                 playsSavedCount++;
             });
 
             batch.update(gameRef, { lctr01Plays: playsSavedCount });
-            console.log(`[CLIENT GameDetailPage] Batch prepared. About to commit ${playsSavedCount} plays and update lctr01Plays on main game doc to ${playsSavedCount}.`);
-
 
             try {
                 await batch.commit();
-                console.log("[CLIENT GameDetailPage] Batch commit successful.");
                 toast({
                     title: "Partite Caricate e Salvate!",
                     description: bggFetchResult.message || `Caricate e salvate ${playsSavedCount} partite per ${game.name}. Conteggio aggiornato.`,
                 });
             } catch (dbError) {
                 const errorMessage = dbError instanceof Error ? dbError.message : "Impossibile salvare le partite nel database.";
-                console.error("[CLIENT GameDetailPage] Firestore batch commit error:", dbError);
                 toast({ title: 'Errore Salvataggio Partite DB', description: errorMessage, variant: 'destructive' });
                 return;
             }
         } else {
              try {
-                console.log(`[CLIENT GameDetailPage] No plays found from BGG for ${usernameToFetch}. Updating lctr01Plays on main game doc to 0.`);
                 await updateDoc(gameRef, { lctr01Plays: 0 });
                 toast({
                     title: "Nessuna Partita Trovata",
                     description: bggFetchResult.message || `Nessuna partita trovata su BGG per ${usernameToFetch} per questo gioco. Conteggio azzerato.`,
                 });
             } catch (dbError) {
-                 console.error("[CLIENT GameDetailPage] Error updating lctr01Plays to 0:", dbError);
+                // silent error
             }
         }
 
-        revalidateGameDataAction(game.id);
-        fetchGameData(); // Re-fetch all game data including plays
+        await revalidateGameDataAction(game.id);
+        await fetchGameData(); 
     });
 };
 
@@ -755,9 +753,7 @@ const handleGenerateRecommendations = async () => {
     return scoreFound ? { score: maxScore, players: playerNamesWithMaxScore } : null;
   }, [game]);
 
-  const userOverallScore = userReview && game.reviews && game.reviews.length > 0 ? calculateOverallCategoryAverage(userReview.rating) : null;
-  const globalGameAverage = game && game.reviews && game.reviews.length > 0 ? calculateOverallCategoryAverage(calculateCatAvgsFromUtils(game.reviews)!) : null;
-
+  const userOverallScore = userReview ? calculateGlobalOverallAverage(userReview.rating) : null;
 
   if (isLoadingGame || authLoading) {
     return (
@@ -810,11 +806,7 @@ const handleGenerateRecommendations = async () => {
         onRefreshBggData={handleRefreshBggData}
         onFetchBggPlays={handleFetchBggPlays}
         isFetchingPlays={isFetchingPlays}
-        userReview={userReview}
-        topWinnerStats={topWinnerStats}
-        highestScoreAchieved={highestScoreAchieved}
       />
-
 
       {/* Play Logs Section */}
       {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
@@ -868,7 +860,7 @@ const handleGenerateRecommendations = async () => {
                           )}
                           {play.players && play.players.length > 0 && (
                             <div className="pt-2 border-t border-dashed">
-                                <ul className="pl-1 space-y-0.5">
+                                <ul className="pl-1">
                                 {play.players
                                     .slice()
                                     .sort((a, b) => {
@@ -879,7 +871,7 @@ const handleGenerateRecommendations = async () => {
                                     .map((player, pIndex) => (
                                     <li key={pIndex} className={cn(
                                         `flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5 px-2`,
-                                        pIndex % 2 === 0 ? 'bg-muted/30' : '' // Even rows get highlight (0-indexed)
+                                        pIndex % 2 === 0 ? 'bg-muted/30' : '' 
                                     )}>
                                         <div className="flex items-center gap-1.5 flex-grow min-w-0">
                                             <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 relative top-px" />
@@ -914,8 +906,9 @@ const handleGenerateRecommendations = async () => {
       )}
 
       {/* User's Own Review Section */}
-      {currentUser && (userReview ? (
-            <div className="space-y-4">
+      <div className="space-y-4">
+          {currentUser && userReview && (
+            <>
                 <div className="flex flex-row items-center justify-between gap-2">
                     <h3 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Valutazione</h3>
                     <div className="flex items-center gap-2 flex-shrink-0">
@@ -954,32 +947,32 @@ const handleGenerateRecommendations = async () => {
                     </div>
                 </div>
                 <ReviewList reviews={[userReview]} />
-            </div>
-        ) : (
-          !authLoading && (
-          <Card className="p-6 border border-border rounded-lg shadow-md bg-card">
-              <CardTitle className="text-xl font-semibold text-foreground mb-1">Condividi la Tua Opinione</CardTitle>
-              <CardDescription className="mb-4">
-              Aiuta gli altri condividendo la tua esperienza con questo gioco.
-              </CardDescription>
-              <Button asChild className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90">
-              <Link href={`/games/${gameId}/rate`}>
-                  <Edit className="mr-2 h-4 w-4" />
-                  Valuta questo Gioco
-              </Link>
-              </Button>
-          </Card>
-          )
-        ))}
-
-        {!currentUser && !authLoading && (
+            </>
+          )}
+          {currentUser && !userReview && !authLoading && (
+            <Card className="p-6 border border-border rounded-lg shadow-md bg-card">
+                <CardTitle className="text-xl font-semibold text-foreground mb-1">Condividi la Tua Opinione</CardTitle>
+                <CardDescription className="mb-4">
+                Aiuta gli altri condividendo la tua esperienza con questo gioco.
+                </CardDescription>
+                <Button asChild className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90">
+                <Link href={`/games/${gameId}/rate`}>
+                    <Edit className="mr-2 h-4 w-4" />
+                    Valuta questo Gioco
+                </Link>
+                </Button>
+            </Card>
+          )}
+          {!currentUser && !authLoading && (
             <Alert variant="default" className="bg-secondary/30 border-secondary">
-            <Info className="h-4 w-4 text-secondary-foreground" />
-            <AlertDescription className="text-secondary-foreground">
-                <Link href={`/signin?redirect=/games/${gameId}/rate`} className="font-semibold underline">Accedi</Link> per dare un voto.
-            </AlertDescription>
+              <Info className="h-4 w-4 text-secondary-foreground" />
+              <AlertDescription className="text-secondary-foreground">
+                  <Link href={`/signin?redirect=/games/${gameId}/rate`} className="font-semibold underline">Accedi</Link> per dare un voto.
+              </AlertDescription>
             </Alert>
-        )}
+          )}
+      </div>
+
 
       {/* Other Reviews Section */}
       {remainingReviews.length > 0 && (
@@ -1053,7 +1046,7 @@ const handleGenerateRecommendations = async () => {
                           <SafeImage
                             src={rec.coverArtUrl}
                             fallbackSrc={recFallbackSrc}
-                            alt={`${rec.name} cover art`}
+                            alt={`${rec.name} copertina`}
                             fill
                             className="object-cover"
                             data-ai-hint={`board game ${rec.name.split(' ')[0]?.toLowerCase() || 'mini'}`}
@@ -1069,44 +1062,35 @@ const handleGenerateRecommendations = async () => {
                               <div className="flex items-center gap-0.5">
                                 <Button
                                   variant="ghost"
-                                  size="icon"
+                                  size="sm"
                                   onClick={() => {
-                                      // Find the full game object for the recommendation
                                       const targetGameForFavorite = allGamesForAICatalog.find(g => g.id === rec.id);
                                       if(targetGameForFavorite) {
-                                        // Temporarily set `game` state to the target game to reuse existing handlers
-                                        // Store original game state to restore it later
-                                        const originalGameState = game;
-                                        setGame(targetGameForFavorite);
-                                        handleToggleFavorite(); // This will act on the `game` state
-                                        
-                                        // Restore original game state after a short delay or after transition
-                                        // This is a bit hacky; a more robust solution would pass gameId to handlers
-                                        // For now, this allows reuse without major refactor of toggle handlers
-                                        setTimeout(() => setGame(originalGameState), 0);
+                                        const originalGame = game;
+                                        setGame(targetGameForFavorite); // Temporarily set game context
+                                        handleToggleFavorite().finally(() => setGame(originalGame)); // Restore original game context
                                       }
                                   }}
                                   disabled={isFavoriting || authLoading}
                                   title={isRecFavorited ? "Rimuovi dai Preferiti" : "Aggiungi ai Preferiti"}
-                                  className={`h-7 w-7 ${isRecFavorited ? 'text-destructive hover:bg-destructive/20' : 'text-destructive/60 hover:text-destructive hover:bg-destructive/10'}`}
+                                  className={`h-7 w-7 p-1 ${isRecFavorited ? 'text-destructive hover:bg-destructive/20' : 'text-destructive/60 hover:text-destructive hover:bg-destructive/10'}`}
                                 >
                                   <Heart className={`h-4 w-4 ${isRecFavorited ? 'fill-destructive' : ''}`} />
                                 </Button>
                                 <Button
                                   variant="ghost"
-                                  size="icon"
+                                  size="sm"
                                    onClick={() => {
                                     const targetGameForPlaylist = allGamesForAICatalog.find(g => g.id === rec.id);
                                     if(targetGameForPlaylist) {
-                                      const originalGameState = game;
+                                      const originalGame = game;
                                       setGame(targetGameForPlaylist);
-                                      handleTogglePlaylist();
-                                      setTimeout(() => setGame(originalGameState), 0);
+                                      handleTogglePlaylist().finally(() => setGame(originalGame));
                                     }
                                   }}
                                   disabled={isPlaylisting || authLoading}
                                   title={isRecPlaylisted ? "Rimuovi dalla Playlist" : "Aggiungi alla Playlist"}
-                                  className={`h-7 w-7 ${isRecPlaylisted ? 'text-sky-500 hover:bg-sky-500/20' : 'text-sky-500/60 hover:text-sky-500 hover:bg-sky-500/10'}`}
+                                  className={`h-7 w-7 p-1 ${isRecPlaylisted ? 'text-sky-500 hover:bg-sky-500/20' : 'text-sky-500/60 hover:text-sky-500 hover:bg-sky-500/10'}`}
                                 >
                                   {isRecPlaylisted ? <BookMarked className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
                                 </Button>
