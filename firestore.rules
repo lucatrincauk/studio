@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -16,25 +17,29 @@ service cloud.firestore {
       allow create, delete: if isAdmin();
 
       allow update: if isAdmin() ||
+                       // Authenticated users managing their personal interactions (favorites, playlist, morchia)
                        (request.auth != null &&
-                         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-                           'favoritedByUserIds', 'favoriteCount',
-                           'playlistedByUserIds',
-                           'morchiaByUserIds', 'morchiaCount',
-                           'overallAverageRating', 'voteCount',
-                           'lctr01Plays'
-                         ])
+                         (
+                           (request.resource.data.diff(resource.data).affectedKeys().hasAny(['favoritedByUserIds', 'favoriteCount']) &&
+                            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['favoritedByUserIds', 'favoriteCount'])) ||
+                           (request.resource.data.diff(resource.data).affectedKeys().hasAny(['playlistedByUserIds']) &&
+                            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['playlistedByUserIds'])) ||
+                           (request.resource.data.diff(resource.data).affectedKeys().hasAny(['morchiaByUserIds', 'morchiaCount']) &&
+                            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['morchiaByUserIds', 'morchiaCount']))
+                         )
+                       ) ||
+                       // Any write (even unauthenticated if coming from client-side review form)
+                       // that ONLY touches rating and vote count. This is for the client-side recalculation
+                       // after a review is submitted. The review submission itself is guarded by its own rules.
+                       (
+                         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['overallAverageRating', 'voteCount'])
                        );
 
       match /reviews/{reviewId} {
         allow read: if true;
         allow create: if (request.auth != null && request.resource.data.userId == request.auth.uid) ||
-                         (request.auth == null &&
-                           request.resource.data.userId == "ANONYMOUS_REVIEWER" &&
-                           request.resource.data.author is string &&
-                           request.resource.data.author.size() > 0 &&
-                           request.resource.data.author.size() < 100 // Optional: max length for guest name
-                         );
+                         (request.auth == null && request.resource.data.userId == "ANONYMOUS_REVIEWER" &&
+                          request.resource.data.author is string && request.resource.data.author.size() > 0 && request.resource.data.author.size() < 51);
         allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
       }
 
@@ -48,20 +53,17 @@ service cloud.firestore {
       allow read: if true;
       allow create: if request.auth != null && request.auth.uid == userId;
       allow update: if request.auth != null && request.auth.uid == userId;
-      allow delete: if false;
-
-      match /earned_badges/{badgeId} {
-        allow read: if true;
-        allow write: if request.auth != null && request.auth.uid == userId;
-      }
+      allow delete: if false; // Or isAdmin() or request.auth.uid == userId
     }
 
+    // Rule for collection group query used by getLastPlayedGameAction
     match /{path=**}/plays_lctr01/{playId} {
       allow read: if true;
     }
 
+    // Rule for collection group query used for Prolific Reviewer badges
     match /{path=**}/reviews/{reviewId} {
-       allow get, list: if request.auth != null; // For counting user reviews for badges
+      allow list: if request.auth != null; // Only authenticated users can trigger counts of their reviews
     }
   }
 }
