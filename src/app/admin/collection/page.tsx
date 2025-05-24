@@ -391,7 +391,7 @@ export default function AdminCollectionPage() {
         gameDetailsError = bggFetchResult.error || 'Impossibile recuperare dettagli da BGG.';
       }
 
-      const playsFetchResult = await fetchUserPlaysForGameFromBggAction(firestoreGameId, bggId, BGG_USERNAME);
+      const playsFetchResult = await fetchUserPlaysForGameFromBggAction(bggId, BGG_USERNAME);
       if (playsFetchResult.success && playsFetchResult.plays && playsFetchResult.plays.length > 0) {
           const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, firestoreGameId);
           const batch = writeBatch(db);

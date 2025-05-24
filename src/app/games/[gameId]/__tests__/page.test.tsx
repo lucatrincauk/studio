@@ -17,7 +17,7 @@ jest.mock('@/lib/actions');
 const mockGame: BoardGame = {
   id: 'game123',
   name: 'Test Game',
-  bggId: '12345',
+  bggId: 12345,
   coverArtUrl: 'https://example.com/image.jpg',
   overallAverageRating: 4.5,
   voteCount: 10,
