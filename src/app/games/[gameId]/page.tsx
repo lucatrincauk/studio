@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useTransition, useCallback, use, useMemo } from 'react';
@@ -18,7 +17,6 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
 import {
-  calculateOverallCategoryAverage,
   formatRatingNumber,
   formatPlayDate,
   formatReviewDate,
@@ -26,8 +24,10 @@ import {
   calculateOverallCategoryAverage as calculateGlobalOverallAverage
 } from '@/lib/utils';
 import { GameDetailHeader } from '@/components/boardgame/game-detail-header';
-import { GameDetailMetadata } from '@/components/boardgame/game-detail-metadata';
-import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
+// GameDetailMetadata is now rendered inside GameDetailHeader
+// import { GameDetailMetadata } from '@/components/boardgame/game-detail-metadata';
+// GroupedRatingsDisplay is now rendered inside GameDetailHeader
+// import { GroupedRatingsDisplay } from '@/components/boardgame/grouped-ratings-display';
 import { ReviewList } from '@/components/boardgame/review-list';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
@@ -188,12 +188,12 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       const reviewsSnapshot = await getDocs(reviewsCollectionRef);
       const allReviewsForGame: Review[] = reviewsSnapshot.docs.map(docSnap => {
         const reviewDocData = docSnap.data();
-        const defaultRatingValues: RatingType = {
+        const defaultRatingValues: Partial<RatingType> = {
             excitedToReplay: 5, mentallyStimulating: 5, fun: 5,
             decisionDepth: 5, replayability: 5, luck: 5, lengthDowntime: 5,
             graphicDesign: 5, componentsThemeLore: 5, effortToLearn: 5, setupTeardown: 5,
         };
-        const rating: RatingType = { ...defaultRatingValues, ...reviewDocData.rating };
+        const rating: RatingType = { ...defaultRatingValues, ...reviewDocData.rating } as RatingType;
         return { id: docSnap.id, ...reviewDocData, rating } as Review;
       });
 
@@ -255,7 +255,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `Il gioco è stato ${newPinStatus ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
         });
         setGame(prevGame => prevGame ? { ...prevGame, isPinned: newPinStatus } : null);
-        await revalidateGameDataAction(game.id); 
+        revalidateGameDataAction(game.id); 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
         toast({
@@ -554,33 +554,39 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
   const handleRefreshBggData = async () => {
     if (!game || !game.id || !game.bggId) {
+      toast({ title: 'Azione non possibile', description: 'ID gioco BGG mancante.', variant: 'destructive' });
       return;
     }
     setIsFetchingDetailsFor(game.id);
     startBggDetailsFetchTransition(async () => {
-      const serverActionResult = await fetchAndUpdateBggGameDetailsAction(game.bggId);
+      try {
+        console.log(`[CLIENT handleRefreshBggData] Fetching details for BGG ID: ${game.bggId}`);
+        const serverActionResult = await fetchAndUpdateBggGameDetailsAction(game.bggId);
+        console.log(`[CLIENT handleRefreshBggData] Server action result for BGG ID ${game.bggId}:`, serverActionResult);
 
-      if (!serverActionResult.success || !serverActionResult.updateData) {
-        toast({ title: 'Errore Recupero Dati BGG', description: serverActionResult.error || 'Impossibile recuperare dati da BGG.', variant: 'destructive' });
-        setIsFetchingDetailsFor(null);
-        return;
-      }
+        if (!serverActionResult.success || !serverActionResult.updateData) {
+          toast({ title: 'Errore Recupero Dati BGG', description: serverActionResult.error || 'Impossibile recuperare dati da BGG.', variant: 'destructive' });
+          setIsFetchingDetailsFor(null);
+          return;
+        }
 
-      if (Object.keys(serverActionResult.updateData).length > 0) {
-        try {
+        if (Object.keys(serverActionResult.updateData).length > 0) {
           const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
+          console.log(`[CLIENT handleRefreshBggData] Updating Firestore for game ${game.id} with data:`, serverActionResult.updateData);
           await updateDoc(gameRef, serverActionResult.updateData);
           toast({ title: 'Dettagli Aggiornati', description: `Dettagli per ${game.name} aggiornati con successo.` });
-          await revalidateGameDataAction(game.id);
-          await fetchGameData(); 
-        } catch (dbError) {
-          const errorMessage = dbError instanceof Error ? dbError.message : "Errore sconosciuto durante l'aggiornamento del DB.";
-          toast({ title: 'Errore Aggiornamento Database', description: errorMessage, variant: 'destructive' });
+          revalidateGameDataAction(game.id); // Revalidate after successful Firestore update
+          fetchGameData(); // Re-fetch local data to update UI
+        } else {
+          toast({ title: 'Nessun Aggiornamento', description: `Nessun nuovo dettaglio da aggiornare per ${game.name} da BGG.` });
         }
-      } else {
-        toast({ title: 'Nessun Aggiornamento', description: `Nessun nuovo dettaglio da aggiornare per ${game.name} da BGG.` });
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Errore sconosciuto durante l'aggiornamento del DB.";
+        console.error(`[CLIENT handleRefreshBggData] Error updating Firestore for game ${game.id}:`, error);
+        toast({ title: 'Errore Aggiornamento Database', description: errorMessage, variant: 'destructive' });
+      } finally {
+        setIsFetchingDetailsFor(null);
       }
-      setIsFetchingDetailsFor(null);
     });
   };
 
@@ -592,7 +598,9 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     const usernameToFetch = "lctr01";
 
     startFetchPlaysTransition(async () => {
+      try {
         const bggFetchResult = await fetchUserPlaysForGameFromBggAction(game.bggId, usernameToFetch);
+        console.log(`[CLIENT handleFetchBggPlays] BGG fetch result for game ${game.bggId}:`, bggFetchResult);
 
         if (!bggFetchResult.success || !bggFetchResult.plays) {
             toast({ title: 'Errore Caricamento Partite BGG', description: bggFetchResult.error || bggFetchResult.message || 'Impossibile caricare le partite da BGG.', variant: 'destructive' });
@@ -617,34 +625,30 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
                 batch.set(playDocRef, playDataForFirestore, { merge: true });
                 playsSavedCount++;
             });
-
+            
             batch.update(gameRef, { lctr01Plays: playsSavedCount });
 
-            try {
-                await batch.commit();
-                toast({
-                    title: "Partite Caricate e Salvate!",
-                    description: bggFetchResult.message || `Caricate e salvate ${playsSavedCount} partite per ${game.name}. Conteggio aggiornato.`,
-                });
-            } catch (dbError) {
-                const errorMessage = dbError instanceof Error ? dbError.message : "Impossibile salvare le partite nel database.";
-                toast({ title: 'Errore Salvataggio Partite DB', description: errorMessage, variant: 'destructive' });
-                return;
-            }
+            await batch.commit();
+            toast({
+                title: "Partite Caricate e Salvate!",
+                description: bggFetchResult.message || `Caricate e salvate ${playsSavedCount} partite per ${game.name}. Conteggio aggiornato.`,
+            });
+            revalidateGameDataAction(game.id);
+            fetchGameData(); 
         } else {
-             try {
-                await updateDoc(gameRef, { lctr01Plays: 0 });
-                toast({
-                    title: "Nessuna Partita Trovata",
-                    description: bggFetchResult.message || `Nessuna partita trovata su BGG per ${usernameToFetch} per questo gioco. Conteggio azzerato.`,
-                });
-            } catch (dbError) {
-                // silent error
-            }
+            await updateDoc(gameRef, { lctr01Plays: 0 });
+            toast({
+                title: "Nessuna Partita Trovata",
+                description: bggFetchResult.message || `Nessuna partita trovata su BGG per ${usernameToFetch} per questo gioco. Conteggio azzerato.`,
+            });
+            revalidateGameDataAction(game.id);
+            fetchGameData(); 
         }
-
-        await revalidateGameDataAction(game.id);
-        await fetchGameData(); 
+      } catch (error) {
+         const errorMessage = error instanceof Error ? error.message : "Impossibile salvare le partite nel database.";
+         console.error(`[CLIENT handleFetchBggPlays] Error processing plays for game ${game.id}:`, error);
+         toast({ title: 'Errore Elaborazione Partite DB', description: errorMessage, variant: 'destructive' });
+      }
     });
 };
 
@@ -808,6 +812,9 @@ const handleGenerateRecommendations = async () => {
         onRefreshBggData={handleRefreshBggData}
         onFetchBggPlays={handleFetchBggPlays}
         isFetchingPlays={isFetchingPlays}
+        userReview={userReview}
+        topWinnerStats={topWinnerStats}
+        highestScoreAchieved={highestScoreAchieved}
       />
 
       {/* Play Logs Section */}
@@ -854,7 +861,7 @@ const handleGenerateRecommendations = async () => {
                       </AccordionTrigger>
                       <AccordionContent className="pb-4 text-sm">
                         <div className="space-y-3">
-                            {play.comments && play.comments.trim() !== '' && (
+                           {play.comments && play.comments.trim() !== '' && (
                             <div className="grid grid-cols-[auto_1fr] gap-x-2 items-baseline pt-2 border-t border-dashed">
                                 <strong className="text-muted-foreground text-xs">Commenti:</strong>
                                 <p className="text-xs whitespace-pre-wrap">{play.comments}</p>
