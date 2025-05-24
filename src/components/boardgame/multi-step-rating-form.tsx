@@ -38,14 +38,14 @@ const USER_PROFILES_COLLECTION = 'user_profiles';
 const SLIDER_LEGENDS: Record<RatingCategory, { minLabel: string; maxLabel: string }> = {
   excitedToReplay: { minLabel: "Neanche morto", maxLabel: "Quando rigiochiamo?" },
   mentallyStimulating: { minLabel: "Cervello in standby", maxLabel: "Che mal di testa" },
-  fun: { minLabel: "💩 Morchia dell'anno", maxLabel: "Troppo togo." },
+  fun: { minLabel: "Morchia dell'anno 💩", maxLabel: "Trooppo togo!" },
   decisionDepth: { minLabel: "Pilota automatico", maxLabel: "E se poi te ne penti?" },
   replayability: { minLabel: "Sempre uguale", maxLabel: "Ogni volta diverso!" },
   luck: { minLabel: "Regno della Dea Bendata", maxLabel: "Tutto in mano mia!" },
   lengthDowntime: { minLabel: "Pessima", maxLabel: "Perfetta" },
   graphicDesign: { minLabel: "Meglio essere ciechi", maxLabel: "Ganzissimo!" },
   componentsThemeLore: { minLabel: "Tema? Quale tema?", maxLabel: "Immersione totale!" },
-  effortToLearn: { minLabel: "Manuale da incubo", maxLabel: "Si impara in un attimo!" },
+  effortToLearn: { minLabel: "Regolamento da incubo", maxLabel: "Si impara in un attimo!" },
   setupTeardown: { minLabel: "Un'impresa titanica", maxLabel: "Pronti, via!" },
 };
 
