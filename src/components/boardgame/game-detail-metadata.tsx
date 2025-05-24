@@ -2,7 +2,7 @@
 'use client';
 
 import type { BoardGame } from '@/lib/types';
-import { PenTool, CalendarDays, Users, Clock, Weight, Dices, Trophy, Medal, Star } from 'lucide-react';
+import { PenTool, CalendarDays, Users, Clock, Weight, Dices, Trophy, Medal, Star, UserCircle2 } from 'lucide-react';
 import { formatRatingNumber, formatReviewDate } from '@/lib/utils';
 
 interface GameDetailMetadataProps {
@@ -44,7 +44,13 @@ export function GameDetailMetadata({
         <div className="flex items-baseline gap-2">
           <Trophy size={14} className="text-amber-500 flex-shrink-0 relative top-px" />
           <span className="font-medium hidden sm:inline">Campione:</span>
-          <span>{topWinnerStats.name} ({topWinnerStats.wins} {topWinnerStats.wins === 1 ? 'vittoria' : 'vittorie'})</span>
+          <span className="flex items-baseline gap-1">
+            <span>{topWinnerStats.name}</span>
+            <span className="flex items-center gap-0.5">
+              (<Trophy size={12} className="text-amber-500 flex-shrink-0 relative top-px" />
+              {topWinnerStats.wins} {topWinnerStats.wins === 1 ? 'vittoria' : 'vittorie'})
+            </span>
+          </span>
         </div>
       )}
 
@@ -71,11 +77,12 @@ export function GameDetailMetadata({
       <div className="flex items-baseline gap-2">
         <Dices size={14} className="text-primary/80 flex-shrink-0 relative top-px" />
         <span className="font-medium hidden sm:inline">Partite:</span>
-        <span className="flex items-baseline">
+        <span className="flex items-baseline gap-1">
           <span>{game.lctr01Plays ?? 0}</span>
           {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && game.lctr01PlayDetails[0]?.date && (
-            <span className="ml-2 text-xs text-muted-foreground">
-              (Ultima: {formatReviewDate(game.lctr01PlayDetails[0].date)})
+            <span className="flex items-center gap-1 text-xs ml-1">
+                <CalendarDays size={11} className="text-muted-foreground/80 flex-shrink-0 relative top-px" />
+                <span>{formatReviewDate(game.lctr01PlayDetails[0].date)}</span>
             </span>
           )}
         </span>
@@ -84,7 +91,13 @@ export function GameDetailMetadata({
         <div className="flex items-baseline gap-2">
           <Medal size={14} className="text-amber-500 flex-shrink-0 relative top-px" />
           <span className="font-medium hidden sm:inline">Miglior Punteggio:</span>
-          <span>{highestScoreAchieved.score} punti ({highestScoreAchieved.players.join(', ')})</span>
+          <span className="flex items-baseline gap-1">
+            <span>{highestScoreAchieved.score} punti</span>
+            <span className="flex items-center gap-0.5">
+              (<UserCircle2 size={12} className="text-muted-foreground flex-shrink-0 relative top-px" />
+              {highestScoreAchieved.players.join(', ')})
+            </span>
+          </span>
         </div>
       )}
     </div>
