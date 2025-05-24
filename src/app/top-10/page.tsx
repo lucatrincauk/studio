@@ -85,15 +85,15 @@ export default async function Top10Page() {
                           </p>
                         )}
                       </div>
-                      <div className="text-right ml-2 flex-shrink-0">
+                      <div className="text-center ml-2 flex-shrink-0 border-solid border border-accent rounded-md">
                         {game.overallAverageRating !== null && typeof game.overallAverageRating === 'number' && (
-                          <p className="text-xl sm:text-2xl font-bold text-primary flex items-center">
+                          <p className="text-xl sm:text-2xl font-bold text-primary flex items-center bg-card rounded-t-md px-1.5">
                             <Star className="h-4 w-4 text-accent fill-accent relative top-px mr-1" />
                             {formatRatingNumber(game.overallAverageRating)}
                           </p>
                         )}
                         {game.voteCount !== null && typeof game.voteCount === 'number' && ( 
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-xs text-primary-foreground border-t bg-accent py-0.5 font-bold">
                             {game.voteCount} {game.voteCount === 1 ? 'voto' : 'voti'} 
                           </p>
                         )}
@@ -167,15 +167,15 @@ export default async function Top10Page() {
                           </p>
                         )}
                         </div>
-                      <div className="text-right ml-2 flex-shrink-0">
+                        <div className="text-center ml-2 flex-shrink-0 border-solid border border-accent rounded-md">
                         {game.voteCount !== null && typeof game.voteCount === 'number' && ( 
-                          <p className="text-xl sm:text-2xl font-bold text-primary flex items-center">
+                          <p className="text-xl sm:text-2xl font-bold text-primary flex items-center bg-card rounded-t-md px-1.5">
                              <MessageSquareText className="h-4 w-4 text-accent fill-accent relative top-px mr-1" />
                             {game.voteCount}
                           </p>
                         )}
-                        <p className="text-xs text-muted-foreground">
-                           {game.voteCount === 1 ? 'Voto' : 'Voti'} 
+                        <p className="text-xs text-primary-foreground border-t bg-accent py-0.5 font-bold">
+                          {game.voteCount === 1 ? 'Voto' : 'Voti'} 
                         </p>
                       </div>
                     </div>
