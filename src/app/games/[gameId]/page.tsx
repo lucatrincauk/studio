@@ -8,8 +8,8 @@ import {
   getGameDetails,
   revalidateGameDataAction,
   fetchUserPlaysForGameFromBggAction,
-  fetchAndUpdateBggGameDetailsAction,
-  getAllGamesAction
+  getAllGamesAction,
+  fetchAndUpdateBggGameDetailsAction, // Added this import
 } from '@/lib/actions';
 import { recommendGames } from '@/ai/flows/recommend-games';
 import type { BoardGame, Review, Rating as RatingType, BggPlayDetail, BggPlayerInPlay, UserProfile, EnrichedAIRecommendedGame } from '@/lib/types';
@@ -17,7 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import {
-  AlertCircle, Loader2, Info, Edit, Trash2, Users, Clock, CalendarDays as CalendarIcon, ExternalLink, Weight, PenTool, Dices, MessageSquare, Heart, ListPlus, ListChecks, Settings, Trophy, Medal, UserCircle2, Star, Palette, ClipboardList, Repeat, Sparkles, Pin, PinOff, Wand2, DownloadCloud, Bookmark, BookMarked, Frown, UserCheck
+  AlertCircle, Loader2, Info, Edit, Trash2, Users, Clock, CalendarDays as CalendarIcon, ExternalLink, Weight, PenTool, Dices, MessageSquare, Settings, Trophy, Medal, UserCircle2, Star, Palette, ClipboardList, Repeat, Sparkles, Pin, PinOff, Wand2, DownloadCloud, Heart, Bookmark, BookMarked, Frown, UserCheck
 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/auth-context';
@@ -25,8 +25,8 @@ import {
   formatRatingNumber,
   formatPlayDate,
   formatReviewDate,
-  calculateCategoryAverages as calculateCatAvgsFromUtils,
-  calculateOverallCategoryAverage
+  calculateOverallCategoryAverage,
+  calculateCategoryAverages as calculateCatAvgsFromUtils
 } from '@/lib/utils';
 import { GameDetailHeader } from '@/components/boardgame/game-detail-header';
 import { ReviewList } from '@/components/boardgame/review-list';
@@ -50,10 +50,13 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Badge } from '@/components/ui/badge';
+import { SafeImage } from '@/components/common/SafeImage';
+import { cn } from '@/lib/utils';
 
 
 const FIRESTORE_COLLECTION_NAME = 'boardgames_collection';
 const USER_PROFILES_COLLECTION = 'user_profiles';
+const BGG_USERNAME = 'lctr01';
 
 interface GameDetailPageProps {
   params: Promise<{
@@ -200,10 +203,10 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         overallAverageRating: newOverallAverage,
         voteCount: newVoteCount
       });
-      
+
       setGame(prevGame => prevGame ? { ...prevGame, overallAverageRating: newOverallAverage, voteCount: newVoteCount } : null);
       setGlobalGameAverage(newOverallAverage);
-      
+
       revalidateGameDataAction(game.id);
     } catch (error) {
       console.error("Errore durante l'aggiornamento del punteggio medio del gioco:", error);
@@ -225,9 +228,10 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         await deleteDoc(reviewDocRef);
 
         toast({ title: "Voto Eliminato", description: "Il tuo voto è stato eliminato con successo." });
-        setUserReview(undefined); 
+        setUserReview(undefined);
         await updateGameOverallRatingAfterDelete();
         await fetchGameData();
+        revalidateGameDataAction(gameId);
 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto.";
@@ -241,7 +245,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
     const originalPinnedStatus = currentIsPinned;
     const newPinnedStatus = !currentIsPinned;
-    setCurrentIsPinned(newPinnedStatus); 
+    setCurrentIsPinned(newPinnedStatus);
 
     startPinToggleTransition(async () => {
       try {
@@ -252,11 +256,11 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
           description: `${game.name} è stato ${newPinnedStatus ? 'aggiunto alla' : 'rimosso dalla'} vetrina.`,
         });
         setGame(prevGame => prevGame ? { ...prevGame, isPinned: newPinnedStatus } : null);
-        await revalidateGameDataAction(game.id);
+        revalidateGameDataAction(game.id);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Errore sconosciuto durante l'aggiornamento del pin.";
         toast({ title: "Errore Pin", description: errorMessage, variant: "destructive" });
-        setCurrentIsPinned(originalPinnedStatus); 
+        setCurrentIsPinned(originalPinnedStatus);
       }
     });
   };
@@ -270,27 +274,32 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
     const originalFavoritedStatus = isFavoritedByCurrentUser;
     const newFavoritedStatus = !originalFavoritedStatus;
-    const newFavoriteCount = newFavoritedStatus ? (currentFavoriteCount || 0) + 1 : Math.max(0, (currentFavoriteCount || 0) - 1);
 
+    // Optimistic UI update
     setIsFavoritedByCurrentUser(newFavoritedStatus);
-    setCurrentFavoriteCount(newFavoriteCount);
+    setCurrentFavoriteCount(prev => newFavoritedStatus ? (prev + 1) : Math.max(0, prev -1));
+
 
     startFavoriteTransition(async () => {
       const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
+      const userProfileRef = doc(db, USER_PROFILES_COLLECTION, currentUser.uid);
       try {
         await updateDoc(gameRef, {
           favoritedByUserIds: newFavoritedStatus ? arrayUnion(currentUser.uid) : arrayRemove(currentUser.uid),
           favoriteCount: increment(newFavoritedStatus ? 1 : -1)
         });
-        
-        setGame(prevGame => prevGame ? ({
-            ...prevGame,
-            favoritedByUserIds: newFavoritedStatus
-              ? [...(prevGame.favoritedByUserIds || []), currentUser.uid]
-              : (prevGame.favoritedByUserIds || []).filter(id => id !== currentUser.uid),
-            favoriteCount: newFavoriteCount
-          }) : null);
-        
+
+        // Fetch game again to get actual server counts (less optimistic, more robust)
+        // This is now handled by revalidateGameDataAction triggering fetchGameData
+        // setGame(prevGame => prevGame ? ({
+        //     ...prevGame,
+        //     favoritedByUserIds: newFavoritedStatus
+        //       ? [...(prevGame.favoritedByUserIds || []), currentUser.uid]
+        //       : (prevGame.favoritedByUserIds || []).filter(id => id !== currentUser.uid),
+        //     favoriteCount: (prevGame.favoriteCount || 0) + (newFavoritedStatus ? 1 : -1),
+        //   }) : null);
+        // No need to call fetchGameData() if revalidateGameDataAction() + updatedTimestamp handles it
+
         revalidateGameDataAction(game.id);
         toast({
           title: newFavoritedStatus ? "Aggiunto ai Preferiti!" : "Rimosso dai Preferiti",
@@ -298,7 +307,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         });
 
         if (newFavoritedStatus) {
-            const userProfileRef = doc(db, USER_PROFILES_COLLECTION, currentUser.uid);
             const userProfileSnap = await getDoc(userProfileRef);
             if (userProfileSnap.exists()) {
                 const userProfileData = userProfileSnap.data() as UserProfile;
@@ -332,9 +340,9 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Impossibile aggiornare i preferiti.";
         toast({ title: "Errore", description: errorMessage, variant: "destructive" });
+        // Revert optimistic UI updates on error
         setIsFavoritedByCurrentUser(originalFavoritedStatus);
-        setCurrentFavoriteCount(currentFavoriteCount === 0 && !newFavoritedStatus ? 0 : (currentFavoriteCount + (originalFavoritedStatus ? 1 : -1) ));
-
+        setCurrentFavoriteCount(game.favoriteCount || 0);
       }
     });
   };
@@ -347,23 +355,17 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
     const originalPlaylistedStatus = isPlaylistedByCurrentUser;
     const newPlaylistedStatus = !originalPlaylistedStatus;
-
-    setIsPlaylistedByCurrentUser(newPlaylistedStatus); 
+    setIsPlaylistedByCurrentUser(newPlaylistedStatus);
 
     startPlaylistTransition(async () => {
       const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
+      const userProfileRef = doc(db, USER_PROFILES_COLLECTION, currentUser.uid);
       try {
         await updateDoc(gameRef, {
           playlistedByUserIds: newPlaylistedStatus ? arrayUnion(currentUser.uid) : arrayRemove(currentUser.uid)
         });
 
-        setGame(prevGame => prevGame ? ({
-            ...prevGame,
-            playlistedByUserIds: newPlaylistedStatus 
-              ? [...(prevGame.playlistedByUserIds || []), currentUser.uid]
-              : (prevGame.playlistedByUserIds || []).filter(id => id !== currentUser.uid),
-          }) : null);
-
+        // No need to call fetchGameData() if revalidateGameDataAction() + updatedTimestamp handles it
         revalidateGameDataAction(game.id);
         toast({
           title: newPlaylistedStatus ? "Aggiunto alla Playlist!" : "Rimosso dalla Playlist",
@@ -371,7 +373,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         });
 
         if (newPlaylistedStatus) {
-            const userProfileRef = doc(db, USER_PROFILES_COLLECTION, currentUser.uid);
             const userProfileSnap = await getDoc(userProfileRef);
             if (userProfileSnap.exists()) {
                 const userProfileData = userProfileSnap.data() as UserProfile;
@@ -405,7 +406,7 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Impossibile aggiornare la playlist.";
         toast({ title: "Errore", description: errorMessage, variant: "destructive" });
-        setIsPlaylistedByCurrentUser(originalPlaylistedStatus); 
+        setIsPlaylistedByCurrentUser(originalPlaylistedStatus);
       }
     });
   };
@@ -418,30 +419,21 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
 
     const originalMorchiaStatus = isMorchiaByCurrentUser;
     const newMorchiaStatus = !originalMorchiaStatus;
-    
+
+    setIsMorchiaByCurrentUser(newMorchiaStatus);
+    setCurrentMorchiaCount(prev => newMorchiaStatus ? (prev + 1) : Math.max(0, prev -1));
+
+
     startMorchiaTransition(async () => {
       const gameRef = doc(db, FIRESTORE_COLLECTION_NAME, game.id);
+      const userProfileRef = doc(db, USER_PROFILES_COLLECTION, currentUser.uid);
       try {
         await updateDoc(gameRef, {
           morchiaByUserIds: newMorchiaStatus ? arrayUnion(currentUser.uid) : arrayRemove(currentUser.uid),
           morchiaCount: increment(newMorchiaStatus ? 1 : -1)
         });
-        
-        // Update local game state after Firestore success
-        const updatedGameData = { ...game };
-        if (newMorchiaStatus) {
-          updatedGameData.morchiaByUserIds = [...(updatedGameData.morchiaByUserIds || []), currentUser.uid];
-          updatedGameData.morchiaCount = (updatedGameData.morchiaCount || 0) + 1;
-        } else {
-          updatedGameData.morchiaByUserIds = (updatedGameData.morchiaByUserIds || []).filter(id => id !== currentUser.uid);
-          updatedGameData.morchiaCount = Math.max(0, (updatedGameData.morchiaCount || 0) - 1);
-        }
-        setGame(updatedGameData);
 
-        // Also update dedicated states for immediate UI feedback
-        setIsMorchiaByCurrentUser(newMorchiaStatus);
-        setCurrentMorchiaCount(updatedGameData.morchiaCount);
-
+        // No need to call fetchGameData() if revalidateGameDataAction() + updatedTimestamp handles it
         revalidateGameDataAction(game.id);
         toast({
           title: newMorchiaStatus ? "Aggiunto alle Morchie!" : "Rimosso dalle Morchie",
@@ -449,7 +441,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         });
 
         if (newMorchiaStatus) {
-            const userProfileRef = doc(db, USER_PROFILES_COLLECTION, currentUser.uid);
             const userProfileSnap = await getDoc(userProfileRef);
             if (userProfileSnap.exists()){
                 const userProfileData = userProfileSnap.data() as UserProfile;
@@ -484,9 +475,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Impossibile aggiornare la Morchia List.";
         toast({ title: "Errore", description: errorMessage, variant: "destructive" });
-        // Revert optimistic UI updates on error
         setIsMorchiaByCurrentUser(originalMorchiaStatus);
-        setCurrentMorchiaCount(game.morchiaCount || 0); // Revert to original count from game state
+        setCurrentMorchiaCount(game.morchiaCount || 0);
       }
     });
   };
@@ -498,7 +488,6 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
     }
     setIsFetchingDetailsFor(game.id);
     startBggDetailsFetchTransition(async () => {
-      // Fetch details from BGG via Server Action
       const serverActionResult = await fetchAndUpdateBggGameDetailsAction(game.bggId);
 
       if (!serverActionResult.success || !serverActionResult.updateData) {
@@ -512,8 +501,8 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         try {
           await updateDoc(gameRef, serverActionResult.updateData);
           toast({ title: 'Dettagli Aggiornati', description: `Dettagli per ${game.name} aggiornati con successo.` });
-          await revalidateGameDataAction(game.id);
-          fetchGameData(); // Re-fetch game data to update UI
+          revalidateGameDataAction(game.id);
+          fetchGameData();
         } catch (dbError) {
           const errorMessage = dbError instanceof Error ? dbError.message : "Errore sconosciuto durante l'aggiornamento del DB.";
           toast({ title: 'Errore Aggiornamento Database', description: errorMessage, variant: 'destructive' });
@@ -530,12 +519,9 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
         toast({ title: 'Azione non possibile', description: 'Dati gioco o utente mancanti.', variant: 'destructive' });
         return;
     }
-
-    const usernameToFetch = "lctr01"; 
-
+    const usernameToFetch = BGG_USERNAME; // Assuming this is lctr01 for this specific button
     startFetchPlaysTransition(async () => {
       try {
-        // 1. Fetch plays from BGG via server action
         const bggFetchResult = await fetchUserPlaysForGameFromBggAction(game.bggId, usernameToFetch);
 
         if (!bggFetchResult.success || !bggFetchResult.plays) {
@@ -551,38 +537,37 @@ export default function GameDetailPage({ params }: GameDetailPageProps) {
             const batch = writeBatch(db);
             const playsSubcollectionRef = collection(db, FIRESTORE_COLLECTION_NAME, game.id, 'plays_' + usernameToFetch.toLowerCase());
 
-            // 2. Save fetched plays to Firestore (client-side)
             playsToSave.forEach(play => {
                 const playDocRef = doc(playsSubcollectionRef, play.playId);
-                // Augment play data with userId and gameBggId if not already present from server action
                 const playDataForFirestore: BggPlayDetail = {
                     ...play,
-                    userId: usernameToFetch, // Ensure userId is set
-                    gameBggId: game.bggId,   // Ensure gameBggId is set
+                    userId: usernameToFetch,
+                    gameBggId: game.bggId,
                 };
                 batch.set(playDocRef, playDataForFirestore, { merge: true });
-                playsSavedCount++;
             });
-            
-            await batch.commit(); 
 
-            // 3. Update lctr01Plays count on the main game document
-            await updateDoc(gameRef, { lctr01Plays: playsSavedCount });
-            
+            const totalPlaysForThisGame = playsToSave.reduce((sum, play) => sum + play.quantity, 0);
+            batch.update(gameRef, { lctr01Plays: totalPlaysForThisGame }); // Update specific user's play count
+
+            await batch.commit();
+            playsSavedCount = totalPlaysForThisGame;
+
             toast({
                 title: "Partite Caricate e Salvate!",
                 description: bggFetchResult.message || `Caricate e salvate ${playsSavedCount} partite per ${game.name}. Conteggio aggiornato.`,
             });
         } else {
-            // If no plays found, ensure lctr01Plays count is 0 on the game doc
             await updateDoc(gameRef, { lctr01Plays: 0 });
             toast({
                 title: "Nessuna Partita Trovata",
                 description: bggFetchResult.message || `Nessuna partita trovata su BGG per ${usernameToFetch} per questo gioco. Conteggio azzerato.`,
             });
+             playsSavedCount = 0;
         }
-        await revalidateGameDataAction(game.id);
-        fetchGameData(); // Re-fetch game data to update UI including plays
+
+        revalidateGameDataAction(game.id);
+        fetchGameData();
       } catch (error) {
          const errorMessage = error instanceof Error ? error.message : "Impossibile salvare le partite nel database.";
          toast({ title: 'Errore Elaborazione Partite DB', description: errorMessage, variant: 'destructive' });
@@ -635,7 +620,7 @@ const handleGenerateRecommendations = async () => {
   };
 
   const fallbackSrc = `https://placehold.co/240x360.png?text=${encodeURIComponent(game?.name?.substring(0,10) || 'N/A')}`;
-  
+
   const userOverallScore = userReview ? calculateOverallCategoryAverage(userReview.rating) : null;
 
   const topWinnerStats = useMemo(() => {
@@ -647,8 +632,8 @@ const handleGenerateRecommendations = async () => {
       if (play.players && play.players.length > 0) {
         play.players.forEach(p => {
           if (p.didWin) {
-            const playerIdentifier = p.username || p.name; 
-            const displayName = p.name || p.username || 'Sconosciuto'; 
+            const playerIdentifier = p.username || p.name;
+            const displayName = p.name || p.username || 'Sconosciuto';
             if (playerIdentifier && displayName) {
               const current = playerStats.get(playerIdentifier) || { wins: 0, totalScore: 0, name: displayName };
               current.wins += (play.quantity || 1);
@@ -743,15 +728,15 @@ const handleGenerateRecommendations = async () => {
         onToggleMorchia={handleToggleMorchia}
         userReview={userReview}
         userOverallScore={userOverallScore}
-        isPendingBggDetailsFetch={isPendingBggDetailsFetch}
-        isFetchingDetailsFor={isFetchingDetailsFor}
         onRefreshBggData={handleRefreshBggData}
+        isFetchingDetailsFor={isFetchingDetailsFor}
+        isPendingBggDetailsFetch={isPendingBggDetailsFetch}
         onFetchBggPlays={handleFetchBggPlays}
         isFetchingPlays={isFetchingPlays}
         topWinnerStats={topWinnerStats}
         highestScoreAchieved={highestScoreAchieved}
       />
-      
+
       {game.lctr01PlayDetails && game.lctr01PlayDetails.length > 0 && (
         <Card className="shadow-md border border-border rounded-lg">
           <CardHeader className="flex flex-row justify-between items-center">
@@ -814,7 +799,7 @@ const handleGenerateRecommendations = async () => {
                                     .map((player, pIndex) => (
                                     <li key={pIndex} className={cn(
                                         `flex items-center justify-between text-xs border-b border-border last:border-b-0 py-1.5 px-2`,
-                                        pIndex % 2 === 0 ? 'bg-muted/30' : '' 
+                                        pIndex % 2 === 0 ? 'bg-muted/30' : ''
                                     )}>
                                         <div className="flex items-center gap-1.5 flex-grow min-w-0">
                                             <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 relative top-px" />
@@ -855,49 +840,49 @@ const handleGenerateRecommendations = async () => {
       )}
 
       {/* User's Review Section */}
+      <div className="space-y-4">
         {currentUser && userReview && (
-          <div className="space-y-4">
-              <div className="flex flex-row items-center justify-between gap-2">
-                  <h3 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Valutazione</h3>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                  <Button asChild size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground">
+            <div className="flex flex-row items-center justify-between gap-2">
+                <h3 className="text-xl font-semibold text-foreground mr-2 flex-grow">La Tua Valutazione</h3>
+                <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+                <Button asChild size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground">
                     <Link href={`/games/${gameId}/rate`}>
-                      <span className="flex items-center">
-                          <Edit className="mr-0 sm:mr-2 h-4 w-4" />
-                          <span className="hidden sm:inline">Modifica</span>
-                      </span>
+                    <span className="flex items-center">
+                        <Edit className="mr-0 sm:mr-2 h-4 w-4" />
+                        <span className="hidden sm:inline">Modifica</span>
+                    </span>
                     </Link>
-                  </Button>
-                  <AlertDialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
-                     <AlertDialogTrigger asChild>
-                      <Button variant="destructive" size="sm" disabled={isDeletingReview}>
-                          <span className="flex items-center">
-                          {isDeletingReview ? <Loader2 className="mr-0 sm:mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-0 sm:mr-2 h-4 w-4" />}
-                          <span className="hidden sm:inline">Elimina</span>
-                          </span>
-                      </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                      <AlertDialogHeader>
-                      <AlertDialogTitle>Sei sicuro?</AlertDialogTitle>
-                      <AlertDescription>
-                          Questa azione non può essere annullata. Eliminerà permanentemente il tuo voto per {game.name}.
-                      </AlertDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                      <AlertDialogCancel>Annulla</AlertDialogCancel>
-                      <AlertDialogAction onClick={confirmDeleteUserReview} className="bg-destructive hover:bg-destructive/90">
-                          {isDeletingReview ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Conferma Eliminazione" }
-                      </AlertDialogAction>
-                      </AlertDialogFooter>
-                      </AlertDialogContent>
-                  </AlertDialog>
-                  </div>
-              </div>
-              <ReviewList reviews={[userReview]} />
-          </div>
+                </Button>
+                <AlertDialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
+                   <AlertDialogTrigger asChild>
+                    <Button variant="destructive" size="sm" disabled={isDeletingReview}>
+                        <span className="flex items-center">
+                        {isDeletingReview ? <Loader2 className="mr-0 sm:mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-0 sm:mr-2 h-4 w-4" />}
+                        <span className="hidden sm:inline">Elimina</span>
+                        </span>
+                    </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                    <AlertDialogHeader>
+                    <AlertDialogTitle>Sei sicuro?</AlertDialogTitle>
+                    <AlertDescription>
+                        Questa azione non può essere annullata. Eliminerà permanentemente il tuo voto per {game.name}.
+                    </AlertDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                    <AlertDialogCancel>Annulla</AlertDialogCancel>
+                    <AlertDialogAction onClick={confirmDeleteUserReview} className="bg-destructive hover:bg-destructive/90">
+                        {isDeletingReview ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Conferma Eliminazione" }
+                    </AlertDialogAction>
+                    </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+                </div>
+            </div>
         )}
-        
+        {userReview && <ReviewList reviews={[userReview]} />}
+      </div>
+
       {/* Other Reviews Section */}
       {remainingReviews.length > 0 && (
         <>
@@ -993,16 +978,16 @@ const handleGenerateRecommendations = async () => {
                                       const targetGame = allGamesForAICatalog.find(g => g.id === rec.id);
                                       if (targetGame && currentUser) {
                                           const originalGameContext = game;
-                                          setGame(targetGame); 
-                                          await handleToggleFavorite(); 
-                                          setGame(originalGameContext); 
-                                          
-                                          const updatedRecs = enrichedAiRecommendations.map(r => 
-                                              r.id === rec.id ? { ...r, 
-                                                  favoritedByUserIds: isRecFavorited 
-                                                      ? (r.favoritedByUserIds || []).filter(id => id !== currentUser.uid) 
+                                          setGame(targetGame);
+                                          await handleToggleFavorite();
+                                          setGame(originalGameContext);
+
+                                          const updatedRecs = enrichedAiRecommendations.map(r =>
+                                              r.id === rec.id ? { ...r,
+                                                  favoritedByUserIds: isRecFavorited
+                                                      ? (r.favoritedByUserIds || []).filter(id => id !== currentUser.uid)
                                                       : [...(r.favoritedByUserIds || []), currentUser.uid],
-                                                  favoriteCount: (r.favoriteCount || 0) + (isRecFavorited ? -1 : 1) 
+                                                  favoriteCount: (r.favoriteCount || 0) + (isRecFavorited ? -1 : 1)
                                               } : r
                                           );
                                           setEnrichedAiRecommendations(updatedRecs);
@@ -1025,7 +1010,7 @@ const handleGenerateRecommendations = async () => {
                                         await handleTogglePlaylist();
                                         setGame(originalGameContext);
                                         const updatedRecs = enrichedAiRecommendations.map(r =>
-                                          r.id === rec.id ? { ...r, 
+                                          r.id === rec.id ? { ...r,
                                               playlistedByUserIds: isRecPlaylisted
                                                   ? (r.playlistedByUserIds || []).filter(id => id !== currentUser.uid)
                                                   : [...(r.playlistedByUserIds || []), currentUser.uid]
@@ -1058,3 +1043,5 @@ const handleGenerateRecommendations = async () => {
     </div>
   );
 }
+
+    
